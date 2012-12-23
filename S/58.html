@@ -1,0 +1,112 @@
+<html>
+<head>
+<title>src/adlist.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/adlist.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/151.html' title='Multiple included from 4 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* adlist.h - A generic doubly linked list implementation</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2006-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'><font color='darkred'>#ifndef</font> <a href='../S/58.html#L32' title='Defined at 32 in src/adlist.h.'>__ADLIST_H__</a>
+<a name='L32'><font color='darkred'>#define</font> <a href='../S/58.html#L31' title='Refered from 31 in src/adlist.h.'>__ADLIST_H__</a>
+<a name='L33'>
+<a name='L34'><i><font color='green'>/* Node, List, and Iterator are the only data structures used currently. */</font></i>
+<a name='L35'>
+<a name='L36'><b>typedef</b> <b>struct</b> <a href='../R/2395.html' title='Multiple refered from 78 places.'>listNode</a> <font color='red'>{</font>
+<a name='L37'>    <b>struct</b> <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *prev;
+<a name='L38'>    <b>struct</b> <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L39'>    <b>void</b> *value;
+<a name='L40'><font color='red'>}</font> <a href='../R/2395.html' title='Multiple refered from 78 places.'>listNode</a>;
+<a name='L41'>
+<a name='L42'><b>typedef</b> <b>struct</b> <a href='../R/2389.html' title='Multiple refered from 35 places.'>listIter</a> <font color='red'>{</font>
+<a name='L43'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L44'>    <b>int</b> direction;
+<a name='L45'><font color='red'>}</font> <a href='../R/2389.html' title='Multiple refered from 35 places.'>listIter</a>;
+<a name='L46'>
+<a name='L47'><b>typedef</b> <b>struct</b> <a href='../R/2379.html' title='Multiple refered from 138 places.'>list</a> <font color='red'>{</font>
+<a name='L48'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *head;
+<a name='L49'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *tail;
+<a name='L50'>    <b>void</b> *(*dup)(<b>void</b> *ptr);
+<a name='L51'>    <b>void</b> (*<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>)(<b>void</b> *ptr);
+<a name='L52'>    <b>int</b> (*<a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a>)(<b>void</b> *ptr, <b>void</b> *key);
+<a name='L53'>    <b>unsigned</b> <b>long</b> len;
+<a name='L54'><font color='red'>}</font> <a href='../R/2379.html' title='Multiple refered from 138 places.'>list</a>;
+<a name='L55'>
+<a name='L56'><i><font color='green'>/* Functions implemented as macros */</font></i>
+<a name='L57'><font color='darkred'>#define</font> <a href='../R/2391.html' title='Multiple refered from 65 places.'>listLength</a>(l) ((l)-&gt;len)
+<a name='L58'><font color='darkred'>#define</font> <a href='../R/2385.html' title='Multiple refered from 15 places.'>listFirst</a>(l) ((l)-&gt;head)
+<a name='L59'><font color='darkred'>#define</font> <a href='../R/2390.html' title='Multiple refered from 11 places.'>listLast</a>(l) ((l)-&gt;tail)
+<a name='L60'><font color='darkred'>#define</font> listPrevNode(n) ((n)-&gt;prev)
+<a name='L61'><font color='darkred'>#define</font> listNextNode(n) ((n)-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>)
+<a name='L62'><font color='darkred'>#define</font> <a href='../R/2396.html' title='Multiple refered from 33 places.'>listNodeValue</a>(n) ((n)-&gt;value)
+<a name='L63'>
+<a name='L64'><font color='darkred'>#define</font> <a href='../R/2403.html' title='Multiple refered from 2 places.'>listSetDupMethod</a>(l,m) ((l)-&gt;dup = (m))
+<a name='L65'><font color='darkred'>#define</font> <a href='../R/2404.html' title='Multiple refered from 11 places.'>listSetFreeMethod</a>(l,m) ((l)-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> = (m))
+<a name='L66'><font color='darkred'>#define</font> <a href='../R/2405.html' title='Multiple refered from 2 places.'>listSetMatchMethod</a>(l,m) ((l)-&gt;<a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a> = (m))
+<a name='L67'>
+<a name='L68'><font color='darkred'>#define</font> listGetDupMethod(l) ((l)-&gt;dup)
+<a name='L69'><font color='darkred'>#define</font> listGetFree(l) ((l)-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>)
+<a name='L70'><font color='darkred'>#define</font> listGetMatchMethod(l) ((l)-&gt;<a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a>)
+<a name='L71'>
+<a name='L72'><i><font color='green'>/* Prototypes */</font></i>
+<a name='L73'><a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *<a href='../S/54.html#L41' title='Defined at 41 in src/adlist.c.'>listCreate</a>(<b>void</b>);
+<a name='L74'><b>void</b> <a href='../S/54.html#L58' title='Defined at 58 in src/adlist.c.'>listRelease</a>(list *list);
+<a name='L75'><a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *<a href='../S/54.html#L80' title='Defined at 80 in src/adlist.c.'>listAddNodeHead</a>(list *list, <b>void</b> *value);
+<a name='L76'><a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *<a href='../S/54.html#L106' title='Defined at 106 in src/adlist.c.'>listAddNodeTail</a>(list *list, <b>void</b> *value);
+<a name='L77'><a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *<a href='../S/54.html#L126' title='Defined at 126 in src/adlist.c.'>listInsertNode</a>(list *list, listNode *old_node, <b>void</b> *value, <b>int</b> after);
+<a name='L78'><b>void</b> <a href='../S/54.html#L159' title='Defined at 159 in src/adlist.c.'>listDelNode</a>(list *list, listNode *node);
+<a name='L79'><a href='../D/2703.html' title='Multiple defined in 2 places.'>listIter</a> *<a href='../S/54.html#L178' title='Defined at 178 in src/adlist.c.'>listGetIterator</a>(list *list, <b>int</b> direction);
+<a name='L80'><a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *<a href='../S/54.html#L221' title='Defined at 221 in src/adlist.c.'>listNext</a>(listIter *iter);
+<a name='L81'><b>void</b> <a href='../S/54.html#L192' title='Defined at 192 in src/adlist.c.'>listReleaseIterator</a>(listIter *iter);
+<a name='L82'><a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *<a href='../S/54.html#L242' title='Defined at 242 in src/adlist.c.'>listDup</a>(list *orig);
+<a name='L83'><a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *<a href='../S/54.html#L285' title='Defined at 285 in src/adlist.c.'>listSearchKey</a>(list *list, <b>void</b> *key);
+<a name='L84'><a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *<a href='../S/54.html#L313' title='Defined at 313 in src/adlist.c.'>listIndex</a>(list *list, <b>long</b> index);
+<a name='L85'><b>void</b> <a href='../S/54.html#L197' title='Defined at 197 in src/adlist.c.'>listRewind</a>(list *list, listIter *li);
+<a name='L86'><b>void</b> <a href='../S/54.html#L202' title='Defined at 202 in src/adlist.c.'>listRewindTail</a>(list *list, listIter *li);
+<a name='L87'><b>void</b> <a href='../S/54.html#L328' title='Defined at 328 in src/adlist.c.'>listRotate</a>(list *list);
+<a name='L88'>
+<a name='L89'><i><font color='green'>/* Directions for iterators */</font></i>
+<a name='L90'><font color='darkred'>#define</font> <a href='../R/16.html' title='Multiple refered from 6 places.'>AL_START_HEAD</a> 0
+<a name='L91'><font color='darkred'>#define</font> <a href='../R/17.html' title='Multiple refered from 2 places.'>AL_START_TAIL</a> 1
+<a name='L92'>
+<a name='L93'><font color='darkred'>#endif</font> <i><font color='green'>/* __ADLIST_H__ */</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

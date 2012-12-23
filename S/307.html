@@ -1,0 +1,73 @@
+<html>
+<head>
+<title>deps/lua/src/ltm.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/ltm.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/132.html' title='Multiple included from 9 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: ltm.h,v 2.6.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Tag methods</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'><font color='darkred'>#ifndef</font> <a href='../S/307.html#L8' title='Defined at 8 in deps/lua/src/ltm.h.'>ltm_h</a>
+<a name='L8'><font color='darkred'>#define</font> <a href='../S/307.html#L7' title='Refered from 7 in deps/lua/src/ltm.h.'>ltm_h</a>
+<a name='L9'>
+<a name='L10'>
+<a name='L11'><font color='darkred'>#include</font> "<a href='282.html'>lobject.h</a>"
+<a name='L12'>
+<a name='L13'>
+<a name='L14'><i><font color='green'>/*</font></i>
+<a name='L15'><i><font color='green'>* WARNING: if you change the order of this enumeration,</font></i>
+<a name='L16'><i><font color='green'>* grep "ORDER TM"</font></i>
+<a name='L17'><i><font color='green'>*/</font></i>
+<a name='L18'><b>typedef</b> <b>enum</b> <font color='red'>{</font>
+<a name='L19'>  <a href='../R/967.html' title='Multiple refered from 2 places.'>TM_INDEX</a>,
+<a name='L20'>  <a href='../R/975.html' title='Multiple refered from 2 places.'>TM_NEWINDEX</a>,
+<a name='L21'>  <a href='../R/966.html' title='Multiple refered from 2 places.'>TM_GC</a>,
+<a name='L22'>  <a href='../S/291.html#L165' title='Refered from 165 in deps/lua/src/lgc.c.'>TM_MODE</a>,
+<a name='L23'>  <a href='../R/965.html' title='Multiple refered from 3 places.'>TM_EQ</a>,  <i><font color='green'>/* last tag method with `fast' access */</font></i>
+<a name='L24'>  <a href='../R/961.html' title='Multiple refered from 2 places.'>TM_ADD</a>,
+<a name='L25'>  <a href='../R/977.html' title='Multiple refered from 2 places.'>TM_SUB</a>,
+<a name='L26'>  <a href='../R/973.html' title='Multiple refered from 2 places.'>TM_MUL</a>,
+<a name='L27'>  <a href='../R/964.html' title='Multiple refered from 2 places.'>TM_DIV</a>,
+<a name='L28'>  <a href='../R/971.html' title='Multiple refered from 2 places.'>TM_MOD</a>,
+<a name='L29'>  <a href='../R/976.html' title='Multiple refered from 2 places.'>TM_POW</a>,
+<a name='L30'>  <a href='../R/978.html' title='Multiple refered from 2 places.'>TM_UNM</a>,
+<a name='L31'>  <a href='../S/290.html#L523' title='Refered from 523 in deps/lua/src/lvm.c.'>TM_LEN</a>,
+<a name='L32'>  <a href='../R/970.html' title='Multiple refered from 2 places.'>TM_LT</a>,
+<a name='L33'>  <a href='../S/290.html#L243' title='Refered from 243 in deps/lua/src/lvm.c.'>TM_LE</a>,
+<a name='L34'>  <a href='../S/290.html#L283' title='Refered from 283 in deps/lua/src/lvm.c.'>TM_CONCAT</a>,
+<a name='L35'>  <a href='../S/297.html#L244' title='Refered from 244 in deps/lua/src/ldo.c.'>TM_CALL</a>,
+<a name='L36'>  <a href='../R/974.html' title='Multiple refered from 2 places.'>TM_N</a>          <i><font color='green'>/* number of elements in the enum */</font></i>
+<a name='L37'><font color='red'>}</font> <a href='../R/960.html' title='Multiple refered from 8 places.'>TMS</a>;
+<a name='L38'>
+<a name='L39'>
+<a name='L40'>
+<a name='L41'><font color='darkred'>#define</font> <a href='../R/2099.html' title='Multiple refered from 2 places.'>gfasttm</a>(g,et,e) ((et) == NULL ? NULL : \
+<a name='L42'>  ((et)-&gt;flags &amp; (1u&lt;&lt;(e))) ? NULL : <a href='../S/309.html#L50' title='Defined at 50 in deps/lua/src/ltm.c.'>luaT_gettm</a>(et, e, (g)-&gt;tmname[e]))
+<a name='L43'>
+<a name='L44'><font color='darkred'>#define</font> <a href='../R/1968.html' title='Multiple refered from 6 places.'>fasttm</a>(l,et,e)  <a href='../S/307.html#L41' title='Defined at 41 in deps/lua/src/ltm.h.'>gfasttm</a>(<a href='../S/298.html#L130' title='Defined at 130 in deps/lua/src/lstate.h.'>G</a>(l), et, e)
+<a name='L45'>
+<a name='L46'><a href='../D/314.html' title='Multiple defined in 3 places.'>LUAI_DATA</a> <b>const</b> <b>char</b> *<b>const</b> luaT_typenames[];
+<a name='L47'>
+<a name='L48'>
+<a name='L49'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>const</b> <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *<a href='../S/309.html#L50' title='Defined at 50 in deps/lua/src/ltm.c.'>luaT_gettm</a> (Table *events, <a href='../S/307.html#L37' title='Defined at 37 in deps/lua/src/ltm.h.'>TMS</a> event, TString *ename);
+<a name='L50'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>const</b> <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *<a href='../S/309.html#L61' title='Defined at 61 in deps/lua/src/ltm.c.'>luaT_gettmbyobj</a> (lua_State *L, <b>const</b> TValue *o,
+<a name='L51'>                                                       <a href='../S/307.html#L37' title='Defined at 37 in deps/lua/src/ltm.h.'>TMS</a> event);
+<a name='L52'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/309.html#L30' title='Defined at 30 in deps/lua/src/ltm.c.'>luaT_init</a> (lua_State *L);
+<a name='L53'>
+<a name='L54'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<html>
+<head>
+<title>deps/jemalloc/include/msvc_compat/strings.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/391.html'>include</a>/<a href='../files/394.html'>msvc_compat</a>/strings.h</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L8'>[^]</a><a href='#L17'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/49.html' title='Multiple included from 2 places.'>INCLUDED FROM</a></h2>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L8' title='Defined at 8.'>ffsl</a>
+<li><a href='#L17' title='Defined at 17.'>ffs</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#ifndef</font> <a href='../S/157.html#L2' title='Defined at 2 in deps/jemalloc/include/msvc_compat/strings.h.'>strings_h</a>
+<a name='L2'><font color='darkred'>#define</font> <a href='../S/157.html#L1' title='Refered from 1 in deps/jemalloc/include/msvc_compat/strings.h.'>strings_h</a>
+<a name='L3'>
+<a name='L4'><i><font color='green'>/* MSVC doesn't define ffs/ffsl. This dummy strings.h header is provided</font></i>
+<a name='L5'><i><font color='green'> * for both */</font></i>
+<a name='L6'><font color='darkred'>#include</font> &lt;intrin.h&gt;
+<a name='L7'><font color='darkred'>#pragma</font> intrinsic(_BitScanForward)
+<a name='L8'><b>static</b> __forceinline <b>int</b> <a href='../R/1972.html' title='Multiple refered from 3 places.'>ffsl</a>(<b>long</b> x)
+<a name='L9'><font color='red'>{</font>
+<a name='L10'>        <b>unsigned</b> <b>long</b> i;
+<a name='L11'>
+<a name='L12'>        <b>if</b> (_BitScanForward(&amp;i, x))
+<a name='L13'>                <b>return</b> (i + 1);
+<a name='L14'>        <b>return</b> (0);
+<a name='L15'><font color='red'>}</font>
+<a name='L16'>
+<a name='L17'><b>static</b> __forceinline <b>int</b> <a href='../R/1971.html' title='Multiple refered from 3 places.'>ffs</a>(<b>int</b> x)
+<a name='L18'><font color='red'>{</font>
+<a name='L19'>
+<a name='L20'>        <b>return</b> (<a href='../S/157.html#L8' title='Defined at 8 in deps/jemalloc/include/msvc_compat/strings.h.'>ffsl</a>(x));
+<a name='L21'><font color='red'>}</font>
+<a name='L22'>
+<a name='L23'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L8'>[^]</a><a href='#L17'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

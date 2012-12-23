@@ -1,0 +1,345 @@
+<html>
+<head>
+<title>src/ae_evport.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/ae_evport.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L75'>[^]</a><a href='#L313'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L75' title='Defined at 75.'>aeApiCreate</a>
+<li><a href='#L97' title='Defined at 97.'>aeApiFree</a>
+<li><a href='#L104' title='Defined at 104.'>aeApiLookupPending</a>
+<li><a href='#L118' title='Defined at 118.'>aeApiAssociate</a>
+<li><a href='#L147' title='Defined at 147.'>aeApiAddEvent</a>
+<li><a href='#L178' title='Defined at 178.'>aeApiDelEvent</a>
+<li><a href='#L238' title='Defined at 238.'>aeApiPoll</a>
+<li><a href='#L313' title='Defined at 313.'>aeApiName</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* ae.c module for illumos event ports.</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2012, Joyent, Inc. All rights reserved.</font></i>
+<a name='L4'><i><font color='green'> *</font></i>
+<a name='L5'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L6'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L7'><i><font color='green'> *</font></i>
+<a name='L8'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L9'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L10'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L11'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L12'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L13'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L14'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L15'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L16'><i><font color='green'> *</font></i>
+<a name='L17'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L18'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L19'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L20'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L21'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L22'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L23'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L24'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L25'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L26'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L27'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L28'><i><font color='green'> */</font></i>
+<a name='L29'>
+<a name='L30'>
+<a name='L31'><font color='darkred'>#include</font> &lt;assert.h&gt;
+<a name='L32'><font color='darkred'>#include</font> &lt;errno.h&gt;
+<a name='L33'><font color='darkred'>#include</font> &lt;port.h&gt;
+<a name='L34'><font color='darkred'>#include</font> &lt;poll.h&gt;
+<a name='L35'>
+<a name='L36'><font color='darkred'>#include</font> &lt;sys/types.h&gt;
+<a name='L37'><font color='darkred'>#include</font> &lt;sys/time.h&gt;
+<a name='L38'>
+<a name='L39'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L40'>
+<a name='L41'><b>static</b> <b>int</b> evport_debug = 0;
+<a name='L42'>
+<a name='L43'><i><font color='green'>/*</font></i>
+<a name='L44'><i><font color='green'> * This file implements the ae API using event ports, present on Solaris-based</font></i>
+<a name='L45'><i><font color='green'> * systems since Solaris 10.  Using the event port interface, we associate file</font></i>
+<a name='L46'><i><font color='green'> * descriptors with the port.  Each association also includes the set of poll(2)</font></i>
+<a name='L47'><i><font color='green'> * events that the consumer is interested in (e.g., POLLIN and POLLOUT).</font></i>
+<a name='L48'><i><font color='green'> *</font></i>
+<a name='L49'><i><font color='green'> * There's one tricky piece to this implementation: when we return events via</font></i>
+<a name='L50'><i><font color='green'> * aeApiPoll, the corresponding file descriptors become dissociated from the</font></i>
+<a name='L51'><i><font color='green'> * port.  This is necessary because poll events are level-triggered, so if the</font></i>
+<a name='L52'><i><font color='green'> * fd didn't become dissociated, it would immediately fire another event since</font></i>
+<a name='L53'><i><font color='green'> * the underlying state hasn't changed yet.  We must reassociate the file</font></i>
+<a name='L54'><i><font color='green'> * descriptor, but only after we know that our caller has actually read from it.</font></i>
+<a name='L55'><i><font color='green'> * The ae API does not tell us exactly when that happens, but we do know that</font></i>
+<a name='L56'><i><font color='green'> * it must happen by the time aeApiPoll is called again.  Our solution is to</font></i>
+<a name='L57'><i><font color='green'> * keep track of the last fds returned by aeApiPoll and reassociate them next</font></i>
+<a name='L58'><i><font color='green'> * time aeApiPoll is invoked.</font></i>
+<a name='L59'><i><font color='green'> *</font></i>
+<a name='L60'><i><font color='green'> * To summarize, in this module, each fd association is EITHER (a) represented</font></i>
+<a name='L61'><i><font color='green'> * only via the in-kernel assocation OR (b) represented by pending_fds and</font></i>
+<a name='L62'><i><font color='green'> * pending_masks.  (b) is only true for the last fds we returned from aeApiPoll,</font></i>
+<a name='L63'><i><font color='green'> * and only until we enter aeApiPoll again (at which point we restore the</font></i>
+<a name='L64'><i><font color='green'> * in-kernel association).</font></i>
+<a name='L65'><i><font color='green'> */</font></i>
+<a name='L66'><font color='darkred'>#define</font> <a href='../R/443.html' title='Multiple refered from 5 places.'>MAX_EVENT_BATCHSZ</a> 512
+<a name='L67'>
+<a name='L68'><b>typedef</b> <b>struct</b> <a href='../R/1239.html' title='Multiple refered from 19 places.'>aeApiState</a> <font color='red'>{</font>
+<a name='L69'>    <b>int</b>     portfd;                             <i><font color='green'>/* event port */</font></i>
+<a name='L70'>    <b>int</b>     npending;                           <i><font color='green'>/* # of pending fds */</font></i>
+<a name='L71'>    <b>int</b>     pending_fds[<a href='../S/67.html#L66' title='Defined at 66 in src/ae_evport.c.'>MAX_EVENT_BATCHSZ</a>];     <i><font color='green'>/* pending fds */</font></i>
+<a name='L72'>    <b>int</b>     pending_masks[<a href='../S/67.html#L66' title='Defined at 66 in src/ae_evport.c.'>MAX_EVENT_BATCHSZ</a>];   <i><font color='green'>/* pending fds' masks */</font></i>
+<a name='L73'><font color='red'>}</font> <a href='../R/1239.html' title='Multiple refered from 19 places.'>aeApiState</a>;
+<a name='L74'>
+<a name='L75'><b>static</b> <b>int</b> <a href='../S/36.html#L77' title='Refered from 77 in src/ae.c.'>aeApiCreate</a>(aeEventLoop *eventLoop) <font color='red'>{</font>
+<a name='L76'>    <b>int</b> i;
+<a name='L77'>    <a href='../D/1501.html' title='Multiple defined in 8 places.'>aeApiState</a> *state = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<a href='../D/1501.html' title='Multiple defined in 8 places.'>aeApiState</a>));
+<a name='L78'>    <b>if</b> (!state) <b>return</b> -1;
+<a name='L79'>
+<a name='L80'>    state-&gt;portfd = port_create();
+<a name='L81'>    <b>if</b> (state-&gt;portfd == -1) <font color='red'>{</font>
+<a name='L82'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(state);
+<a name='L83'>        <b>return</b> -1;
+<a name='L84'>    <font color='red'>}</font>
+<a name='L85'>
+<a name='L86'>    state-&gt;npending = 0;
+<a name='L87'>
+<a name='L88'>    <b>for</b> (i = 0; i &lt; <a href='../S/67.html#L66' title='Defined at 66 in src/ae_evport.c.'>MAX_EVENT_BATCHSZ</a>; i++) <font color='red'>{</font>
+<a name='L89'>        state-&gt;pending_fds[i] = -1;
+<a name='L90'>        state-&gt;pending_masks[i] = <a href='../S/38.html#L39' title='Defined at 39 in src/ae.h.'>AE_NONE</a>;
+<a name='L91'>    <font color='red'>}</font>
+<a name='L92'>
+<a name='L93'>    eventLoop-&gt;apidata = state;
+<a name='L94'>    <b>return</b> 0;
+<a name='L95'><font color='red'>}</font>
+<a name='L96'>
+<a name='L97'><b>static</b> <b>void</b> <a href='../S/36.html#L94' title='Refered from 94 in src/ae.c.'>aeApiFree</a>(aeEventLoop *eventLoop) <font color='red'>{</font>
+<a name='L98'>    <a href='../D/1501.html' title='Multiple defined in 8 places.'>aeApiState</a> *state = eventLoop-&gt;apidata;
+<a name='L99'>
+<a name='L100'>    close(state-&gt;portfd);
+<a name='L101'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(state);
+<a name='L102'><font color='red'>}</font>
+<a name='L103'>
+<a name='L104'><b>static</b> <b>int</b> <a href='../R/1236.html' title='Multiple refered from 2 places.'>aeApiLookupPending</a>(aeApiState *state, <b>int</b> fd) <font color='red'>{</font>
+<a name='L105'>    <b>int</b> i;
+<a name='L106'>
+<a name='L107'>    <b>for</b> (i = 0; i &lt; state-&gt;npending; i++) <font color='red'>{</font>
+<a name='L108'>        <b>if</b> (state-&gt;pending_fds[i] == fd)
+<a name='L109'>            <b>return</b> (i);
+<a name='L110'>    <font color='red'>}</font>
+<a name='L111'>
+<a name='L112'>    <b>return</b> (-1);
+<a name='L113'><font color='red'>}</font>
+<a name='L114'>
+<a name='L115'><i><font color='green'>/*</font></i>
+<a name='L116'><i><font color='green'> * Helper function to invoke port_associate for the given fd and mask.</font></i>
+<a name='L117'><i><font color='green'> */</font></i>
+<a name='L118'><b>static</b> <b>int</b> <a href='../R/1232.html' title='Multiple refered from 3 places.'>aeApiAssociate</a>(<b>const</b> <b>char</b> *where, <b>int</b> portfd, <b>int</b> fd, <b>int</b> mask) <font color='red'>{</font>
+<a name='L119'>    <b>int</b> events = 0;
+<a name='L120'>    <b>int</b> rv, err;
+<a name='L121'>
+<a name='L122'>    <b>if</b> (mask &amp; <a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>)
+<a name='L123'>        events |= POLLIN;
+<a name='L124'>    <b>if</b> (mask &amp; <a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>)
+<a name='L125'>        events |= POLLOUT;
+<a name='L126'>
+<a name='L127'>    <b>if</b> (evport_debug)
+<a name='L128'>        fprintf(stderr, "%s: port_associate(%d, 0x%x) = ", where, fd, events);
+<a name='L129'>
+<a name='L130'>    rv = port_associate(portfd, PORT_SOURCE_FD, fd, events,
+<a name='L131'>        (<b>void</b> *)(<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)mask);
+<a name='L132'>    err = errno;
+<a name='L133'>
+<a name='L134'>    <b>if</b> (evport_debug)
+<a name='L135'>        fprintf(stderr, "%d (%s)\n", rv, rv == 0 ? "no error" : strerror(err));
+<a name='L136'>
+<a name='L137'>    <b>if</b> (rv == -1) <font color='red'>{</font>
+<a name='L138'>        fprintf(stderr, "%s: port_associate: %s\n", where, strerror(err));
+<a name='L139'>
+<a name='L140'>        <b>if</b> (err == EAGAIN)
+<a name='L141'>            fprintf(stderr, "aeApiAssociate: event port limit exceeded.");
+<a name='L142'>    <font color='red'>}</font>
+<a name='L143'>
+<a name='L144'>    <b>return</b> rv;
+<a name='L145'><font color='red'>}</font>
+<a name='L146'>
+<a name='L147'><b>static</b> <b>int</b> <a href='../S/36.html#L110' title='Refered from 110 in src/ae.c.'>aeApiAddEvent</a>(aeEventLoop *eventLoop, <b>int</b> fd, <b>int</b> mask) <font color='red'>{</font>
+<a name='L148'>    <a href='../D/1501.html' title='Multiple defined in 8 places.'>aeApiState</a> *state = eventLoop-&gt;apidata;
+<a name='L149'>    <b>int</b> fullmask, pfd;
+<a name='L150'>
+<a name='L151'>    <b>if</b> (evport_debug)
+<a name='L152'>        fprintf(stderr, "aeApiAddEvent: fd %d mask 0x%x\n", fd, mask);
+<a name='L153'>
+<a name='L154'>    <i><font color='green'>/*</font></i>
+<a name='L155'><i><font color='green'>     * Since port_associate's "events" argument replaces any existing events, we</font></i>
+<a name='L156'><i><font color='green'>     * must be sure to include whatever events are already associated when</font></i>
+<a name='L157'><i><font color='green'>     * we call port_associate() again.</font></i>
+<a name='L158'><i><font color='green'>     */</font></i>
+<a name='L159'>    fullmask = mask | eventLoop-&gt;events[fd].mask;
+<a name='L160'>    pfd = <a href='../S/67.html#L104' title='Defined at 104 in src/ae_evport.c.'>aeApiLookupPending</a>(state, fd);
+<a name='L161'>
+<a name='L162'>    <b>if</b> (pfd != -1) <font color='red'>{</font>
+<a name='L163'>        <i><font color='green'>/*</font></i>
+<a name='L164'><i><font color='green'>         * This fd was recently returned from aeApiPoll.  It should be safe to</font></i>
+<a name='L165'><i><font color='green'>         * assume that the consumer has processed that poll event, but we play</font></i>
+<a name='L166'><i><font color='green'>         * it safer by simply updating pending_mask.  The fd will be</font></i>
+<a name='L167'><i><font color='green'>         * reassociated as usual when aeApiPoll is called again.</font></i>
+<a name='L168'><i><font color='green'>         */</font></i>
+<a name='L169'>        <b>if</b> (evport_debug)
+<a name='L170'>            fprintf(stderr, "aeApiAddEvent: adding to pending fd %d\n", fd);
+<a name='L171'>        state-&gt;pending_masks[pfd] |= fullmask;
+<a name='L172'>        <b>return</b> 0;
+<a name='L173'>    <font color='red'>}</font>
+<a name='L174'>
+<a name='L175'>    <b>return</b> (<a href='../S/67.html#L118' title='Defined at 118 in src/ae_evport.c.'>aeApiAssociate</a>("aeApiAddEvent", state-&gt;portfd, fd, fullmask));
+<a name='L176'><font color='red'>}</font>
+<a name='L177'>
+<a name='L178'><b>static</b> <b>void</b> <a href='../S/36.html#L136' title='Refered from 136 in src/ae.c.'>aeApiDelEvent</a>(aeEventLoop *eventLoop, <b>int</b> fd, <b>int</b> mask) <font color='red'>{</font>
+<a name='L179'>    <a href='../D/1501.html' title='Multiple defined in 8 places.'>aeApiState</a> *state = eventLoop-&gt;apidata;
+<a name='L180'>    <b>int</b> fullmask, pfd;
+<a name='L181'>
+<a name='L182'>    <b>if</b> (evport_debug)
+<a name='L183'>        fprintf(stderr, "del fd %d mask 0x%x\n", fd, mask);
+<a name='L184'>
+<a name='L185'>    pfd = <a href='../S/67.html#L104' title='Defined at 104 in src/ae_evport.c.'>aeApiLookupPending</a>(state, fd);
+<a name='L186'>
+<a name='L187'>    <b>if</b> (pfd != -1) <font color='red'>{</font>
+<a name='L188'>        <b>if</b> (evport_debug)
+<a name='L189'>            fprintf(stderr, "deleting event from pending fd %d\n", fd);
+<a name='L190'>
+<a name='L191'>        <i><font color='green'>/*</font></i>
+<a name='L192'><i><font color='green'>         * This fd was just returned from aeApiPoll, so it's not currently</font></i>
+<a name='L193'><i><font color='green'>         * associated with the port.  All we need to do is update</font></i>
+<a name='L194'><i><font color='green'>         * pending_mask appropriately.</font></i>
+<a name='L195'><i><font color='green'>         */</font></i>
+<a name='L196'>        state-&gt;pending_masks[pfd] &amp;= ~mask;
+<a name='L197'>
+<a name='L198'>        <b>if</b> (state-&gt;pending_masks[pfd] == <a href='../S/38.html#L39' title='Defined at 39 in src/ae.h.'>AE_NONE</a>)
+<a name='L199'>            state-&gt;pending_fds[pfd] = -1;
+<a name='L200'>
+<a name='L201'>        <b>return</b>;
+<a name='L202'>    <font color='red'>}</font>
+<a name='L203'>
+<a name='L204'>    <i><font color='green'>/*</font></i>
+<a name='L205'><i><font color='green'>     * The fd is currently associated with the port.  Like with the add case</font></i>
+<a name='L206'><i><font color='green'>     * above, we must look at the full mask for the file descriptor before</font></i>
+<a name='L207'><i><font color='green'>     * updating that association.  We don't have a good way of knowing what the</font></i>
+<a name='L208'><i><font color='green'>     * events are without looking into the eventLoop state directly.  We rely on</font></i>
+<a name='L209'><i><font color='green'>     * the fact that our caller has already updated the mask in the eventLoop.</font></i>
+<a name='L210'><i><font color='green'>     */</font></i>
+<a name='L211'>
+<a name='L212'>    fullmask = eventLoop-&gt;events[fd].mask;
+<a name='L213'>    <b>if</b> (fullmask == <a href='../S/38.html#L39' title='Defined at 39 in src/ae.h.'>AE_NONE</a>) <font color='red'>{</font>
+<a name='L214'>        <i><font color='green'>/*</font></i>
+<a name='L215'><i><font color='green'>         * We're removing *all* events, so use port_dissociate to remove the</font></i>
+<a name='L216'><i><font color='green'>         * association completely.  Failure here indicates a bug.</font></i>
+<a name='L217'><i><font color='green'>         */</font></i>
+<a name='L218'>        <b>if</b> (evport_debug)
+<a name='L219'>            fprintf(stderr, "aeApiDelEvent: port_dissociate(%d)\n", fd);
+<a name='L220'>
+<a name='L221'>        <b>if</b> (port_dissociate(state-&gt;portfd, PORT_SOURCE_FD, fd) != 0) <font color='red'>{</font>
+<a name='L222'>            perror("aeApiDelEvent: port_dissociate");
+<a name='L223'>            abort(); <i><font color='green'>/* will not return */</font></i>
+<a name='L224'>        <font color='red'>}</font>
+<a name='L225'>    <font color='red'>}</font> <b>else</b> <b>if</b> (<a href='../S/67.html#L118' title='Defined at 118 in src/ae_evport.c.'>aeApiAssociate</a>("aeApiDelEvent", state-&gt;portfd, fd,
+<a name='L226'>        fullmask) != 0) <font color='red'>{</font>
+<a name='L227'>        <i><font color='green'>/*</font></i>
+<a name='L228'><i><font color='green'>         * ENOMEM is a potentially transient condition, but the kernel won't</font></i>
+<a name='L229'><i><font color='green'>         * generally return it unless things are really bad.  EAGAIN indicates</font></i>
+<a name='L230'><i><font color='green'>         * we've reached an resource limit, for which it doesn't make sense to</font></i>
+<a name='L231'><i><font color='green'>         * retry (counterintuitively).  All other errors indicate a bug.  In any</font></i>
+<a name='L232'><i><font color='green'>         * of these cases, the best we can do is to abort.</font></i>
+<a name='L233'><i><font color='green'>         */</font></i>
+<a name='L234'>        abort(); <i><font color='green'>/* will not return */</font></i>
+<a name='L235'>    <font color='red'>}</font>
+<a name='L236'><font color='red'>}</font>
+<a name='L237'>
+<a name='L238'><b>static</b> <b>int</b> <a href='../S/36.html#L366' title='Refered from 366 in src/ae.c.'>aeApiPoll</a>(aeEventLoop *eventLoop, <b>struct</b> timeval *tvp) <font color='red'>{</font>
+<a name='L239'>    <a href='../D/1501.html' title='Multiple defined in 8 places.'>aeApiState</a> *state = eventLoop-&gt;apidata;
+<a name='L240'>    <b>struct</b> timespec timeout, *tsp;
+<a name='L241'>    <b>int</b> mask, i;
+<a name='L242'>    uint_t nevents;
+<a name='L243'>    port_event_t event[<a href='../S/67.html#L66' title='Defined at 66 in src/ae_evport.c.'>MAX_EVENT_BATCHSZ</a>];
+<a name='L244'>
+<a name='L245'>    <i><font color='green'>/*</font></i>
+<a name='L246'><i><font color='green'>     * If we've returned fd events before, we must reassociate them with the</font></i>
+<a name='L247'><i><font color='green'>     * port now, before calling port_get().  See the block comment at the top of</font></i>
+<a name='L248'><i><font color='green'>     * this file for an explanation of why.</font></i>
+<a name='L249'><i><font color='green'>     */</font></i>
+<a name='L250'>    <b>for</b> (i = 0; i &lt; state-&gt;npending; i++) <font color='red'>{</font>
+<a name='L251'>        <b>if</b> (state-&gt;pending_fds[i] == -1)
+<a name='L252'>            <i><font color='green'>/* This fd has since been deleted. */</font></i>
+<a name='L253'>            <b>continue</b>;
+<a name='L254'>
+<a name='L255'>        <b>if</b> (<a href='../S/67.html#L118' title='Defined at 118 in src/ae_evport.c.'>aeApiAssociate</a>("aeApiPoll", state-&gt;portfd,
+<a name='L256'>            state-&gt;pending_fds[i], state-&gt;pending_masks[i]) != 0) <font color='red'>{</font>
+<a name='L257'>            <i><font color='green'>/* See aeApiDelEvent for why this case is fatal. */</font></i>
+<a name='L258'>            abort();
+<a name='L259'>        <font color='red'>}</font>
+<a name='L260'>
+<a name='L261'>        state-&gt;pending_masks[i] = <a href='../S/38.html#L39' title='Defined at 39 in src/ae.h.'>AE_NONE</a>;
+<a name='L262'>        state-&gt;pending_fds[i] = -1;
+<a name='L263'>    <font color='red'>}</font>
+<a name='L264'>
+<a name='L265'>    state-&gt;npending = 0;
+<a name='L266'>
+<a name='L267'>    <b>if</b> (tvp != NULL) <font color='red'>{</font>
+<a name='L268'>        timeout.tv_sec = tvp-&gt;tv_sec;
+<a name='L269'>        timeout.tv_nsec = tvp-&gt;tv_usec * 1000;
+<a name='L270'>        tsp = &amp;timeout;
+<a name='L271'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L272'>        tsp = NULL;
+<a name='L273'>    <font color='red'>}</font>
+<a name='L274'>
+<a name='L275'>    <i><font color='green'>/*</font></i>
+<a name='L276'><i><font color='green'>     * port_getn can return with errno == ETIME having returned some events (!).</font></i>
+<a name='L277'><i><font color='green'>     * So if we get ETIME, we check nevents, too.</font></i>
+<a name='L278'><i><font color='green'>     */</font></i>
+<a name='L279'>    nevents = 1;
+<a name='L280'>    <b>if</b> (port_getn(state-&gt;portfd, event, <a href='../S/67.html#L66' title='Defined at 66 in src/ae_evport.c.'>MAX_EVENT_BATCHSZ</a>, &amp;nevents,
+<a name='L281'>        tsp) == -1 &amp;&amp; (errno != ETIME || nevents == 0)) <font color='red'>{</font>
+<a name='L282'>        <b>if</b> (errno == ETIME || errno == EINTR)
+<a name='L283'>            <b>return</b> 0;
+<a name='L284'>
+<a name='L285'>        <i><font color='green'>/* Any other error indicates a bug. */</font></i>
+<a name='L286'>        perror("aeApiPoll: port_get");
+<a name='L287'>        abort();
+<a name='L288'>    <font color='red'>}</font>
+<a name='L289'>
+<a name='L290'>    state-&gt;npending = nevents;
+<a name='L291'>
+<a name='L292'>    <b>for</b> (i = 0; i &lt; nevents; i++) <font color='red'>{</font>
+<a name='L293'>            mask = 0;
+<a name='L294'>            <b>if</b> (event[i].portev_events &amp; POLLIN)
+<a name='L295'>                mask |= <a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>;
+<a name='L296'>            <b>if</b> (event[i].portev_events &amp; POLLOUT)
+<a name='L297'>                mask |= <a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>;
+<a name='L298'>
+<a name='L299'>            eventLoop-&gt;fired[i].fd = event[i].portev_object;
+<a name='L300'>            eventLoop-&gt;fired[i].mask = mask;
+<a name='L301'>
+<a name='L302'>            <b>if</b> (evport_debug)
+<a name='L303'>                fprintf(stderr, "aeApiPoll: fd %d mask 0x%x\n",
+<a name='L304'>                    (<b>int</b>)event[i].portev_object, mask);
+<a name='L305'>
+<a name='L306'>            state-&gt;pending_fds[i] = event[i].portev_object;
+<a name='L307'>            state-&gt;pending_masks[i] = (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)event[i].portev_user;
+<a name='L308'>    <font color='red'>}</font>
+<a name='L309'>
+<a name='L310'>    <b>return</b> nevents;
+<a name='L311'><font color='red'>}</font>
+<a name='L312'>
+<a name='L313'><b>static</b> <b>char</b> *<a href='../S/36.html#L426' title='Refered from 426 in src/ae.c.'>aeApiName</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L314'>    <b>return</b> "evport";
+<a name='L315'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L75'>[^]</a><a href='#L313'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

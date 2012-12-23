@@ -1,0 +1,47 @@
+<html>
+<head>
+<title>chunksize</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/142.html#L40'>chunksize</a>          40 deps/jemalloc/include/jemalloc/internal/chunk.h extern size_t		chunksize;
+<a href='../S/138.html#L116'>chunksize</a>         116 deps/jemalloc/include/jemalloc/internal/private_namespace.h #define	chunksize JEMALLOC_N(chunksize)
+<a href='../S/203.html#L537'>chunksize</a>         537 deps/jemalloc/src/arena.c 		chunk = (arena_chunk_t *)chunk_alloc(chunksize, chunksize,
+<a href='../S/203.html#L543'>chunksize</a>         543 deps/jemalloc/src/arena.c 			arena-&gt;stats.mapped += chunksize;
+<a href='../S/203.html#L612'>chunksize</a>         612 deps/jemalloc/src/arena.c 		chunk_dealloc((void *)spare, chunksize, true);
+<a href='../S/203.html#L615'>chunksize</a>         615 deps/jemalloc/src/arena.c 			arena-&gt;stats.mapped -= chunksize;
+<a href='../S/203.html#L2343'>chunksize</a>        2343 deps/jemalloc/src/arena.c 	arena_maxclass = chunksize - (map_bias &lt;&lt; LG_PAGE);
+<a href='../S/202.html#L35'>chunksize</a>          35 deps/jemalloc/src/base.c 	base_pages = chunk_alloc(csize, chunksize, true, &amp;zero,
+<a href='../S/201.html#L27'>chunksize</a>          27 deps/jemalloc/src/chunk.c size_t		chunksize;
+<a href='../S/201.html#L64'>chunksize</a>          64 deps/jemalloc/src/chunk.c 	alloc_size = size + alignment - chunksize;
+<a href='../S/201.html#L185'>chunksize</a>         185 deps/jemalloc/src/chunk.c 			stats_chunks.nchunks += (size / chunksize);
+<a href='../S/201.html#L186'>chunksize</a>         186 deps/jemalloc/src/chunk.c 		stats_chunks.curchunks += (size / chunksize);
+<a href='../S/201.html#L313'>chunksize</a>         313 deps/jemalloc/src/chunk.c 		assert(stats_chunks.curchunks &gt;= (size / chunksize));
+<a href='../S/201.html#L314'>chunksize</a>         314 deps/jemalloc/src/chunk.c 		stats_chunks.curchunks -= (size / chunksize);
+<a href='../S/201.html#L327'>chunksize</a>         327 deps/jemalloc/src/chunk.c 	chunksize = (ZU(1) &lt;&lt; opt_lg_chunk);
+<a href='../S/201.html#L328'>chunksize</a>         328 deps/jemalloc/src/chunk.c 	assert(chunksize &gt;= PAGE);
+<a href='../S/201.html#L329'>chunksize</a>         329 deps/jemalloc/src/chunk.c 	chunksize_mask = chunksize - 1;
+<a href='../S/201.html#L330'>chunksize</a>         330 deps/jemalloc/src/chunk.c 	chunk_npages = (chunksize &gt;&gt; LG_PAGE);
+<a href='../S/218.html#L101'>chunksize</a>         101 deps/jemalloc/src/chunk_dss.c 			gap_size = (chunksize - CHUNK_ADDR2OFFSET(dss_max)) &amp;
+<a href='../S/207.html#L22'>chunksize</a>          22 deps/jemalloc/src/huge.c 	return (huge_palloc(size, chunksize, zero));
+<a href='../S/207.html#L120'>chunksize</a>         120 deps/jemalloc/src/huge.c 	if (alignment &gt; chunksize)
+<a href='../S/207.html#L129'>chunksize</a>         129 deps/jemalloc/src/huge.c 		if (alignment &gt; chunksize)
+<a href='../S/207.html#L149'>chunksize</a>         149 deps/jemalloc/src/huge.c 	if (oldsize &gt;= chunksize &amp;&amp; (config_dss == false || (chunk_in_dss(ptr)
+<a href='../S/213.html#L794'>chunksize</a>         794 deps/jemalloc/src/jemalloc.c 	if (narenas_auto &gt; chunksize / sizeof(arena_t *)) {
+<a href='../S/213.html#L795'>chunksize</a>         795 deps/jemalloc/src/jemalloc.c 		narenas_auto = chunksize / sizeof(arena_t *);
+<a href='../S/176.html#L8'>chunksize</a>           8 deps/jemalloc/test/mremap.c 	size_t sz, lg_chunk, chunksize, i;
+<a href='../S/176.html#L21'>chunksize</a>          21 deps/jemalloc/test/mremap.c 	chunksize = ((size_t)1U) &lt;&lt; lg_chunk;
+<a href='../S/176.html#L23'>chunksize</a>          23 deps/jemalloc/test/mremap.c 	p = (char *)malloc(chunksize);
+<a href='../S/176.html#L25'>chunksize</a>          25 deps/jemalloc/test/mremap.c 		malloc_printf("malloc(%zu) --&gt; %p\n", chunksize, p);
+<a href='../S/176.html#L29'>chunksize</a>          29 deps/jemalloc/test/mremap.c 	memset(p, 'a', chunksize);
+<a href='../S/176.html#L31'>chunksize</a>          31 deps/jemalloc/test/mremap.c 	q = (char *)realloc(p, chunksize * 2);
+<a href='../S/176.html#L33'>chunksize</a>          33 deps/jemalloc/test/mremap.c 		malloc_printf("realloc(%p, %zu) --&gt; %p\n", p, chunksize * 2,
+<a href='../S/176.html#L38'>chunksize</a>          38 deps/jemalloc/test/mremap.c 	for (i = 0; i &lt; chunksize; i++) {
+<a href='../S/176.html#L44'>chunksize</a>          44 deps/jemalloc/test/mremap.c 	q = (char *)realloc(p, chunksize);
+<a href='../S/176.html#L46'>chunksize</a>          46 deps/jemalloc/test/mremap.c 		malloc_printf("realloc(%p, %zu) --&gt; %p\n", p, chunksize, q);
+<a href='../S/176.html#L50'>chunksize</a>          50 deps/jemalloc/test/mremap.c 	for (i = 0; i &lt; chunksize; i++) {
+</pre>
+</body>
+</html>

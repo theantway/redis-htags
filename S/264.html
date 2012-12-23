@@ -1,0 +1,52 @@
+<html>
+<head>
+<title>deps/lua/src/ldebug.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/ldebug.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/99.html' title='Multiple included from 12 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: ldebug.h,v 2.3.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Auxiliary functions from Debug Interface module</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'><font color='darkred'>#ifndef</font> <a href='../S/264.html#L8' title='Defined at 8 in deps/lua/src/ldebug.h.'>ldebug_h</a>
+<a name='L8'><font color='darkred'>#define</font> <a href='../S/264.html#L7' title='Refered from 7 in deps/lua/src/ldebug.h.'>ldebug_h</a>
+<a name='L9'>
+<a name='L10'>
+<a name='L11'><font color='darkred'>#include</font> "<a href='298.html'>lstate.h</a>"
+<a name='L12'>
+<a name='L13'>
+<a name='L14'><font color='darkred'>#define</font> <a href='../R/3141.html' title='Multiple refered from 3 places.'>pcRel</a>(pc, p)    (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>int</b>, (pc) - (p)-&gt;code) - 1)
+<a name='L15'>
+<a name='L16'><font color='darkred'>#define</font> <a href='../R/2086.html' title='Multiple refered from 4 places.'>getline</a>(f,pc)   (((f)-&gt;lineinfo) ? (f)-&gt;lineinfo[pc] : 0)
+<a name='L17'>
+<a name='L18'><font color='darkred'>#define</font> <a href='../R/3542.html' title='Multiple refered from 4 places.'>resethookcount</a>(L)       (L-&gt;hookcount = L-&gt;basehookcount)
+<a name='L19'>
+<a name='L20'>
+<a name='L21'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/299.html#L567' title='Defined at 567 in deps/lua/src/ldebug.c.'>luaG_typeerror</a> (lua_State *L, <b>const</b> TValue *o,
+<a name='L22'>                                             <b>const</b> <b>char</b> *opname);
+<a name='L23'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/299.html#L581' title='Defined at 581 in deps/lua/src/ldebug.c.'>luaG_concaterror</a> (lua_State *L, StkId p1, StkId p2);
+<a name='L24'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/299.html#L588' title='Defined at 588 in deps/lua/src/ldebug.c.'>luaG_aritherror</a> (lua_State *L, <b>const</b> TValue *p1,
+<a name='L25'>                                              <b>const</b> TValue *p2);
+<a name='L26'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>int</b> <a href='../S/299.html#L596' title='Defined at 596 in deps/lua/src/ldebug.c.'>luaG_ordererror</a> (lua_State *L, <b>const</b> TValue *p1,
+<a name='L27'>                                             <b>const</b> TValue *p2);
+<a name='L28'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/299.html#L631' title='Defined at 631 in deps/lua/src/ldebug.c.'>luaG_runerror</a> (lua_State *L, <b>const</b> <b>char</b> *fmt, ...);
+<a name='L29'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/299.html#L618' title='Defined at 618 in deps/lua/src/ldebug.c.'>luaG_errormsg</a> (lua_State *L);
+<a name='L30'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>int</b> <a href='../S/299.html#L484' title='Defined at 484 in deps/lua/src/ldebug.c.'>luaG_checkcode</a> (<b>const</b> Proto *pt);
+<a name='L31'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>int</b> <a href='../S/299.html#L290' title='Defined at 290 in deps/lua/src/ldebug.c.'>luaG_checkopenop</a> (Instruction i);
+<a name='L32'>
+<a name='L33'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

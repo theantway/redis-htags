@@ -1,0 +1,1022 @@
+<html>
+<head>
+<title>deps/jemalloc/include/jemalloc/internal/arena.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/391.html'>include</a>/<a href='../files/392.html'>jemalloc</a>/<a href='../files/393.html'>internal</a>/arena.h</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L482'>[^]</a><a href='#L937'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L482' title='Defined at 482.'>arena_mapp_get</a>
+<li><a href='#L492' title='Defined at 492.'>arena_mapbitsp_get</a>
+<li><a href='#L499' title='Defined at 499.'>arena_mapbits_get</a>
+<li><a href='#L506' title='Defined at 506.'>arena_mapbits_unallocated_size_get</a>
+<li><a href='#L516' title='Defined at 516.'>arena_mapbits_large_size_get</a>
+<li><a href='#L527' title='Defined at 527.'>arena_mapbits_small_runind_get</a>
+<li><a href='#L538' title='Defined at 538.'>arena_mapbits_binind_get</a>
+<li><a href='#L550' title='Defined at 550.'>arena_mapbits_dirty_get</a>
+<li><a href='#L559' title='Defined at 559.'>arena_mapbits_unzeroed_get</a>
+<li><a href='#L568' title='Defined at 568.'>arena_mapbits_large_get</a>
+<li><a href='#L577' title='Defined at 577.'>arena_mapbits_allocated_get</a>
+<li><a href='#L586' title='Defined at 586.'>arena_mapbits_unallocated_set</a>
+<li><a href='#L599' title='Defined at 599.'>arena_mapbits_unallocated_size_set</a>
+<li><a href='#L611' title='Defined at 611.'>arena_mapbits_large_set</a>
+<li><a href='#L626' title='Defined at 626.'>arena_mapbits_large_binind_set</a>
+<li><a href='#L639' title='Defined at 639.'>arena_mapbits_small_set</a>
+<li><a href='#L655' title='Defined at 655.'>arena_mapbits_unzeroed_set</a>
+<li><a href='#L665' title='Defined at 665.'>arena_ptr_small_binind_get</a>
+<li><a href='#L707' title='Defined at 707.'>arena_bin_index</a>
+<li><a href='#L715' title='Defined at 715.'>arena_run_regind</a>
+<li><a href='#L787' title='Defined at 787.'>arena_prof_ctx_get</a>
+<li><a href='#L825' title='Defined at 825.'>arena_prof_ctx_set</a>
+<li><a href='#L860' title='Defined at 860.'>arena_malloc</a>
+<li><a href='#L891' title='Defined at 891.'>arena_salloc</a>
+<li><a href='#L937' title='Defined at 937.'>arena_dalloc</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L2'><font color='darkred'>#ifdef</font> JEMALLOC_H_TYPES
+<a name='L3'>
+<a name='L4'><i><font color='green'>/*</font></i>
+<a name='L5'><i><font color='green'> * RUN_MAX_OVRHD indicates maximum desired run header overhead.  Runs are sized</font></i>
+<a name='L6'><i><font color='green'> * as small as possible such that this setting is still honored, without</font></i>
+<a name='L7'><i><font color='green'> * violating other constraints.  The goal is to make runs as small as possible</font></i>
+<a name='L8'><i><font color='green'> * without exceeding a per run external fragmentation threshold.</font></i>
+<a name='L9'><i><font color='green'> *</font></i>
+<a name='L10'><i><font color='green'> * We use binary fixed point math for overhead computations, where the binary</font></i>
+<a name='L11'><i><font color='green'> * point is implicitly RUN_BFP bits to the left.</font></i>
+<a name='L12'><i><font color='green'> *</font></i>
+<a name='L13'><i><font color='green'> * Note that it is possible to set RUN_MAX_OVRHD low enough that it cannot be</font></i>
+<a name='L14'><i><font color='green'> * honored for some/all object sizes, since when heap profiling is enabled</font></i>
+<a name='L15'><i><font color='green'> * there is one pointer of header overhead per object (plus a constant).  This</font></i>
+<a name='L16'><i><font color='green'> * constraint is relaxed (ignored) for runs that are so small that the</font></i>
+<a name='L17'><i><font color='green'> * per-region overhead is greater than:</font></i>
+<a name='L18'><i><font color='green'> *</font></i>
+<a name='L19'><i><font color='green'> *   (RUN_MAX_OVRHD / (reg_interval &lt;&lt; (3+RUN_BFP))</font></i>
+<a name='L20'><i><font color='green'> */</font></i>
+<a name='L21'><font color='darkred'>#define</font> <a href='../S/203.html#L2283' title='Refered from 2283 in deps/jemalloc/src/arena.c.'>RUN_BFP</a>                 12
+<a name='L22'><i><font color='green'>/*                                    \/   Implicit binary fixed point. */</font></i>
+<a name='L23'><font color='darkred'>#define</font> <a href='../R/807.html' title='Multiple refered from 2 places.'>RUN_MAX_OVRHD</a>           0x0000003dU
+<a name='L24'><font color='darkred'>#define</font> <a href='../S/203.html#L2282' title='Refered from 2282 in deps/jemalloc/src/arena.c.'>RUN_MAX_OVRHD_RELAX</a>     0x00001800U
+<a name='L25'>
+<a name='L26'><i><font color='green'>/* Maximum number of regions in one run. */</font></i>
+<a name='L27'><font color='darkred'>#define</font> <a href='../R/250.html' title='Multiple refered from 3 places.'>LG_RUN_MAXREGS</a>          11
+<a name='L28'><font color='darkred'>#define</font> <a href='../R/806.html' title='Multiple refered from 5 places.'>RUN_MAXREGS</a>             (1U &lt;&lt; <a href='../S/146.html#L27' title='Defined at 27 in deps/jemalloc/include/jemalloc/internal/arena.h.'>LG_RUN_MAXREGS</a>)
+<a name='L29'>
+<a name='L30'><i><font color='green'>/*</font></i>
+<a name='L31'><i><font color='green'> * Minimum redzone size.  Redzones may be larger than this if necessary to</font></i>
+<a name='L32'><i><font color='green'> * preserve region alignment.</font></i>
+<a name='L33'><i><font color='green'> */</font></i>
+<a name='L34'><font color='darkred'>#define</font> <a href='../R/795.html' title='Multiple refered from 2 places.'>REDZONE_MINSIZE</a>         16
+<a name='L35'>
+<a name='L36'><i><font color='green'>/*</font></i>
+<a name='L37'><i><font color='green'> * The minimum ratio of active:dirty pages per arena is computed as:</font></i>
+<a name='L38'><i><font color='green'> *</font></i>
+<a name='L39'><i><font color='green'> *   (nactive &gt;&gt; opt_lg_dirty_mult) &gt;= ndirty</font></i>
+<a name='L40'><i><font color='green'> *</font></i>
+<a name='L41'><i><font color='green'> * So, supposing that opt_lg_dirty_mult is 3, there can be no less than 8 times</font></i>
+<a name='L42'><i><font color='green'> * as many active pages as dirty pages.</font></i>
+<a name='L43'><i><font color='green'> */</font></i>
+<a name='L44'><font color='darkred'>#define</font> <a href='../S/203.html#L7' title='Refered from 7 in deps/jemalloc/src/arena.c.'>LG_DIRTY_MULT_DEFAULT</a>   3
+<a name='L45'>
+<a name='L46'><b>typedef</b> <b>struct</b> <a href='../S/146.html#L58' title='Defined at 58 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_map_s</a> <a href='../R/1324.html' title='Multiple refered from 27 places.'>arena_chunk_map_t</a>;
+<a name='L47'><b>typedef</b> <b>struct</b> <a href='../S/146.html#L163' title='Defined at 163 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_s</a> <a href='../R/1327.html' title='Multiple refered from 130 places.'>arena_chunk_t</a>;
+<a name='L48'><b>typedef</b> <b>struct</b> <a href='../S/146.html#L194' title='Defined at 194 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_run_s</a> <a href='../R/1388.html' title='Multiple refered from 65 places.'>arena_run_t</a>;
+<a name='L49'><b>typedef</b> <b>struct</b> <a href='../S/146.html#L243' title='Defined at 243 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_bin_info_s</a> <a href='../R/1310.html' title='Multiple refered from 23 places.'>arena_bin_info_t</a>;
+<a name='L50'><b>typedef</b> <b>struct</b> <a href='../S/146.html#L281' title='Defined at 281 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_bin_s</a> <a href='../R/1319.html' title='Multiple refered from 33 places.'>arena_bin_t</a>;
+<a name='L51'><b>typedef</b> <b>struct</b> <a href='../S/146.html#L309' title='Defined at 309 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_s</a> <a href='../R/1397.html' title='Multiple refered from 131 places.'>arena_t</a>;
+<a name='L52'>
+<a name='L53'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_TYPES */</font></i>
+<a name='L54'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L55'><font color='darkred'>#ifdef</font> JEMALLOC_H_STRUCTS
+<a name='L56'>
+<a name='L57'><i><font color='green'>/* Each element of the chunk map corresponds to one page within the chunk. */</font></i>
+<a name='L58'><b>struct</b> <a href='../S/146.html#L46' title='Refered from 46 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_map_s</a> <font color='red'>{</font>
+<a name='L59'><font color='darkred'>#ifndef</font> JEMALLOC_PROF
+<a name='L60'>        <i><font color='green'>/*</font></i>
+<a name='L61'><i><font color='green'>         * Overlay prof_ctx in order to allow it to be referenced by dead code.</font></i>
+<a name='L62'><i><font color='green'>         * Such antics aren't warranted for per arena data structures, but</font></i>
+<a name='L63'><i><font color='green'>         * chunk map overhead accounts for a percentage of memory, rather than</font></i>
+<a name='L64'><i><font color='green'>         * being just a fixed cost.</font></i>
+<a name='L65'><i><font color='green'>         */</font></i>
+<a name='L66'>        <b>union</b> <font color='red'>{</font>
+<a name='L67'><font color='darkred'>#endif</font>
+<a name='L68'>        <b>union</b> <font color='red'>{</font>
+<a name='L69'>                <i><font color='green'>/*</font></i>
+<a name='L70'><i><font color='green'>                 * Linkage for run trees.  There are two disjoint uses:</font></i>
+<a name='L71'><i><font color='green'>                 *</font></i>
+<a name='L72'><i><font color='green'>                 * 1) arena_t's runs_avail tree.</font></i>
+<a name='L73'><i><font color='green'>                 * 2) arena_run_t conceptually uses this linkage for in-use</font></i>
+<a name='L74'><i><font color='green'>                 *    non-full runs, rather than directly embedding linkage.</font></i>
+<a name='L75'><i><font color='green'>                 */</font></i>
+<a name='L76'>                <a href='../D/3680.html' title='Multiple defined in 2 places.'>rb_node</a>(<a href='../S/146.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_map_t</a>)      rb_link;
+<a name='L77'>                <i><font color='green'>/*</font></i>
+<a name='L78'><i><font color='green'>                 * List of runs currently in purgatory.  arena_chunk_purge()</font></i>
+<a name='L79'><i><font color='green'>                 * temporarily allocates runs that contain dirty pages while</font></i>
+<a name='L80'><i><font color='green'>                 * purging, so that other threads cannot use the runs while the</font></i>
+<a name='L81'><i><font color='green'>                 * purging thread is operating without the arena lock held.</font></i>
+<a name='L82'><i><font color='green'>                 */</font></i>
+<a name='L83'>                <a href='../S/136.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_elm</a>(<a href='../S/146.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_map_t</a>)       ql_link;
+<a name='L84'>        <font color='red'>}</font>                               u;
+<a name='L85'>
+<a name='L86'>        <i><font color='green'>/* Profile counters, used for large object runs. */</font></i>
+<a name='L87'>        <a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a>                      *prof_ctx;
+<a name='L88'><font color='darkred'>#ifndef</font> JEMALLOC_PROF
+<a name='L89'>        <font color='red'>}</font>; <i><font color='green'>/* union { ... }; */</font></i>
+<a name='L90'><font color='darkred'>#endif</font>
+<a name='L91'>
+<a name='L92'>        <i><font color='green'>/*</font></i>
+<a name='L93'><i><font color='green'>         * Run address (or size) and various flags are stored together.  The bit</font></i>
+<a name='L94'><i><font color='green'>         * layout looks like (assuming 32-bit system):</font></i>
+<a name='L95'><i><font color='green'>         *</font></i>
+<a name='L96'><i><font color='green'>         *   ???????? ???????? ????nnnn nnnndula</font></i>
+<a name='L97'><i><font color='green'>         *</font></i>
+<a name='L98'><i><font color='green'>         * ? : Unallocated: Run address for first/last pages, unset for internal</font></i>
+<a name='L99'><i><font color='green'>         *                  pages.</font></i>
+<a name='L100'><i><font color='green'>         *     Small: Run page offset.</font></i>
+<a name='L101'><i><font color='green'>         *     Large: Run size for first page, unset for trailing pages.</font></i>
+<a name='L102'><i><font color='green'>         * n : binind for small size class, BININD_INVALID for large size class.</font></i>
+<a name='L103'><i><font color='green'>         * d : dirty?</font></i>
+<a name='L104'><i><font color='green'>         * u : unzeroed?</font></i>
+<a name='L105'><i><font color='green'>         * l : large?</font></i>
+<a name='L106'><i><font color='green'>         * a : allocated?</font></i>
+<a name='L107'><i><font color='green'>         *</font></i>
+<a name='L108'><i><font color='green'>         * Following are example bit patterns for the three types of runs.</font></i>
+<a name='L109'><i><font color='green'>         *</font></i>
+<a name='L110'><i><font color='green'>         * p : run page offset</font></i>
+<a name='L111'><i><font color='green'>         * s : run size</font></i>
+<a name='L112'><i><font color='green'>         * n : binind for size class; large objects set these to BININD_INVALID</font></i>
+<a name='L113'><i><font color='green'>         *     except for promoted allocations (see prof_promote)</font></i>
+<a name='L114'><i><font color='green'>         * x : don't care</font></i>
+<a name='L115'><i><font color='green'>         * - : 0</font></i>
+<a name='L116'><i><font color='green'>         * + : 1</font></i>
+<a name='L117'><i><font color='green'>         * [DULA] : bit set</font></i>
+<a name='L118'><i><font color='green'>         * [dula] : bit unset</font></i>
+<a name='L119'><i><font color='green'>         *</font></i>
+<a name='L120'><i><font color='green'>         *   Unallocated (clean):</font></i>
+<a name='L121'><i><font color='green'>         *     ssssssss ssssssss ssss++++ ++++du-a</font></i>
+<a name='L122'><i><font color='green'>         *     xxxxxxxx xxxxxxxx xxxxxxxx xxxx-Uxx</font></i>
+<a name='L123'><i><font color='green'>         *     ssssssss ssssssss ssss++++ ++++dU-a</font></i>
+<a name='L124'><i><font color='green'>         *</font></i>
+<a name='L125'><i><font color='green'>         *   Unallocated (dirty):</font></i>
+<a name='L126'><i><font color='green'>         *     ssssssss ssssssss ssss++++ ++++D--a</font></i>
+<a name='L127'><i><font color='green'>         *     xxxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx</font></i>
+<a name='L128'><i><font color='green'>         *     ssssssss ssssssss ssss++++ ++++D--a</font></i>
+<a name='L129'><i><font color='green'>         *</font></i>
+<a name='L130'><i><font color='green'>         *   Small:</font></i>
+<a name='L131'><i><font color='green'>         *     pppppppp pppppppp ppppnnnn nnnnd--A</font></i>
+<a name='L132'><i><font color='green'>         *     pppppppp pppppppp ppppnnnn nnnn---A</font></i>
+<a name='L133'><i><font color='green'>         *     pppppppp pppppppp ppppnnnn nnnnd--A</font></i>
+<a name='L134'><i><font color='green'>         *</font></i>
+<a name='L135'><i><font color='green'>         *   Large:</font></i>
+<a name='L136'><i><font color='green'>         *     ssssssss ssssssss ssss++++ ++++D-LA</font></i>
+<a name='L137'><i><font color='green'>         *     xxxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx</font></i>
+<a name='L138'><i><font color='green'>         *     -------- -------- ----++++ ++++D-LA</font></i>
+<a name='L139'><i><font color='green'>         *</font></i>
+<a name='L140'><i><font color='green'>         *   Large (sampled, size &lt;= PAGE):</font></i>
+<a name='L141'><i><font color='green'>         *     ssssssss ssssssss ssssnnnn nnnnD-LA</font></i>
+<a name='L142'><i><font color='green'>         *</font></i>
+<a name='L143'><i><font color='green'>         *   Large (not sampled, size == PAGE):</font></i>
+<a name='L144'><i><font color='green'>         *     ssssssss ssssssss ssss++++ ++++D-LA</font></i>
+<a name='L145'><i><font color='green'>         */</font></i>
+<a name='L146'>        size_t                          bits;
+<a name='L147'><font color='darkred'>#define</font> <a href='../R/69.html' title='Multiple refered from 4 places.'>CHUNK_MAP_BININD_SHIFT</a>  4
+<a name='L148'><font color='darkred'>#define</font> <a href='../R/38.html' title='Multiple refered from 15 places.'>BININD_INVALID</a>          ((size_t)0xffU)
+<a name='L149'><i><font color='green'>/*     CHUNK_MAP_BININD_MASK == (BININD_INVALID &lt;&lt; CHUNK_MAP_BININD_SHIFT) */</font></i>
+<a name='L150'><font color='darkred'>#define</font> <a href='../R/68.html' title='Multiple refered from 4 places.'>CHUNK_MAP_BININD_MASK</a>   ((size_t)0xff0U)
+<a name='L151'><font color='darkred'>#define</font> <a href='../R/67.html' title='Multiple refered from 2 places.'>CHUNK_MAP_BININD_INVALID</a> <a href='../S/146.html#L150' title='Defined at 150 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_BININD_MASK</a>
+<a name='L152'><font color='darkred'>#define</font> <a href='../S/146.html#L593' title='Refered from 593 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_FLAGS_MASK</a>    ((size_t)0xcU)
+<a name='L153'><font color='darkred'>#define</font> <a href='../R/70.html' title='Multiple refered from 9 places.'>CHUNK_MAP_DIRTY</a>         ((size_t)0x8U)
+<a name='L154'><font color='darkred'>#define</font> <a href='../R/74.html' title='Multiple refered from 7 places.'>CHUNK_MAP_UNZEROED</a>      ((size_t)0x4U)
+<a name='L155'><font color='darkred'>#define</font> <a href='../R/73.html' title='Multiple refered from 10 places.'>CHUNK_MAP_LARGE</a>         ((size_t)0x2U)
+<a name='L156'><font color='darkred'>#define</font> <a href='../R/66.html' title='Multiple refered from 12 places.'>CHUNK_MAP_ALLOCATED</a>     ((size_t)0x1U)
+<a name='L157'><font color='darkred'>#define</font> <a href='../R/72.html' title='Multiple refered from 2 places.'>CHUNK_MAP_KEY</a>           <a href='../S/146.html#L156' title='Defined at 156 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_ALLOCATED</a>
+<a name='L158'><font color='red'>}</font>;
+<a name='L159'><b>typedef</b> <a href='../S/129.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rb_tree</a>(arena_chunk_map_t) <a href='../R/1306.html' title='Multiple refered from 2 places.'>arena_avail_tree_t</a>;
+<a name='L160'><b>typedef</b> <a href='../S/129.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rb_tree</a>(arena_chunk_map_t) <a href='../R/1389.html' title='Multiple refered from 2 places.'>arena_run_tree_t</a>;
+<a name='L161'>
+<a name='L162'><i><font color='green'>/* Arena chunk header. */</font></i>
+<a name='L163'><b>struct</b> <a href='../S/146.html#L47' title='Refered from 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_s</a> <font color='red'>{</font>
+<a name='L164'>        <i><font color='green'>/* Arena that owns the chunk. */</font></i>
+<a name='L165'>        <a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a>                 *arena;
+<a name='L166'>
+<a name='L167'>        <i><font color='green'>/* Linkage for tree of arena chunks that contain dirty runs. */</font></i>
+<a name='L168'>        <a href='../D/3680.html' title='Multiple defined in 2 places.'>rb_node</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a>)  dirty_link;
+<a name='L169'>
+<a name='L170'>        <i><font color='green'>/* Number of dirty pages. */</font></i>
+<a name='L171'>        size_t                  ndirty;
+<a name='L172'>
+<a name='L173'>        <i><font color='green'>/* Number of available runs. */</font></i>
+<a name='L174'>        size_t                  nruns_avail;
+<a name='L175'>
+<a name='L176'>        <i><font color='green'>/*</font></i>
+<a name='L177'><i><font color='green'>         * Number of available run adjacencies.  Clean and dirty available runs</font></i>
+<a name='L178'><i><font color='green'>         * are not coalesced, which causes virtual memory fragmentation.  The</font></i>
+<a name='L179'><i><font color='green'>         * ratio of (nruns_avail-nruns_adjac):nruns_adjac is used for tracking</font></i>
+<a name='L180'><i><font color='green'>         * this fragmentation.</font></i>
+<a name='L181'><i><font color='green'>         * */</font></i>
+<a name='L182'>        size_t                  nruns_adjac;
+<a name='L183'>
+<a name='L184'>        <i><font color='green'>/*</font></i>
+<a name='L185'><i><font color='green'>         * Map of pages within chunk that keeps track of free/large/small.  The</font></i>
+<a name='L186'><i><font color='green'>         * first map_bias entries are omitted, since the chunk header does not</font></i>
+<a name='L187'><i><font color='green'>         * need to be tracked in the map.  This omission saves a header page</font></i>
+<a name='L188'><i><font color='green'>         * for common chunk sizes (e.g. 4 MiB).</font></i>
+<a name='L189'><i><font color='green'>         */</font></i>
+<a name='L190'>        <a href='../S/146.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_map_t</a>       map[1]; <i><font color='green'>/* Dynamically sized. */</font></i>
+<a name='L191'><font color='red'>}</font>;
+<a name='L192'><b>typedef</b> <a href='../S/129.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rb_tree</a>(arena_chunk_t) <a href='../R/1328.html' title='Multiple refered from 4 places.'>arena_chunk_tree_t</a>;
+<a name='L193'>
+<a name='L194'><b>struct</b> <a href='../S/146.html#L48' title='Refered from 48 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_run_s</a> <font color='red'>{</font>
+<a name='L195'>        <i><font color='green'>/* Bin this run is associated with. */</font></i>
+<a name='L196'>        <a href='../S/146.html#L50' title='Defined at 50 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_bin_t</a>     *bin;
+<a name='L197'>
+<a name='L198'>        <i><font color='green'>/* Index of next region that has never been allocated, or nregs. */</font></i>
+<a name='L199'>        <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a>        nextind;
+<a name='L200'>
+<a name='L201'>        <i><font color='green'>/* Number of free regions in run. */</font></i>
+<a name='L202'>        <b>unsigned</b>        nfree;
+<a name='L203'><font color='red'>}</font>;
+<a name='L204'>
+<a name='L205'><i><font color='green'>/*</font></i>
+<a name='L206'><i><font color='green'> * Read-only information associated with each element of arena_t's bins array</font></i>
+<a name='L207'><i><font color='green'> * is stored separately, partly to reduce memory usage (only one copy, rather</font></i>
+<a name='L208'><i><font color='green'> * than one per arena), but mainly to avoid false cacheline sharing.</font></i>
+<a name='L209'><i><font color='green'> *</font></i>
+<a name='L210'><i><font color='green'> * Each run has the following layout:</font></i>
+<a name='L211'><i><font color='green'> *</font></i>
+<a name='L212'><i><font color='green'> *               /--------------------\</font></i>
+<a name='L213'><i><font color='green'> *               | arena_run_t header |</font></i>
+<a name='L214'><i><font color='green'> *               | ...                |</font></i>
+<a name='L215'><i><font color='green'> * bitmap_offset | bitmap             |</font></i>
+<a name='L216'><i><font color='green'> *               | ...                |</font></i>
+<a name='L217'><i><font color='green'> *   ctx0_offset | ctx map            |</font></i>
+<a name='L218'><i><font color='green'> *               | ...                |</font></i>
+<a name='L219'><i><font color='green'> *               |--------------------|</font></i>
+<a name='L220'><i><font color='green'> *               | redzone            |</font></i>
+<a name='L221'><i><font color='green'> *   reg0_offset | region 0           |</font></i>
+<a name='L222'><i><font color='green'> *               | redzone            |</font></i>
+<a name='L223'><i><font color='green'> *               |--------------------| \</font></i>
+<a name='L224'><i><font color='green'> *               | redzone            | |</font></i>
+<a name='L225'><i><font color='green'> *               | region 1           |  &gt; reg_interval</font></i>
+<a name='L226'><i><font color='green'> *               | redzone            | /</font></i>
+<a name='L227'><i><font color='green'> *               |--------------------|</font></i>
+<a name='L228'><i><font color='green'> *               | ...                |</font></i>
+<a name='L229'><i><font color='green'> *               | ...                |</font></i>
+<a name='L230'><i><font color='green'> *               | ...                |</font></i>
+<a name='L231'><i><font color='green'> *               |--------------------|</font></i>
+<a name='L232'><i><font color='green'> *               | redzone            |</font></i>
+<a name='L233'><i><font color='green'> *               | region nregs-1     |</font></i>
+<a name='L234'><i><font color='green'> *               | redzone            |</font></i>
+<a name='L235'><i><font color='green'> *               |--------------------|</font></i>
+<a name='L236'><i><font color='green'> *               | alignment pad?     |</font></i>
+<a name='L237'><i><font color='green'> *               \--------------------/</font></i>
+<a name='L238'><i><font color='green'> *</font></i>
+<a name='L239'><i><font color='green'> * reg_interval has at least the same minimum alignment as reg_size; this</font></i>
+<a name='L240'><i><font color='green'> * preserves the alignment constraint that sa2u() depends on.  Alignment pad is</font></i>
+<a name='L241'><i><font color='green'> * either 0 or redzone_size; it is present only if needed to align reg0_offset.</font></i>
+<a name='L242'><i><font color='green'> */</font></i>
+<a name='L243'><b>struct</b> <a href='../S/146.html#L49' title='Refered from 49 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_bin_info_s</a> <font color='red'>{</font>
+<a name='L244'>        <i><font color='green'>/* Size of regions in a run for this bin's size class. */</font></i>
+<a name='L245'>        size_t          reg_size;
+<a name='L246'>
+<a name='L247'>        <i><font color='green'>/* Redzone size. */</font></i>
+<a name='L248'>        size_t          redzone_size;
+<a name='L249'>
+<a name='L250'>        <i><font color='green'>/* Interval between regions (reg_size + (redzone_size &lt;&lt; 1)). */</font></i>
+<a name='L251'>        size_t          reg_interval;
+<a name='L252'>
+<a name='L253'>        <i><font color='green'>/* Total size of a run for this bin's size class. */</font></i>
+<a name='L254'>        size_t          run_size;
+<a name='L255'>
+<a name='L256'>        <i><font color='green'>/* Total number of regions in a run for this bin's size class. */</font></i>
+<a name='L257'>        <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a>        nregs;
+<a name='L258'>
+<a name='L259'>        <i><font color='green'>/*</font></i>
+<a name='L260'><i><font color='green'>         * Offset of first bitmap_t element in a run header for this bin's size</font></i>
+<a name='L261'><i><font color='green'>         * class.</font></i>
+<a name='L262'><i><font color='green'>         */</font></i>
+<a name='L263'>        <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a>        bitmap_offset;
+<a name='L264'>
+<a name='L265'>        <i><font color='green'>/*</font></i>
+<a name='L266'><i><font color='green'>         * Metadata used to manipulate bitmaps for runs associated with this</font></i>
+<a name='L267'><i><font color='green'>         * bin.</font></i>
+<a name='L268'><i><font color='green'>         */</font></i>
+<a name='L269'>        <a href='../S/133.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>bitmap_info_t</a>   bitmap_info;
+<a name='L270'>
+<a name='L271'>        <i><font color='green'>/*</font></i>
+<a name='L272'><i><font color='green'>         * Offset of first (prof_ctx_t *) in a run header for this bin's size</font></i>
+<a name='L273'><i><font color='green'>         * class, or 0 if (config_prof == false || opt_prof == false).</font></i>
+<a name='L274'><i><font color='green'>         */</font></i>
+<a name='L275'>        <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a>        ctx0_offset;
+<a name='L276'>
+<a name='L277'>        <i><font color='green'>/* Offset of first region in a run for this bin's size class. */</font></i>
+<a name='L278'>        <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a>        reg0_offset;
+<a name='L279'><font color='red'>}</font>;
+<a name='L280'>
+<a name='L281'><b>struct</b> <a href='../S/146.html#L50' title='Refered from 50 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_bin_s</a> <font color='red'>{</font>
+<a name='L282'>        <i><font color='green'>/*</font></i>
+<a name='L283'><i><font color='green'>         * All operations on runcur, runs, and stats require that lock be</font></i>
+<a name='L284'><i><font color='green'>         * locked.  Run allocation/deallocation are protected by the arena lock,</font></i>
+<a name='L285'><i><font color='green'>         * which may be acquired while holding one or more bin locks, but not</font></i>
+<a name='L286'><i><font color='green'>         * vise versa.</font></i>
+<a name='L287'><i><font color='green'>         */</font></i>
+<a name='L288'>        <a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a>  lock;
+<a name='L289'>
+<a name='L290'>        <i><font color='green'>/*</font></i>
+<a name='L291'><i><font color='green'>         * Current run being used to service allocations of this bin's size</font></i>
+<a name='L292'><i><font color='green'>         * class.</font></i>
+<a name='L293'><i><font color='green'>         */</font></i>
+<a name='L294'>        <a href='../S/146.html#L48' title='Defined at 48 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_run_t</a>     *runcur;
+<a name='L295'>
+<a name='L296'>        <i><font color='green'>/*</font></i>
+<a name='L297'><i><font color='green'>         * Tree of non-full runs.  This tree is used when looking for an</font></i>
+<a name='L298'><i><font color='green'>         * existing run when runcur is no longer usable.  We choose the</font></i>
+<a name='L299'><i><font color='green'>         * non-full run that is lowest in memory; this policy tends to keep</font></i>
+<a name='L300'><i><font color='green'>         * objects packed well, and it can also help reduce the number of</font></i>
+<a name='L301'><i><font color='green'>         * almost-empty chunks.</font></i>
+<a name='L302'><i><font color='green'>         */</font></i>
+<a name='L303'>        <a href='../S/146.html#L160' title='Defined at 160 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_run_tree_t</a> runs;
+<a name='L304'>
+<a name='L305'>        <i><font color='green'>/* Bin statistics. */</font></i>
+<a name='L306'>        <a href='../S/137.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/stats.h.'>malloc_bin_stats_t</a> stats;
+<a name='L307'><font color='red'>}</font>;
+<a name='L308'>
+<a name='L309'><b>struct</b> <a href='../S/146.html#L51' title='Refered from 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_s</a> <font color='red'>{</font>
+<a name='L310'>        <i><font color='green'>/* This arena's index within the arenas array. */</font></i>
+<a name='L311'>        <b>unsigned</b>                ind;
+<a name='L312'>
+<a name='L313'>        <i><font color='green'>/*</font></i>
+<a name='L314'><i><font color='green'>         * Number of threads currently assigned to this arena.  This field is</font></i>
+<a name='L315'><i><font color='green'>         * protected by arenas_lock.</font></i>
+<a name='L316'><i><font color='green'>         */</font></i>
+<a name='L317'>        <b>unsigned</b>                nthreads;
+<a name='L318'>
+<a name='L319'>        <i><font color='green'>/*</font></i>
+<a name='L320'><i><font color='green'>         * There are three classes of arena operations from a locking</font></i>
+<a name='L321'><i><font color='green'>         * perspective:</font></i>
+<a name='L322'><i><font color='green'>         * 1) Thread asssignment (modifies nthreads) is protected by</font></i>
+<a name='L323'><i><font color='green'>         *    arenas_lock.</font></i>
+<a name='L324'><i><font color='green'>         * 2) Bin-related operations are protected by bin locks.</font></i>
+<a name='L325'><i><font color='green'>         * 3) Chunk- and run-related operations are protected by this mutex.</font></i>
+<a name='L326'><i><font color='green'>         */</font></i>
+<a name='L327'>        <a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a>          lock;
+<a name='L328'>
+<a name='L329'>        <a href='../S/137.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/stats.h.'>arena_stats_t</a>           stats;
+<a name='L330'>        <i><font color='green'>/*</font></i>
+<a name='L331'><i><font color='green'>         * List of tcaches for extant threads associated with this arena.</font></i>
+<a name='L332'><i><font color='green'>         * Stats from these are merged incrementally, and at exit.</font></i>
+<a name='L333'><i><font color='green'>         */</font></i>
+<a name='L334'>        <a href='../S/136.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_head</a>(<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a>)       tcache_ql;
+<a name='L335'>
+<a name='L336'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>                prof_accumbytes;
+<a name='L337'>
+<a name='L338'>        <a href='../S/130.html#L10' title='Defined at 10 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>dss_prec_t</a>              dss_prec;
+<a name='L339'>
+<a name='L340'>        <i><font color='green'>/* Tree of dirty-page-containing chunks this arena manages. */</font></i>
+<a name='L341'>        <a href='../S/146.html#L192' title='Defined at 192 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_tree_t</a>      chunks_dirty;
+<a name='L342'>
+<a name='L343'>        <i><font color='green'>/*</font></i>
+<a name='L344'><i><font color='green'>         * In order to avoid rapid chunk allocation/deallocation when an arena</font></i>
+<a name='L345'><i><font color='green'>         * oscillates right on the cusp of needing a new chunk, cache the most</font></i>
+<a name='L346'><i><font color='green'>         * recently freed chunk.  The spare is left in the arena's chunk trees</font></i>
+<a name='L347'><i><font color='green'>         * until it is deleted.</font></i>
+<a name='L348'><i><font color='green'>         *</font></i>
+<a name='L349'><i><font color='green'>         * There is one spare chunk per arena, rather than one spare total, in</font></i>
+<a name='L350'><i><font color='green'>         * order to avoid interactions between multiple threads that could make</font></i>
+<a name='L351'><i><font color='green'>         * a single spare inadequate.</font></i>
+<a name='L352'><i><font color='green'>         */</font></i>
+<a name='L353'>        <a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a>           *spare;
+<a name='L354'>
+<a name='L355'>        <i><font color='green'>/* Number of pages in active runs. */</font></i>
+<a name='L356'>        size_t                  nactive;
+<a name='L357'>
+<a name='L358'>        <i><font color='green'>/*</font></i>
+<a name='L359'><i><font color='green'>         * Current count of pages within unused runs that are potentially</font></i>
+<a name='L360'><i><font color='green'>         * dirty, and for which madvise(... MADV_DONTNEED) has not been called.</font></i>
+<a name='L361'><i><font color='green'>         * By tracking this, we can institute a limit on how much dirty unused</font></i>
+<a name='L362'><i><font color='green'>         * memory is mapped for each arena.</font></i>
+<a name='L363'><i><font color='green'>         */</font></i>
+<a name='L364'>        size_t                  ndirty;
+<a name='L365'>
+<a name='L366'>        <i><font color='green'>/*</font></i>
+<a name='L367'><i><font color='green'>         * Approximate number of pages being purged.  It is possible for</font></i>
+<a name='L368'><i><font color='green'>         * multiple threads to purge dirty pages concurrently, and they use</font></i>
+<a name='L369'><i><font color='green'>         * npurgatory to indicate the total number of pages all threads are</font></i>
+<a name='L370'><i><font color='green'>         * attempting to purge.</font></i>
+<a name='L371'><i><font color='green'>         */</font></i>
+<a name='L372'>        size_t                  npurgatory;
+<a name='L373'>
+<a name='L374'>        <i><font color='green'>/*</font></i>
+<a name='L375'><i><font color='green'>         * Size/address-ordered trees of this arena's available runs.  The trees</font></i>
+<a name='L376'><i><font color='green'>         * are used for first-best-fit run allocation.</font></i>
+<a name='L377'><i><font color='green'>         */</font></i>
+<a name='L378'>        <a href='../S/146.html#L159' title='Defined at 159 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_avail_tree_t</a>      runs_avail;
+<a name='L379'>
+<a name='L380'>        <i><font color='green'>/* bins is used to store trees of free regions. */</font></i>
+<a name='L381'>        <a href='../S/146.html#L50' title='Defined at 50 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_bin_t</a>             bins[NBINS];
+<a name='L382'><font color='red'>}</font>;
+<a name='L383'>
+<a name='L384'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_STRUCTS */</font></i>
+<a name='L385'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L386'><font color='darkred'>#ifdef</font> JEMALLOC_H_EXTERNS
+<a name='L387'>
+<a name='L388'><b>extern</b> ssize_t  <a href='../S/138.html#L241' title='Defined at 241 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_lg_dirty_mult</a>;
+<a name='L389'><i><font color='green'>/*</font></i>
+<a name='L390'><i><font color='green'> * small_size2bin is a compact lookup table that rounds request sizes up to</font></i>
+<a name='L391'><i><font color='green'> * size classes.  In order to reduce cache footprint, the table is compressed,</font></i>
+<a name='L392'><i><font color='green'> * and all accesses are via the SMALL_SIZE2BIN macro.</font></i>
+<a name='L393'><i><font color='green'> */</font></i>
+<a name='L394'><b>extern</b> <a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a> <b>const</b>    small_size2bin[];
+<a name='L395'><font color='darkred'>#define</font> <a href='../R/890.html' title='Multiple refered from 6 places.'>SMALL_SIZE2BIN</a>(s)       (small_size2bin[(s-1) &gt;&gt; LG_TINY_MIN])
+<a name='L396'>
+<a name='L397'><b>extern</b> <a href='../S/146.html#L49' title='Defined at 49 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_bin_info_t</a> <a href='../S/138.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arena_bin_info</a>[NBINS];
+<a name='L398'>
+<a name='L399'><i><font color='green'>/* Number of large size classes. */</font></i>
+<a name='L400'><font color='darkred'>#define</font>                 <a href='../R/3076.html' title='Multiple refered from 8 places.'>nlclasses</a> (<a href='../S/138.html#L109' title='Defined at 109 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunk_npages</a> - <a href='../S/138.html#L230' title='Defined at 230 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>map_bias</a>)
+<a name='L401'>
+<a name='L402'><b>void</b>    <a href='../D/1641.html' title='Multiple defined in 2 places.'>arena_purge_all</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena);
+<a name='L403'><b>void</b>    <a href='../D/1635.html' title='Multiple defined in 2 places.'>arena_prof_accum</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> accumbytes);
+<a name='L404'><b>void</b>    <a href='../D/1666.html' title='Multiple defined in 2 places.'>arena_tcache_fill_small</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, <a href='../S/151.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_bin_t</a> *tbin,
+<a name='L405'>    size_t binind, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> prof_accumbytes);
+<a name='L406'><b>void</b>    <a href='../D/1565.html' title='Multiple defined in 2 places.'>arena_alloc_junk_small</a>(<b>void</b> *ptr, <a href='../S/146.html#L49' title='Defined at 49 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_bin_info_t</a> *bin_info,
+<a name='L407'>    bool zero);
+<a name='L408'><b>void</b>    <a href='../D/1598.html' title='Multiple defined in 2 places.'>arena_dalloc_junk_small</a>(<b>void</b> *ptr, <a href='../S/146.html#L49' title='Defined at 49 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_bin_info_t</a> *bin_info);
+<a name='L409'><b>void</b>    *<a href='../D/1610.html' title='Multiple defined in 2 places.'>arena_malloc_small</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, size_t size, bool zero);
+<a name='L410'><b>void</b>    *<a href='../D/1609.html' title='Multiple defined in 2 places.'>arena_malloc_large</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, size_t size, bool zero);
+<a name='L411'><b>void</b>    *<a href='../D/1631.html' title='Multiple defined in 2 places.'>arena_palloc</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, size_t size, size_t alignment, bool zero);
+<a name='L412'><b>void</b>    <a href='../D/1638.html' title='Multiple defined in 2 places.'>arena_prof_promoted</a>(<b>const</b> <b>void</b> *ptr, size_t size);
+<a name='L413'><b>void</b>    <a href='../D/1596.html' title='Multiple defined in 2 places.'>arena_dalloc_bin_locked</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, <a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, <b>void</b> *ptr,
+<a name='L414'>    <a href='../S/146.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_map_t</a> *mapelm);
+<a name='L415'><b>void</b>    <a href='../D/1595.html' title='Multiple defined in 2 places.'>arena_dalloc_bin</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, <a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, <b>void</b> *ptr,
+<a name='L416'>    size_t pageind, <a href='../S/146.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_map_t</a> *mapelm);
+<a name='L417'><b>void</b>    <a href='../D/1601.html' title='Multiple defined in 2 places.'>arena_dalloc_small</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, <a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, <b>void</b> *ptr,
+<a name='L418'>    size_t pageind);
+<a name='L419'><b>void</b>    <a href='../D/1600.html' title='Multiple defined in 2 places.'>arena_dalloc_large_locked</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, <a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk,
+<a name='L420'>    <b>void</b> *ptr);
+<a name='L421'><b>void</b>    <a href='../D/1599.html' title='Multiple defined in 2 places.'>arena_dalloc_large</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, <a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, <b>void</b> *ptr);
+<a name='L422'><b>void</b>    *<a href='../D/1646.html' title='Multiple defined in 2 places.'>arena_ralloc_no_move</a>(<b>void</b> *ptr, size_t oldsize, size_t size,
+<a name='L423'>    size_t extra, bool zero);
+<a name='L424'><b>void</b>    *<a href='../D/1642.html' title='Multiple defined in 2 places.'>arena_ralloc</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, <b>void</b> *ptr, size_t oldsize, size_t size,
+<a name='L425'>    size_t extra, size_t alignment, bool zero, bool try_tcache_alloc,
+<a name='L426'>    bool try_tcache_dalloc);
+<a name='L427'><a href='../S/130.html#L10' title='Defined at 10 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>dss_prec_t</a>      <a href='../D/1603.html' title='Multiple defined in 2 places.'>arena_dss_prec_get</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena);
+<a name='L428'><b>void</b>    <a href='../D/1604.html' title='Multiple defined in 2 places.'>arena_dss_prec_set</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, <a href='../S/130.html#L10' title='Defined at 10 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>dss_prec_t</a> dss_prec);
+<a name='L429'><b>void</b>    <a href='../D/1662.html' title='Multiple defined in 2 places.'>arena_stats_merge</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, <b>const</b> <b>char</b> **dss, size_t *nactive,
+<a name='L430'>    size_t *ndirty, <a href='../S/137.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/stats.h.'>arena_stats_t</a> *astats, <a href='../S/137.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/stats.h.'>malloc_bin_stats_t</a> *bstats,
+<a name='L431'>    <a href='../S/137.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/stats.h.'>malloc_large_stats_t</a> *lstats);
+<a name='L432'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>    <a href='../D/1630.html' title='Multiple defined in 2 places.'>arena_new</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, <b>unsigned</b> ind);
+<a name='L433'><b>void</b>    <a href='../D/1584.html' title='Multiple defined in 2 places.'>arena_boot</a>(<b>void</b>);
+<a name='L434'><b>void</b>    <a href='../D/1634.html' title='Multiple defined in 2 places.'>arena_prefork</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena);
+<a name='L435'><b>void</b>    <a href='../D/1633.html' title='Multiple defined in 2 places.'>arena_postfork_parent</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena);
+<a name='L436'><b>void</b>    <a href='../D/1632.html' title='Multiple defined in 2 places.'>arena_postfork_child</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena);
+<a name='L437'>
+<a name='L438'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_EXTERNS */</font></i>
+<a name='L439'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L440'><font color='darkred'>#ifdef</font> JEMALLOC_H_INLINES
+<a name='L441'>
+<a name='L442'><font color='darkred'>#ifndef</font> JEMALLOC_ENABLE_INLINE
+<a name='L443'><a href='../S/146.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_map_t</a>       *<a href='../D/1627.html' title='Multiple defined in 2 places.'>arena_mapp_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind);
+<a name='L444'>size_t  *<a href='../D/1626.html' title='Multiple defined in 2 places.'>arena_mapbitsp_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind);
+<a name='L445'>size_t  <a href='../D/1614.html' title='Multiple defined in 2 places.'>arena_mapbits_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind);
+<a name='L446'>size_t  <a href='../D/1622.html' title='Multiple defined in 2 places.'>arena_mapbits_unallocated_size_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk,
+<a name='L447'>    size_t pageind);
+<a name='L448'>size_t  <a href='../D/1618.html' title='Multiple defined in 2 places.'>arena_mapbits_large_size_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind);
+<a name='L449'>size_t  <a href='../D/1619.html' title='Multiple defined in 2 places.'>arena_mapbits_small_runind_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind);
+<a name='L450'>size_t  <a href='../D/1612.html' title='Multiple defined in 2 places.'>arena_mapbits_binind_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind);
+<a name='L451'>size_t  <a href='../D/1613.html' title='Multiple defined in 2 places.'>arena_mapbits_dirty_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind);
+<a name='L452'>size_t  <a href='../D/1624.html' title='Multiple defined in 2 places.'>arena_mapbits_unzeroed_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind);
+<a name='L453'>size_t  <a href='../D/1616.html' title='Multiple defined in 2 places.'>arena_mapbits_large_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind);
+<a name='L454'>size_t  <a href='../D/1611.html' title='Multiple defined in 2 places.'>arena_mapbits_allocated_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind);
+<a name='L455'><b>void</b>    <a href='../D/1621.html' title='Multiple defined in 2 places.'>arena_mapbits_unallocated_set</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind,
+<a name='L456'>    size_t size, size_t flags);
+<a name='L457'><b>void</b>    <a href='../D/1623.html' title='Multiple defined in 2 places.'>arena_mapbits_unallocated_size_set</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind,
+<a name='L458'>    size_t size);
+<a name='L459'><b>void</b>    <a href='../D/1617.html' title='Multiple defined in 2 places.'>arena_mapbits_large_set</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind,
+<a name='L460'>    size_t size, size_t flags);
+<a name='L461'><b>void</b>    <a href='../D/1615.html' title='Multiple defined in 2 places.'>arena_mapbits_large_binind_set</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind,
+<a name='L462'>    size_t binind);
+<a name='L463'><b>void</b>    <a href='../D/1620.html' title='Multiple defined in 2 places.'>arena_mapbits_small_set</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind,
+<a name='L464'>    size_t runind, size_t binind, size_t flags);
+<a name='L465'><b>void</b>    <a href='../D/1625.html' title='Multiple defined in 2 places.'>arena_mapbits_unzeroed_set</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind,
+<a name='L466'>    size_t unzeroed);
+<a name='L467'>size_t  <a href='../D/1639.html' title='Multiple defined in 2 places.'>arena_ptr_small_binind_get</a>(<b>const</b> <b>void</b> *ptr, size_t mapbits);
+<a name='L468'>size_t  <a href='../D/1571.html' title='Multiple defined in 2 places.'>arena_bin_index</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, <a href='../S/146.html#L50' title='Defined at 50 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_bin_t</a> *bin);
+<a name='L469'><b>unsigned</b>        <a href='../D/1653.html' title='Multiple defined in 2 places.'>arena_run_regind</a>(<a href='../S/146.html#L48' title='Defined at 48 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_run_t</a> *run, <a href='../S/146.html#L49' title='Defined at 49 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_bin_info_t</a> *bin_info,
+<a name='L470'>    <b>const</b> <b>void</b> *ptr);
+<a name='L471'><a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a>      *<a href='../D/1636.html' title='Multiple defined in 2 places.'>arena_prof_ctx_get</a>(<b>const</b> <b>void</b> *ptr);
+<a name='L472'><b>void</b>    <a href='../D/1637.html' title='Multiple defined in 2 places.'>arena_prof_ctx_set</a>(<b>const</b> <b>void</b> *ptr, <a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> *ctx);
+<a name='L473'><b>void</b>    *<a href='../D/1608.html' title='Multiple defined in 2 places.'>arena_malloc</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, size_t size, bool zero, bool try_tcache);
+<a name='L474'>size_t  <a href='../D/1661.html' title='Multiple defined in 2 places.'>arena_salloc</a>(<b>const</b> <b>void</b> *ptr, bool demote);
+<a name='L475'><b>void</b>    <a href='../D/1594.html' title='Multiple defined in 2 places.'>arena_dalloc</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, <a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, <b>void</b> *ptr,
+<a name='L476'>    bool try_tcache);
+<a name='L477'><font color='darkred'>#endif</font>
+<a name='L478'>
+<a name='L479'><font color='darkred'>#if</font> (<b>defined</b>(JEMALLOC_ENABLE_INLINE) || <b>defined</b>(<a href='../S/203.html#L1' title='Defined at 1 in deps/jemalloc/src/arena.c.'>JEMALLOC_ARENA_C_</a>))
+<a name='L480'><font color='darkred'>#  ifdef</font> JEMALLOC_ARENA_INLINE_A
+<a name='L481'>JEMALLOC_INLINE <a href='../S/146.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_map_t</a> *
+<a name='L482'><a href='../R/1360.html' title='Multiple refered from 14 places.'>arena_mapp_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind)
+<a name='L483'><font color='red'>{</font>
+<a name='L484'>
+<a name='L485'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(pageind &gt;= <a href='../S/138.html#L230' title='Defined at 230 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>map_bias</a>);
+<a name='L486'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(pageind &lt; <a href='../S/138.html#L109' title='Defined at 109 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunk_npages</a>);
+<a name='L487'>
+<a name='L488'>        <b>return</b> (&amp;<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>-&gt;map[pageind-<a href='../S/138.html#L230' title='Defined at 230 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>map_bias</a>]);
+<a name='L489'><font color='red'>}</font>
+<a name='L490'>
+<a name='L491'>JEMALLOC_INLINE size_t *
+<a name='L492'><a href='../R/1359.html' title='Multiple refered from 9 places.'>arena_mapbitsp_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind)
+<a name='L493'><font color='red'>{</font>
+<a name='L494'>
+<a name='L495'>        <b>return</b> (&amp;<a href='../D/1627.html' title='Multiple defined in 2 places.'>arena_mapp_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind)-&gt;bits);
+<a name='L496'><font color='red'>}</font>
+<a name='L497'>
+<a name='L498'>JEMALLOC_INLINE size_t
+<a name='L499'><a href='../R/1347.html' title='Multiple refered from 17 places.'>arena_mapbits_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind)
+<a name='L500'><font color='red'>{</font>
+<a name='L501'>
+<a name='L502'>        <b>return</b> (*<a href='../D/1626.html' title='Multiple defined in 2 places.'>arena_mapbitsp_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind));
+<a name='L503'><font color='red'>}</font>
+<a name='L504'>
+<a name='L505'>JEMALLOC_INLINE size_t
+<a name='L506'><a href='../R/1355.html' title='Multiple refered from 17 places.'>arena_mapbits_unallocated_size_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind)
+<a name='L507'><font color='red'>{</font>
+<a name='L508'>        size_t mapbits;
+<a name='L509'>
+<a name='L510'>        mapbits = <a href='../D/1614.html' title='Multiple defined in 2 places.'>arena_mapbits_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L511'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((mapbits &amp; (<a href='../S/146.html#L155' title='Defined at 155 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_LARGE</a>|<a href='../S/146.html#L156' title='Defined at 156 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_ALLOCATED</a>)) == 0);
+<a name='L512'>        <b>return</b> (mapbits &amp; ~PAGE_MASK);
+<a name='L513'><font color='red'>}</font>
+<a name='L514'>
+<a name='L515'>JEMALLOC_INLINE size_t
+<a name='L516'><a href='../R/1351.html' title='Multiple refered from 16 places.'>arena_mapbits_large_size_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind)
+<a name='L517'><font color='red'>{</font>
+<a name='L518'>        size_t mapbits;
+<a name='L519'>
+<a name='L520'>        mapbits = <a href='../D/1614.html' title='Multiple defined in 2 places.'>arena_mapbits_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L521'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((mapbits &amp; (<a href='../S/146.html#L155' title='Defined at 155 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_LARGE</a>|<a href='../S/146.html#L156' title='Defined at 156 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_ALLOCATED</a>)) ==
+<a name='L522'>            (<a href='../S/146.html#L155' title='Defined at 155 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_LARGE</a>|<a href='../S/146.html#L156' title='Defined at 156 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_ALLOCATED</a>));
+<a name='L523'>        <b>return</b> (mapbits &amp; ~PAGE_MASK);
+<a name='L524'><font color='red'>}</font>
+<a name='L525'>
+<a name='L526'>JEMALLOC_INLINE size_t
+<a name='L527'><a href='../R/1352.html' title='Multiple refered from 6 places.'>arena_mapbits_small_runind_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind)
+<a name='L528'><font color='red'>{</font>
+<a name='L529'>        size_t mapbits;
+<a name='L530'>
+<a name='L531'>        mapbits = <a href='../D/1614.html' title='Multiple defined in 2 places.'>arena_mapbits_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L532'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((mapbits &amp; (<a href='../S/146.html#L155' title='Defined at 155 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_LARGE</a>|<a href='../S/146.html#L156' title='Defined at 156 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_ALLOCATED</a>)) ==
+<a name='L533'>            <a href='../S/146.html#L156' title='Defined at 156 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_ALLOCATED</a>);
+<a name='L534'>        <b>return</b> (mapbits &gt;&gt; LG_PAGE);
+<a name='L535'><font color='red'>}</font>
+<a name='L536'>
+<a name='L537'>JEMALLOC_INLINE size_t
+<a name='L538'><a href='../R/1345.html' title='Multiple refered from 4 places.'>arena_mapbits_binind_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind)
+<a name='L539'><font color='red'>{</font>
+<a name='L540'>        size_t mapbits;
+<a name='L541'>        size_t binind;
+<a name='L542'>
+<a name='L543'>        mapbits = <a href='../D/1614.html' title='Multiple defined in 2 places.'>arena_mapbits_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L544'>        binind = (mapbits &amp; <a href='../S/146.html#L150' title='Defined at 150 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_BININD_MASK</a>) &gt;&gt; <a href='../S/146.html#L147' title='Defined at 147 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_BININD_SHIFT</a>;
+<a name='L545'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(binind &lt; NBINS || binind == <a href='../S/146.html#L148' title='Defined at 148 in deps/jemalloc/include/jemalloc/internal/arena.h.'>BININD_INVALID</a>);
+<a name='L546'>        <b>return</b> (binind);
+<a name='L547'><font color='red'>}</font>
+<a name='L548'>
+<a name='L549'>JEMALLOC_INLINE size_t
+<a name='L550'><a href='../R/1346.html' title='Multiple refered from 39 places.'>arena_mapbits_dirty_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind)
+<a name='L551'><font color='red'>{</font>
+<a name='L552'>        size_t mapbits;
+<a name='L553'>
+<a name='L554'>        mapbits = <a href='../D/1614.html' title='Multiple defined in 2 places.'>arena_mapbits_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L555'>        <b>return</b> (mapbits &amp; <a href='../S/146.html#L153' title='Defined at 153 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_DIRTY</a>);
+<a name='L556'><font color='red'>}</font>
+<a name='L557'>
+<a name='L558'>JEMALLOC_INLINE size_t
+<a name='L559'><a href='../R/1357.html' title='Multiple refered from 11 places.'>arena_mapbits_unzeroed_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind)
+<a name='L560'><font color='red'>{</font>
+<a name='L561'>        size_t mapbits;
+<a name='L562'>
+<a name='L563'>        mapbits = <a href='../D/1614.html' title='Multiple defined in 2 places.'>arena_mapbits_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L564'>        <b>return</b> (mapbits &amp; <a href='../S/146.html#L154' title='Defined at 154 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_UNZEROED</a>);
+<a name='L565'><font color='red'>}</font>
+<a name='L566'>
+<a name='L567'>JEMALLOC_INLINE size_t
+<a name='L568'><a href='../R/1349.html' title='Multiple refered from 7 places.'>arena_mapbits_large_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind)
+<a name='L569'><font color='red'>{</font>
+<a name='L570'>        size_t mapbits;
+<a name='L571'>
+<a name='L572'>        mapbits = <a href='../D/1614.html' title='Multiple defined in 2 places.'>arena_mapbits_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L573'>        <b>return</b> (mapbits &amp; <a href='../S/146.html#L155' title='Defined at 155 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_LARGE</a>);
+<a name='L574'><font color='red'>}</font>
+<a name='L575'>
+<a name='L576'>JEMALLOC_INLINE size_t
+<a name='L577'><a href='../R/1344.html' title='Multiple refered from 15 places.'>arena_mapbits_allocated_get</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind)
+<a name='L578'><font color='red'>{</font>
+<a name='L579'>        size_t mapbits;
+<a name='L580'>
+<a name='L581'>        mapbits = <a href='../D/1614.html' title='Multiple defined in 2 places.'>arena_mapbits_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L582'>        <b>return</b> (mapbits &amp; <a href='../S/146.html#L156' title='Defined at 156 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_ALLOCATED</a>);
+<a name='L583'><font color='red'>}</font>
+<a name='L584'>
+<a name='L585'>JEMALLOC_INLINE <b>void</b>
+<a name='L586'><a href='../R/1354.html' title='Multiple refered from 12 places.'>arena_mapbits_unallocated_set</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind, size_t size,
+<a name='L587'>    size_t flags)
+<a name='L588'><font color='red'>{</font>
+<a name='L589'>        size_t *mapbitsp;
+<a name='L590'>
+<a name='L591'>        mapbitsp = <a href='../D/1626.html' title='Multiple defined in 2 places.'>arena_mapbitsp_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L592'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((size &amp; PAGE_MASK) == 0);
+<a name='L593'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((flags &amp; ~<a href='../S/146.html#L152' title='Defined at 152 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_FLAGS_MASK</a>) == 0);
+<a name='L594'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((flags &amp; (<a href='../S/146.html#L153' title='Defined at 153 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_DIRTY</a>|<a href='../S/146.html#L154' title='Defined at 154 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_UNZEROED</a>)) == flags);
+<a name='L595'>        *mapbitsp = size | <a href='../S/146.html#L151' title='Defined at 151 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_BININD_INVALID</a> | flags;
+<a name='L596'><font color='red'>}</font>
+<a name='L597'>
+<a name='L598'>JEMALLOC_INLINE <b>void</b>
+<a name='L599'><a href='../R/1356.html' title='Multiple refered from 6 places.'>arena_mapbits_unallocated_size_set</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind,
+<a name='L600'>    size_t size)
+<a name='L601'><font color='red'>{</font>
+<a name='L602'>        size_t *mapbitsp;
+<a name='L603'>
+<a name='L604'>        mapbitsp = <a href='../D/1626.html' title='Multiple defined in 2 places.'>arena_mapbitsp_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L605'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((size &amp; PAGE_MASK) == 0);
+<a name='L606'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((*mapbitsp &amp; (<a href='../S/146.html#L155' title='Defined at 155 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_LARGE</a>|<a href='../S/146.html#L156' title='Defined at 156 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_ALLOCATED</a>)) == 0);
+<a name='L607'>        *mapbitsp = size | (*mapbitsp &amp; PAGE_MASK);
+<a name='L608'><font color='red'>}</font>
+<a name='L609'>
+<a name='L610'>JEMALLOC_INLINE <b>void</b>
+<a name='L611'><a href='../R/1350.html' title='Multiple refered from 14 places.'>arena_mapbits_large_set</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind, size_t size,
+<a name='L612'>    size_t flags)
+<a name='L613'><font color='red'>{</font>
+<a name='L614'>        size_t *mapbitsp;
+<a name='L615'>        size_t unzeroed;
+<a name='L616'>
+<a name='L617'>        mapbitsp = <a href='../D/1626.html' title='Multiple defined in 2 places.'>arena_mapbitsp_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L618'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((size &amp; PAGE_MASK) == 0);
+<a name='L619'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((flags &amp; <a href='../S/146.html#L153' title='Defined at 153 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_DIRTY</a>) == flags);
+<a name='L620'>        unzeroed = *mapbitsp &amp; <a href='../S/146.html#L154' title='Defined at 154 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_UNZEROED</a>; <i><font color='green'>/* Preserve unzeroed. */</font></i>
+<a name='L621'>        *mapbitsp = size | <a href='../S/146.html#L151' title='Defined at 151 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_BININD_INVALID</a> | flags | unzeroed |
+<a name='L622'>            <a href='../S/146.html#L155' title='Defined at 155 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_LARGE</a> | <a href='../S/146.html#L156' title='Defined at 156 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_ALLOCATED</a>;
+<a name='L623'><font color='red'>}</font>
+<a name='L624'>
+<a name='L625'>JEMALLOC_INLINE <b>void</b>
+<a name='L626'><a href='../R/1348.html' title='Multiple refered from 4 places.'>arena_mapbits_large_binind_set</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind,
+<a name='L627'>    size_t binind)
+<a name='L628'><font color='red'>{</font>
+<a name='L629'>        size_t *mapbitsp;
+<a name='L630'>
+<a name='L631'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(binind &lt;= <a href='../S/146.html#L148' title='Defined at 148 in deps/jemalloc/include/jemalloc/internal/arena.h.'>BININD_INVALID</a>);
+<a name='L632'>        mapbitsp = <a href='../D/1626.html' title='Multiple defined in 2 places.'>arena_mapbitsp_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L633'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1618.html' title='Multiple defined in 2 places.'>arena_mapbits_large_size_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind) == PAGE);
+<a name='L634'>        *mapbitsp = (*mapbitsp &amp; ~<a href='../S/146.html#L150' title='Defined at 150 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_BININD_MASK</a>) | (binind &lt;&lt;
+<a name='L635'>            <a href='../S/146.html#L147' title='Defined at 147 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_BININD_SHIFT</a>);
+<a name='L636'><font color='red'>}</font>
+<a name='L637'>
+<a name='L638'>JEMALLOC_INLINE <b>void</b>
+<a name='L639'><a href='../R/1353.html' title='Multiple refered from 5 places.'>arena_mapbits_small_set</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind, size_t runind,
+<a name='L640'>    size_t binind, size_t flags)
+<a name='L641'><font color='red'>{</font>
+<a name='L642'>        size_t *mapbitsp;
+<a name='L643'>        size_t unzeroed;
+<a name='L644'>
+<a name='L645'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(binind &lt; <a href='../S/146.html#L148' title='Defined at 148 in deps/jemalloc/include/jemalloc/internal/arena.h.'>BININD_INVALID</a>);
+<a name='L646'>        mapbitsp = <a href='../D/1626.html' title='Multiple defined in 2 places.'>arena_mapbitsp_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L647'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(pageind - runind &gt;= <a href='../S/138.html#L230' title='Defined at 230 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>map_bias</a>);
+<a name='L648'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((flags &amp; <a href='../S/146.html#L153' title='Defined at 153 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_DIRTY</a>) == flags);
+<a name='L649'>        unzeroed = *mapbitsp &amp; <a href='../S/146.html#L154' title='Defined at 154 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_UNZEROED</a>; <i><font color='green'>/* Preserve unzeroed. */</font></i>
+<a name='L650'>        *mapbitsp = (runind &lt;&lt; LG_PAGE) | (binind &lt;&lt; <a href='../S/146.html#L147' title='Defined at 147 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_BININD_SHIFT</a>) |
+<a name='L651'>            flags | unzeroed | <a href='../S/146.html#L156' title='Defined at 156 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_ALLOCATED</a>;
+<a name='L652'><font color='red'>}</font>
+<a name='L653'>
+<a name='L654'>JEMALLOC_INLINE <b>void</b>
+<a name='L655'><a href='../R/1358.html' title='Multiple refered from 4 places.'>arena_mapbits_unzeroed_set</a>(<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, size_t pageind,
+<a name='L656'>    size_t unzeroed)
+<a name='L657'><font color='red'>{</font>
+<a name='L658'>        size_t *mapbitsp;
+<a name='L659'>
+<a name='L660'>        mapbitsp = <a href='../D/1626.html' title='Multiple defined in 2 places.'>arena_mapbitsp_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L661'>        *mapbitsp = (*mapbitsp &amp; ~<a href='../S/146.html#L154' title='Defined at 154 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_UNZEROED</a>) | unzeroed;
+<a name='L662'><font color='red'>}</font>
+<a name='L663'>
+<a name='L664'>JEMALLOC_INLINE size_t
+<a name='L665'><a href='../R/1372.html' title='Multiple refered from 9 places.'>arena_ptr_small_binind_get</a>(<b>const</b> <b>void</b> *ptr, size_t mapbits)
+<a name='L666'><font color='red'>{</font>
+<a name='L667'>        size_t binind;
+<a name='L668'>
+<a name='L669'>        binind = (mapbits &amp; <a href='../S/146.html#L150' title='Defined at 150 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_BININD_MASK</a>) &gt;&gt; <a href='../S/146.html#L147' title='Defined at 147 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_BININD_SHIFT</a>;
+<a name='L670'>
+<a name='L671'>        <b>if</b> (config_debug) <font color='red'>{</font>
+<a name='L672'>                <a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>;
+<a name='L673'>                <a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena;
+<a name='L674'>                size_t pageind;
+<a name='L675'>                size_t actual_mapbits;
+<a name='L676'>                <a href='../S/146.html#L48' title='Defined at 48 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_run_t</a> *run;
+<a name='L677'>                <a href='../S/146.html#L50' title='Defined at 50 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_bin_t</a> *bin;
+<a name='L678'>                size_t actual_binind;
+<a name='L679'>                <a href='../S/146.html#L49' title='Defined at 49 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_bin_info_t</a> *bin_info;
+<a name='L680'>
+<a name='L681'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(binind != <a href='../S/146.html#L148' title='Defined at 148 in deps/jemalloc/include/jemalloc/internal/arena.h.'>BININD_INVALID</a>);
+<a name='L682'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(binind &lt; NBINS);
+<a name='L683'>                <a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a> = (<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *)<a href='../S/142.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_ADDR2BASE</a>(ptr);
+<a name='L684'>                arena = <a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>-&gt;arena;
+<a name='L685'>                pageind = ((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ptr - (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>) &gt;&gt; LG_PAGE;
+<a name='L686'>                actual_mapbits = <a href='../D/1614.html' title='Multiple defined in 2 places.'>arena_mapbits_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L687'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(mapbits == actual_mapbits);
+<a name='L688'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1616.html' title='Multiple defined in 2 places.'>arena_mapbits_large_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind) == 0);
+<a name='L689'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1611.html' title='Multiple defined in 2 places.'>arena_mapbits_allocated_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind) != 0);
+<a name='L690'>                run = (<a href='../S/146.html#L48' title='Defined at 48 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_run_t</a> *)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a> + (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)((pageind -
+<a name='L691'>                    (actual_mapbits &gt;&gt; LG_PAGE)) &lt;&lt; LG_PAGE));
+<a name='L692'>                bin = run-&gt;bin;
+<a name='L693'>                actual_binind = bin - arena-&gt;bins;
+<a name='L694'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(binind == actual_binind);
+<a name='L695'>                bin_info = &amp;<a href='../S/138.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arena_bin_info</a>[actual_binind];
+<a name='L696'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ptr - ((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)run +
+<a name='L697'>                    (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)bin_info-&gt;reg0_offset)) % bin_info-&gt;reg_interval
+<a name='L698'>                    == 0);
+<a name='L699'>        <font color='red'>}</font>
+<a name='L700'>
+<a name='L701'>        <b>return</b> (binind);
+<a name='L702'><font color='red'>}</font>
+<a name='L703'><font color='darkred'>#  endif</font> <i><font color='green'>/* JEMALLOC_ARENA_INLINE_A */</font></i>
+<a name='L704'>
+<a name='L705'><font color='darkred'>#  ifdef</font> JEMALLOC_ARENA_INLINE_B
+<a name='L706'>JEMALLOC_INLINE size_t
+<a name='L707'><a href='../R/1307.html' title='Multiple refered from 8 places.'>arena_bin_index</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, <a href='../S/146.html#L50' title='Defined at 50 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_bin_t</a> *bin)
+<a name='L708'><font color='red'>{</font>
+<a name='L709'>        size_t binind = bin - arena-&gt;bins;
+<a name='L710'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(binind &lt; NBINS);
+<a name='L711'>        <b>return</b> (binind);
+<a name='L712'><font color='red'>}</font>
+<a name='L713'>
+<a name='L714'>JEMALLOC_INLINE <b>unsigned</b>
+<a name='L715'><a href='../R/1385.html' title='Multiple refered from 5 places.'>arena_run_regind</a>(<a href='../S/146.html#L48' title='Defined at 48 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_run_t</a> *run, <a href='../S/146.html#L49' title='Defined at 49 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_bin_info_t</a> *bin_info, <b>const</b> <b>void</b> *ptr)
+<a name='L716'><font color='red'>{</font>
+<a name='L717'>        <b>unsigned</b> shift, diff, regind;
+<a name='L718'>        size_t interval;
+<a name='L719'>
+<a name='L720'>        <i><font color='green'>/*</font></i>
+<a name='L721'><i><font color='green'>         * Freeing a pointer lower than region zero can cause assertion</font></i>
+<a name='L722'><i><font color='green'>         * failure.</font></i>
+<a name='L723'><i><font color='green'>         */</font></i>
+<a name='L724'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ptr &gt;= (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)run +
+<a name='L725'>            (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)bin_info-&gt;reg0_offset);
+<a name='L726'>
+<a name='L727'>        <i><font color='green'>/*</font></i>
+<a name='L728'><i><font color='green'>         * Avoid doing division with a variable divisor if possible.  Using</font></i>
+<a name='L729'><i><font color='green'>         * actual division here can reduce allocator throughput by over 20%!</font></i>
+<a name='L730'><i><font color='green'>         */</font></i>
+<a name='L731'>        diff = (<b>unsigned</b>)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ptr - (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)run -
+<a name='L732'>            bin_info-&gt;reg0_offset);
+<a name='L733'>
+<a name='L734'>        <i><font color='green'>/* Rescale (factor powers of 2 out of the numerator and denominator). */</font></i>
+<a name='L735'>        interval = bin_info-&gt;reg_interval;
+<a name='L736'>        shift = <a href='../S/157.html#L17' title='Defined at 17 in deps/jemalloc/include/msvc_compat/strings.h.'>ffs</a>(interval) - 1;
+<a name='L737'>        diff &gt;&gt;= shift;
+<a name='L738'>        interval &gt;&gt;= shift;
+<a name='L739'>
+<a name='L740'>        <b>if</b> (interval == 1) <font color='red'>{</font>
+<a name='L741'>                <i><font color='green'>/* The divisor was a power of 2. */</font></i>
+<a name='L742'>                regind = diff;
+<a name='L743'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L744'>                <i><font color='green'>/*</font></i>
+<a name='L745'><i><font color='green'>                 * To divide by a number D that is not a power of two we</font></i>
+<a name='L746'><i><font color='green'>                 * multiply by (2^21 / D) and then right shift by 21 positions.</font></i>
+<a name='L747'><i><font color='green'>                 *</font></i>
+<a name='L748'><i><font color='green'>                 *   X / D</font></i>
+<a name='L749'><i><font color='green'>                 *</font></i>
+<a name='L750'><i><font color='green'>                 * becomes</font></i>
+<a name='L751'><i><font color='green'>                 *</font></i>
+<a name='L752'><i><font color='green'>                 *   (X * interval_invs[D - 3]) &gt;&gt; SIZE_INV_SHIFT</font></i>
+<a name='L753'><i><font color='green'>                 *</font></i>
+<a name='L754'><i><font color='green'>                 * We can omit the first three elements, because we never</font></i>
+<a name='L755'><i><font color='green'>                 * divide by 0, and 1 and 2 are both powers of two, which are</font></i>
+<a name='L756'><i><font color='green'>                 * handled above.</font></i>
+<a name='L757'><i><font color='green'>                 */</font></i>
+<a name='L758'><font color='darkred'>#define</font> <a href='../R/885.html' title='Multiple refered from 2 places.'>SIZE_INV_SHIFT</a>  ((<b>sizeof</b>(<b>unsigned</b>) &lt;&lt; 3) - <a href='../S/146.html#L27' title='Defined at 27 in deps/jemalloc/include/jemalloc/internal/arena.h.'>LG_RUN_MAXREGS</a>)
+<a name='L759'><font color='darkred'>#define</font> <a href='../R/884.html' title='Multiple refered from 8 places.'>SIZE_INV</a>(s)     (((1U &lt;&lt; <a href='../D/1120.html' title='Multiple defined in 2 places.'>SIZE_INV_SHIFT</a>) / (s)) + 1)
+<a name='L760'>                <b>static</b> <b>const</b> <b>unsigned</b> interval_invs[] = <font color='red'>{</font>
+<a name='L761'>                    <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(3),
+<a name='L762'>                    <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(4), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(5), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(6), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(7),
+<a name='L763'>                    <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(8), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(9), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(10), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(11),
+<a name='L764'>                    <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(12), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(13), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(14), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(15),
+<a name='L765'>                    <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(16), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(17), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(18), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(19),
+<a name='L766'>                    <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(20), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(21), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(22), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(23),
+<a name='L767'>                    <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(24), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(25), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(26), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(27),
+<a name='L768'>                    <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(28), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(29), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(30), <a href='../D/1119.html' title='Multiple defined in 2 places.'>SIZE_INV</a>(31)
+<a name='L769'>                <font color='red'>}</font>;
+<a name='L770'>
+<a name='L771'>                <b>if</b> (interval &lt;= ((<b>sizeof</b>(interval_invs) / <b>sizeof</b>(<b>unsigned</b>)) +
+<a name='L772'>                    2)) <font color='red'>{</font>
+<a name='L773'>                        regind = (diff * interval_invs[interval - 3]) &gt;&gt;
+<a name='L774'>                            <a href='../D/1120.html' title='Multiple defined in 2 places.'>SIZE_INV_SHIFT</a>;
+<a name='L775'>                <font color='red'>}</font> <b>else</b>
+<a name='L776'>                        regind = diff / interval;
+<a name='L777'><font color='darkred'>#undef</font> <a href='../R/884.html' title='Multiple refered from 8 places.'>SIZE_INV</a>
+<a name='L778'><font color='darkred'>#undef</font> <a href='../R/885.html' title='Multiple refered from 2 places.'>SIZE_INV_SHIFT</a>
+<a name='L779'>        <font color='red'>}</font>
+<a name='L780'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(diff == regind * interval);
+<a name='L781'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(regind &lt; bin_info-&gt;nregs);
+<a name='L782'>
+<a name='L783'>        <b>return</b> (regind);
+<a name='L784'><font color='red'>}</font>
+<a name='L785'>
+<a name='L786'>JEMALLOC_INLINE <a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> *
+<a name='L787'><a href='../R/1369.html' title='Multiple refered from 3 places.'>arena_prof_ctx_get</a>(<b>const</b> <b>void</b> *ptr)
+<a name='L788'><font color='red'>{</font>
+<a name='L789'>        <a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> *ret;
+<a name='L790'>        <a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>;
+<a name='L791'>        size_t pageind, mapbits;
+<a name='L792'>
+<a name='L793'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L794'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ptr != NULL);
+<a name='L795'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/142.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_ADDR2BASE</a>(ptr) != ptr);
+<a name='L796'>
+<a name='L797'>        <a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a> = (<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *)<a href='../S/142.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_ADDR2BASE</a>(ptr);
+<a name='L798'>        pageind = ((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ptr - (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>) &gt;&gt; LG_PAGE;
+<a name='L799'>        mapbits = <a href='../D/1614.html' title='Multiple defined in 2 places.'>arena_mapbits_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L800'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((mapbits &amp; <a href='../S/146.html#L156' title='Defined at 156 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_ALLOCATED</a>) != 0);
+<a name='L801'>        <b>if</b> ((mapbits &amp; <a href='../S/146.html#L155' title='Defined at 155 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_LARGE</a>) == 0) <font color='red'>{</font>
+<a name='L802'>                <b>if</b> (<a href='../S/138.html#L280' title='Defined at 280 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_promote</a>)
+<a name='L803'>                        ret = (<a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> *)(<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)1U;
+<a name='L804'>                <b>else</b> <font color='red'>{</font>
+<a name='L805'>                        <a href='../S/146.html#L48' title='Defined at 48 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_run_t</a> *run = (<a href='../S/146.html#L48' title='Defined at 48 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_run_t</a> *)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a> +
+<a name='L806'>                            (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)((pageind - (mapbits &gt;&gt; LG_PAGE)) &lt;&lt;
+<a name='L807'>                            LG_PAGE));
+<a name='L808'>                        size_t binind = <a href='../D/1639.html' title='Multiple defined in 2 places.'>arena_ptr_small_binind_get</a>(ptr,
+<a name='L809'>                            mapbits);
+<a name='L810'>                        <a href='../S/146.html#L49' title='Defined at 49 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_bin_info_t</a> *bin_info = &amp;<a href='../S/138.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arena_bin_info</a>[binind];
+<a name='L811'>                        <b>unsigned</b> regind;
+<a name='L812'>
+<a name='L813'>                        regind = <a href='../D/1653.html' title='Multiple defined in 2 places.'>arena_run_regind</a>(run, bin_info, ptr);
+<a name='L814'>                        ret = *(<a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> **)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)run +
+<a name='L815'>                            bin_info-&gt;ctx0_offset + (regind *
+<a name='L816'>                            <b>sizeof</b>(<a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> *)));
+<a name='L817'>                <font color='red'>}</font>
+<a name='L818'>        <font color='red'>}</font> <b>else</b>
+<a name='L819'>                ret = <a href='../D/1627.html' title='Multiple defined in 2 places.'>arena_mapp_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind)-&gt;prof_ctx;
+<a name='L820'>
+<a name='L821'>        <b>return</b> (ret);
+<a name='L822'><font color='red'>}</font>
+<a name='L823'>
+<a name='L824'>JEMALLOC_INLINE <b>void</b>
+<a name='L825'><a href='../R/1370.html' title='Multiple refered from 3 places.'>arena_prof_ctx_set</a>(<b>const</b> <b>void</b> *ptr, <a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> *ctx)
+<a name='L826'><font color='red'>{</font>
+<a name='L827'>        <a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>;
+<a name='L828'>        size_t pageind, mapbits;
+<a name='L829'>
+<a name='L830'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L831'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ptr != NULL);
+<a name='L832'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/142.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_ADDR2BASE</a>(ptr) != ptr);
+<a name='L833'>
+<a name='L834'>        <a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a> = (<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *)<a href='../S/142.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_ADDR2BASE</a>(ptr);
+<a name='L835'>        pageind = ((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ptr - (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>) &gt;&gt; LG_PAGE;
+<a name='L836'>        mapbits = <a href='../D/1614.html' title='Multiple defined in 2 places.'>arena_mapbits_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L837'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((mapbits &amp; <a href='../S/146.html#L156' title='Defined at 156 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_ALLOCATED</a>) != 0);
+<a name='L838'>        <b>if</b> ((mapbits &amp; <a href='../S/146.html#L155' title='Defined at 155 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_LARGE</a>) == 0) <font color='red'>{</font>
+<a name='L839'>                <b>if</b> (<a href='../S/138.html#L280' title='Defined at 280 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_promote</a> == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>) <font color='red'>{</font>
+<a name='L840'>                        <a href='../S/146.html#L48' title='Defined at 48 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_run_t</a> *run = (<a href='../S/146.html#L48' title='Defined at 48 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_run_t</a> *)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a> +
+<a name='L841'>                            (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)((pageind - (mapbits &gt;&gt; LG_PAGE)) &lt;&lt;
+<a name='L842'>                            LG_PAGE));
+<a name='L843'>                        size_t binind;
+<a name='L844'>                        <a href='../S/146.html#L49' title='Defined at 49 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_bin_info_t</a> *bin_info;
+<a name='L845'>                        <b>unsigned</b> regind;
+<a name='L846'>
+<a name='L847'>                        binind = <a href='../D/1639.html' title='Multiple defined in 2 places.'>arena_ptr_small_binind_get</a>(ptr, mapbits);
+<a name='L848'>                        bin_info = &amp;<a href='../S/138.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arena_bin_info</a>[binind];
+<a name='L849'>                        regind = <a href='../D/1653.html' title='Multiple defined in 2 places.'>arena_run_regind</a>(run, bin_info, ptr);
+<a name='L850'>
+<a name='L851'>                        *((<a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> **)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)run + bin_info-&gt;ctx0_offset
+<a name='L852'>                            + (regind * <b>sizeof</b>(<a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> *)))) = ctx;
+<a name='L853'>                <font color='red'>}</font> <b>else</b>
+<a name='L854'>                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ctx == (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)1U);
+<a name='L855'>        <font color='red'>}</font> <b>else</b>
+<a name='L856'>                <a href='../D/1627.html' title='Multiple defined in 2 places.'>arena_mapp_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind)-&gt;prof_ctx = ctx;
+<a name='L857'><font color='red'>}</font>
+<a name='L858'>
+<a name='L859'>JEMALLOC_INLINE <b>void</b> *
+<a name='L860'><a href='../R/1341.html' title='Multiple refered from 6 places.'>arena_malloc</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, size_t size, bool zero, bool try_tcache)
+<a name='L861'><font color='red'>{</font>
+<a name='L862'>        <a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache;
+<a name='L863'>
+<a name='L864'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(size != 0);
+<a name='L865'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(size &lt;= <a href='../S/138.html#L37' title='Defined at 37 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arena_maxclass</a>);
+<a name='L866'>
+<a name='L867'>        <b>if</b> (size &lt;= SMALL_MAXCLASS) <font color='red'>{</font>
+<a name='L868'>                <b>if</b> (try_tcache &amp;&amp; (tcache = <a href='../D/4327.html' title='Multiple defined in 2 places.'>tcache_get</a>(<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>)) != NULL)
+<a name='L869'>                        <b>return</b> (<a href='../D/4290.html' title='Multiple defined in 2 places.'>tcache_alloc_small</a>(tcache, size, zero));
+<a name='L870'>                <b>else</b> <font color='red'>{</font>
+<a name='L871'>                        <b>return</b> (<a href='../D/1610.html' title='Multiple defined in 2 places.'>arena_malloc_small</a>(<a href='../S/138.html#L94' title='Defined at 94 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>choose_arena</a>(arena), size,
+<a name='L872'>                            zero));
+<a name='L873'>                <font color='red'>}</font>
+<a name='L874'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L875'>                <i><font color='green'>/*</font></i>
+<a name='L876'><i><font color='green'>                 * Initialize tcache after checking size in order to avoid</font></i>
+<a name='L877'><i><font color='green'>                 * infinite recursion during tcache initialization.</font></i>
+<a name='L878'><i><font color='green'>                 */</font></i>
+<a name='L879'>                <b>if</b> (try_tcache &amp;&amp; size &lt;= <a href='../S/138.html#L349' title='Defined at 349 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_maxclass</a> &amp;&amp; (tcache =
+<a name='L880'>                    <a href='../D/4327.html' title='Multiple defined in 2 places.'>tcache_get</a>(<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>)) != NULL)
+<a name='L881'>                        <b>return</b> (<a href='../D/4289.html' title='Multiple defined in 2 places.'>tcache_alloc_large</a>(tcache, size, zero));
+<a name='L882'>                <b>else</b> <font color='red'>{</font>
+<a name='L883'>                        <b>return</b> (<a href='../D/1609.html' title='Multiple defined in 2 places.'>arena_malloc_large</a>(<a href='../S/138.html#L94' title='Defined at 94 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>choose_arena</a>(arena), size,
+<a name='L884'>                            zero));
+<a name='L885'>                <font color='red'>}</font>
+<a name='L886'>        <font color='red'>}</font>
+<a name='L887'><font color='red'>}</font>
+<a name='L888'>
+<a name='L889'><i><font color='green'>/* Return the size of the allocation pointed to by ptr. */</font></i>
+<a name='L890'>JEMALLOC_INLINE size_t
+<a name='L891'><a href='../R/1393.html' title='Multiple refered from 4 places.'>arena_salloc</a>(<b>const</b> <b>void</b> *ptr, bool demote)
+<a name='L892'><font color='red'>{</font>
+<a name='L893'>        size_t ret;
+<a name='L894'>        <a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>;
+<a name='L895'>        size_t pageind, binind;
+<a name='L896'>
+<a name='L897'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ptr != NULL);
+<a name='L898'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/142.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_ADDR2BASE</a>(ptr) != ptr);
+<a name='L899'>
+<a name='L900'>        <a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a> = (<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *)<a href='../S/142.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_ADDR2BASE</a>(ptr);
+<a name='L901'>        pageind = ((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ptr - (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>) &gt;&gt; LG_PAGE;
+<a name='L902'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1611.html' title='Multiple defined in 2 places.'>arena_mapbits_allocated_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind) != 0);
+<a name='L903'>        binind = <a href='../D/1612.html' title='Multiple defined in 2 places.'>arena_mapbits_binind_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L904'>        <b>if</b> (binind == <a href='../S/146.html#L148' title='Defined at 148 in deps/jemalloc/include/jemalloc/internal/arena.h.'>BININD_INVALID</a> || (config_prof &amp;&amp; demote == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a> &amp;&amp;
+<a name='L905'>            <a href='../S/138.html#L280' title='Defined at 280 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_promote</a> &amp;&amp; <a href='../D/1616.html' title='Multiple defined in 2 places.'>arena_mapbits_large_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind) != 0)) <font color='red'>{</font>
+<a name='L906'>                <i><font color='green'>/*</font></i>
+<a name='L907'><i><font color='green'>                 * Large allocation.  In the common case (demote == true), and</font></i>
+<a name='L908'><i><font color='green'>                 * as this is an inline function, most callers will only end up</font></i>
+<a name='L909'><i><font color='green'>                 * looking at binind to determine that ptr is a small</font></i>
+<a name='L910'><i><font color='green'>                 * allocation.</font></i>
+<a name='L911'><i><font color='green'>                 */</font></i>
+<a name='L912'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ptr &amp; PAGE_MASK) == 0);
+<a name='L913'>                ret = <a href='../D/1618.html' title='Multiple defined in 2 places.'>arena_mapbits_large_size_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L914'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ret != 0);
+<a name='L915'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(pageind + (ret&gt;&gt;LG_PAGE) &lt;= <a href='../S/138.html#L109' title='Defined at 109 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunk_npages</a>);
+<a name='L916'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ret == PAGE || <a href='../D/1618.html' title='Multiple defined in 2 places.'>arena_mapbits_large_size_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>,
+<a name='L917'>                    pageind+(ret&gt;&gt;LG_PAGE)-1) == 0);
+<a name='L918'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(binind == <a href='../D/1612.html' title='Multiple defined in 2 places.'>arena_mapbits_binind_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>,
+<a name='L919'>                    pageind+(ret&gt;&gt;LG_PAGE)-1));
+<a name='L920'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1613.html' title='Multiple defined in 2 places.'>arena_mapbits_dirty_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind) ==
+<a name='L921'>                    <a href='../D/1613.html' title='Multiple defined in 2 places.'>arena_mapbits_dirty_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind+(ret&gt;&gt;LG_PAGE)-1));
+<a name='L922'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L923'>                <i><font color='green'>/*</font></i>
+<a name='L924'><i><font color='green'>                 * Small allocation (possibly promoted to a large object due to</font></i>
+<a name='L925'><i><font color='green'>                 * prof_promote).</font></i>
+<a name='L926'><i><font color='green'>                 */</font></i>
+<a name='L927'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1616.html' title='Multiple defined in 2 places.'>arena_mapbits_large_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind) != 0 ||
+<a name='L928'>                    <a href='../D/1639.html' title='Multiple defined in 2 places.'>arena_ptr_small_binind_get</a>(ptr, <a href='../D/1614.html' title='Multiple defined in 2 places.'>arena_mapbits_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>,
+<a name='L929'>                    pageind)) == binind);
+<a name='L930'>                ret = <a href='../S/138.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arena_bin_info</a>[binind].reg_size;
+<a name='L931'>        <font color='red'>}</font>
+<a name='L932'>
+<a name='L933'>        <b>return</b> (ret);
+<a name='L934'><font color='red'>}</font>
+<a name='L935'>
+<a name='L936'>JEMALLOC_INLINE <b>void</b>
+<a name='L937'><a href='../R/1330.html' title='Multiple refered from 3 places.'>arena_dalloc</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, <a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *chunk, <b>void</b> *ptr, bool try_tcache)
+<a name='L938'><font color='red'>{</font>
+<a name='L939'>        size_t pageind, mapbits;
+<a name='L940'>        <a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache;
+<a name='L941'>
+<a name='L942'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(arena != NULL);
+<a name='L943'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>-&gt;arena == arena);
+<a name='L944'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ptr != NULL);
+<a name='L945'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/142.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_ADDR2BASE</a>(ptr) != ptr);
+<a name='L946'>
+<a name='L947'>        pageind = ((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ptr - (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>) &gt;&gt; LG_PAGE;
+<a name='L948'>        mapbits = <a href='../D/1614.html' title='Multiple defined in 2 places.'>arena_mapbits_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L949'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1611.html' title='Multiple defined in 2 places.'>arena_mapbits_allocated_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind) != 0);
+<a name='L950'>        <b>if</b> ((mapbits &amp; <a href='../S/146.html#L155' title='Defined at 155 in deps/jemalloc/include/jemalloc/internal/arena.h.'>CHUNK_MAP_LARGE</a>) == 0) <font color='red'>{</font>
+<a name='L951'>                <i><font color='green'>/* Small allocation. */</font></i>
+<a name='L952'>                <b>if</b> (try_tcache &amp;&amp; (tcache = <a href='../D/4327.html' title='Multiple defined in 2 places.'>tcache_get</a>(<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)) != NULL) <font color='red'>{</font>
+<a name='L953'>                        size_t binind;
+<a name='L954'>
+<a name='L955'>                        binind = <a href='../D/1639.html' title='Multiple defined in 2 places.'>arena_ptr_small_binind_get</a>(ptr, mapbits);
+<a name='L956'>                        <a href='../D/4308.html' title='Multiple defined in 2 places.'>tcache_dalloc_small</a>(tcache, ptr, binind);
+<a name='L957'>                <font color='red'>}</font> <b>else</b>
+<a name='L958'>                        <a href='../D/1601.html' title='Multiple defined in 2 places.'>arena_dalloc_small</a>(arena, <a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, ptr, pageind);
+<a name='L959'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L960'>                size_t size = <a href='../D/1618.html' title='Multiple defined in 2 places.'>arena_mapbits_large_size_get</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind);
+<a name='L961'>
+<a name='L962'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ptr &amp; PAGE_MASK) == 0);
+<a name='L963'>
+<a name='L964'>                <b>if</b> (try_tcache &amp;&amp; size &lt;= <a href='../S/138.html#L349' title='Defined at 349 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_maxclass</a> &amp;&amp; (tcache =
+<a name='L965'>                    <a href='../D/4327.html' title='Multiple defined in 2 places.'>tcache_get</a>(<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)) != NULL) <font color='red'>{</font>
+<a name='L966'>                        <a href='../D/4307.html' title='Multiple defined in 2 places.'>tcache_dalloc_large</a>(tcache, ptr, size);
+<a name='L967'>                <font color='red'>}</font> <b>else</b>
+<a name='L968'>                        <a href='../D/1599.html' title='Multiple defined in 2 places.'>arena_dalloc_large</a>(arena, <a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, ptr);
+<a name='L969'>        <font color='red'>}</font>
+<a name='L970'><font color='red'>}</font>
+<a name='L971'><font color='darkred'>#  endif</font> <i><font color='green'>/* JEMALLOC_ARENA_INLINE_B */</font></i>
+<a name='L972'><font color='darkred'>#endif</font>
+<a name='L973'>
+<a name='L974'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_INLINES */</font></i>
+<a name='L975'><i><font color='green'>/******************************************************************************/</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L482'>[^]</a><a href='#L937'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

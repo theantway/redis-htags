@@ -1,0 +1,170 @@
+<html>
+<head>
+<title>deps/jemalloc/src/base.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/395.html'>src</a>/base.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L27'>[^]</a><a href='#L135'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L27' title='Defined at 27.'>base_pages_alloc</a>
+<li><a href='#L46' title='Defined at 46.'>base_alloc</a>
+<li><a href='#L71' title='Defined at 71.'>base_calloc</a>
+<li><a href='#L82' title='Defined at 82.'>base_node_alloc</a>
+<li><a href='#L100' title='Defined at 100.'>base_node_dealloc</a>
+<li><a href='#L110' title='Defined at 110.'>base_boot</a>
+<li><a href='#L121' title='Defined at 121.'>base_prefork</a>
+<li><a href='#L128' title='Defined at 128.'>base_postfork_parent</a>
+<li><a href='#L135' title='Defined at 135.'>base_postfork_child</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> JEMALLOC_BASE_C_
+<a name='L2'><font color='darkred'>#include</font> "jemalloc/internal/jemalloc_internal.h"
+<a name='L3'>
+<a name='L4'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L5'><i><font color='green'>/* Data. */</font></i>
+<a name='L6'>
+<a name='L7'><b>static</b> <a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a>   base_mtx;
+<a name='L8'>
+<a name='L9'><i><font color='green'>/*</font></i>
+<a name='L10'><i><font color='green'> * Current pages that are being used for internal memory allocations.  These</font></i>
+<a name='L11'><i><font color='green'> * pages are carved up in cacheline-size quanta, so that there is no chance of</font></i>
+<a name='L12'><i><font color='green'> * false cache line sharing.</font></i>
+<a name='L13'><i><font color='green'> */</font></i>
+<a name='L14'><b>static</b> <b>void</b>             *base_pages;
+<a name='L15'><b>static</b> <b>void</b>             *base_next_addr;
+<a name='L16'><b>static</b> <b>void</b>             *base_past_addr; <i><font color='green'>/* Addr immediately past base_pages. */</font></i>
+<a name='L17'><b>static</b> <a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a>    *base_nodes;
+<a name='L18'>
+<a name='L19'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L20'><i><font color='green'>/* Function prototypes for non-inline static functions. */</font></i>
+<a name='L21'>
+<a name='L22'><b>static</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>     <a href='../S/202.html#L27' title='Defined at 27 in deps/jemalloc/src/base.c.'>base_pages_alloc</a>(size_t minsize);
+<a name='L23'>
+<a name='L24'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L25'>
+<a name='L26'><b>static</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L27'><a href='../R/1447.html' title='Multiple refered from 2 places.'>base_pages_alloc</a>(size_t minsize)
+<a name='L28'><font color='red'>{</font>
+<a name='L29'>        size_t csize;
+<a name='L30'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> zero;
+<a name='L31'>
+<a name='L32'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(minsize != 0);
+<a name='L33'>        csize = <a href='../S/142.html#L19' title='Defined at 19 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_CEILING</a>(minsize);
+<a name='L34'>        zero = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L35'>        base_pages = <a href='../D/1839.html' title='Multiple defined in 2 places.'>chunk_alloc</a>(csize, <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a>, <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>, &amp;zero,
+<a name='L36'>            <a href='../D/1849.html' title='Multiple defined in 2 places.'>chunk_dss_prec_get</a>());
+<a name='L37'>        <b>if</b> (base_pages == NULL)
+<a name='L38'>                <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L39'>        base_next_addr = base_pages;
+<a name='L40'>        base_past_addr = (<b>void</b> *)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)base_pages + csize);
+<a name='L41'>
+<a name='L42'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L43'><font color='red'>}</font>
+<a name='L44'>
+<a name='L45'><b>void</b> *
+<a name='L46'><a href='../R/1441.html' title='Multiple refered from 14 places.'>base_alloc</a>(size_t size)
+<a name='L47'><font color='red'>{</font>
+<a name='L48'>        <b>void</b> *ret;
+<a name='L49'>        size_t csize;
+<a name='L50'>
+<a name='L51'>        <i><font color='green'>/* Round size up to nearest multiple of the cacheline size. */</font></i>
+<a name='L52'>        csize = CACHELINE_CEILING(size);
+<a name='L53'>
+<a name='L54'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;base_mtx);
+<a name='L55'>        <i><font color='green'>/* Make sure there's enough space for the allocation. */</font></i>
+<a name='L56'>        <b>if</b> ((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)base_next_addr + csize &gt; (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)base_past_addr) <font color='red'>{</font>
+<a name='L57'>                <b>if</b> (<a href='../S/202.html#L27' title='Defined at 27 in deps/jemalloc/src/base.c.'>base_pages_alloc</a>(csize)) <font color='red'>{</font>
+<a name='L58'>                        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;base_mtx);
+<a name='L59'>                        <b>return</b> (NULL);
+<a name='L60'>                <font color='red'>}</font>
+<a name='L61'>        <font color='red'>}</font>
+<a name='L62'>        <i><font color='green'>/* Allocate. */</font></i>
+<a name='L63'>        ret = base_next_addr;
+<a name='L64'>        base_next_addr = (<b>void</b> *)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)base_next_addr + csize);
+<a name='L65'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;base_mtx);
+<a name='L66'>
+<a name='L67'>        <b>return</b> (ret);
+<a name='L68'><font color='red'>}</font>
+<a name='L69'>
+<a name='L70'><b>void</b> *
+<a name='L71'><a href='../R/1443.html' title='Multiple refered from 4 places.'>base_calloc</a>(size_t number, size_t size)
+<a name='L72'><font color='red'>{</font>
+<a name='L73'>        <b>void</b> *ret = <a href='../D/1715.html' title='Multiple defined in 2 places.'>base_alloc</a>(number * size);
+<a name='L74'>
+<a name='L75'>        <b>if</b> (ret != NULL)
+<a name='L76'>                memset(ret, 0, number * size);
+<a name='L77'>
+<a name='L78'>        <b>return</b> (ret);
+<a name='L79'><font color='red'>}</font>
+<a name='L80'>
+<a name='L81'><a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a> *
+<a name='L82'><a href='../R/1444.html' title='Multiple refered from 5 places.'>base_node_alloc</a>(<b>void</b>)
+<a name='L83'><font color='red'>{</font>
+<a name='L84'>        <a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a> *ret;
+<a name='L85'>
+<a name='L86'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;base_mtx);
+<a name='L87'>        <b>if</b> (base_nodes != NULL) <font color='red'>{</font>
+<a name='L88'>                ret = base_nodes;
+<a name='L89'>                base_nodes = *(<a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a> **)ret;
+<a name='L90'>                <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;base_mtx);
+<a name='L91'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L92'>                <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;base_mtx);
+<a name='L93'>                ret = (<a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a> *)<a href='../D/1715.html' title='Multiple defined in 2 places.'>base_alloc</a>(<b>sizeof</b>(<a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a>));
+<a name='L94'>        <font color='red'>}</font>
+<a name='L95'>
+<a name='L96'>        <b>return</b> (ret);
+<a name='L97'><font color='red'>}</font>
+<a name='L98'>
+<a name='L99'><b>void</b>
+<a name='L100'><a href='../R/1445.html' title='Multiple refered from 7 places.'>base_node_dealloc</a>(<a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a> *node)
+<a name='L101'><font color='red'>{</font>
+<a name='L102'>
+<a name='L103'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;base_mtx);
+<a name='L104'>        *(<a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a> **)node = base_nodes;
+<a name='L105'>        base_nodes = node;
+<a name='L106'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;base_mtx);
+<a name='L107'><font color='red'>}</font>
+<a name='L108'>
+<a name='L109'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L110'><a href='../R/1442.html' title='Multiple refered from 3 places.'>base_boot</a>(<b>void</b>)
+<a name='L111'><font color='red'>{</font>
+<a name='L112'>
+<a name='L113'>        base_nodes = NULL;
+<a name='L114'>        <b>if</b> (<a href='../D/3272.html' title='Multiple defined in 2 places.'>malloc_mutex_init</a>(&amp;base_mtx))
+<a name='L115'>                <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L116'>
+<a name='L117'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L118'><font color='red'>}</font>
+<a name='L119'>
+<a name='L120'><b>void</b>
+<a name='L121'><a href='../R/1450.html' title='Multiple refered from 3 places.'>base_prefork</a>(<b>void</b>)
+<a name='L122'><font color='red'>{</font>
+<a name='L123'>
+<a name='L124'>        <a href='../D/3276.html' title='Multiple defined in 2 places.'>malloc_mutex_prefork</a>(&amp;base_mtx);
+<a name='L125'><font color='red'>}</font>
+<a name='L126'>
+<a name='L127'><b>void</b>
+<a name='L128'><a href='../R/1449.html' title='Multiple refered from 3 places.'>base_postfork_parent</a>(<b>void</b>)
+<a name='L129'><font color='red'>{</font>
+<a name='L130'>
+<a name='L131'>        <a href='../D/3275.html' title='Multiple defined in 2 places.'>malloc_mutex_postfork_parent</a>(&amp;base_mtx);
+<a name='L132'><font color='red'>}</font>
+<a name='L133'>
+<a name='L134'><b>void</b>
+<a name='L135'><a href='../R/1448.html' title='Multiple refered from 3 places.'>base_postfork_child</a>(<b>void</b>)
+<a name='L136'><font color='red'>{</font>
+<a name='L137'>
+<a name='L138'>        <a href='../D/3274.html' title='Multiple defined in 2 places.'>malloc_mutex_postfork_child</a>(&amp;base_mtx);
+<a name='L139'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L27'>[^]</a><a href='#L135'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

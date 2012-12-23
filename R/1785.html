@@ -1,0 +1,138 @@
+<html>
+<head>
+<title>dict</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/104.html#L316'>dict</a>              316 deps/hiredis/async.c     dict *callbacks;
+<a href='../S/124.html#L41'>dict</a>               41 deps/hiredis/async.h struct dict; /* dictionary header is included in async.c */
+<a href='../S/124.html#L98'>dict</a>               98 deps/hiredis/async.h         struct dict *channels;
+<a href='../S/124.html#L99'>dict</a>               99 deps/hiredis/async.h         struct dict *patterns;
+<a href='../S/107.html#L73'>dict</a>               73 deps/hiredis/dict.c static dict *dictCreate(dictType *type, void *privDataPtr) {
+<a href='../S/107.html#L74'>dict</a>               74 deps/hiredis/dict.c     dict *ht = malloc(sizeof(*ht));
+<a href='../S/107.html#L89'>dict</a>               89 deps/hiredis/dict.c     dict n; /* the new hashtable */
+<a href='../S/123.html#L70'>dict</a>               70 deps/hiredis/dict.h     dict *ht;
+<a href='../S/123.html#L115'>dict</a>              115 deps/hiredis/dict.h static dict *dictCreate(dictType *type, void *privDataPtr);
+<a href='../S/62.html#L746'>dict</a>              746 src/aof.c              dictIterator *di = dictGetIterator(zs-&gt;dict);
+<a href='../S/62.html#L860'>dict</a>              860 src/aof.c              dict *d = db-&gt;dict;
+<a href='../S/31.html#L43'>dict</a>               43 src/db.c           dictEntry *de = dictFind(db-&gt;dict,key-&gt;ptr);
+<a href='../S/31.html#L93'>dict</a>               93 src/db.c           int retval = dictAdd(db-&gt;dict, copy, val);
+<a href='../S/31.html#L104'>dict</a>              104 src/db.c           struct dictEntry *de = dictFind(db-&gt;dict,key-&gt;ptr);
+<a href='../S/31.html#L107'>dict</a>              107 src/db.c           dictReplace(db-&gt;dict, key-&gt;ptr, val);
+<a href='../S/31.html#L128'>dict</a>              128 src/db.c           return dictFind(db-&gt;dict,key-&gt;ptr) != NULL;
+<a href='../S/31.html#L142'>dict</a>              142 src/db.c               de = dictGetRandomKey(db-&gt;dict);
+<a href='../S/31.html#L162'>dict</a>              162 src/db.c           if (dictDelete(db-&gt;dict,key-&gt;ptr) == DICT_OK) {
+<a href='../S/31.html#L174'>dict</a>              174 src/db.c               removed += dictSize(server.db[j].dict);
+<a href='../S/31.html#L175'>dict</a>              175 src/db.c               dictEmpty(server.db[j].dict);
+<a href='../S/31.html#L210'>dict</a>              210 src/db.c           server.dirty += dictSize(c-&gt;db-&gt;dict);
+<a href='../S/31.html#L212'>dict</a>              212 src/db.c           dictEmpty(c-&gt;db-&gt;dict);
+<a href='../S/31.html#L291'>dict</a>              291 src/db.c           di = dictGetSafeIterator(c-&gt;db-&gt;dict);
+<a href='../S/31.html#L311'>dict</a>              311 src/db.c           addReplyLongLong(c,dictSize(c-&gt;db-&gt;dict));
+<a href='../S/31.html#L449'>dict</a>              449 src/db.c           redisAssertWithInfo(NULL,key,dictFind(db-&gt;dict,key-&gt;ptr) != NULL);
+<a href='../S/31.html#L457'>dict</a>              457 src/db.c           kde = dictFind(db-&gt;dict,key-&gt;ptr);
+<a href='../S/31.html#L474'>dict</a>              474 src/db.c           redisAssertWithInfo(NULL,key,dictFind(db-&gt;dict,key-&gt;ptr) != NULL);
+<a href='../S/31.html#L553'>dict</a>              553 src/db.c           de = dictFind(c-&gt;db-&gt;dict,key-&gt;ptr);
+<a href='../S/31.html#L628'>dict</a>              628 src/db.c           de = dictFind(c-&gt;db-&gt;dict,c-&gt;argv[1]-&gt;ptr);
+<a href='../S/69.html#L118'>dict</a>              118 src/debug.c            if (dictSize(db-&gt;dict) == 0) continue;
+<a href='../S/69.html#L119'>dict</a>              119 src/debug.c            di = dictGetIterator(db-&gt;dict);
+<a href='../S/69.html#L199'>dict</a>              199 src/debug.c                        dictIterator *di = dictGetIterator(zs-&gt;dict);
+<a href='../S/69.html#L283'>dict</a>              283 src/debug.c            if ((de = dictFind(c-&gt;db-&gt;dict,c-&gt;argv[2]-&gt;ptr)) == NULL) {
+<a href='../S/69.html#L658'>dict</a>              658 src/debug.c            de = dictFind(cc-&gt;db-&gt;dict, key-&gt;ptr);
+<a href='../S/29.html#L174'>dict</a>              174 src/dict.c     dict *dictCreate(dictType *type,
+<a href='../S/29.html#L177'>dict</a>              177 src/dict.c         dict *d = zmalloc(sizeof(*d));
+<a href='../S/88.html#L88'>dict</a>               88 src/dict.h         dict *d;
+<a href='../S/88.html#L140'>dict</a>              140 src/dict.h     dict *dictCreate(dictType *type, void *privDataPtr);
+<a href='../S/81.html#L303'>dict</a>              303 src/multi.c                    if (dictFind(wk-&gt;db-&gt;dict, wk-&gt;key-&gt;ptr) != NULL)
+<a href='../S/71.html#L113'>dict</a>              113 src/object.c       dict *d = dictCreate(&amp;setDictType,NULL);
+<a href='../S/71.html#L137'>dict</a>              137 src/object.c       zs-&gt;dict = dictCreate(&amp;zsetDictType,NULL);
+<a href='../S/71.html#L173'>dict</a>              173 src/object.c           dictRelease((dict*) o-&gt;ptr);
+<a href='../S/71.html#L188'>dict</a>              188 src/object.c           dictRelease(zs-&gt;dict);
+<a href='../S/71.html#L203'>dict</a>              203 src/object.c           dictRelease((dict*) o-&gt;ptr);
+<a href='../S/71.html#L543'>dict</a>              543 src/object.c       if ((de = dictFind(c-&gt;db-&gt;dict,key-&gt;ptr)) == NULL) return NULL;
+<a href='../S/87.html#L512'>dict</a>              512 src/rdb.c                  dict *set = o-&gt;ptr;
+<a href='../S/87.html#L542'>dict</a>              542 src/rdb.c                  dictIterator *di = dictGetIterator(zs-&gt;dict);
+<a href='../S/87.html#L545'>dict</a>              545 src/rdb.c                  if ((n = rdbSaveLen(rdb,dictSize(zs-&gt;dict))) == -1) return -1;
+<a href='../S/87.html#L573'>dict</a>              573 src/rdb.c                  if ((n = rdbSaveLen(rdb,dictSize((dict*)o-&gt;ptr))) == -1) return -1;
+<a href='../S/87.html#L657'>dict</a>              657 src/rdb.c              dict *d = db-&gt;dict;
+<a href='../S/87.html#L846'>dict</a>              846 src/rdb.c                      dictAdd((dict*)o-&gt;ptr,ele,NULL);
+<a href='../S/87.html#L877'>dict</a>              877 src/rdb.c                  dictAdd(zs-&gt;dict,ele,&amp;znode-&gt;score);
+<a href='../S/87.html#L942'>dict</a>              942 src/rdb.c                  ret = dictAdd((dict*)o-&gt;ptr, field, value);
+<a href='../S/35.html#L565'>dict</a>              565 src/redis.c        size = dictSlots(dict);
+<a href='../S/35.html#L566'>dict</a>              566 src/redis.c        used = dictSize(dict);
+<a href='../S/35.html#L577'>dict</a>              577 src/redis.c            if (htNeedsResize(server.db[j].dict))
+<a href='../S/35.html#L578'>dict</a>              578 src/redis.c                dictResize(server.db[j].dict);
+<a href='../S/35.html#L593'>dict</a>              593 src/redis.c            if (dictIsRehashing(server.db[j].dict)) {
+<a href='../S/35.html#L594'>dict</a>              594 src/redis.c                dictRehashMilliseconds(server.db[j].dict,1);
+<a href='../S/35.html#L860'>dict</a>              860 src/redis.c                size = dictSlots(server.db[j].dict);
+<a href='../S/35.html#L861'>dict</a>              861 src/redis.c                used = dictSize(server.db[j].dict);
+<a href='../S/35.html#L1294'>dict</a>             1294 src/redis.c            server.db[j].dict = dictCreate(&amp;dbDictType,NULL);
+<a href='../S/35.html#L2176'>dict</a>             2176 src/redis.c                keys = dictSize(server.db[j].dict);
+<a href='../S/35.html#L2271'>dict</a>             2271 src/redis.c                dict *dict;
+<a href='../S/35.html#L2276'>dict</a>             2276 src/redis.c                    dict = server.db[j].dict;
+<a href='../S/35.html#L2278'>dict</a>             2278 src/redis.c                    dict = server.db[j].expires;
+<a href='../S/35.html#L2280'>dict</a>             2280 src/redis.c                if (dictSize(dict) == 0) continue;
+<a href='../S/35.html#L2286'>dict</a>             2286 src/redis.c                    de = dictGetRandomKey(dict);
+<a href='../S/35.html#L2299'>dict</a>             2299 src/redis.c                        de = dictGetRandomKey(dict);
+<a href='../S/35.html#L2304'>dict</a>             2304 src/redis.c                            de = dictFind(db-&gt;dict, thiskey);
+<a href='../S/35.html#L2322'>dict</a>             2322 src/redis.c                        de = dictGetRandomKey(dict);
+<a href='../S/32.html#L332'>dict</a>              332 src/redis.h        dict *dict;                 /* The keyspace for this DB */
+<a href='../S/32.html#L333'>dict</a>              333 src/redis.h        dict *expires;              /* Timeout of keys with a timeout set */
+<a href='../S/32.html#L334'>dict</a>              334 src/redis.h        dict *blocking_keys;        /* Keys with clients waiting for data (BLPOP) */
+<a href='../S/32.html#L335'>dict</a>              335 src/redis.h        dict *ready_keys;           /* Blocked keys that received a PUSH */
+<a href='../S/32.html#L336'>dict</a>              336 src/redis.h        dict *watched_keys;         /* WATCHED keys for MULTI/EXEC CAS */
+<a href='../S/32.html#L353'>dict</a>              353 src/redis.h        dict *keys;             /* The keys we are waiting to terminate a blocking
+<a href='../S/32.html#L410'>dict</a>              410 src/redis.h        dict *pubsub_channels;  /* channels a client is interested in (SUBSCRIBE) */
+<a href='../S/32.html#L456'>dict</a>              456 src/redis.h        dict *dict;
+<a href='../S/32.html#L497'>dict</a>              497 src/redis.h        dict *commands;             /* Command table hash table */
+<a href='../S/32.html#L643'>dict</a>              643 src/redis.h        dict *pubsub_channels;  /* Map channels to list of subscribed clients */
+<a href='../S/32.html#L649'>dict</a>              649 src/redis.h        dict *lua_scripts;         /* A dictionary of SHA1 -&gt; Lua scripts */
+<a href='../S/82.html#L160'>dict</a>              160 src/sentinel.c     dict *sentinels;    /* Other sentinels monitoring the same master. */
+<a href='../S/82.html#L161'>dict</a>              161 src/sentinel.c     dict *slaves;       /* Slaves for this master instance. */
+<a href='../S/82.html#L194'>dict</a>              194 src/sentinel.c     dict *masters;      /* Dictionary of master sentinelRedisInstances.
+<a href='../S/82.html#L824'>dict</a>              824 src/sentinel.c     dict *table = NULL;
+<a href='../S/82.html#L2375'>dict</a>             2375 src/sentinel.c     dict *counters;
+<a href='../S/57.html#L275'>dict</a>              275 src/sort.c         case REDIS_ZSET: vectorlen = dictSize(((zset*)sortval-&gt;ptr)-&gt;dict); break;
+<a href='../S/57.html#L345'>dict</a>              345 src/sort.c                 long zsetlen = dictSize(((zset*)sortval-&gt;ptr)-&gt;dict);
+<a href='../S/57.html#L372'>dict</a>              372 src/sort.c             dict *set = ((zset*)sortval-&gt;ptr)-&gt;dict;
+<a href='../S/97.html#L247'>dict</a>              247 src/t_hash.c           if (dictDelete((dict*)o-&gt;ptr, field) == REDIS_OK) {
+<a href='../S/97.html#L268'>dict</a>              268 src/t_hash.c           length = dictSize((dict*)o-&gt;ptr);
+<a href='../S/97.html#L421'>dict</a>              421 src/t_hash.c           dict *dict;
+<a href='../S/97.html#L425'>dict</a>              425 src/t_hash.c           dict = dictCreate(&amp;hashDictType, NULL);
+<a href='../S/97.html#L434'>dict</a>              434 src/t_hash.c               ret = dictAdd(dict, field, value);
+<a href='../S/97.html#L446'>dict</a>              446 src/t_hash.c           o-&gt;ptr = dict;
+<a href='../S/92.html#L103'>dict</a>              103 src/t_set.c            return dictFind((dict*)subject-&gt;ptr,value) != NULL;
+<a href='../S/92.html#L210'>dict</a>              210 src/t_set.c            return dictSize((dict*)subject-&gt;ptr);
+<a href='../S/92.html#L228'>dict</a>              228 src/t_set.c            dict *d = dictCreate(&amp;setDictType,NULL);
+<a href='../S/92.html#L410'>dict</a>              410 src/t_set.c        dict *d;
+<a href='../S/59.html#L312'>dict</a>              312 src/t_zset.c           dictDelete(dict,x-&gt;obj);
+<a href='../S/59.html#L341'>dict</a>              341 src/t_zset.c           dictDelete(dict,x-&gt;obj);
+<a href='../S/59.html#L778'>dict</a>              778 src/t_zset.c           zs-&gt;dict = dictCreate(&amp;zsetDictType,NULL);
+<a href='../S/59.html#L796'>dict</a>              796 src/t_zset.c               redisAssertWithInfo(NULL,zobj,dictAdd(zs-&gt;dict,ele,&amp;node-&gt;score) == DICT_OK);
+<a href='../S/59.html#L813'>dict</a>              813 src/t_zset.c           dictRelease(zs-&gt;dict);
+<a href='../S/59.html#L935'>dict</a>              935 src/t_zset.c               de = dictFind(zs-&gt;dict,ele);
+<a href='../S/59.html#L966'>dict</a>              966 src/t_zset.c                   redisAssertWithInfo(c,NULL,dictAdd(zs-&gt;dict,ele,&amp;znode-&gt;score) == DICT_OK);
+<a href='../S/59.html#L1019'>dict</a>             1019 src/t_zset.c               de = dictFind(zs-&gt;dict,c-&gt;argv[j]);
+<a href='../S/59.html#L1028'>dict</a>             1028 src/t_zset.c                   dictDelete(zs-&gt;dict,c-&gt;argv[j]);
+<a href='../S/59.html#L1029'>dict</a>             1029 src/t_zset.c                   if (htNeedsResize(zs-&gt;dict)) dictResize(zs-&gt;dict);
+<a href='../S/59.html#L1030'>dict</a>             1030 src/t_zset.c                   if (dictSize(zs-&gt;dict) == 0) {
+<a href='../S/59.html#L1067'>dict</a>             1067 src/t_zset.c           deleted = zslDeleteRangeByScore(zs-&gt;zsl,range,zs-&gt;dict);
+<a href='../S/59.html#L1068'>dict</a>             1068 src/t_zset.c           if (htNeedsResize(zs-&gt;dict)) dictResize(zs-&gt;dict);
+<a href='../S/59.html#L1069'>dict</a>             1069 src/t_zset.c           if (dictSize(zs-&gt;dict) == 0) dbDelete(c-&gt;db,key);
+<a href='../S/59.html#L1115'>dict</a>             1115 src/t_zset.c           deleted = zslDeleteRangeByRank(zs-&gt;zsl,start+1,end+1,zs-&gt;dict);
+<a href='../S/59.html#L1116'>dict</a>             1116 src/t_zset.c           if (htNeedsResize(zs-&gt;dict)) dictResize(zs-&gt;dict);
+<a href='../S/59.html#L1117'>dict</a>             1117 src/t_zset.c           if (dictSize(zs-&gt;dict) == 0) dbDelete(c-&gt;db,key);
+<a href='../S/59.html#L1141'>dict</a>             1141 src/t_zset.c                   dict *dict;
+<a href='../S/59.html#L1196'>dict</a>             1196 src/t_zset.c               it-&gt;ht.dict = op-&gt;subject-&gt;ptr;
+<a href='../S/59.html#L1258'>dict</a>             1258 src/t_zset.c               return dictSize(it-&gt;ht.dict);
+<a href='../S/59.html#L1414'>dict</a>             1414 src/t_zset.c               if (dictFind(it-&gt;ht.dict,val-&gt;ele) != NULL) {
+<a href='../S/59.html#L1436'>dict</a>             1436 src/t_zset.c               if ((de = dictFind(it-&gt;sl.zs-&gt;dict,val-&gt;ele)) != NULL) {
+<a href='../S/59.html#L1605'>dict</a>             1605 src/t_zset.c                       dictAdd(dstzset-&gt;dict,tmp,&amp;znode-&gt;score);
+<a href='../S/59.html#L1623'>dict</a>             1623 src/t_zset.c                   if (dictFind(dstzset-&gt;dict,zuiObjectFromValue(&amp;zval)) != NULL)
+<a href='../S/59.html#L1647'>dict</a>             1647 src/t_zset.c                   dictAdd(dstzset-&gt;dict,tmp,&amp;znode-&gt;score);
+<a href='../S/59.html#L2102'>dict</a>             2102 src/t_zset.c           de = dictFind(zs-&gt;dict,c-&gt;argv[2]);
+<a href='../S/59.html#L2158'>dict</a>             2158 src/t_zset.c           de = dictFind(zs-&gt;dict,ele);
+</pre>
+</body>
+</html>

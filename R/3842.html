@@ -1,0 +1,25 @@
+<html>
+<head>
+<title>stats_chunks</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/142.html#L36'>stats_chunks</a>       36 deps/jemalloc/include/jemalloc/internal/chunk.h extern chunk_stats_t	stats_chunks;
+<a href='../S/138.html#L316'>stats_chunks</a>      316 deps/jemalloc/include/jemalloc/internal/private_namespace.h #define	stats_chunks JEMALLOC_N(stats_chunks)
+<a href='../S/201.html#L11'>stats_chunks</a>       11 deps/jemalloc/src/chunk.c chunk_stats_t	stats_chunks;
+<a href='../S/201.html#L185'>stats_chunks</a>      185 deps/jemalloc/src/chunk.c 			stats_chunks.nchunks += (size / chunksize);
+<a href='../S/201.html#L186'>stats_chunks</a>      186 deps/jemalloc/src/chunk.c 		stats_chunks.curchunks += (size / chunksize);
+<a href='../S/201.html#L187'>stats_chunks</a>      187 deps/jemalloc/src/chunk.c 		if (stats_chunks.curchunks &gt; stats_chunks.highchunks) {
+<a href='../S/201.html#L188'>stats_chunks</a>      188 deps/jemalloc/src/chunk.c 			stats_chunks.highchunks = stats_chunks.curchunks;
+<a href='../S/201.html#L313'>stats_chunks</a>      313 deps/jemalloc/src/chunk.c 		assert(stats_chunks.curchunks &gt;= (size / chunksize));
+<a href='../S/201.html#L314'>stats_chunks</a>      314 deps/jemalloc/src/chunk.c 		stats_chunks.curchunks -= (size / chunksize);
+<a href='../S/201.html#L335'>stats_chunks</a>      335 deps/jemalloc/src/chunk.c 		memset(&amp;stats_chunks, 0, sizeof(chunk_stats_t));
+<a href='../S/206.html#L402'>stats_chunks</a>      402 deps/jemalloc/src/ctl.c 	{NAME("chunks"),		CHILD(named, stats_chunks)},
+<a href='../S/206.html#L615'>stats_chunks</a>      615 deps/jemalloc/src/ctl.c 		ctl_stats.chunks.current = stats_chunks.curchunks;
+<a href='../S/206.html#L616'>stats_chunks</a>      616 deps/jemalloc/src/ctl.c 		ctl_stats.chunks.total = stats_chunks.nchunks;
+<a href='../S/206.html#L617'>stats_chunks</a>      617 deps/jemalloc/src/ctl.c 		ctl_stats.chunks.high = stats_chunks.highchunks;
+</pre>
+</body>
+</html>

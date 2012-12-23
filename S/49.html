@@ -1,0 +1,178 @@
+<html>
+<head>
+<title>src/lzfP.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/lzfP.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/179.html' title='Multiple included from 2 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2000-2007 Marc Alexander Lehmann &lt;schmorp@schmorp.de&gt;</font></i>
+<a name='L3'><i><font color='green'> * </font></i>
+<a name='L4'><i><font color='green'> * Redistribution and use in source and binary forms, with or without modifica-</font></i>
+<a name='L5'><i><font color='green'> * tion, are permitted provided that the following conditions are met:</font></i>
+<a name='L6'><i><font color='green'> * </font></i>
+<a name='L7'><i><font color='green'> *   1.  Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L8'><i><font color='green'> *       this list of conditions and the following disclaimer.</font></i>
+<a name='L9'><i><font color='green'> * </font></i>
+<a name='L10'><i><font color='green'> *   2.  Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L11'><i><font color='green'> *       notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L12'><i><font color='green'> *       documentation and/or other materials provided with the distribution.</font></i>
+<a name='L13'><i><font color='green'> * </font></i>
+<a name='L14'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED</font></i>
+<a name='L15'><i><font color='green'> * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MER-</font></i>
+<a name='L16'><i><font color='green'> * CHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO</font></i>
+<a name='L17'><i><font color='green'> * EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPE-</font></i>
+<a name='L18'><i><font color='green'> * CIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,</font></i>
+<a name='L19'><i><font color='green'> * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;</font></i>
+<a name='L20'><i><font color='green'> * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,</font></i>
+<a name='L21'><i><font color='green'> * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTH-</font></i>
+<a name='L22'><i><font color='green'> * ERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED</font></i>
+<a name='L23'><i><font color='green'> * OF THE POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L24'><i><font color='green'> *</font></i>
+<a name='L25'><i><font color='green'> * Alternatively, the contents of this file may be used under the terms of</font></i>
+<a name='L26'><i><font color='green'> * the GNU General Public License ("GPL") version 2 or any later version,</font></i>
+<a name='L27'><i><font color='green'> * in which case the provisions of the GPL are applicable instead of</font></i>
+<a name='L28'><i><font color='green'> * the above. If you wish to allow the use of your version of this file</font></i>
+<a name='L29'><i><font color='green'> * only under the terms of the GPL and not to allow others to use your</font></i>
+<a name='L30'><i><font color='green'> * version of this file under the BSD license, indicate your decision</font></i>
+<a name='L31'><i><font color='green'> * by deleting the provisions above and replace them with the notice</font></i>
+<a name='L32'><i><font color='green'> * and other provisions required by the GPL. If you do not delete the</font></i>
+<a name='L33'><i><font color='green'> * provisions above, a recipient may use your version of this file under</font></i>
+<a name='L34'><i><font color='green'> * either the BSD or the GPL.</font></i>
+<a name='L35'><i><font color='green'> */</font></i>
+<a name='L36'>
+<a name='L37'><font color='darkred'>#ifndef</font> <a href='../S/49.html#L38' title='Defined at 38 in src/lzfP.h.'>LZFP_h</a>
+<a name='L38'><font color='darkred'>#define</font> <a href='../S/49.html#L37' title='Refered from 37 in src/lzfP.h.'>LZFP_h</a>
+<a name='L39'>
+<a name='L40'><font color='darkred'>#define</font> <a href='../S/49.html#L42' title='Refered from 42 in src/lzfP.h.'>STANDALONE</a> 1 <i><font color='green'>/* at the moment, this is ok. */</font></i>
+<a name='L41'>
+<a name='L42'><font color='darkred'>#ifndef</font> <a href='../S/49.html#L40' title='Defined at 40 in src/lzfP.h.'>STANDALONE</a>
+<a name='L43'><font color='darkred'># include</font> "<a href='15.html'>lzf.h</a>"
+<a name='L44'><font color='darkred'>#endif</font>
+<a name='L45'>
+<a name='L46'><i><font color='green'>/*</font></i>
+<a name='L47'><i><font color='green'> * Size of hashtable is (1 &lt;&lt; HLOG) * sizeof (char *)</font></i>
+<a name='L48'><i><font color='green'> * decompression is independent of the hash table size</font></i>
+<a name='L49'><i><font color='green'> * the difference between 15 and 14 is very small</font></i>
+<a name='L50'><i><font color='green'> * for small blocks (and 14 is usually a bit faster).</font></i>
+<a name='L51'><i><font color='green'> * For a low-memory/faster configuration, use HLOG == 13;</font></i>
+<a name='L52'><i><font color='green'> * For best compression, use 15 or 16 (or more, up to 23).</font></i>
+<a name='L53'><i><font color='green'> */</font></i>
+<a name='L54'><font color='darkred'>#ifndef</font> <a href='../S/49.html#L55' title='Defined at 55 in src/lzfP.h.'>HLOG</a>
+<a name='L55'><font color='darkred'># define</font> <a href='../R/185.html' title='Multiple refered from 5 places.'>HLOG</a> 16
+<a name='L56'><font color='darkred'>#endif</font>
+<a name='L57'>
+<a name='L58'><i><font color='green'>/*</font></i>
+<a name='L59'><i><font color='green'> * Sacrifice very little compression quality in favour of compression speed.</font></i>
+<a name='L60'><i><font color='green'> * This gives almost the same compression as the default code, and is</font></i>
+<a name='L61'><i><font color='green'> * (very roughly) 15% faster. This is the preferred mode of operation.</font></i>
+<a name='L62'><i><font color='green'> */</font></i>
+<a name='L63'><font color='darkred'>#ifndef</font> <a href='../D/1278.html' title='Multiple defined in 2 places.'>VERY_FAST</a>
+<a name='L64'><font color='darkred'># define</font> <a href='../R/1029.html' title='Multiple refered from 6 places.'>VERY_FAST</a> 1
+<a name='L65'><font color='darkred'>#endif</font>
+<a name='L66'>
+<a name='L67'><i><font color='green'>/*</font></i>
+<a name='L68'><i><font color='green'> * Sacrifice some more compression quality in favour of compression speed.</font></i>
+<a name='L69'><i><font color='green'> * (roughly 1-2% worse compression for large blocks and</font></i>
+<a name='L70'><i><font color='green'> * 9-10% for small, redundant, blocks and &gt;&gt;20% better speed in both cases)</font></i>
+<a name='L71'><i><font color='green'> * In short: when in need for speed, enable this for binary data,</font></i>
+<a name='L72'><i><font color='green'> * possibly disable this for text data.</font></i>
+<a name='L73'><i><font color='green'> */</font></i>
+<a name='L74'><font color='darkred'>#ifndef</font> <a href='../S/49.html#L75' title='Defined at 75 in src/lzfP.h.'>ULTRA_FAST</a>
+<a name='L75'><font color='darkred'># define</font> <a href='../R/1013.html' title='Multiple refered from 6 places.'>ULTRA_FAST</a> 0
+<a name='L76'><font color='darkred'>#endif</font>
+<a name='L77'>
+<a name='L78'><i><font color='green'>/*</font></i>
+<a name='L79'><i><font color='green'> * Unconditionally aligning does not cost very much, so do it if unsure</font></i>
+<a name='L80'><i><font color='green'> */</font></i>
+<a name='L81'><font color='darkred'>#ifndef</font> <a href='../D/1149.html' title='Multiple defined in 3 places.'>STRICT_ALIGN</a>
+<a name='L82'><font color='darkred'># define</font> <a href='../R/914.html' title='Multiple refered from 3 places.'>STRICT_ALIGN</a> !(defined(__i386) || defined (__amd64))
+<a name='L83'><font color='darkred'>#endif</font>
+<a name='L84'>
+<a name='L85'><i><font color='green'>/*</font></i>
+<a name='L86'><i><font color='green'> * You may choose to pre-set the hash table (might be faster on some</font></i>
+<a name='L87'><i><font color='green'> * modern cpus and large (&gt;&gt;64k) blocks, and also makes compression</font></i>
+<a name='L88'><i><font color='green'> * deterministic/repeatable when the configuration otherwise is the same).</font></i>
+<a name='L89'><i><font color='green'> */</font></i>
+<a name='L90'><font color='darkred'>#ifndef</font> <a href='../S/49.html#L91' title='Defined at 91 in src/lzfP.h.'>INIT_HTAB</a>
+<a name='L91'><font color='darkred'># define</font> <a href='../R/194.html' title='Multiple refered from 4 places.'>INIT_HTAB</a> 0
+<a name='L92'><font color='darkred'>#endif</font>
+<a name='L93'>
+<a name='L94'><i><font color='green'>/*</font></i>
+<a name='L95'><i><font color='green'> * Avoid assigning values to errno variable? for some embedding purposes</font></i>
+<a name='L96'><i><font color='green'> * (linux kernel for example), this is neccessary. NOTE: this breaks</font></i>
+<a name='L97'><i><font color='green'> * the documentation in lzf.h.</font></i>
+<a name='L98'><i><font color='green'> */</font></i>
+<a name='L99'><font color='darkred'>#ifndef</font> <a href='../S/49.html#L100' title='Defined at 100 in src/lzfP.h.'>AVOID_ERRNO</a>
+<a name='L100'><font color='darkred'># define</font> <a href='../R/32.html' title='Multiple refered from 2 places.'>AVOID_ERRNO</a> 0
+<a name='L101'><font color='darkred'>#endif</font>
+<a name='L102'>
+<a name='L103'><i><font color='green'>/*</font></i>
+<a name='L104'><i><font color='green'> * Wether to pass the LZF_STATE variable as argument, or allocate it</font></i>
+<a name='L105'><i><font color='green'> * on the stack. For small-stack environments, define this to 1.</font></i>
+<a name='L106'><i><font color='green'> * NOTE: this breaks the prototype in lzf.h.</font></i>
+<a name='L107'><i><font color='green'> */</font></i>
+<a name='L108'><font color='darkred'>#ifndef</font> <a href='../S/49.html#L109' title='Defined at 109 in src/lzfP.h.'>LZF_STATE_ARG</a>
+<a name='L109'><font color='darkred'># define</font> <a href='../R/403.html' title='Multiple refered from 3 places.'>LZF_STATE_ARG</a> 0
+<a name='L110'><font color='darkred'>#endif</font>
+<a name='L111'>
+<a name='L112'><i><font color='green'>/*</font></i>
+<a name='L113'><i><font color='green'> * Wether to add extra checks for input validity in lzf_decompress</font></i>
+<a name='L114'><i><font color='green'> * and return EINVAL if the input stream has been corrupted. This</font></i>
+<a name='L115'><i><font color='green'> * only shields against overflowing the input buffer and will not</font></i>
+<a name='L116'><i><font color='green'> * detect most corrupted streams.</font></i>
+<a name='L117'><i><font color='green'> * This check is not normally noticable on modern hardware</font></i>
+<a name='L118'><i><font color='green'> * (&lt;1% slowdown), but might slow down older cpus considerably.</font></i>
+<a name='L119'><i><font color='green'> */</font></i>
+<a name='L120'><font color='darkred'>#ifndef</font> <a href='../S/49.html#L121' title='Defined at 121 in src/lzfP.h.'>CHECK_INPUT</a>
+<a name='L121'><font color='darkred'># define</font> <a href='../R/61.html' title='Multiple refered from 4 places.'>CHECK_INPUT</a> 1
+<a name='L122'><font color='darkred'>#endif</font>
+<a name='L123'>
+<a name='L124'><i><font color='green'>/*****************************************************************************/</font></i>
+<a name='L125'><i><font color='green'>/* nothing should be changed below */</font></i>
+<a name='L126'>
+<a name='L127'><b>typedef</b> <b>unsigned</b> <b>char</b> <a href='../R/4045.html' title='Multiple refered from 16 places.'>u8</a>;
+<a name='L128'>
+<a name='L129'><b>typedef</b> <b>const</b> <a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a> *<a href='../R/402.html' title='Multiple refered from 2 places.'>LZF_STATE</a>[1 &lt;&lt; (HLOG)];
+<a name='L130'>
+<a name='L131'><font color='darkred'>#if</font> !<a href='../D/1149.html' title='Multiple defined in 3 places.'>STRICT_ALIGN</a>
+<a name='L132'><i><font color='green'>/* for unaligned accesses we need a 16 bit datatype. */</font></i>
+<a name='L133'><font color='darkred'># include</font> &lt;limits.h&gt;
+<a name='L134'><font color='darkred'># if</font> USHRT_MAX == 65535
+<a name='L135'>    <b>typedef</b> <b>unsigned</b> <b>short</b> <a href='../S/47.html#L163' title='Refered from 163 in src/lzf_c.c.'>u16</a>;
+<a name='L136'><font color='darkred'># elif</font> UINT_MAX == 65535
+<a name='L137'>    <b>typedef</b> <b>unsigned</b> <b>int</b> <a href='../S/47.html#L163' title='Refered from 163 in src/lzf_c.c.'>u16</a>;
+<a name='L138'><font color='darkred'># else</font>
+<a name='L139'><font color='darkred'>#  undef</font> <a href='../R/914.html' title='Multiple refered from 3 places.'>STRICT_ALIGN</a>
+<a name='L140'><font color='darkred'>#  define</font> <a href='../R/914.html' title='Multiple refered from 3 places.'>STRICT_ALIGN</a> 1
+<a name='L141'><font color='darkred'># endif</font>
+<a name='L142'><font color='darkred'>#endif</font>
+<a name='L143'>
+<a name='L144'><font color='darkred'>#if</font> <a href='../S/49.html#L75' title='Defined at 75 in src/lzfP.h.'>ULTRA_FAST</a>
+<a name='L145'><font color='darkred'># if</font> <b>defined</b>(<a href='../D/1278.html' title='Multiple defined in 2 places.'>VERY_FAST</a>)
+<a name='L146'><font color='darkred'>#  undef</font> <a href='../R/1029.html' title='Multiple refered from 6 places.'>VERY_FAST</a>
+<a name='L147'><font color='darkred'># endif</font>
+<a name='L148'><font color='darkred'>#endif</font>
+<a name='L149'>
+<a name='L150'><font color='darkred'>#if</font> <a href='../S/49.html#L91' title='Defined at 91 in src/lzfP.h.'>INIT_HTAB</a>
+<a name='L151'><font color='darkred'># ifdef</font> __cplusplus
+<a name='L152'><font color='darkred'>#  include</font> &lt;cstring&gt;
+<a name='L153'><font color='darkred'># else</font>
+<a name='L154'><font color='darkred'>#  include</font> &lt;string.h&gt;
+<a name='L155'><font color='darkred'># endif</font>
+<a name='L156'><font color='darkred'>#endif</font>
+<a name='L157'>
+<a name='L158'><font color='darkred'>#endif</font>
+<a name='L159'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

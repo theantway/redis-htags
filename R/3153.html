@@ -1,0 +1,222 @@
+<html>
+<head>
+<title>pos</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/120.html#L198'>pos</a>               198 deps/hiredis/hiredis.c         r-&gt;pos = r-&gt;len = 0;
+<a href='../S/120.html#L251'>pos</a>               251 deps/hiredis/hiredis.c     if (r-&gt;len-r-&gt;pos &gt;= bytes) {
+<a href='../S/120.html#L252'>pos</a>               252 deps/hiredis/hiredis.c         p = r-&gt;buf+r-&gt;pos;
+<a href='../S/120.html#L253'>pos</a>               253 deps/hiredis/hiredis.c         r-&gt;pos += bytes;
+<a href='../S/120.html#L261'>pos</a>               261 deps/hiredis/hiredis.c     int pos = 0;
+<a href='../S/120.html#L268'>pos</a>               268 deps/hiredis/hiredis.c     while (pos &lt; _len) {
+<a href='../S/120.html#L269'>pos</a>               269 deps/hiredis/hiredis.c         while(pos &lt; _len &amp;&amp; s[pos] != '\r') pos++;
+<a href='../S/120.html#L270'>pos</a>               270 deps/hiredis/hiredis.c         if (s[pos] != '\r') {
+<a href='../S/120.html#L274'>pos</a>               274 deps/hiredis/hiredis.c             if (s[pos+1] == '\n') {
+<a href='../S/120.html#L276'>pos</a>               276 deps/hiredis/hiredis.c                 return s+pos;
+<a href='../S/120.html#L279'>pos</a>               279 deps/hiredis/hiredis.c                 pos++;
+<a href='../S/120.html#L319'>pos</a>               319 deps/hiredis/hiredis.c     p = r-&gt;buf+r-&gt;pos;
+<a href='../S/120.html#L320'>pos</a>               320 deps/hiredis/hiredis.c     s = seekNewline(p,(r-&gt;len-r-&gt;pos));
+<a href='../S/120.html#L322'>pos</a>               322 deps/hiredis/hiredis.c         len = s-(r-&gt;buf+r-&gt;pos);
+<a href='../S/120.html#L323'>pos</a>               323 deps/hiredis/hiredis.c         r-&gt;pos += len+2; /* skip \r\n */
+<a href='../S/120.html#L397'>pos</a>               397 deps/hiredis/hiredis.c     p = r-&gt;buf+r-&gt;pos;
+<a href='../S/120.html#L398'>pos</a>               398 deps/hiredis/hiredis.c     s = seekNewline(p,r-&gt;len-r-&gt;pos);
+<a href='../S/120.html#L400'>pos</a>               400 deps/hiredis/hiredis.c         p = r-&gt;buf+r-&gt;pos;
+<a href='../S/120.html#L401'>pos</a>               401 deps/hiredis/hiredis.c         bytelen = s-(r-&gt;buf+r-&gt;pos)+2; /* include \r\n */
+<a href='../S/120.html#L414'>pos</a>               414 deps/hiredis/hiredis.c             if (r-&gt;pos+bytelen &lt;= r-&gt;len) {
+<a href='../S/120.html#L430'>pos</a>               430 deps/hiredis/hiredis.c             r-&gt;pos += bytelen;
+<a href='../S/120.html#L598'>pos</a>               598 deps/hiredis/hiredis.c             r-&gt;pos = 0;
+<a href='../S/120.html#L652'>pos</a>               652 deps/hiredis/hiredis.c     if (r-&gt;pos &gt;= 1024) {
+<a href='../S/120.html#L653'>pos</a>               653 deps/hiredis/hiredis.c         r-&gt;buf = sdsrange(r-&gt;buf,r-&gt;pos,-1);
+<a href='../S/120.html#L654'>pos</a>               654 deps/hiredis/hiredis.c         r-&gt;pos = 0;
+<a href='../S/120.html#L689'>pos</a>               689 deps/hiredis/hiredis.c     int pos; /* position in final command */
+<a href='../S/120.html#L881'>pos</a>               881 deps/hiredis/hiredis.c     pos = sprintf(cmd,"*%d\r\n",argc);
+<a href='../S/120.html#L883'>pos</a>               883 deps/hiredis/hiredis.c         pos += sprintf(cmd+pos,"$%zu\r\n",sdslen(curargv[j]));
+<a href='../S/120.html#L884'>pos</a>               884 deps/hiredis/hiredis.c         memcpy(cmd+pos,curargv[j],sdslen(curargv[j]));
+<a href='../S/120.html#L885'>pos</a>               885 deps/hiredis/hiredis.c         pos += sdslen(curargv[j]);
+<a href='../S/120.html#L887'>pos</a>               887 deps/hiredis/hiredis.c         cmd[pos++] = '\r';
+<a href='../S/120.html#L888'>pos</a>               888 deps/hiredis/hiredis.c         cmd[pos++] = '\n';
+<a href='../S/120.html#L890'>pos</a>               890 deps/hiredis/hiredis.c     assert(pos == totlen);
+<a href='../S/120.html#L891'>pos</a>               891 deps/hiredis/hiredis.c     cmd[pos] = '\0';
+<a href='../S/120.html#L941'>pos</a>               941 deps/hiredis/hiredis.c     int pos; /* position in final command */
+<a href='../S/120.html#L957'>pos</a>               957 deps/hiredis/hiredis.c     pos = sprintf(cmd,"*%d\r\n",argc);
+<a href='../S/120.html#L960'>pos</a>               960 deps/hiredis/hiredis.c         pos += sprintf(cmd+pos,"$%zu\r\n",len);
+<a href='../S/120.html#L961'>pos</a>               961 deps/hiredis/hiredis.c         memcpy(cmd+pos,argv[j],len);
+<a href='../S/120.html#L962'>pos</a>               962 deps/hiredis/hiredis.c         pos += len;
+<a href='../S/120.html#L963'>pos</a>               963 deps/hiredis/hiredis.c         cmd[pos++] = '\r';
+<a href='../S/120.html#L964'>pos</a>               964 deps/hiredis/hiredis.c         cmd[pos++] = '\n';
+<a href='../S/120.html#L966'>pos</a>               966 deps/hiredis/hiredis.c     assert(pos == totlen);
+<a href='../S/120.html#L967'>pos</a>               967 deps/hiredis/hiredis.c     cmd[pos] = '\0';
+<a href='../S/121.html#L128'>pos</a>               128 deps/hiredis/hiredis.h     size_t pos; /* Buffer cursor */
+<a href='../S/99.html#L193'>pos</a>               193 deps/linenoise/linenoise.c     while((plen+pos) &gt;= cols) {
+<a href='../S/99.html#L196'>pos</a>               196 deps/linenoise/linenoise.c         pos--;
+<a href='../S/99.html#L212'>pos</a>               212 deps/linenoise/linenoise.c     snprintf(seq,64,"\x1b[0G\x1b[%dC", (int)(pos+plen));
+<a href='../S/99.html#L247'>pos</a>               247 deps/linenoise/linenoise.c                 refreshLine(fd,prompt,buf,*len,*pos,cols);
+<a href='../S/99.html#L264'>pos</a>               264 deps/linenoise/linenoise.c                         refreshLine(fd,prompt,buf,*len,*pos,cols);
+<a href='../S/99.html#L272'>pos</a>               272 deps/linenoise/linenoise.c                         *len = *pos = nwritten;
+<a href='../S/99.html#L292'>pos</a>               292 deps/linenoise/linenoise.c     size_t pos = 0;
+<a href='../S/99.html#L319'>pos</a>               319 deps/linenoise/linenoise.c             c = completeLine(fd,prompt,buf,buflen,&amp;len,&amp;pos,cols);
+<a href='../S/99.html#L336'>pos</a>               336 deps/linenoise/linenoise.c             if (pos &gt; 0 &amp;&amp; len &gt; 0) {
+<a href='../S/99.html#L337'>pos</a>               337 deps/linenoise/linenoise.c                 memmove(buf+pos-1,buf+pos,len-pos);
+<a href='../S/99.html#L338'>pos</a>               338 deps/linenoise/linenoise.c                 pos--;
+<a href='../S/99.html#L341'>pos</a>               341 deps/linenoise/linenoise.c                 refreshLine(fd,prompt,buf,len,pos,cols);
+<a href='../S/99.html#L345'>pos</a>               345 deps/linenoise/linenoise.c             if (len &gt; 1 &amp;&amp; pos &lt; (len-1)) {
+<a href='../S/99.html#L346'>pos</a>               346 deps/linenoise/linenoise.c                 memmove(buf+pos,buf+pos+1,len-pos);
+<a href='../S/99.html#L349'>pos</a>               349 deps/linenoise/linenoise.c                 refreshLine(fd,prompt,buf,len,pos,cols);
+<a href='../S/99.html#L357'>pos</a>               357 deps/linenoise/linenoise.c             if (pos &gt; 0 &amp;&amp; pos &lt; len) {
+<a href='../S/99.html#L358'>pos</a>               358 deps/linenoise/linenoise.c                 int aux = buf[pos-1];
+<a href='../S/99.html#L359'>pos</a>               359 deps/linenoise/linenoise.c                 buf[pos-1] = buf[pos];
+<a href='../S/99.html#L360'>pos</a>               360 deps/linenoise/linenoise.c                 buf[pos] = aux;
+<a href='../S/99.html#L361'>pos</a>               361 deps/linenoise/linenoise.c                 if (pos != len-1) pos++;
+<a href='../S/99.html#L362'>pos</a>               362 deps/linenoise/linenoise.c                 refreshLine(fd,prompt,buf,len,pos,cols);
+<a href='../S/99.html#L381'>pos</a>               381 deps/linenoise/linenoise.c                 if (pos &gt; 0) {
+<a href='../S/99.html#L382'>pos</a>               382 deps/linenoise/linenoise.c                     pos--;
+<a href='../S/99.html#L383'>pos</a>               383 deps/linenoise/linenoise.c                     refreshLine(fd,prompt,buf,len,pos,cols);
+<a href='../S/99.html#L388'>pos</a>               388 deps/linenoise/linenoise.c                 if (pos != len) {
+<a href='../S/99.html#L389'>pos</a>               389 deps/linenoise/linenoise.c                     pos++;
+<a href='../S/99.html#L390'>pos</a>               390 deps/linenoise/linenoise.c                     refreshLine(fd,prompt,buf,len,pos,cols);
+<a href='../S/99.html#L411'>pos</a>               411 deps/linenoise/linenoise.c                     len = pos = strlen(buf);
+<a href='../S/99.html#L412'>pos</a>               412 deps/linenoise/linenoise.c                     refreshLine(fd,prompt,buf,len,pos,cols);
+<a href='../S/99.html#L419'>pos</a>               419 deps/linenoise/linenoise.c                     if (len &gt; 0 &amp;&amp; pos &lt; len) {
+<a href='../S/99.html#L420'>pos</a>               420 deps/linenoise/linenoise.c                         memmove(buf+pos,buf+pos+1,len-pos-1);
+<a href='../S/99.html#L423'>pos</a>               423 deps/linenoise/linenoise.c                         refreshLine(fd,prompt,buf,len,pos,cols);
+<a href='../S/99.html#L430'>pos</a>               430 deps/linenoise/linenoise.c                 if (len == pos) {
+<a href='../S/99.html#L431'>pos</a>               431 deps/linenoise/linenoise.c                     buf[pos] = c;
+<a href='../S/99.html#L432'>pos</a>               432 deps/linenoise/linenoise.c                     pos++;
+<a href='../S/99.html#L440'>pos</a>               440 deps/linenoise/linenoise.c                         refreshLine(fd,prompt,buf,len,pos,cols);
+<a href='../S/99.html#L443'>pos</a>               443 deps/linenoise/linenoise.c                     memmove(buf+pos+1,buf+pos,len-pos);
+<a href='../S/99.html#L444'>pos</a>               444 deps/linenoise/linenoise.c                     buf[pos] = c;
+<a href='../S/99.html#L446'>pos</a>               446 deps/linenoise/linenoise.c                     pos++;
+<a href='../S/99.html#L448'>pos</a>               448 deps/linenoise/linenoise.c                     refreshLine(fd,prompt,buf,len,pos,cols);
+<a href='../S/99.html#L454'>pos</a>               454 deps/linenoise/linenoise.c             pos = len = 0;
+<a href='../S/99.html#L455'>pos</a>               455 deps/linenoise/linenoise.c             refreshLine(fd,prompt,buf,len,pos,cols);
+<a href='../S/99.html#L458'>pos</a>               458 deps/linenoise/linenoise.c             buf[pos] = '\0';
+<a href='../S/99.html#L459'>pos</a>               459 deps/linenoise/linenoise.c             len = pos;
+<a href='../S/99.html#L460'>pos</a>               460 deps/linenoise/linenoise.c             refreshLine(fd,prompt,buf,len,pos,cols);
+<a href='../S/99.html#L463'>pos</a>               463 deps/linenoise/linenoise.c             pos = 0;
+<a href='../S/99.html#L464'>pos</a>               464 deps/linenoise/linenoise.c             refreshLine(fd,prompt,buf,len,pos,cols);
+<a href='../S/99.html#L467'>pos</a>               467 deps/linenoise/linenoise.c             pos = len;
+<a href='../S/99.html#L468'>pos</a>               468 deps/linenoise/linenoise.c             refreshLine(fd,prompt,buf,len,pos,cols);
+<a href='../S/99.html#L472'>pos</a>               472 deps/linenoise/linenoise.c             refreshLine(fd,prompt,buf,len,pos,cols);
+<a href='../S/99.html#L475'>pos</a>               475 deps/linenoise/linenoise.c             old_pos = pos;
+<a href='../S/99.html#L476'>pos</a>               476 deps/linenoise/linenoise.c             while (pos &gt; 0 &amp;&amp; buf[pos-1] == ' ')
+<a href='../S/99.html#L477'>pos</a>               477 deps/linenoise/linenoise.c                 pos--;
+<a href='../S/99.html#L478'>pos</a>               478 deps/linenoise/linenoise.c             while (pos &gt; 0 &amp;&amp; buf[pos-1] != ' ')
+<a href='../S/99.html#L479'>pos</a>               479 deps/linenoise/linenoise.c                 pos--;
+<a href='../S/99.html#L480'>pos</a>               480 deps/linenoise/linenoise.c             diff = old_pos - pos;
+<a href='../S/99.html#L481'>pos</a>               481 deps/linenoise/linenoise.c             memmove(&amp;buf[pos], &amp;buf[old_pos], len-old_pos+1);
+<a href='../S/99.html#L483'>pos</a>               483 deps/linenoise/linenoise.c             refreshLine(fd,prompt,buf,len,pos,cols);
+<a href='../S/270.html#L38'>pos</a>                38 deps/lua/src/lstrlib.c   if (pos &lt; 0) pos += (ptrdiff_t)len + 1;
+<a href='../S/270.html#L39'>pos</a>                39 deps/lua/src/lstrlib.c   return (pos &gt;= 0) ? pos : 0;
+<a href='../S/295.html#L92'>pos</a>                92 deps/lua/src/ltablib.c   int pos;  /* where to insert new element */
+<a href='../S/295.html#L95'>pos</a>                95 deps/lua/src/ltablib.c       pos = e;  /* insert new element at the end */
+<a href='../S/295.html#L100'>pos</a>               100 deps/lua/src/ltablib.c       pos = luaL_checkint(L, 2);  /* 2nd argument is the position */
+<a href='../S/295.html#L101'>pos</a>               101 deps/lua/src/ltablib.c       if (pos &gt; e) e = pos;  /* `grow' array if necessary */
+<a href='../S/295.html#L102'>pos</a>               102 deps/lua/src/ltablib.c       for (i = e; i &gt; pos; i--) {  /* move up elements */
+<a href='../S/295.html#L113'>pos</a>               113 deps/lua/src/ltablib.c   lua_rawseti(L, 1, pos);  /* t[pos] = v */
+<a href='../S/295.html#L120'>pos</a>               120 deps/lua/src/ltablib.c   int pos = luaL_optint(L, 2, e);
+<a href='../S/295.html#L121'>pos</a>               121 deps/lua/src/ltablib.c   if (!(1 &lt;= pos &amp;&amp; pos &lt;= e))  /* position is outside bounds? */
+<a href='../S/295.html#L124'>pos</a>               124 deps/lua/src/ltablib.c   lua_rawgeti(L, 1, pos);  /* result = t[pos] */
+<a href='../S/295.html#L125'>pos</a>               125 deps/lua/src/ltablib.c   for ( ;pos&lt;e; pos++) {
+<a href='../S/295.html#L126'>pos</a>               126 deps/lua/src/ltablib.c     lua_rawgeti(L, 1, pos+1);
+<a href='../S/295.html#L127'>pos</a>               127 deps/lua/src/ltablib.c     lua_rawseti(L, 1, pos);  /* t[pos] = t[pos+1] */
+<a href='../S/302.html#L255'>pos</a>               255 deps/lua/src/lua_struct.c   size_t pos = luaL_optinteger(L, 3, 1) - 1;
+<a href='../S/302.html#L261'>pos</a>               261 deps/lua/src/lua_struct.c     pos += gettoalign(pos, &amp;h, opt, size);
+<a href='../S/302.html#L262'>pos</a>               262 deps/lua/src/lua_struct.c     luaL_argcheck(L, pos+size &lt;= ld, 2, "data string too short");
+<a href='../S/302.html#L267'>pos</a>               267 deps/lua/src/lua_struct.c         lua_Number res = getinteger(data+pos, h.endian, issigned, size);
+<a href='../S/302.html#L276'>pos</a>               276 deps/lua/src/lua_struct.c         memcpy(&amp;f, data+pos, size);
+<a href='../S/302.html#L283'>pos</a>               283 deps/lua/src/lua_struct.c         memcpy(&amp;d, data+pos, size);
+<a href='../S/302.html#L294'>pos</a>               294 deps/lua/src/lua_struct.c           luaL_argcheck(L, pos+size &lt;= ld, 2, "data string too short");
+<a href='../S/302.html#L296'>pos</a>               296 deps/lua/src/lua_struct.c         lua_pushlstring(L, data+pos, size);
+<a href='../S/302.html#L300'>pos</a>               300 deps/lua/src/lua_struct.c         const char *e = (const char *)memchr(data+pos, '\0', ld - pos);
+<a href='../S/302.html#L303'>pos</a>               303 deps/lua/src/lua_struct.c         size = (e - (data+pos)) + 1;
+<a href='../S/302.html#L304'>pos</a>               304 deps/lua/src/lua_struct.c         lua_pushlstring(L, data+pos, size - 1);
+<a href='../S/302.html#L309'>pos</a>               309 deps/lua/src/lua_struct.c     pos += size;
+<a href='../S/302.html#L311'>pos</a>               311 deps/lua/src/lua_struct.c   lua_pushinteger(L, pos + 1);
+<a href='../S/44.html#L61'>pos</a>                61 src/intset.c           memcpy(&amp;v64,((int64_t*)is-&gt;contents)+pos,sizeof(v64));
+<a href='../S/44.html#L65'>pos</a>                65 src/intset.c           memcpy(&amp;v32,((int32_t*)is-&gt;contents)+pos,sizeof(v32));
+<a href='../S/44.html#L69'>pos</a>                69 src/intset.c           memcpy(&amp;v16,((int16_t*)is-&gt;contents)+pos,sizeof(v16));
+<a href='../S/44.html#L77'>pos</a>                77 src/intset.c       return _intsetGetEncoded(is,pos,intrev32ifbe(is-&gt;encoding));
+<a href='../S/44.html#L85'>pos</a>                85 src/intset.c           ((int64_t*)is-&gt;contents)[pos] = value;
+<a href='../S/44.html#L86'>pos</a>                86 src/intset.c           memrev64ifbe(((int64_t*)is-&gt;contents)+pos);
+<a href='../S/44.html#L88'>pos</a>                88 src/intset.c           ((int32_t*)is-&gt;contents)[pos] = value;
+<a href='../S/44.html#L89'>pos</a>                89 src/intset.c           memrev32ifbe(((int32_t*)is-&gt;contents)+pos);
+<a href='../S/44.html#L91'>pos</a>                91 src/intset.c           ((int16_t*)is-&gt;contents)[pos] = value;
+<a href='../S/44.html#L92'>pos</a>                92 src/intset.c           memrev16ifbe(((int16_t*)is-&gt;contents)+pos);
+<a href='../S/44.html#L121'>pos</a>               121 src/intset.c           if (pos) *pos = 0;
+<a href='../S/44.html#L127'>pos</a>               127 src/intset.c               if (pos) *pos = intrev32ifbe(is-&gt;length);
+<a href='../S/44.html#L130'>pos</a>               130 src/intset.c               if (pos) *pos = 0;
+<a href='../S/44.html#L148'>pos</a>               148 src/intset.c           if (pos) *pos = mid;
+<a href='../S/44.html#L151'>pos</a>               151 src/intset.c           if (pos) *pos = min;
+<a href='../S/44.html#L206'>pos</a>               206 src/intset.c       uint32_t pos;
+<a href='../S/44.html#L219'>pos</a>               219 src/intset.c           if (intsetSearch(is,value,&amp;pos)) {
+<a href='../S/44.html#L225'>pos</a>               225 src/intset.c           if (pos &lt; intrev32ifbe(is-&gt;length)) intsetMoveTail(is,pos,pos+1);
+<a href='../S/44.html#L228'>pos</a>               228 src/intset.c       _intsetSet(is,pos,value);
+<a href='../S/44.html#L236'>pos</a>               236 src/intset.c       uint32_t pos;
+<a href='../S/44.html#L239'>pos</a>               239 src/intset.c       if (valenc &lt;= intrev32ifbe(is-&gt;encoding) &amp;&amp; intsetSearch(is,value,&amp;pos)) {
+<a href='../S/44.html#L246'>pos</a>               246 src/intset.c           if (pos &lt; (len-1)) intsetMoveTail(is,pos+1,pos);
+<a href='../S/44.html#L267'>pos</a>               267 src/intset.c       if (pos &lt; intrev32ifbe(is-&gt;length)) {
+<a href='../S/44.html#L268'>pos</a>               268 src/intset.c           *value = _intsetGet(is,pos);
+<a href='../S/18.html#L193'>pos</a>               193 src/migrate.c          size_t pos = 0, towrite;
+<a href='../S/18.html#L196'>pos</a>               196 src/migrate.c          while ((towrite = sdslen(buf)-pos) &gt; 0) {
+<a href='../S/18.html#L198'>pos</a>               198 src/migrate.c              nwritten = syncWrite(fd,buf+pos,towrite,timeout);
+<a href='../S/18.html#L200'>pos</a>               200 src/migrate.c              pos += nwritten;
+<a href='../S/86.html#L839'>pos</a>               839 src/networking.c     c-&gt;querybuf = sdsrange(c-&gt;querybuf,pos,-1);
+<a href='../S/86.html#L844'>pos</a>               844 src/networking.c     int pos = 0, ok;
+<a href='../S/86.html#L871'>pos</a>               871 src/networking.c             setProtocolError(c,pos);
+<a href='../S/86.html#L875'>pos</a>               875 src/networking.c         pos = (newline-c-&gt;querybuf)+2;
+<a href='../S/86.html#L877'>pos</a>               877 src/networking.c             c-&gt;querybuf = sdsrange(c-&gt;querybuf,pos,-1);
+<a href='../S/86.html#L892'>pos</a>               892 src/networking.c             newline = strchr(c-&gt;querybuf+pos,'\r');
+<a href='../S/86.html#L905'>pos</a>               905 src/networking.c             if (c-&gt;querybuf[pos] != '$') {
+<a href='../S/86.html#L908'>pos</a>               908 src/networking.c                     c-&gt;querybuf[pos]);
+<a href='../S/86.html#L909'>pos</a>               909 src/networking.c                 setProtocolError(c,pos);
+<a href='../S/86.html#L913'>pos</a>               913 src/networking.c             ok = string2ll(c-&gt;querybuf+pos+1,newline-(c-&gt;querybuf+pos+1),&amp;ll);
+<a href='../S/86.html#L916'>pos</a>               916 src/networking.c                 setProtocolError(c,pos);
+<a href='../S/86.html#L920'>pos</a>               920 src/networking.c             pos += newline-(c-&gt;querybuf+pos)+2;
+<a href='../S/86.html#L926'>pos</a>               926 src/networking.c                 c-&gt;querybuf = sdsrange(c-&gt;querybuf,pos,-1);
+<a href='../S/86.html#L927'>pos</a>               927 src/networking.c                 pos = 0;
+<a href='../S/86.html#L936'>pos</a>               936 src/networking.c         if (sdslen(c-&gt;querybuf)-pos &lt; (unsigned)(c-&gt;bulklen+2)) {
+<a href='../S/86.html#L943'>pos</a>               943 src/networking.c             if (pos == 0 &amp;&amp;
+<a href='../S/86.html#L953'>pos</a>               953 src/networking.c                 pos = 0;
+<a href='../S/86.html#L956'>pos</a>               956 src/networking.c                     createStringObject(c-&gt;querybuf+pos,c-&gt;bulklen);
+<a href='../S/86.html#L957'>pos</a>               957 src/networking.c                 pos += c-&gt;bulklen+2;
+<a href='../S/86.html#L965'>pos</a>               965 src/networking.c     if (pos) c-&gt;querybuf = sdsrange(c-&gt;querybuf,pos,-1);
+<a href='../S/87.html#L1050'>pos</a>              1050 src/rdb.c          server.loading_loaded_bytes = pos;
+<a href='../S/40.html#L107'>pos</a>               107 src/redis-check-aof.c     off_t pos = 0;
+<a href='../S/40.html#L112'>pos</a>               112 src/redis-check-aof.c         if (!multi) pos = ftello(fp);
+<a href='../S/40.html#L146'>pos</a>               146 src/redis-check-aof.c     return pos;
+<a href='../S/40.html#L188'>pos</a>               188 src/redis-check-aof.c     off_t pos = process(fp);
+<a href='../S/40.html#L189'>pos</a>               189 src/redis-check-aof.c     off_t diff = size-pos;
+<a href='../S/40.html#L191'>pos</a>               191 src/redis-check-aof.c         (long long) size, (long long) pos, (long long) diff);
+<a href='../S/40.html#L195'>pos</a>               195 src/redis-check-aof.c             printf("This will shrink the AOF from %lld bytes, with %lld bytes, to %lld bytes\n",(long long)size,(long long)diff,(long long)pos);
+<a href='../S/40.html#L202'>pos</a>               202 src/redis-check-aof.c             if (ftruncate(fileno(fp), pos) == -1) {
+<a href='../S/55.html#L110'>pos</a>               110 src/redis-check-dump.c static pos positions[16];
+<a href='../S/55.html#L161'>pos</a>               161 src/redis-check-dump.c     pos p = positions[level];
+<a href='../S/27.html#L156'>pos</a>               156 src/redis-cli.c     int i, len, pos = 0;
+<a href='../S/27.html#L169'>pos</a>               169 src/redis-cli.c         helpEntries[pos++] = tmp;
+<a href='../S/27.html#L177'>pos</a>               177 src/redis-cli.c         helpEntries[pos++] = tmp;
+<a href='../S/76.html#L59'>pos</a>                59 src/rio.c          r-&gt;io.buffer.pos += len;
+<a href='../S/76.html#L65'>pos</a>                65 src/rio.c          if (sdslen(r-&gt;io.buffer.ptr)-r-&gt;io.buffer.pos &lt; len)
+<a href='../S/76.html#L67'>pos</a>                67 src/rio.c          memcpy(buf,r-&gt;io.buffer.ptr+r-&gt;io.buffer.pos,len);
+<a href='../S/76.html#L68'>pos</a>                68 src/rio.c          r-&gt;io.buffer.pos += len;
+<a href='../S/76.html#L74'>pos</a>                74 src/rio.c          return r-&gt;io.buffer.pos;
+<a href='../S/76.html#L118'>pos</a>               118 src/rio.c          r-&gt;io.buffer.pos = 0;
+<a href='../S/65.html#L59'>pos</a>                59 src/rio.h                  off_t pos;
+<a href='../S/60.html#L61'>pos</a>                61 src/t_list.c           int pos = (where == REDIS_HEAD) ? ZIPLIST_HEAD : ZIPLIST_TAIL;
+<a href='../S/60.html#L63'>pos</a>                63 src/t_list.c           subject-&gt;ptr = ziplistPush(subject-&gt;ptr,value-&gt;ptr,sdslen(value-&gt;ptr),pos);
+<a href='../S/60.html#L84'>pos</a>                84 src/t_list.c           int pos = (where == REDIS_HEAD) ? 0 : -1;
+<a href='../S/60.html#L85'>pos</a>                85 src/t_list.c           p = ziplistIndex(subject-&gt;ptr,pos);
+<a href='../S/59.html#L1831'>pos</a>              1831 src/t_zset.c           int pos = 4;
+<a href='../S/59.html#L1834'>pos</a>              1834 src/t_zset.c               if (remaining &gt;= 1 &amp;&amp; !strcasecmp(c-&gt;argv[pos]-&gt;ptr,"withscores")) {
+<a href='../S/59.html#L1835'>pos</a>              1835 src/t_zset.c                   pos++; remaining--;
+<a href='../S/59.html#L1837'>pos</a>              1837 src/t_zset.c               } else if (remaining &gt;= 3 &amp;&amp; !strcasecmp(c-&gt;argv[pos]-&gt;ptr,"limit")) {
+<a href='../S/59.html#L1838'>pos</a>              1838 src/t_zset.c                   if ((getLongFromObjectOrReply(c, c-&gt;argv[pos+1], &amp;offset, NULL) != REDIS_OK) ||
+<a href='../S/59.html#L1839'>pos</a>              1839 src/t_zset.c                       (getLongFromObjectOrReply(c, c-&gt;argv[pos+2], &amp;limit, NULL) != REDIS_OK)) return;
+<a href='../S/59.html#L1840'>pos</a>              1840 src/t_zset.c                   pos += 3; remaining -= 3;
+<a href='../S/89.html#L1009'>pos</a>              1009 src/ziplist.c              zl = ziplistPush(zl,(unsigned char*)"quux",4,pos);
+<a href='../S/89.html#L1013'>pos</a>              1013 src/ziplist.c              i,intrev32ifbe(ZIPLIST_BYTES(zl)),num,posstr[pos],usec()-start);
+</pre>
+</body>
+</html>

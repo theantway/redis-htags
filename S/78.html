@@ -1,0 +1,169 @@
+<html>
+<head>
+<title>src/syncio.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/syncio.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L49'>[^]</a><a href='#L125'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L49' title='Defined at 49.'>syncWrite</a>
+<li><a href='#L85' title='Defined at 85.'>syncRead</a>
+<li><a href='#L125' title='Defined at 125.'>syncReadLine</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* Synchronous socket and file I/O operations useful across the core.</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2009-2010, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'><font color='darkred'>#include</font> "<a href='32.html'>redis.h</a>"
+<a name='L32'>
+<a name='L33'><i><font color='green'>/* ----------------- Blocking sockets I/O with timeouts --------------------- */</font></i>
+<a name='L34'>
+<a name='L35'><i><font color='green'>/* Redis performs most of the I/O in a nonblocking way, with the exception</font></i>
+<a name='L36'><i><font color='green'> * of the SYNC command where the slave does it in a blocking way, and</font></i>
+<a name='L37'><i><font color='green'> * the MIGRATE command that must be blocking in order to be atomic from the</font></i>
+<a name='L38'><i><font color='green'> * point of view of the two instances (one migrating the key and one receiving</font></i>
+<a name='L39'><i><font color='green'> * the key). This is why need the following blocking I/O functions.</font></i>
+<a name='L40'><i><font color='green'> *</font></i>
+<a name='L41'><i><font color='green'> * All the functions take the timeout in milliseconds. */</font></i>
+<a name='L42'>
+<a name='L43'><font color='darkred'>#define</font> <a href='../R/783.html' title='Multiple refered from 4 places.'>REDIS_SYNCIO_RESOLUTION</a> 10 <i><font color='green'>/* Resolution in milliseconds */</font></i>
+<a name='L44'>
+<a name='L45'><i><font color='green'>/* Write the specified payload to 'fd'. If writing the whole payload will be</font></i>
+<a name='L46'><i><font color='green'> * done within 'timeout' milliseconds the operation succeeds and 'size' is</font></i>
+<a name='L47'><i><font color='green'> * returned. Otherwise the operation fails, -1 is returned, and an unspecified</font></i>
+<a name='L48'><i><font color='green'> * partial write could be performed against the file descriptor. */</font></i>
+<a name='L49'>ssize_t <a href='../R/3911.html' title='Multiple refered from 5 places.'>syncWrite</a>(<b>int</b> fd, <b>char</b> *ptr, ssize_t size, <b>long</b> <b>long</b> timeout) <font color='red'>{</font>
+<a name='L50'>    ssize_t nwritten, ret = size;
+<a name='L51'>    <b>long</b> <b>long</b> start = <a href='../D/3402.html' title='Multiple defined in 3 places.'>mstime</a>();
+<a name='L52'>    <b>long</b> <b>long</b> remaining = timeout;
+<a name='L53'>
+<a name='L54'>    <b>while</b>(1) <font color='red'>{</font>
+<a name='L55'>        <b>long</b> <b>long</b> wait = (remaining &gt; <a href='../S/78.html#L43' title='Defined at 43 in src/syncio.c.'>REDIS_SYNCIO_RESOLUTION</a>) ?
+<a name='L56'>                          remaining : <a href='../S/78.html#L43' title='Defined at 43 in src/syncio.c.'>REDIS_SYNCIO_RESOLUTION</a>;
+<a name='L57'>        <b>long</b> <b>long</b> elapsed;
+<a name='L58'>
+<a name='L59'>        <i><font color='green'>/* Optimistically try to write before checking if the file descriptor</font></i>
+<a name='L60'><i><font color='green'>         * is actually writable. At worst we get EAGAIN. */</font></i>
+<a name='L61'>        nwritten = write(fd,ptr,size);
+<a name='L62'>        <b>if</b> (nwritten == -1) <font color='red'>{</font>
+<a name='L63'>            <b>if</b> (errno != EAGAIN) <b>return</b> -1;
+<a name='L64'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L65'>            ptr += nwritten;
+<a name='L66'>            size -= nwritten;
+<a name='L67'>        <font color='red'>}</font>
+<a name='L68'>        <b>if</b> (size == 0) <b>return</b> ret;
+<a name='L69'>
+<a name='L70'>        <i><font color='green'>/* Wait */</font></i>
+<a name='L71'>        <a href='../S/36.html#L396' title='Defined at 396 in src/ae.c.'>aeWait</a>(fd,<a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>,wait);
+<a name='L72'>        elapsed = <a href='../D/3402.html' title='Multiple defined in 3 places.'>mstime</a>() - start;
+<a name='L73'>        <b>if</b> (elapsed &gt;= timeout) <font color='red'>{</font>
+<a name='L74'>            errno = ETIMEDOUT;
+<a name='L75'>            <b>return</b> -1;
+<a name='L76'>        <font color='red'>}</font>
+<a name='L77'>        remaining = timeout - elapsed;
+<a name='L78'>    <font color='red'>}</font>
+<a name='L79'><font color='red'>}</font>
+<a name='L80'>
+<a name='L81'><i><font color='green'>/* Read the specified amount of bytes from 'fd'. If all the bytes are read</font></i>
+<a name='L82'><i><font color='green'> * within 'timeout' milliseconds the operation succeed and 'size' is returned.</font></i>
+<a name='L83'><i><font color='green'> * Otherwise the operation fails, -1 is returned, and an unspecified amount of</font></i>
+<a name='L84'><i><font color='green'> * data could be read from the file descriptor. */</font></i>
+<a name='L85'>ssize_t <a href='../R/3908.html' title='Multiple refered from 2 places.'>syncRead</a>(<b>int</b> fd, <b>char</b> *ptr, ssize_t size, <b>long</b> <b>long</b> timeout) <font color='red'>{</font>
+<a name='L86'>    ssize_t nread, totread = 0;
+<a name='L87'>    <b>long</b> <b>long</b> start = <a href='../D/3402.html' title='Multiple defined in 3 places.'>mstime</a>();
+<a name='L88'>    <b>long</b> <b>long</b> remaining = timeout;
+<a name='L89'>
+<a name='L90'>    <b>if</b> (size == 0) <b>return</b> 0;
+<a name='L91'>    <b>while</b>(1) <font color='red'>{</font>
+<a name='L92'>        <b>long</b> <b>long</b> wait = (remaining &gt; <a href='../S/78.html#L43' title='Defined at 43 in src/syncio.c.'>REDIS_SYNCIO_RESOLUTION</a>) ?
+<a name='L93'>                          remaining : <a href='../S/78.html#L43' title='Defined at 43 in src/syncio.c.'>REDIS_SYNCIO_RESOLUTION</a>;
+<a name='L94'>        <b>long</b> <b>long</b> elapsed;
+<a name='L95'>
+<a name='L96'>        <i><font color='green'>/* Optimistically try to read before checking if the file descriptor</font></i>
+<a name='L97'><i><font color='green'>         * is actually readable. At worst we get EAGAIN. */</font></i>
+<a name='L98'>        nread = read(fd,ptr,size);
+<a name='L99'>        <b>if</b> (nread == 0) <b>return</b> -1; <i><font color='green'>/* short read. */</font></i>
+<a name='L100'>        <b>if</b> (nread == -1) <font color='red'>{</font>
+<a name='L101'>            <b>if</b> (errno != EAGAIN) <b>return</b> -1;
+<a name='L102'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L103'>            ptr += nread;
+<a name='L104'>            size -= nread;
+<a name='L105'>            totread += nread;
+<a name='L106'>        <font color='red'>}</font>
+<a name='L107'>        <b>if</b> (size == 0) <b>return</b> totread;
+<a name='L108'>
+<a name='L109'>        <i><font color='green'>/* Wait */</font></i>
+<a name='L110'>        <a href='../S/36.html#L396' title='Defined at 396 in src/ae.c.'>aeWait</a>(fd,<a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>,wait);
+<a name='L111'>        elapsed = <a href='../D/3402.html' title='Multiple defined in 3 places.'>mstime</a>() - start;
+<a name='L112'>        <b>if</b> (elapsed &gt;= timeout) <font color='red'>{</font>
+<a name='L113'>            errno = ETIMEDOUT;
+<a name='L114'>            <b>return</b> -1;
+<a name='L115'>        <font color='red'>}</font>
+<a name='L116'>        remaining = timeout - elapsed;
+<a name='L117'>    <font color='red'>}</font>
+<a name='L118'><font color='red'>}</font>
+<a name='L119'>
+<a name='L120'><i><font color='green'>/* Read a line making sure that every char will not require more than 'timeout'</font></i>
+<a name='L121'><i><font color='green'> * milliseconds to be read.</font></i>
+<a name='L122'><i><font color='green'> * </font></i>
+<a name='L123'><i><font color='green'> * On success the number of bytes read is returned, otherwise -1.</font></i>
+<a name='L124'><i><font color='green'> * On success the string is always correctly terminated with a 0 byte. */</font></i>
+<a name='L125'>ssize_t <a href='../R/3909.html' title='Multiple refered from 6 places.'>syncReadLine</a>(<b>int</b> fd, <b>char</b> *ptr, ssize_t size, <b>long</b> <b>long</b> timeout) <font color='red'>{</font>
+<a name='L126'>    ssize_t nread = 0;
+<a name='L127'>
+<a name='L128'>    size--;
+<a name='L129'>    <b>while</b>(size) <font color='red'>{</font>
+<a name='L130'>        <b>char</b> c;
+<a name='L131'>
+<a name='L132'>        <b>if</b> (<a href='../S/78.html#L85' title='Defined at 85 in src/syncio.c.'>syncRead</a>(fd,&amp;c,1,timeout) == -1) <b>return</b> -1;
+<a name='L133'>        <b>if</b> (c == '\n') <font color='red'>{</font>
+<a name='L134'>            *ptr = '\0';
+<a name='L135'>            <b>if</b> (nread &amp;&amp; *(ptr-1) == '\r') *(ptr-1) = '\0';
+<a name='L136'>            <b>return</b> nread;
+<a name='L137'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L138'>            *ptr++ = c;
+<a name='L139'>            *ptr = '\0';
+<a name='L140'>            nread++;
+<a name='L141'>        <font color='red'>}</font>
+<a name='L142'>    <font color='red'>}</font>
+<a name='L143'>    <b>return</b> nread;
+<a name='L144'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L49'>[^]</a><a href='#L125'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

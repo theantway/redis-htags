@@ -1,0 +1,672 @@
+<html>
+<head>
+<title>deps/hiredis/async.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/388.html'>hiredis</a>/async.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L64'>[^]</a><a href='#L614'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L64' title='Defined at 64.'>callbackHash</a>
+<li><a href='#L68' title='Defined at 68.'>callbackValDup</a>
+<li><a href='#L75' title='Defined at 75.'>callbackKeyCompare</a>
+<li><a href='#L85' title='Defined at 85.'>callbackKeyDestructor</a>
+<li><a href='#L90' title='Defined at 90.'>callbackValDestructor</a>
+<li><a href='#L104' title='Defined at 104.'>redisAsyncInitialize</a>
+<li><a href='#L138' title='Defined at 138.'>__redisAsyncCopyError</a>
+<li><a href='#L144' title='Defined at 144.'>redisAsyncConnect</a>
+<li><a href='#L151' title='Defined at 151.'>redisAsyncConnectUnix</a>
+<li><a href='#L158' title='Defined at 158.'>redisAsyncSetConnectCallback</a>
+<li><a href='#L171' title='Defined at 171.'>redisAsyncSetDisconnectCallback</a>
+<li><a href='#L180' title='Defined at 180.'>__redisPushCallback</a>
+<li><a href='#L199' title='Defined at 199.'>__redisShiftCallback</a>
+<li><a href='#L215' title='Defined at 215.'>__redisRunCallback</a>
+<li><a href='#L225' title='Defined at 225.'>__redisAsyncFree</a>
+<li><a href='#L273' title='Defined at 273.'>redisAsyncFree</a>
+<li><a href='#L281' title='Defined at 281.'>__redisAsyncDisconnect</a>
+<li><a href='#L307' title='Defined at 307.'>redisAsyncDisconnect</a>
+<li><a href='#L314' title='Defined at 314.'>__redisGetSubscribeCallback</a>
+<li><a href='#L361' title='Defined at 361.'>redisProcessCallbacks</a>
+<li><a href='#L442' title='Defined at 442.'>__redisAsyncHandleConnect</a>
+<li><a href='#L464' title='Defined at 464.'>redisAsyncHandleRead</a>
+<li><a href='#L485' title='Defined at 485.'>redisAsyncHandleWrite</a>
+<li><a href='#L514' title='Defined at 514.'>nextArgument</a>
+<li><a href='#L531' title='Defined at 531.'>__redisAsyncCommand</a>
+<li><a href='#L595' title='Defined at 595.'>redisvAsyncCommand</a>
+<li><a href='#L605' title='Defined at 605.'>redisAsyncCommand</a>
+<li><a href='#L614' title='Defined at 614.'>redisAsyncCommandArgv</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2009-2011, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2010-2011, Pieter Noordhuis &lt;pcnoordhuis at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> *</font></i>
+<a name='L5'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L6'><i><font color='green'> *</font></i>
+<a name='L7'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L8'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L9'><i><font color='green'> *</font></i>
+<a name='L10'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L11'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L12'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L13'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L14'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L15'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L16'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L17'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L18'><i><font color='green'> *</font></i>
+<a name='L19'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L20'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L21'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L22'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L23'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L24'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L25'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L26'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L27'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L28'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L29'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L30'><i><font color='green'> */</font></i>
+<a name='L31'>
+<a name='L32'><font color='darkred'>#include</font> "<a href='../I/12.html'>fmacros.h</a>"
+<a name='L33'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L34'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L35'><font color='darkred'>#include</font> &lt;<a href='157.html'>strings.h</a>&gt;
+<a name='L36'><font color='darkred'>#include</font> &lt;assert.h&gt;
+<a name='L37'><font color='darkred'>#include</font> &lt;ctype.h&gt;
+<a name='L38'><font color='darkred'>#include</font> &lt;errno.h&gt;
+<a name='L39'><font color='darkred'>#include</font> "<a href='124.html'>async.h</a>"
+<a name='L40'><font color='darkred'>#include</font> "<a href='125.html'>net.h</a>"
+<a name='L41'><font color='darkred'>#include</font> "dict.c"
+<a name='L42'><font color='darkred'>#include</font> "<a href='../I/18.html'>sds.h</a>"
+<a name='L43'>
+<a name='L44'><font color='darkred'>#define</font> <a href='../R/1097.html' title='Multiple refered from 2 places.'>_EL_ADD_READ</a>(ctx) <b>do</b> <font color='red'>{</font> \
+<a name='L45'>        <b>if</b> ((ctx)-&gt;ev.addRead) (ctx)-&gt;ev.addRead((ctx)-&gt;ev.data); \
+<a name='L46'>    <font color='red'>}</font> <b>while</b>(0)
+<a name='L47'><font color='darkred'>#define</font> _EL_DEL_READ(ctx) <b>do</b> <font color='red'>{</font> \
+<a name='L48'>        <b>if</b> ((ctx)-&gt;ev.delRead) (ctx)-&gt;ev.delRead((ctx)-&gt;ev.data); \
+<a name='L49'>    <font color='red'>}</font> <b>while</b>(0)
+<a name='L50'><font color='darkred'>#define</font> <a href='../R/1098.html' title='Multiple refered from 3 places.'>_EL_ADD_WRITE</a>(ctx) <b>do</b> <font color='red'>{</font> \
+<a name='L51'>        <b>if</b> ((ctx)-&gt;ev.addWrite) (ctx)-&gt;ev.addWrite((ctx)-&gt;ev.data); \
+<a name='L52'>    <font color='red'>}</font> <b>while</b>(0)
+<a name='L53'><font color='darkred'>#define</font> <a href='../S/104.html#L505' title='Refered from 505 in deps/hiredis/async.c.'>_EL_DEL_WRITE</a>(ctx) <b>do</b> <font color='red'>{</font> \
+<a name='L54'>        <b>if</b> ((ctx)-&gt;ev.delWrite) (ctx)-&gt;ev.delWrite((ctx)-&gt;ev.data); \
+<a name='L55'>    <font color='red'>}</font> <b>while</b>(0)
+<a name='L56'><font color='darkred'>#define</font> <a href='../S/104.html#L253' title='Refered from 253 in deps/hiredis/async.c.'>_EL_CLEANUP</a>(ctx) <b>do</b> <font color='red'>{</font> \
+<a name='L57'>        <b>if</b> ((ctx)-&gt;ev.cleanup) (ctx)-&gt;ev.cleanup((ctx)-&gt;ev.data); \
+<a name='L58'>    <font color='red'>}</font> <b>while</b>(0);
+<a name='L59'>
+<a name='L60'><i><font color='green'>/* Forward declaration of function in hiredis.c */</font></i>
+<a name='L61'><b>void</b> <a href='../S/120.html#L1183' title='Defined at 1183 in deps/hiredis/hiredis.c.'>__redisAppendCommand</a>(redisContext *c, <b>char</b> *cmd, size_t len);
+<a name='L62'>
+<a name='L63'><i><font color='green'>/* Functions managing dictionary of callbacks for pub/sub. */</font></i>
+<a name='L64'><b>static</b> <b>unsigned</b> <b>int</b> <a href='../S/104.html#L96' title='Refered from 96 in deps/hiredis/async.c.'>callbackHash</a>(<b>const</b> <b>void</b> *key) <font color='red'>{</font>
+<a name='L65'>    <b>return</b> <a href='../D/2082.html' title='Multiple defined in 2 places.'>dictGenHashFunction</a>((<b>unsigned</b> <b>char</b>*)key,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>((<b>char</b>*)key));
+<a name='L66'><font color='red'>}</font>
+<a name='L67'>
+<a name='L68'><b>static</b> <b>void</b> *<a href='../S/104.html#L98' title='Refered from 98 in deps/hiredis/async.c.'>callbackValDup</a>(<b>void</b> *privdata, <b>const</b> <b>void</b> *src) <font color='red'>{</font>
+<a name='L69'>    ((<b>void</b>) privdata);
+<a name='L70'>    <a href='../D/3778.html' title='Multiple defined in 2 places.'>redisCallback</a> *dup = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(*dup));
+<a name='L71'>    memcpy(dup,src,<b>sizeof</b>(*dup));
+<a name='L72'>    <b>return</b> dup;
+<a name='L73'><font color='red'>}</font>
+<a name='L74'>
+<a name='L75'><b>static</b> <b>int</b> <a href='../S/104.html#L99' title='Refered from 99 in deps/hiredis/async.c.'>callbackKeyCompare</a>(<b>void</b> *privdata, <b>const</b> <b>void</b> *key1, <b>const</b> <b>void</b> *key2) <font color='red'>{</font>
+<a name='L76'>    <b>int</b> l1, l2;
+<a name='L77'>    ((<b>void</b>) privdata);
+<a name='L78'>
+<a name='L79'>    l1 = <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>((<a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a>)key1);
+<a name='L80'>    l2 = <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>((<a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a>)key2);
+<a name='L81'>    <b>if</b> (l1 != l2) <b>return</b> 0;
+<a name='L82'>    <b>return</b> memcmp(key1,key2,l1) == 0;
+<a name='L83'><font color='red'>}</font>
+<a name='L84'>
+<a name='L85'><b>static</b> <b>void</b> <a href='../S/104.html#L100' title='Refered from 100 in deps/hiredis/async.c.'>callbackKeyDestructor</a>(<b>void</b> *privdata, <b>void</b> *key) <font color='red'>{</font>
+<a name='L86'>    ((<b>void</b>) privdata);
+<a name='L87'>    <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>((<a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a>)key);
+<a name='L88'><font color='red'>}</font>
+<a name='L89'>
+<a name='L90'><b>static</b> <b>void</b> <a href='../S/104.html#L101' title='Refered from 101 in deps/hiredis/async.c.'>callbackValDestructor</a>(<b>void</b> *privdata, <b>void</b> *val) <font color='red'>{</font>
+<a name='L91'>    ((<b>void</b>) privdata);
+<a name='L92'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(val);
+<a name='L93'><font color='red'>}</font>
+<a name='L94'>
+<a name='L95'><b>static</b> <a href='../D/2127.html' title='Multiple defined in 4 places.'>dictType</a> callbackDict = <font color='red'>{</font>
+<a name='L96'>    <a href='../S/104.html#L64' title='Defined at 64 in deps/hiredis/async.c.'>callbackHash</a>,
+<a name='L97'>    NULL,
+<a name='L98'>    <a href='../S/104.html#L68' title='Defined at 68 in deps/hiredis/async.c.'>callbackValDup</a>,
+<a name='L99'>    <a href='../S/104.html#L75' title='Defined at 75 in deps/hiredis/async.c.'>callbackKeyCompare</a>,
+<a name='L100'>    <a href='../S/104.html#L85' title='Defined at 85 in deps/hiredis/async.c.'>callbackKeyDestructor</a>,
+<a name='L101'>    <a href='../S/104.html#L90' title='Defined at 90 in deps/hiredis/async.c.'>callbackValDestructor</a>
+<a name='L102'><font color='red'>}</font>;
+<a name='L103'>
+<a name='L104'><b>static</b> <a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *<a href='../R/3414.html' title='Multiple refered from 2 places.'>redisAsyncInitialize</a>(redisContext *c) <font color='red'>{</font>
+<a name='L105'>    <a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *ac = <a href='../D/3747.html' title='Multiple defined in 2 places.'>realloc</a>(c,<b>sizeof</b>(<a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a>));
+<a name='L106'>    c = &amp;(ac-&gt;c);
+<a name='L107'>
+<a name='L108'>    <i><font color='green'>/* The regular connect functions will always set the flag REDIS_CONNECTED.</font></i>
+<a name='L109'><i><font color='green'>     * For the async API, we want to wait until the first write event is</font></i>
+<a name='L110'><i><font color='green'>     * received up before setting this flag, so reset it here. */</font></i>
+<a name='L111'>    c-&gt;flags &amp;= ~<a href='../S/121.html#L61' title='Defined at 61 in deps/hiredis/hiredis.h.'>REDIS_CONNECTED</a>;
+<a name='L112'>
+<a name='L113'>    ac-&gt;err = 0;
+<a name='L114'>    ac-&gt;errstr = NULL;
+<a name='L115'>    ac-&gt;data = NULL;
+<a name='L116'>
+<a name='L117'>    ac-&gt;ev.data = NULL;
+<a name='L118'>    ac-&gt;ev.addRead = NULL;
+<a name='L119'>    ac-&gt;ev.delRead = NULL;
+<a name='L120'>    ac-&gt;ev.addWrite = NULL;
+<a name='L121'>    ac-&gt;ev.delWrite = NULL;
+<a name='L122'>    ac-&gt;ev.cleanup = NULL;
+<a name='L123'>
+<a name='L124'>    ac-&gt;onConnect = NULL;
+<a name='L125'>    ac-&gt;onDisconnect = NULL;
+<a name='L126'>
+<a name='L127'>    ac-&gt;replies.head = NULL;
+<a name='L128'>    ac-&gt;replies.tail = NULL;
+<a name='L129'>    ac-&gt;sub.invalid.head = NULL;
+<a name='L130'>    ac-&gt;sub.invalid.tail = NULL;
+<a name='L131'>    ac-&gt;sub.channels = <a href='../D/2065.html' title='Multiple defined in 2 places.'>dictCreate</a>(&amp;callbackDict,NULL);
+<a name='L132'>    ac-&gt;sub.patterns = <a href='../D/2065.html' title='Multiple defined in 2 places.'>dictCreate</a>(&amp;callbackDict,NULL);
+<a name='L133'>    <b>return</b> ac;
+<a name='L134'><font color='red'>}</font>
+<a name='L135'>
+<a name='L136'><i><font color='green'>/* We want the error field to be accessible directly instead of requiring</font></i>
+<a name='L137'><i><font color='green'> * an indirection to the redisContext struct. */</font></i>
+<a name='L138'><b>static</b> <b>void</b> <a href='../R/1134.html' title='Multiple refered from 3 places.'>__redisAsyncCopyError</a>(redisAsyncContext *ac) <font color='red'>{</font>
+<a name='L139'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c = &amp;(ac-&gt;c);
+<a name='L140'>    ac-&gt;err = c-&gt;err;
+<a name='L141'>    ac-&gt;errstr = c-&gt;errstr;
+<a name='L142'><font color='red'>}</font>
+<a name='L143'>
+<a name='L144'><a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *<a href='../R/3407.html' title='Multiple refered from 6 places.'>redisAsyncConnect</a>(<b>const</b> <b>char</b> *ip, <b>int</b> port) <font color='red'>{</font>
+<a name='L145'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c = <a href='../S/120.html#L1030' title='Defined at 1030 in deps/hiredis/hiredis.c.'>redisConnectNonBlock</a>(ip,port);
+<a name='L146'>    <a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *ac = <a href='../S/104.html#L104' title='Defined at 104 in deps/hiredis/async.c.'>redisAsyncInitialize</a>(c);
+<a name='L147'>    <a href='../S/104.html#L138' title='Defined at 138 in deps/hiredis/async.c.'>__redisAsyncCopyError</a>(ac);
+<a name='L148'>    <b>return</b> ac;
+<a name='L149'><font color='red'>}</font>
+<a name='L150'>
+<a name='L151'><a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *<a href='../S/124.html#L105' title='Refered from 105 in deps/hiredis/async.h.'>redisAsyncConnectUnix</a>(<b>const</b> <b>char</b> *path) <font color='red'>{</font>
+<a name='L152'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c = <a href='../S/120.html#L1051' title='Defined at 1051 in deps/hiredis/hiredis.c.'>redisConnectUnixNonBlock</a>(path);
+<a name='L153'>    <a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *ac = <a href='../S/104.html#L104' title='Defined at 104 in deps/hiredis/async.c.'>redisAsyncInitialize</a>(c);
+<a name='L154'>    <a href='../S/104.html#L138' title='Defined at 138 in deps/hiredis/async.c.'>__redisAsyncCopyError</a>(ac);
+<a name='L155'>    <b>return</b> ac;
+<a name='L156'><font color='red'>}</font>
+<a name='L157'>
+<a name='L158'><b>int</b> <a href='../R/3415.html' title='Multiple refered from 6 places.'>redisAsyncSetConnectCallback</a>(redisAsyncContext *ac, redisConnectCallback *fn) <font color='red'>{</font>
+<a name='L159'>    <b>if</b> (ac-&gt;onConnect == NULL) <font color='red'>{</font>
+<a name='L160'>        ac-&gt;onConnect = fn;
+<a name='L161'>
+<a name='L162'>        <i><font color='green'>/* The common way to detect an established connection is to wait for</font></i>
+<a name='L163'><i><font color='green'>         * the first write event to be fired. This assumes the related event</font></i>
+<a name='L164'><i><font color='green'>         * library functions are already set. */</font></i>
+<a name='L165'>        <a href='../S/104.html#L50' title='Defined at 50 in deps/hiredis/async.c.'>_EL_ADD_WRITE</a>(ac);
+<a name='L166'>        <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L167'>    <font color='red'>}</font>
+<a name='L168'>    <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L169'><font color='red'>}</font>
+<a name='L170'>
+<a name='L171'><b>int</b> <a href='../R/3416.html' title='Multiple refered from 6 places.'>redisAsyncSetDisconnectCallback</a>(redisAsyncContext *ac, redisDisconnectCallback *fn) <font color='red'>{</font>
+<a name='L172'>    <b>if</b> (ac-&gt;onDisconnect == NULL) <font color='red'>{</font>
+<a name='L173'>        ac-&gt;onDisconnect = fn;
+<a name='L174'>        <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L175'>    <font color='red'>}</font>
+<a name='L176'>    <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L177'><font color='red'>}</font>
+<a name='L178'>
+<a name='L179'><i><font color='green'>/* Helper functions to push/shift callbacks */</font></i>
+<a name='L180'><b>static</b> <b>int</b> <a href='../R/1140.html' title='Multiple refered from 4 places.'>__redisPushCallback</a>(redisCallbackList *list, redisCallback *source) <font color='red'>{</font>
+<a name='L181'>    <a href='../D/3778.html' title='Multiple defined in 2 places.'>redisCallback</a> *cb;
+<a name='L182'>
+<a name='L183'>    <i><font color='green'>/* Copy callback from stack to heap */</font></i>
+<a name='L184'>    cb = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(*cb));
+<a name='L185'>    <b>if</b> (source != NULL) <font color='red'>{</font>
+<a name='L186'>        memcpy(cb,source,<b>sizeof</b>(*cb));
+<a name='L187'>        cb-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = NULL;
+<a name='L188'>    <font color='red'>}</font>
+<a name='L189'>
+<a name='L190'>    <i><font color='green'>/* Store callback in list */</font></i>
+<a name='L191'>    <b>if</b> (<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head == NULL)
+<a name='L192'>        <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head = cb;
+<a name='L193'>    <b>if</b> (<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail != NULL)
+<a name='L194'>        <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = cb;
+<a name='L195'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail = cb;
+<a name='L196'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L197'><font color='red'>}</font>
+<a name='L198'>
+<a name='L199'><b>static</b> <b>int</b> <a href='../R/1147.html' title='Multiple refered from 5 places.'>__redisShiftCallback</a>(redisCallbackList *list, redisCallback *target) <font color='red'>{</font>
+<a name='L200'>    <a href='../D/3778.html' title='Multiple defined in 2 places.'>redisCallback</a> *cb = <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head;
+<a name='L201'>    <b>if</b> (cb != NULL) <font color='red'>{</font>
+<a name='L202'>        <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head = cb-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L203'>        <b>if</b> (cb == <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail)
+<a name='L204'>            <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail = NULL;
+<a name='L205'>
+<a name='L206'>        <i><font color='green'>/* Copy callback from heap to stack */</font></i>
+<a name='L207'>        <b>if</b> (target != NULL)
+<a name='L208'>            memcpy(target,cb,<b>sizeof</b>(*cb));
+<a name='L209'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cb);
+<a name='L210'>        <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L211'>    <font color='red'>}</font>
+<a name='L212'>    <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L213'><font color='red'>}</font>
+<a name='L214'>
+<a name='L215'><b>static</b> <b>void</b> <a href='../R/1144.html' title='Multiple refered from 5 places.'>__redisRunCallback</a>(redisAsyncContext *ac, redisCallback *cb, redisReply *reply) <font color='red'>{</font>
+<a name='L216'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c = &amp;(ac-&gt;c);
+<a name='L217'>    <b>if</b> (cb-&gt;fn != NULL) <font color='red'>{</font>
+<a name='L218'>        c-&gt;flags |= <a href='../S/121.html#L74' title='Defined at 74 in deps/hiredis/hiredis.h.'>REDIS_IN_CALLBACK</a>;
+<a name='L219'>        cb-&gt;fn(ac,reply,cb-&gt;privdata);
+<a name='L220'>        c-&gt;flags &amp;= ~<a href='../S/121.html#L74' title='Defined at 74 in deps/hiredis/hiredis.h.'>REDIS_IN_CALLBACK</a>;
+<a name='L221'>    <font color='red'>}</font>
+<a name='L222'><font color='red'>}</font>
+<a name='L223'>
+<a name='L224'><i><font color='green'>/* Helper function to free the context. */</font></i>
+<a name='L225'><b>static</b> <b>void</b> <a href='../R/1136.html' title='Multiple refered from 3 places.'>__redisAsyncFree</a>(redisAsyncContext *ac) <font color='red'>{</font>
+<a name='L226'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c = &amp;(ac-&gt;c);
+<a name='L227'>    <a href='../D/3778.html' title='Multiple defined in 2 places.'>redisCallback</a> cb;
+<a name='L228'>    <a href='../D/2099.html' title='Multiple defined in 4 places.'>dictIterator</a> *it;
+<a name='L229'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *de;
+<a name='L230'>
+<a name='L231'>    <i><font color='green'>/* Execute pending callbacks with NULL reply. */</font></i>
+<a name='L232'>    <b>while</b> (<a href='../S/104.html#L199' title='Defined at 199 in deps/hiredis/async.c.'>__redisShiftCallback</a>(&amp;ac-&gt;replies,&amp;cb) == <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L233'>        <a href='../S/104.html#L215' title='Defined at 215 in deps/hiredis/async.c.'>__redisRunCallback</a>(ac,&amp;cb,NULL);
+<a name='L234'>
+<a name='L235'>    <i><font color='green'>/* Execute callbacks for invalid commands */</font></i>
+<a name='L236'>    <b>while</b> (<a href='../S/104.html#L199' title='Defined at 199 in deps/hiredis/async.c.'>__redisShiftCallback</a>(&amp;ac-&gt;sub.invalid,&amp;cb) == <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L237'>        <a href='../S/104.html#L215' title='Defined at 215 in deps/hiredis/async.c.'>__redisRunCallback</a>(ac,&amp;cb,NULL);
+<a name='L238'>
+<a name='L239'>    <i><font color='green'>/* Run subscription callbacks callbacks with NULL reply */</font></i>
+<a name='L240'>    it = <a href='../D/2087.html' title='Multiple defined in 2 places.'>dictGetIterator</a>(ac-&gt;sub.channels);
+<a name='L241'>    <b>while</b> ((de = <a href='../D/2101.html' title='Multiple defined in 2 places.'>dictNext</a>(it)) != NULL)
+<a name='L242'>        <a href='../S/104.html#L215' title='Defined at 215 in deps/hiredis/async.c.'>__redisRunCallback</a>(ac,<a href='../S/123.html#L109' title='Defined at 109 in deps/hiredis/dict.h.'>dictGetEntryVal</a>(de),NULL);
+<a name='L243'>    <a href='../D/2109.html' title='Multiple defined in 2 places.'>dictReleaseIterator</a>(it);
+<a name='L244'>    <a href='../D/2108.html' title='Multiple defined in 2 places.'>dictRelease</a>(ac-&gt;sub.channels);
+<a name='L245'>
+<a name='L246'>    it = <a href='../D/2087.html' title='Multiple defined in 2 places.'>dictGetIterator</a>(ac-&gt;sub.patterns);
+<a name='L247'>    <b>while</b> ((de = <a href='../D/2101.html' title='Multiple defined in 2 places.'>dictNext</a>(it)) != NULL)
+<a name='L248'>        <a href='../S/104.html#L215' title='Defined at 215 in deps/hiredis/async.c.'>__redisRunCallback</a>(ac,<a href='../S/123.html#L109' title='Defined at 109 in deps/hiredis/dict.h.'>dictGetEntryVal</a>(de),NULL);
+<a name='L249'>    <a href='../D/2109.html' title='Multiple defined in 2 places.'>dictReleaseIterator</a>(it);
+<a name='L250'>    <a href='../D/2108.html' title='Multiple defined in 2 places.'>dictRelease</a>(ac-&gt;sub.patterns);
+<a name='L251'>
+<a name='L252'>    <i><font color='green'>/* Signal event lib to clean up */</font></i>
+<a name='L253'>    <a href='../S/104.html#L56' title='Defined at 56 in deps/hiredis/async.c.'>_EL_CLEANUP</a>(ac);
+<a name='L254'>
+<a name='L255'>    <i><font color='green'>/* Execute disconnect callback. When redisAsyncFree() initiated destroying</font></i>
+<a name='L256'><i><font color='green'>     * this context, the status will always be REDIS_OK. */</font></i>
+<a name='L257'>    <b>if</b> (ac-&gt;onDisconnect &amp;&amp; (c-&gt;flags &amp; <a href='../S/121.html#L61' title='Defined at 61 in deps/hiredis/hiredis.h.'>REDIS_CONNECTED</a>)) <font color='red'>{</font>
+<a name='L258'>        <b>if</b> (c-&gt;flags &amp; <a href='../S/121.html#L71' title='Defined at 71 in deps/hiredis/hiredis.h.'>REDIS_FREEING</a>) <font color='red'>{</font>
+<a name='L259'>            ac-&gt;onDisconnect(ac,<a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>);
+<a name='L260'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L261'>            ac-&gt;onDisconnect(ac,(ac-&gt;err == 0) ? <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a> : <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>);
+<a name='L262'>        <font color='red'>}</font>
+<a name='L263'>    <font color='red'>}</font>
+<a name='L264'>
+<a name='L265'>    <i><font color='green'>/* Cleanup self */</font></i>
+<a name='L266'>    <a href='../S/120.html#L1003' title='Defined at 1003 in deps/hiredis/hiredis.c.'>redisFree</a>(c);
+<a name='L267'><font color='red'>}</font>
+<a name='L268'>
+<a name='L269'><i><font color='green'>/* Free the async context. When this function is called from a callback,</font></i>
+<a name='L270'><i><font color='green'> * control needs to be returned to redisProcessCallbacks() before actual</font></i>
+<a name='L271'><i><font color='green'> * free'ing. To do so, a flag is set on the context which is picked up by</font></i>
+<a name='L272'><i><font color='green'> * redisProcessCallbacks(). Otherwise, the context is immediately free'd. */</font></i>
+<a name='L273'><b>void</b> <a href='../R/3411.html' title='Multiple refered from 2 places.'>redisAsyncFree</a>(redisAsyncContext *ac) <font color='red'>{</font>
+<a name='L274'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c = &amp;(ac-&gt;c);
+<a name='L275'>    c-&gt;flags |= <a href='../S/121.html#L71' title='Defined at 71 in deps/hiredis/hiredis.h.'>REDIS_FREEING</a>;
+<a name='L276'>    <b>if</b> (!(c-&gt;flags &amp; <a href='../S/121.html#L74' title='Defined at 74 in deps/hiredis/hiredis.h.'>REDIS_IN_CALLBACK</a>))
+<a name='L277'>        <a href='../S/104.html#L225' title='Defined at 225 in deps/hiredis/async.c.'>__redisAsyncFree</a>(ac);
+<a name='L278'><font color='red'>}</font>
+<a name='L279'>
+<a name='L280'><i><font color='green'>/* Helper function to make the disconnect happen and clean up. */</font></i>
+<a name='L281'><b>static</b> <b>void</b> <a href='../R/1135.html' title='Multiple refered from 7 places.'>__redisAsyncDisconnect</a>(redisAsyncContext *ac) <font color='red'>{</font>
+<a name='L282'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c = &amp;(ac-&gt;c);
+<a name='L283'>
+<a name='L284'>    <i><font color='green'>/* Make sure error is accessible if there is any */</font></i>
+<a name='L285'>    <a href='../S/104.html#L138' title='Defined at 138 in deps/hiredis/async.c.'>__redisAsyncCopyError</a>(ac);
+<a name='L286'>
+<a name='L287'>    <b>if</b> (ac-&gt;err == 0) <font color='red'>{</font>
+<a name='L288'>        <i><font color='green'>/* For clean disconnects, there should be no pending callbacks. */</font></i>
+<a name='L289'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/104.html#L199' title='Defined at 199 in deps/hiredis/async.c.'>__redisShiftCallback</a>(&amp;ac-&gt;replies,NULL) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>);
+<a name='L290'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L291'>        <i><font color='green'>/* Disconnection is caused by an error, make sure that pending</font></i>
+<a name='L292'><i><font color='green'>         * callbacks cannot call new commands. */</font></i>
+<a name='L293'>        c-&gt;flags |= <a href='../S/121.html#L67' title='Defined at 67 in deps/hiredis/hiredis.h.'>REDIS_DISCONNECTING</a>;
+<a name='L294'>    <font color='red'>}</font>
+<a name='L295'>
+<a name='L296'>    <i><font color='green'>/* For non-clean disconnects, __redisAsyncFree() will execute pending</font></i>
+<a name='L297'><i><font color='green'>     * callbacks with a NULL-reply. */</font></i>
+<a name='L298'>    <a href='../S/104.html#L225' title='Defined at 225 in deps/hiredis/async.c.'>__redisAsyncFree</a>(ac);
+<a name='L299'><font color='red'>}</font>
+<a name='L300'>
+<a name='L301'><i><font color='green'>/* Tries to do a clean disconnect from Redis, meaning it stops new commands</font></i>
+<a name='L302'><i><font color='green'> * from being issued, but tries to flush the output buffer and execute</font></i>
+<a name='L303'><i><font color='green'> * callbacks for all remaining replies. When this function is called from a</font></i>
+<a name='L304'><i><font color='green'> * callback, there might be more replies and we can safely defer disconnecting</font></i>
+<a name='L305'><i><font color='green'> * to redisProcessCallbacks(). Otherwise, we can only disconnect immediately</font></i>
+<a name='L306'><i><font color='green'> * when there are no pending callbacks. */</font></i>
+<a name='L307'><b>void</b> <a href='../R/3410.html' title='Multiple refered from 4 places.'>redisAsyncDisconnect</a>(redisAsyncContext *ac) <font color='red'>{</font>
+<a name='L308'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c = &amp;(ac-&gt;c);
+<a name='L309'>    c-&gt;flags |= <a href='../S/121.html#L67' title='Defined at 67 in deps/hiredis/hiredis.h.'>REDIS_DISCONNECTING</a>;
+<a name='L310'>    <b>if</b> (!(c-&gt;flags &amp; <a href='../S/121.html#L74' title='Defined at 74 in deps/hiredis/hiredis.h.'>REDIS_IN_CALLBACK</a>) &amp;&amp; ac-&gt;replies.head == NULL)
+<a name='L311'>        <a href='../S/104.html#L281' title='Defined at 281 in deps/hiredis/async.c.'>__redisAsyncDisconnect</a>(ac);
+<a name='L312'><font color='red'>}</font>
+<a name='L313'>
+<a name='L314'><b>static</b> <b>int</b> <a href='../S/104.html#L413' title='Refered from 413 in deps/hiredis/async.c.'>__redisGetSubscribeCallback</a>(redisAsyncContext *ac, redisReply *reply, redisCallback *dstcb) <font color='red'>{</font>
+<a name='L315'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c = &amp;(ac-&gt;c);
+<a name='L316'>    <a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a> *callbacks;
+<a name='L317'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *de;
+<a name='L318'>    <b>int</b> pvariant;
+<a name='L319'>    <b>char</b> *stype;
+<a name='L320'>    <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> sname;
+<a name='L321'>
+<a name='L322'>    <i><font color='green'>/* Custom reply functions are not supported for pub/sub. This will fail</font></i>
+<a name='L323'><i><font color='green'>     * very hard when they are used... */</font></i>
+<a name='L324'>    <b>if</b> (reply-&gt;type == <a href='../S/121.html#L83' title='Defined at 83 in deps/hiredis/hiredis.h.'>REDIS_REPLY_ARRAY</a>) <font color='red'>{</font>
+<a name='L325'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(reply-&gt;elements &gt;= 2);
+<a name='L326'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(reply-&gt;element[0]-&gt;type == <a href='../S/121.html#L82' title='Defined at 82 in deps/hiredis/hiredis.h.'>REDIS_REPLY_STRING</a>);
+<a name='L327'>        stype = reply-&gt;element[0]-&gt;str;
+<a name='L328'>        pvariant = (tolower(stype[0]) == 'p') ? 1 : 0;
+<a name='L329'>
+<a name='L330'>        <b>if</b> (pvariant)
+<a name='L331'>            callbacks = ac-&gt;sub.patterns;
+<a name='L332'>        <b>else</b>
+<a name='L333'>            callbacks = ac-&gt;sub.channels;
+<a name='L334'>
+<a name='L335'>        <i><font color='green'>/* Locate the right callback */</font></i>
+<a name='L336'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(reply-&gt;element[1]-&gt;type == <a href='../S/121.html#L82' title='Defined at 82 in deps/hiredis/hiredis.h.'>REDIS_REPLY_STRING</a>);
+<a name='L337'>        sname = <a href='../D/4014.html' title='Multiple defined in 2 places.'>sdsnewlen</a>(reply-&gt;element[1]-&gt;str,reply-&gt;element[1]-&gt;len);
+<a name='L338'>        de = <a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(callbacks,sname);
+<a name='L339'>        <b>if</b> (de != NULL) <font color='red'>{</font>
+<a name='L340'>            memcpy(dstcb,<a href='../S/123.html#L109' title='Defined at 109 in deps/hiredis/dict.h.'>dictGetEntryVal</a>(de),<b>sizeof</b>(*dstcb));
+<a name='L341'>
+<a name='L342'>            <i><font color='green'>/* If this is an unsubscribe message, remove it. */</font></i>
+<a name='L343'>            <b>if</b> (strcasecmp(stype+pvariant,"unsubscribe") == 0) <font color='red'>{</font>
+<a name='L344'>                <a href='../D/2066.html' title='Multiple defined in 2 places.'>dictDelete</a>(callbacks,sname);
+<a name='L345'>
+<a name='L346'>                <i><font color='green'>/* If this was the last unsubscribe message, revert to</font></i>
+<a name='L347'><i><font color='green'>                 * non-subscribe mode. */</font></i>
+<a name='L348'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(reply-&gt;element[2]-&gt;type == <a href='../S/121.html#L84' title='Defined at 84 in deps/hiredis/hiredis.h.'>REDIS_REPLY_INTEGER</a>);
+<a name='L349'>                <b>if</b> (reply-&gt;element[2]-&gt;integer == 0)
+<a name='L350'>                    c-&gt;flags &amp;= ~<a href='../S/121.html#L77' title='Defined at 77 in deps/hiredis/hiredis.h.'>REDIS_SUBSCRIBED</a>;
+<a name='L351'>            <font color='red'>}</font>
+<a name='L352'>        <font color='red'>}</font>
+<a name='L353'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(sname);
+<a name='L354'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L355'>        <i><font color='green'>/* Shift callback for invalid commands. */</font></i>
+<a name='L356'>        <a href='../S/104.html#L199' title='Defined at 199 in deps/hiredis/async.c.'>__redisShiftCallback</a>(&amp;ac-&gt;sub.invalid,dstcb);
+<a name='L357'>    <font color='red'>}</font>
+<a name='L358'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L359'><font color='red'>}</font>
+<a name='L360'>
+<a name='L361'><b>void</b> <a href='../S/104.html#L481' title='Refered from 481 in deps/hiredis/async.c.'>redisProcessCallbacks</a>(redisAsyncContext *ac) <font color='red'>{</font>
+<a name='L362'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c = &amp;(ac-&gt;c);
+<a name='L363'>    <a href='../D/3778.html' title='Multiple defined in 2 places.'>redisCallback</a> cb;
+<a name='L364'>    <b>void</b> *reply = NULL;
+<a name='L365'>    <b>int</b> status;
+<a name='L366'>
+<a name='L367'>    <b>while</b>((status = <a href='../S/120.html#L1146' title='Defined at 1146 in deps/hiredis/hiredis.c.'>redisGetReply</a>(c,&amp;reply)) == <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L368'>        <b>if</b> (reply == NULL) <font color='red'>{</font>
+<a name='L369'>            <i><font color='green'>/* When the connection is being disconnected and there are</font></i>
+<a name='L370'><i><font color='green'>             * no more replies, this is the cue to really disconnect. */</font></i>
+<a name='L371'>            <b>if</b> (c-&gt;flags &amp; <a href='../S/121.html#L67' title='Defined at 67 in deps/hiredis/hiredis.h.'>REDIS_DISCONNECTING</a> &amp;&amp; <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(c-&gt;obuf) == 0) <font color='red'>{</font>
+<a name='L372'>                <a href='../S/104.html#L281' title='Defined at 281 in deps/hiredis/async.c.'>__redisAsyncDisconnect</a>(ac);
+<a name='L373'>                <b>return</b>;
+<a name='L374'>            <font color='red'>}</font>
+<a name='L375'>            
+<a name='L376'>            <i><font color='green'>/* If monitor mode, repush callback */</font></i>
+<a name='L377'>            <b>if</b>(c-&gt;flags &amp; <a href='../S/121.html#L80' title='Defined at 80 in deps/hiredis/hiredis.h.'>REDIS_MONITORING</a>) <font color='red'>{</font>
+<a name='L378'>                <a href='../S/104.html#L180' title='Defined at 180 in deps/hiredis/async.c.'>__redisPushCallback</a>(&amp;ac-&gt;replies,&amp;cb);
+<a name='L379'>            <font color='red'>}</font>
+<a name='L380'>
+<a name='L381'>            <i><font color='green'>/* When the connection is not being disconnected, simply stop</font></i>
+<a name='L382'><i><font color='green'>             * trying to get replies and wait for the next loop tick. */</font></i>
+<a name='L383'>            <b>break</b>;
+<a name='L384'>        <font color='red'>}</font>
+<a name='L385'>
+<a name='L386'>        <i><font color='green'>/* Even if the context is subscribed, pending regular callbacks will</font></i>
+<a name='L387'><i><font color='green'>         * get a reply before pub/sub messages arrive. */</font></i>
+<a name='L388'>        <b>if</b> (<a href='../S/104.html#L199' title='Defined at 199 in deps/hiredis/async.c.'>__redisShiftCallback</a>(&amp;ac-&gt;replies,&amp;cb) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L389'>            <i><font color='green'>/*</font></i>
+<a name='L390'><i><font color='green'>             * A spontaneous reply in a not-subscribed context can be the error</font></i>
+<a name='L391'><i><font color='green'>             * reply that is sent when a new connection exceeds the maximum</font></i>
+<a name='L392'><i><font color='green'>             * number of allowed connections on the server side.</font></i>
+<a name='L393'><i><font color='green'>             *</font></i>
+<a name='L394'><i><font color='green'>             * This is seen as an error instead of a regular reply because the</font></i>
+<a name='L395'><i><font color='green'>             * server closes the connection after sending it.</font></i>
+<a name='L396'><i><font color='green'>             *</font></i>
+<a name='L397'><i><font color='green'>             * To prevent the error from being overwritten by an EOF error the</font></i>
+<a name='L398'><i><font color='green'>             * connection is closed here. See issue #43.</font></i>
+<a name='L399'><i><font color='green'>             *</font></i>
+<a name='L400'><i><font color='green'>             * Another possibility is that the server is loading its dataset.</font></i>
+<a name='L401'><i><font color='green'>             * In this case we also want to close the connection, and have the</font></i>
+<a name='L402'><i><font color='green'>             * user wait until the server is ready to take our request.</font></i>
+<a name='L403'><i><font color='green'>             */</font></i>
+<a name='L404'>            <b>if</b> (((<a href='../D/3855.html' title='Multiple defined in 2 places.'>redisReply</a>*)reply)-&gt;type == <a href='../S/121.html#L87' title='Defined at 87 in deps/hiredis/hiredis.h.'>REDIS_REPLY_ERROR</a>) <font color='red'>{</font>
+<a name='L405'>                c-&gt;err = <a href='../S/121.html#L53' title='Defined at 53 in deps/hiredis/hiredis.h.'>REDIS_ERR_OTHER</a>;
+<a name='L406'>                snprintf(c-&gt;errstr,<b>sizeof</b>(c-&gt;errstr),"%s",((<a href='../D/3855.html' title='Multiple defined in 2 places.'>redisReply</a>*)reply)-&gt;str);
+<a name='L407'>                <a href='../S/104.html#L281' title='Defined at 281 in deps/hiredis/async.c.'>__redisAsyncDisconnect</a>(ac);
+<a name='L408'>                <b>return</b>;
+<a name='L409'>            <font color='red'>}</font>
+<a name='L410'>            <i><font color='green'>/* No more regular callbacks and no errors, the context *must* be subscribed or monitoring. */</font></i>
+<a name='L411'>            <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((c-&gt;flags &amp; <a href='../S/121.html#L77' title='Defined at 77 in deps/hiredis/hiredis.h.'>REDIS_SUBSCRIBED</a> || c-&gt;flags &amp; <a href='../S/121.html#L80' title='Defined at 80 in deps/hiredis/hiredis.h.'>REDIS_MONITORING</a>));
+<a name='L412'>            <b>if</b>(c-&gt;flags &amp; <a href='../S/121.html#L77' title='Defined at 77 in deps/hiredis/hiredis.h.'>REDIS_SUBSCRIBED</a>)
+<a name='L413'>                <a href='../S/104.html#L314' title='Defined at 314 in deps/hiredis/async.c.'>__redisGetSubscribeCallback</a>(ac,reply,&amp;cb);
+<a name='L414'>        <font color='red'>}</font>
+<a name='L415'>
+<a name='L416'>        <b>if</b> (cb.fn != NULL) <font color='red'>{</font>
+<a name='L417'>            <a href='../S/104.html#L215' title='Defined at 215 in deps/hiredis/async.c.'>__redisRunCallback</a>(ac,&amp;cb,reply);
+<a name='L418'>            c-&gt;reader-&gt;fn-&gt;freeObject(reply);
+<a name='L419'>
+<a name='L420'>            <i><font color='green'>/* Proceed with free'ing when redisAsyncFree() was called. */</font></i>
+<a name='L421'>            <b>if</b> (c-&gt;flags &amp; <a href='../S/121.html#L71' title='Defined at 71 in deps/hiredis/hiredis.h.'>REDIS_FREEING</a>) <font color='red'>{</font>
+<a name='L422'>                <a href='../S/104.html#L225' title='Defined at 225 in deps/hiredis/async.c.'>__redisAsyncFree</a>(ac);
+<a name='L423'>                <b>return</b>;
+<a name='L424'>            <font color='red'>}</font>
+<a name='L425'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L426'>            <i><font color='green'>/* No callback for this reply. This can either be a NULL callback,</font></i>
+<a name='L427'><i><font color='green'>             * or there were no callbacks to begin with. Either way, don't</font></i>
+<a name='L428'><i><font color='green'>             * abort with an error, but simply ignore it because the client</font></i>
+<a name='L429'><i><font color='green'>             * doesn't know what the server will spit out over the wire. */</font></i>
+<a name='L430'>            c-&gt;reader-&gt;fn-&gt;freeObject(reply);
+<a name='L431'>        <font color='red'>}</font>
+<a name='L432'>    <font color='red'>}</font>
+<a name='L433'>
+<a name='L434'>    <i><font color='green'>/* Disconnect when there was an error reading the reply */</font></i>
+<a name='L435'>    <b>if</b> (status != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L436'>        <a href='../S/104.html#L281' title='Defined at 281 in deps/hiredis/async.c.'>__redisAsyncDisconnect</a>(ac);
+<a name='L437'><font color='red'>}</font>
+<a name='L438'>
+<a name='L439'><i><font color='green'>/* Internal helper function to detect socket status the first time a read or</font></i>
+<a name='L440'><i><font color='green'> * write event fires. When connecting was not succesful, the connect callback</font></i>
+<a name='L441'><i><font color='green'> * is called with a REDIS_ERR status and the context is free'd. */</font></i>
+<a name='L442'><b>static</b> <b>int</b> <a href='../R/1137.html' title='Multiple refered from 2 places.'>__redisAsyncHandleConnect</a>(redisAsyncContext *ac) <font color='red'>{</font>
+<a name='L443'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c = &amp;(ac-&gt;c);
+<a name='L444'>
+<a name='L445'>    <b>if</b> (<a href='../S/113.html#L175' title='Defined at 175 in deps/hiredis/net.c.'>redisCheckSocketError</a>(c,c-&gt;fd) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>) <font color='red'>{</font>
+<a name='L446'>        <i><font color='green'>/* Try again later when connect(2) is still in progress. */</font></i>
+<a name='L447'>        <b>if</b> (errno == EINPROGRESS)
+<a name='L448'>            <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L449'>
+<a name='L450'>        <b>if</b> (ac-&gt;onConnect) ac-&gt;onConnect(ac,<a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>);
+<a name='L451'>        <a href='../S/104.html#L281' title='Defined at 281 in deps/hiredis/async.c.'>__redisAsyncDisconnect</a>(ac);
+<a name='L452'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L453'>    <font color='red'>}</font>
+<a name='L454'>
+<a name='L455'>    <i><font color='green'>/* Mark context as connected. */</font></i>
+<a name='L456'>    c-&gt;flags |= <a href='../S/121.html#L61' title='Defined at 61 in deps/hiredis/hiredis.h.'>REDIS_CONNECTED</a>;
+<a name='L457'>    <b>if</b> (ac-&gt;onConnect) ac-&gt;onConnect(ac,<a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>);
+<a name='L458'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L459'><font color='red'>}</font>
+<a name='L460'>
+<a name='L461'><i><font color='green'>/* This function should be called when the socket is readable.</font></i>
+<a name='L462'><i><font color='green'> * It processes all replies that can be read and executes their callbacks.</font></i>
+<a name='L463'><i><font color='green'> */</font></i>
+<a name='L464'><b>void</b> <a href='../R/3412.html' title='Multiple refered from 5 places.'>redisAsyncHandleRead</a>(redisAsyncContext *ac) <font color='red'>{</font>
+<a name='L465'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c = &amp;(ac-&gt;c);
+<a name='L466'>
+<a name='L467'>    <b>if</b> (!(c-&gt;flags &amp; <a href='../S/121.html#L61' title='Defined at 61 in deps/hiredis/hiredis.h.'>REDIS_CONNECTED</a>)) <font color='red'>{</font>
+<a name='L468'>        <i><font color='green'>/* Abort connect was not successful. */</font></i>
+<a name='L469'>        <b>if</b> (<a href='../S/104.html#L442' title='Defined at 442 in deps/hiredis/async.c.'>__redisAsyncHandleConnect</a>(ac) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L470'>            <b>return</b>;
+<a name='L471'>        <i><font color='green'>/* Try again later when the context is still not connected. */</font></i>
+<a name='L472'>        <b>if</b> (!(c-&gt;flags &amp; <a href='../S/121.html#L61' title='Defined at 61 in deps/hiredis/hiredis.h.'>REDIS_CONNECTED</a>))
+<a name='L473'>            <b>return</b>;
+<a name='L474'>    <font color='red'>}</font>
+<a name='L475'>
+<a name='L476'>    <b>if</b> (<a href='../S/120.html#L1070' title='Defined at 1070 in deps/hiredis/hiredis.c.'>redisBufferRead</a>(c) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>) <font color='red'>{</font>
+<a name='L477'>        <a href='../S/104.html#L281' title='Defined at 281 in deps/hiredis/async.c.'>__redisAsyncDisconnect</a>(ac);
+<a name='L478'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L479'>        <i><font color='green'>/* Always re-schedule reads */</font></i>
+<a name='L480'>        <a href='../S/104.html#L44' title='Defined at 44 in deps/hiredis/async.c.'>_EL_ADD_READ</a>(ac);
+<a name='L481'>        <a href='../S/104.html#L361' title='Defined at 361 in deps/hiredis/async.c.'>redisProcessCallbacks</a>(ac);
+<a name='L482'>    <font color='red'>}</font>
+<a name='L483'><font color='red'>}</font>
+<a name='L484'>
+<a name='L485'><b>void</b> <a href='../R/3413.html' title='Multiple refered from 5 places.'>redisAsyncHandleWrite</a>(redisAsyncContext *ac) <font color='red'>{</font>
+<a name='L486'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c = &amp;(ac-&gt;c);
+<a name='L487'>    <b>int</b> done = 0;
+<a name='L488'>
+<a name='L489'>    <b>if</b> (!(c-&gt;flags &amp; <a href='../S/121.html#L61' title='Defined at 61 in deps/hiredis/hiredis.h.'>REDIS_CONNECTED</a>)) <font color='red'>{</font>
+<a name='L490'>        <i><font color='green'>/* Abort connect was not successful. */</font></i>
+<a name='L491'>        <b>if</b> (<a href='../S/104.html#L442' title='Defined at 442 in deps/hiredis/async.c.'>__redisAsyncHandleConnect</a>(ac) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L492'>            <b>return</b>;
+<a name='L493'>        <i><font color='green'>/* Try again later when the context is still not connected. */</font></i>
+<a name='L494'>        <b>if</b> (!(c-&gt;flags &amp; <a href='../S/121.html#L61' title='Defined at 61 in deps/hiredis/hiredis.h.'>REDIS_CONNECTED</a>))
+<a name='L495'>            <b>return</b>;
+<a name='L496'>    <font color='red'>}</font>
+<a name='L497'>
+<a name='L498'>    <b>if</b> (<a href='../S/120.html#L1107' title='Defined at 1107 in deps/hiredis/hiredis.c.'>redisBufferWrite</a>(c,&amp;done) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>) <font color='red'>{</font>
+<a name='L499'>        <a href='../S/104.html#L281' title='Defined at 281 in deps/hiredis/async.c.'>__redisAsyncDisconnect</a>(ac);
+<a name='L500'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L501'>        <i><font color='green'>/* Continue writing when not done, stop writing otherwise */</font></i>
+<a name='L502'>        <b>if</b> (!done)
+<a name='L503'>            <a href='../S/104.html#L50' title='Defined at 50 in deps/hiredis/async.c.'>_EL_ADD_WRITE</a>(ac);
+<a name='L504'>        <b>else</b>
+<a name='L505'>            <a href='../S/104.html#L53' title='Defined at 53 in deps/hiredis/async.c.'>_EL_DEL_WRITE</a>(ac);
+<a name='L506'>
+<a name='L507'>        <i><font color='green'>/* Always schedule reads after writes */</font></i>
+<a name='L508'>        <a href='../S/104.html#L44' title='Defined at 44 in deps/hiredis/async.c.'>_EL_ADD_READ</a>(ac);
+<a name='L509'>    <font color='red'>}</font>
+<a name='L510'><font color='red'>}</font>
+<a name='L511'>
+<a name='L512'><i><font color='green'>/* Sets a pointer to the first argument and its length starting at p. Returns</font></i>
+<a name='L513'><i><font color='green'> * the number of bytes to skip to get to the following argument. */</font></i>
+<a name='L514'><b>static</b> <b>char</b> *<a href='../R/3072.html' title='Multiple refered from 2 places.'>nextArgument</a>(<b>char</b> *start, <b>char</b> **str, size_t *len) <font color='red'>{</font>
+<a name='L515'>    <b>char</b> *p = start;
+<a name='L516'>    <b>if</b> (p[0] != '$') <font color='red'>{</font>
+<a name='L517'>        p = strchr(p,'$');
+<a name='L518'>        <b>if</b> (p == NULL) <b>return</b> NULL;
+<a name='L519'>    <font color='red'>}</font>
+<a name='L520'>
+<a name='L521'>    *len = (<b>int</b>)strtol(p+1,NULL,10);
+<a name='L522'>    p = strchr(p,'\r');
+<a name='L523'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(p);
+<a name='L524'>    *str = p+2;
+<a name='L525'>    <b>return</b> p+2+(*len)+2;
+<a name='L526'><font color='red'>}</font>
+<a name='L527'>
+<a name='L528'><i><font color='green'>/* Helper function for the redisAsyncCommand* family of functions. Writes a</font></i>
+<a name='L529'><i><font color='green'> * formatted command to the output buffer and registers the provided callback</font></i>
+<a name='L530'><i><font color='green'> * function with the context. */</font></i>
+<a name='L531'><b>static</b> <b>int</b> <a href='../R/1133.html' title='Multiple refered from 2 places.'>__redisAsyncCommand</a>(redisAsyncContext *ac, redisCallbackFn *fn, <b>void</b> *privdata, <b>char</b> *cmd, size_t len) <font color='red'>{</font>
+<a name='L532'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c = &amp;(ac-&gt;c);
+<a name='L533'>    <a href='../D/3778.html' title='Multiple defined in 2 places.'>redisCallback</a> cb;
+<a name='L534'>    <b>int</b> pvariant, hasnext;
+<a name='L535'>    <b>char</b> *cstr, *astr;
+<a name='L536'>    size_t clen, alen;
+<a name='L537'>    <b>char</b> *p;
+<a name='L538'>    <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> sname;
+<a name='L539'>
+<a name='L540'>    <i><font color='green'>/* Don't accept new commands when the connection is about to be closed. */</font></i>
+<a name='L541'>    <b>if</b> (c-&gt;flags &amp; (<a href='../S/121.html#L67' title='Defined at 67 in deps/hiredis/hiredis.h.'>REDIS_DISCONNECTING</a> | <a href='../S/121.html#L71' title='Defined at 71 in deps/hiredis/hiredis.h.'>REDIS_FREEING</a>)) <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L542'>
+<a name='L543'>    <i><font color='green'>/* Setup callback */</font></i>
+<a name='L544'>    cb.fn = fn;
+<a name='L545'>    cb.privdata = privdata;
+<a name='L546'>
+<a name='L547'>    <i><font color='green'>/* Find out which command will be appended. */</font></i>
+<a name='L548'>    p = <a href='../S/104.html#L514' title='Defined at 514 in deps/hiredis/async.c.'>nextArgument</a>(cmd,&amp;cstr,&amp;clen);
+<a name='L549'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(p != NULL);
+<a name='L550'>    hasnext = (p[0] == '$');
+<a name='L551'>    pvariant = (tolower(cstr[0]) == 'p') ? 1 : 0;
+<a name='L552'>    cstr += pvariant;
+<a name='L553'>    clen -= pvariant;
+<a name='L554'>
+<a name='L555'>    <b>if</b> (hasnext &amp;&amp; strncasecmp(cstr,"subscribe\r\n",11) == 0) <font color='red'>{</font>
+<a name='L556'>        c-&gt;flags |= <a href='../S/121.html#L77' title='Defined at 77 in deps/hiredis/hiredis.h.'>REDIS_SUBSCRIBED</a>;
+<a name='L557'>
+<a name='L558'>        <i><font color='green'>/* Add every channel/pattern to the list of subscription callbacks. */</font></i>
+<a name='L559'>        <b>while</b> ((p = <a href='../S/104.html#L514' title='Defined at 514 in deps/hiredis/async.c.'>nextArgument</a>(p,&amp;astr,&amp;alen)) != NULL) <font color='red'>{</font>
+<a name='L560'>            sname = <a href='../D/4014.html' title='Multiple defined in 2 places.'>sdsnewlen</a>(astr,alen);
+<a name='L561'>            <b>if</b> (pvariant)
+<a name='L562'>                <a href='../D/2110.html' title='Multiple defined in 2 places.'>dictReplace</a>(ac-&gt;sub.patterns,sname,&amp;cb);
+<a name='L563'>            <b>else</b>
+<a name='L564'>                <a href='../D/2110.html' title='Multiple defined in 2 places.'>dictReplace</a>(ac-&gt;sub.channels,sname,&amp;cb);
+<a name='L565'>        <font color='red'>}</font>
+<a name='L566'>    <font color='red'>}</font> <b>else</b> <b>if</b> (strncasecmp(cstr,"unsubscribe\r\n",13) == 0) <font color='red'>{</font>
+<a name='L567'>        <i><font color='green'>/* It is only useful to call (P)UNSUBSCRIBE when the context is</font></i>
+<a name='L568'><i><font color='green'>         * subscribed to one or more channels or patterns. */</font></i>
+<a name='L569'>        <b>if</b> (!(c-&gt;flags &amp; <a href='../S/121.html#L77' title='Defined at 77 in deps/hiredis/hiredis.h.'>REDIS_SUBSCRIBED</a>)) <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L570'>
+<a name='L571'>        <i><font color='green'>/* (P)UNSUBSCRIBE does not have its own response: every channel or</font></i>
+<a name='L572'><i><font color='green'>         * pattern that is unsubscribed will receive a message. This means we</font></i>
+<a name='L573'><i><font color='green'>         * should not append a callback function for this command. */</font></i>
+<a name='L574'>     <font color='red'>}</font> <b>else</b> <b>if</b>(strncasecmp(cstr,"monitor\r\n",9) == 0) <font color='red'>{</font>
+<a name='L575'>         <i><font color='green'>/* Set monitor flag and push callback */</font></i>
+<a name='L576'>         c-&gt;flags |= <a href='../S/121.html#L80' title='Defined at 80 in deps/hiredis/hiredis.h.'>REDIS_MONITORING</a>;
+<a name='L577'>         <a href='../S/104.html#L180' title='Defined at 180 in deps/hiredis/async.c.'>__redisPushCallback</a>(&amp;ac-&gt;replies,&amp;cb);
+<a name='L578'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L579'>        <b>if</b> (c-&gt;flags &amp; <a href='../S/121.html#L77' title='Defined at 77 in deps/hiredis/hiredis.h.'>REDIS_SUBSCRIBED</a>)
+<a name='L580'>            <i><font color='green'>/* This will likely result in an error reply, but it needs to be</font></i>
+<a name='L581'><i><font color='green'>             * received and passed to the callback. */</font></i>
+<a name='L582'>            <a href='../S/104.html#L180' title='Defined at 180 in deps/hiredis/async.c.'>__redisPushCallback</a>(&amp;ac-&gt;sub.invalid,&amp;cb);
+<a name='L583'>        <b>else</b>
+<a name='L584'>            <a href='../S/104.html#L180' title='Defined at 180 in deps/hiredis/async.c.'>__redisPushCallback</a>(&amp;ac-&gt;replies,&amp;cb);
+<a name='L585'>    <font color='red'>}</font>
+<a name='L586'>
+<a name='L587'>    <a href='../S/120.html#L1183' title='Defined at 1183 in deps/hiredis/hiredis.c.'>__redisAppendCommand</a>(c,cmd,len);
+<a name='L588'>
+<a name='L589'>    <i><font color='green'>/* Always schedule a write when the write buffer is non-empty */</font></i>
+<a name='L590'>    <a href='../S/104.html#L50' title='Defined at 50 in deps/hiredis/async.c.'>_EL_ADD_WRITE</a>(ac);
+<a name='L591'>
+<a name='L592'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L593'><font color='red'>}</font>
+<a name='L594'>
+<a name='L595'><b>int</b> <a href='../R/3507.html' title='Multiple refered from 2 places.'>redisvAsyncCommand</a>(redisAsyncContext *ac, redisCallbackFn *fn, <b>void</b> *privdata, <b>const</b> <b>char</b> *format, va_list ap) <font color='red'>{</font>
+<a name='L596'>    <b>char</b> *cmd;
+<a name='L597'>    <b>int</b> len;
+<a name='L598'>    <b>int</b> status;
+<a name='L599'>    len = <a href='../S/120.html#L686' title='Defined at 686 in deps/hiredis/hiredis.c.'>redisvFormatCommand</a>(&amp;cmd,format,ap);
+<a name='L600'>    status = <a href='../S/104.html#L531' title='Defined at 531 in deps/hiredis/async.c.'>__redisAsyncCommand</a>(ac,fn,privdata,cmd,len);
+<a name='L601'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L602'>    <b>return</b> status;
+<a name='L603'><font color='red'>}</font>
+<a name='L604'>
+<a name='L605'><b>int</b> <a href='../R/3405.html' title='Multiple refered from 18 places.'>redisAsyncCommand</a>(redisAsyncContext *ac, redisCallbackFn *fn, <b>void</b> *privdata, <b>const</b> <b>char</b> *format, ...) <font color='red'>{</font>
+<a name='L606'>    va_list ap;
+<a name='L607'>    <b>int</b> status;
+<a name='L608'>    va_start(ap,format);
+<a name='L609'>    status = <a href='../S/104.html#L595' title='Defined at 595 in deps/hiredis/async.c.'>redisvAsyncCommand</a>(ac,fn,privdata,format,ap);
+<a name='L610'>    va_end(ap);
+<a name='L611'>    <b>return</b> status;
+<a name='L612'><font color='red'>}</font>
+<a name='L613'>
+<a name='L614'><b>int</b> <a href='../S/124.html#L119' title='Refered from 119 in deps/hiredis/async.h.'>redisAsyncCommandArgv</a>(redisAsyncContext *ac, redisCallbackFn *fn, <b>void</b> *privdata, <b>int</b> argc, <b>const</b> <b>char</b> **argv, <b>const</b> size_t *argvlen) <font color='red'>{</font>
+<a name='L615'>    <b>char</b> *cmd;
+<a name='L616'>    <b>int</b> len;
+<a name='L617'>    <b>int</b> status;
+<a name='L618'>    len = <a href='../S/120.html#L939' title='Defined at 939 in deps/hiredis/hiredis.c.'>redisFormatCommandArgv</a>(&amp;cmd,argc,argv,argvlen);
+<a name='L619'>    status = <a href='../S/104.html#L531' title='Defined at 531 in deps/hiredis/async.c.'>__redisAsyncCommand</a>(ac,fn,privdata,cmd,len);
+<a name='L620'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L621'>    <b>return</b> status;
+<a name='L622'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L64'>[^]</a><a href='#L614'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

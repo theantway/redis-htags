@@ -1,0 +1,205 @@
+<html>
+<head>
+<title>src/rio.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/rio.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L57'>[^]</a><a href='#L164'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L57' title='Defined at 57.'>rioBufferWrite</a>
+<li><a href='#L64' title='Defined at 64.'>rioBufferRead</a>
+<li><a href='#L73' title='Defined at 73.'>rioBufferTell</a>
+<li><a href='#L78' title='Defined at 78.'>rioFileWrite</a>
+<li><a href='#L83' title='Defined at 83.'>rioFileRead</a>
+<li><a href='#L88' title='Defined at 88.'>rioFileTell</a>
+<li><a href='#L110' title='Defined at 110.'>rioInitWithFile</a>
+<li><a href='#L115' title='Defined at 115.'>rioInitWithBuffer</a>
+<li><a href='#L123' title='Defined at 123.'>rioGenericUpdateChecksum</a>
+<li><a href='#L132' title='Defined at 132.'>rioWriteBulkCount</a>
+<li><a href='#L145' title='Defined at 145.'>rioWriteBulkString</a>
+<li><a href='#L155' title='Defined at 155.'>rioWriteBulkLongLong</a>
+<li><a href='#L164' title='Defined at 164.'>rioWriteBulkDouble</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* rio.c is a simple stream-oriented I/O abstraction that provides an interface</font></i>
+<a name='L2'><i><font color='green'> * to write code that can consume/produce data using different concrete input</font></i>
+<a name='L3'><i><font color='green'> * and output devices. For instance the same rdb.c code using the rio</font></i>
+<a name='L4'><i><font color='green'> * abstraction can be used to read and write the RDB format using in-memory</font></i>
+<a name='L5'><i><font color='green'> * buffers or files.</font></i>
+<a name='L6'><i><font color='green'> *</font></i>
+<a name='L7'><i><font color='green'> * A rio object provides the following methods:</font></i>
+<a name='L8'><i><font color='green'> *  read: read from stream.</font></i>
+<a name='L9'><i><font color='green'> *  write: write to stream.</font></i>
+<a name='L10'><i><font color='green'> *  tell: get the current offset.</font></i>
+<a name='L11'><i><font color='green'> *</font></i>
+<a name='L12'><i><font color='green'> * It is also possible to set a 'checksum' method that is used by rio.c in order</font></i>
+<a name='L13'><i><font color='green'> * to compute a checksum of the data written or read, or to query the rio object</font></i>
+<a name='L14'><i><font color='green'> * for the current checksum.</font></i>
+<a name='L15'><i><font color='green'> *</font></i>
+<a name='L16'><i><font color='green'> * ----------------------------------------------------------------------------</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * Copyright (c) 2009-2012, Pieter Noordhuis &lt;pcnoordhuis at gmail dot com&gt;</font></i>
+<a name='L19'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L20'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L21'><i><font color='green'> *</font></i>
+<a name='L22'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L23'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L24'><i><font color='green'> *</font></i>
+<a name='L25'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L26'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L27'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L28'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L29'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L30'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L31'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L32'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L33'><i><font color='green'> *</font></i>
+<a name='L34'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L35'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L36'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L37'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L38'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L39'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L40'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L41'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L42'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L43'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L44'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L45'><i><font color='green'> */</font></i>
+<a name='L46'>
+<a name='L47'>
+<a name='L48'><font color='darkred'>#include</font> "<a href='../I/12.html'>fmacros.h</a>"
+<a name='L49'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L50'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L51'><font color='darkred'>#include</font> "<a href='65.html'>rio.h</a>"
+<a name='L52'><font color='darkred'>#include</font> "<a href='../I/45.html'>util.h</a>"
+<a name='L53'>
+<a name='L54'><a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> <a href='../S/77.html#L173' title='Defined at 173 in src/crc64.c.'>crc64</a>(<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> crc, <b>const</b> <b>unsigned</b> <b>char</b> *s, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> l);
+<a name='L55'>
+<a name='L56'><i><font color='green'>/* Returns 1 or 0 for success/failure. */</font></i>
+<a name='L57'><b>static</b> size_t <a href='../S/76.html#L94' title='Refered from 94 in src/rio.c.'>rioBufferWrite</a>(rio *r, <b>const</b> <b>void</b> *buf, size_t len) <font color='red'>{</font>
+<a name='L58'>    r-&gt;io.buffer.ptr = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(r-&gt;io.buffer.ptr,(<b>char</b>*)buf,len);
+<a name='L59'>    r-&gt;io.buffer.<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> += len;
+<a name='L60'>    <b>return</b> 1;
+<a name='L61'><font color='red'>}</font>
+<a name='L62'>
+<a name='L63'><i><font color='green'>/* Returns 1 or 0 for success/failure. */</font></i>
+<a name='L64'><b>static</b> size_t <a href='../S/76.html#L93' title='Refered from 93 in src/rio.c.'>rioBufferRead</a>(rio *r, <b>void</b> *buf, size_t len) <font color='red'>{</font>
+<a name='L65'>    <b>if</b> (<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(r-&gt;io.buffer.ptr)-r-&gt;io.buffer.<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> &lt; len)
+<a name='L66'>        <b>return</b> 0; <i><font color='green'>/* not enough buffer to return len bytes. */</font></i>
+<a name='L67'>    memcpy(buf,r-&gt;io.buffer.ptr+r-&gt;io.buffer.<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,len);
+<a name='L68'>    r-&gt;io.buffer.<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> += len;
+<a name='L69'>    <b>return</b> 1;
+<a name='L70'><font color='red'>}</font>
+<a name='L71'>
+<a name='L72'><i><font color='green'>/* Returns read/write position in buffer. */</font></i>
+<a name='L73'><b>static</b> off_t <a href='../S/76.html#L95' title='Refered from 95 in src/rio.c.'>rioBufferTell</a>(rio *r) <font color='red'>{</font>
+<a name='L74'>    <b>return</b> r-&gt;io.buffer.<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>;
+<a name='L75'><font color='red'>}</font>
+<a name='L76'>
+<a name='L77'><i><font color='green'>/* Returns 1 or 0 for success/failure. */</font></i>
+<a name='L78'><b>static</b> size_t <a href='../S/76.html#L103' title='Refered from 103 in src/rio.c.'>rioFileWrite</a>(rio *r, <b>const</b> <b>void</b> *buf, size_t len) <font color='red'>{</font>
+<a name='L79'>    <b>return</b> fwrite(buf,len,1,r-&gt;io.file.fp);
+<a name='L80'><font color='red'>}</font>
+<a name='L81'>
+<a name='L82'><i><font color='green'>/* Returns 1 or 0 for success/failure. */</font></i>
+<a name='L83'><b>static</b> size_t <a href='../S/76.html#L102' title='Refered from 102 in src/rio.c.'>rioFileRead</a>(rio *r, <b>void</b> *buf, size_t len) <font color='red'>{</font>
+<a name='L84'>    <b>return</b> fread(buf,len,1,r-&gt;io.file.fp);
+<a name='L85'><font color='red'>}</font>
+<a name='L86'>
+<a name='L87'><i><font color='green'>/* Returns read/write position in file. */</font></i>
+<a name='L88'><b>static</b> off_t <a href='../S/76.html#L104' title='Refered from 104 in src/rio.c.'>rioFileTell</a>(rio *r) <font color='red'>{</font>
+<a name='L89'>    <b>return</b> ftello(r-&gt;io.file.fp);
+<a name='L90'><font color='red'>}</font>
+<a name='L91'>
+<a name='L92'><b>static</b> <b>const</b> <a href='../S/65.html#L67' title='Defined at 67 in src/rio.h.'>rio</a> rioBufferIO = <font color='red'>{</font>
+<a name='L93'>    <a href='../S/76.html#L64' title='Defined at 64 in src/rio.c.'>rioBufferRead</a>,
+<a name='L94'>    <a href='../S/76.html#L57' title='Defined at 57 in src/rio.c.'>rioBufferWrite</a>,
+<a name='L95'>    <a href='../S/76.html#L73' title='Defined at 73 in src/rio.c.'>rioBufferTell</a>,
+<a name='L96'>    NULL,           <i><font color='green'>/* update_checksum */</font></i>
+<a name='L97'>    0,              <i><font color='green'>/* current checksum */</font></i>
+<a name='L98'>    <font color='red'>{</font> <font color='red'>{</font> NULL, 0 <font color='red'>}</font> <font color='red'>}</font> <i><font color='green'>/* union for io-specific vars */</font></i>
+<a name='L99'><font color='red'>}</font>;
+<a name='L100'>
+<a name='L101'><b>static</b> <b>const</b> <a href='../S/65.html#L67' title='Defined at 67 in src/rio.h.'>rio</a> rioFileIO = <font color='red'>{</font>
+<a name='L102'>    <a href='../S/76.html#L83' title='Defined at 83 in src/rio.c.'>rioFileRead</a>,
+<a name='L103'>    <a href='../S/76.html#L78' title='Defined at 78 in src/rio.c.'>rioFileWrite</a>,
+<a name='L104'>    <a href='../S/76.html#L88' title='Defined at 88 in src/rio.c.'>rioFileTell</a>,
+<a name='L105'>    NULL,           <i><font color='green'>/* update_checksum */</font></i>
+<a name='L106'>    0,              <i><font color='green'>/* current checksum */</font></i>
+<a name='L107'>    <font color='red'>{</font> <font color='red'>{</font> NULL, 0 <font color='red'>}</font> <font color='red'>}</font> <i><font color='green'>/* union for io-specific vars */</font></i>
+<a name='L108'><font color='red'>}</font>;
+<a name='L109'>
+<a name='L110'><b>void</b> <a href='../R/3569.html' title='Multiple refered from 4 places.'>rioInitWithFile</a>(rio *r, FILE *fp) <font color='red'>{</font>
+<a name='L111'>    *r = rioFileIO;
+<a name='L112'>    r-&gt;io.file.fp = fp;
+<a name='L113'><font color='red'>}</font>
+<a name='L114'>
+<a name='L115'><b>void</b> <a href='../R/3568.html' title='Multiple refered from 4 places.'>rioInitWithBuffer</a>(rio *r, sds s) <font color='red'>{</font>
+<a name='L116'>    *r = rioBufferIO;
+<a name='L117'>    r-&gt;io.buffer.ptr = s;
+<a name='L118'>    r-&gt;io.buffer.<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> = 0;
+<a name='L119'><font color='red'>}</font>
+<a name='L120'>
+<a name='L121'><i><font color='green'>/* This function can be installed both in memory and file streams when checksum</font></i>
+<a name='L122'><i><font color='green'> * computation is needed. */</font></i>
+<a name='L123'><b>void</b> <a href='../R/3567.html' title='Multiple refered from 3 places.'>rioGenericUpdateChecksum</a>(rio *r, <b>const</b> <b>void</b> *buf, size_t len) <font color='red'>{</font>
+<a name='L124'>    r-&gt;cksum = <a href='../S/77.html#L173' title='Defined at 173 in src/crc64.c.'>crc64</a>(r-&gt;cksum,buf,len);
+<a name='L125'><font color='red'>}</font>
+<a name='L126'>
+<a name='L127'><i><font color='green'>/* ------------------------------ Higher level interface ---------------------------</font></i>
+<a name='L128'><i><font color='green'> * The following higher level functions use lower level rio.c functions to help</font></i>
+<a name='L129'><i><font color='green'> * generating the Redis protocol for the Append Only File. */</font></i>
+<a name='L130'>
+<a name='L131'><i><font color='green'>/* Write multi bulk count in the format: "*&lt;count&gt;\r\n". */</font></i>
+<a name='L132'>size_t <a href='../R/3573.html' title='Multiple refered from 11 places.'>rioWriteBulkCount</a>(rio *r, <b>char</b> prefix, <b>int</b> count) <font color='red'>{</font>
+<a name='L133'>    <b>char</b> cbuf[128];
+<a name='L134'>    <b>int</b> clen;
+<a name='L135'>
+<a name='L136'>    cbuf[0] = prefix;
+<a name='L137'>    clen = 1+<a href='../S/74.html#L220' title='Defined at 220 in src/util.c.'>ll2string</a>(cbuf+1,<b>sizeof</b>(cbuf)-1,count);
+<a name='L138'>    cbuf[clen++] = '\r';
+<a name='L139'>    cbuf[clen++] = '\n';
+<a name='L140'>    <b>if</b> (<a href='../S/65.html#L73' title='Defined at 73 in src/rio.h.'>rioWrite</a>(r,cbuf,clen) == 0) <b>return</b> 0;
+<a name='L141'>    <b>return</b> clen;
+<a name='L142'><font color='red'>}</font>
+<a name='L143'>
+<a name='L144'><i><font color='green'>/* Write binary-safe string in the format: "$&lt;count&gt;\r\n&lt;payload&gt;\r\n". */</font></i>
+<a name='L145'>size_t <a href='../R/3577.html' title='Multiple refered from 18 places.'>rioWriteBulkString</a>(rio *r, <b>const</b> <b>char</b> *buf, size_t len) <font color='red'>{</font>
+<a name='L146'>    size_t nwritten;
+<a name='L147'>
+<a name='L148'>    <b>if</b> ((nwritten = <a href='../S/76.html#L132' title='Defined at 132 in src/rio.c.'>rioWriteBulkCount</a>(r,'$',len)) == 0) <b>return</b> 0;
+<a name='L149'>    <b>if</b> (len &gt; 0 &amp;&amp; <a href='../S/65.html#L73' title='Defined at 73 in src/rio.h.'>rioWrite</a>(r,buf,len) == 0) <b>return</b> 0;
+<a name='L150'>    <b>if</b> (<a href='../S/65.html#L73' title='Defined at 73 in src/rio.h.'>rioWrite</a>(r,"\r\n",2) == 0) <b>return</b> 0;
+<a name='L151'>    <b>return</b> nwritten+len+2;
+<a name='L152'><font color='red'>}</font>
+<a name='L153'>
+<a name='L154'><i><font color='green'>/* Write a long long value in format: "$&lt;count&gt;\r\n&lt;payload&gt;\r\n". */</font></i>
+<a name='L155'>size_t <a href='../R/3575.html' title='Multiple refered from 10 places.'>rioWriteBulkLongLong</a>(rio *r, <b>long</b> <b>long</b> l) <font color='red'>{</font>
+<a name='L156'>    <b>char</b> lbuf[32];
+<a name='L157'>    <b>unsigned</b> <b>int</b> llen;
+<a name='L158'>
+<a name='L159'>    llen = <a href='../S/74.html#L220' title='Defined at 220 in src/util.c.'>ll2string</a>(lbuf,<b>sizeof</b>(lbuf),l);
+<a name='L160'>    <b>return</b> <a href='../S/76.html#L145' title='Defined at 145 in src/rio.c.'>rioWriteBulkString</a>(r,lbuf,llen);
+<a name='L161'><font color='red'>}</font>
+<a name='L162'>
+<a name='L163'><i><font color='green'>/* Write a double value in the format: "$&lt;count&gt;\r\n&lt;payload&gt;\r\n" */</font></i>
+<a name='L164'>size_t <a href='../R/3574.html' title='Multiple refered from 3 places.'>rioWriteBulkDouble</a>(rio *r, <b>double</b> d) <font color='red'>{</font>
+<a name='L165'>    <b>char</b> dbuf[128];
+<a name='L166'>    <b>unsigned</b> <b>int</b> dlen;
+<a name='L167'>
+<a name='L168'>    dlen = snprintf(dbuf,<b>sizeof</b>(dbuf),"%.17g",d);
+<a name='L169'>    <b>return</b> <a href='../S/76.html#L145' title='Defined at 145 in src/rio.c.'>rioWriteBulkString</a>(r,dbuf,dlen);
+<a name='L170'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L57'>[^]</a><a href='#L164'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

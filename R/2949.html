@@ -1,0 +1,45 @@
+<html>
+<head>
+<title>map_bias</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/146.html#L400'>map_bias</a>          400 deps/jemalloc/include/jemalloc/internal/arena.h #define			nlclasses (chunk_npages - map_bias)
+<a href='../S/146.html#L485'>map_bias</a>          485 deps/jemalloc/include/jemalloc/internal/arena.h 	assert(pageind &gt;= map_bias);
+<a href='../S/146.html#L488'>map_bias</a>          488 deps/jemalloc/include/jemalloc/internal/arena.h 	return (&amp;chunk-&gt;map[pageind-map_bias]);
+<a href='../S/146.html#L647'>map_bias</a>          647 deps/jemalloc/include/jemalloc/internal/arena.h 	assert(pageind - runind &gt;= map_bias);
+<a href='../S/142.html#L43'>map_bias</a>           43 deps/jemalloc/include/jemalloc/internal/chunk.h extern size_t		map_bias; /* Number of arena chunk header pages. */
+<a href='../S/138.html#L230'>map_bias</a>          230 deps/jemalloc/include/jemalloc/internal/private_namespace.h #define	map_bias JEMALLOC_N(map_bias)
+<a href='../S/203.html#L213'>map_bias</a>          213 deps/jemalloc/src/arena.c 	if (pageind-1 &lt; map_bias)
+<a href='../S/203.html#L523'>map_bias</a>          523 deps/jemalloc/src/arena.c 		assert(arena_mapbits_allocated_get(chunk, map_bias) == 0);
+<a href='../S/203.html#L525'>map_bias</a>          525 deps/jemalloc/src/arena.c 		assert(arena_mapbits_unallocated_size_get(chunk, map_bias) ==
+<a href='../S/203.html#L529'>map_bias</a>          529 deps/jemalloc/src/arena.c 		assert(arena_mapbits_dirty_get(chunk, map_bias) ==
+<a href='../S/203.html#L562'>map_bias</a>          562 deps/jemalloc/src/arena.c 		arena_mapbits_unallocated_set(chunk, map_bias, arena_maxclass,
+<a href='../S/203.html#L569'>map_bias</a>          569 deps/jemalloc/src/arena.c 			for (i = map_bias+1; i &lt; chunk_npages-1; i++)
+<a href='../S/203.html#L572'>map_bias</a>          572 deps/jemalloc/src/arena.c 			for (i = map_bias+1; i &lt; chunk_npages-1; i++) {
+<a href='../S/203.html#L582'>map_bias</a>          582 deps/jemalloc/src/arena.c 	arena_avail_insert(arena, chunk, map_bias, chunk_npages-map_bias,
+<a href='../S/203.html#L591'>map_bias</a>          591 deps/jemalloc/src/arena.c 	assert(arena_mapbits_allocated_get(chunk, map_bias) == 0);
+<a href='../S/203.html#L593'>map_bias</a>          593 deps/jemalloc/src/arena.c 	assert(arena_mapbits_unallocated_size_get(chunk, map_bias) ==
+<a href='../S/203.html#L597'>map_bias</a>          597 deps/jemalloc/src/arena.c 	assert(arena_mapbits_dirty_get(chunk, map_bias) ==
+<a href='../S/203.html#L604'>map_bias</a>          604 deps/jemalloc/src/arena.c 	arena_avail_remove(arena, chunk, map_bias, chunk_npages-map_bias,
+<a href='../S/203.html#L633'>map_bias</a>          633 deps/jemalloc/src/arena.c 		    + map_bias;
+<a href='../S/203.html#L666'>map_bias</a>          666 deps/jemalloc/src/arena.c 		run = (arena_run_t *)((uintptr_t)chunk + (map_bias &lt;&lt; LG_PAGE));
+<a href='../S/203.html#L729'>map_bias</a>          729 deps/jemalloc/src/arena.c 		assert(arena_mapbits_dirty_get(chunk, map_bias) != 0);
+<a href='../S/203.html#L750'>map_bias</a>          750 deps/jemalloc/src/arena.c 	for (pageind = map_bias; pageind &lt; chunk_npages; pageind += npages) {
+<a href='../S/203.html#L805'>map_bias</a>          805 deps/jemalloc/src/arena.c 		    sizeof(arena_chunk_map_t)) + map_bias;
+<a href='../S/203.html#L840'>map_bias</a>          840 deps/jemalloc/src/arena.c 		    sizeof(arena_chunk_map_t)) + map_bias;
+<a href='../S/203.html#L968'>map_bias</a>          968 deps/jemalloc/src/arena.c 	assert(run_ind &gt;= map_bias);
+<a href='../S/203.html#L1045'>map_bias</a>         1045 deps/jemalloc/src/arena.c 	if (run_ind &gt; map_bias &amp;&amp; arena_mapbits_allocated_get(chunk, run_ind-1)
+<a href='../S/203.html#L1080'>map_bias</a>         1080 deps/jemalloc/src/arena.c 		assert(run_ind == map_bias);
+<a href='../S/203.html#L1172'>map_bias</a>         1172 deps/jemalloc/src/arena.c 		    sizeof(arena_chunk_map_t))) + map_bias;
+<a href='../S/203.html#L2334'>map_bias</a>         2334 deps/jemalloc/src/arena.c 	map_bias = 0;
+<a href='../S/203.html#L2337'>map_bias</a>         2337 deps/jemalloc/src/arena.c 		    (sizeof(arena_chunk_map_t) * (chunk_npages-map_bias));
+<a href='../S/203.html#L2338'>map_bias</a>         2338 deps/jemalloc/src/arena.c 		map_bias = (header_size &gt;&gt; LG_PAGE) + ((header_size &amp; PAGE_MASK)
+<a href='../S/203.html#L2341'>map_bias</a>         2341 deps/jemalloc/src/arena.c 	assert(map_bias &gt; 0);
+<a href='../S/203.html#L2343'>map_bias</a>         2343 deps/jemalloc/src/arena.c 	arena_maxclass = chunksize - (map_bias &lt;&lt; LG_PAGE);
+<a href='../S/201.html#L30'>map_bias</a>           30 deps/jemalloc/src/chunk.c size_t		map_bias;
+</pre>
+</body>
+</html>

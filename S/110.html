@@ -1,0 +1,129 @@
+<html>
+<head>
+<title>deps/hiredis/adapters/ae.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/388.html'>hiredis</a>/<a href='../files/389.html'>adapters</a>/ae.h</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L15'>[^]</a><a href='#L72'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/1.html' title='Multiple included from 6 places.'>INCLUDED FROM</a></h2>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L15' title='Defined at 15.'>redisAeReadEvent</a>
+<li><a href='#L22' title='Defined at 22.'>redisAeWriteEvent</a>
+<li><a href='#L29' title='Defined at 29.'>redisAeAddRead</a>
+<li><a href='#L38' title='Defined at 38.'>redisAeDelRead</a>
+<li><a href='#L47' title='Defined at 47.'>redisAeAddWrite</a>
+<li><a href='#L56' title='Defined at 56.'>redisAeDelWrite</a>
+<li><a href='#L65' title='Defined at 65.'>redisAeCleanup</a>
+<li><a href='#L72' title='Defined at 72.'>redisAeAttach</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#ifndef</font> <a href='../S/110.html#L2' title='Defined at 2 in deps/hiredis/adapters/ae.h.'>__HIREDIS_AE_H__</a>
+<a name='L2'><font color='darkred'>#define</font> <a href='../S/110.html#L1' title='Refered from 1 in deps/hiredis/adapters/ae.h.'>__HIREDIS_AE_H__</a>
+<a name='L3'><font color='darkred'>#include</font> &lt;sys/types.h&gt;
+<a name='L4'><font color='darkred'>#include</font> &lt;<a href='../I/1.html'>ae.h</a>&gt;
+<a name='L5'><font color='darkred'>#include</font> "<a href='121.html'>../hiredis.h</a>"
+<a name='L6'><font color='darkred'>#include</font> "<a href='124.html'>../async.h</a>"
+<a name='L7'>
+<a name='L8'><b>typedef</b> <b>struct</b> <a href='../R/3397.html' title='Multiple refered from 18 places.'>redisAeEvents</a> <font color='red'>{</font>
+<a name='L9'>    <a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *context;
+<a name='L10'>    <a href='../D/1510.html' title='Multiple defined in 2 places.'>aeEventLoop</a> *loop;
+<a name='L11'>    <b>int</b> fd;
+<a name='L12'>    <b>int</b> reading, writing;
+<a name='L13'><font color='red'>}</font> <a href='../R/3397.html' title='Multiple refered from 18 places.'>redisAeEvents</a>;
+<a name='L14'>
+<a name='L15'><b>static</b> <b>void</b> <a href='../R/3398.html' title='Multiple refered from 2 places.'>redisAeReadEvent</a>(aeEventLoop *el, <b>int</b> fd, <b>void</b> *privdata, <b>int</b> mask) <font color='red'>{</font>
+<a name='L16'>    ((<b>void</b>)el); ((<b>void</b>)fd); ((<b>void</b>)mask);
+<a name='L17'>
+<a name='L18'>    <a href='../D/3756.html' title='Multiple defined in 4 places.'>redisAeEvents</a> *e = (<a href='../D/3756.html' title='Multiple defined in 4 places.'>redisAeEvents</a>*)privdata;
+<a name='L19'>    <a href='../S/104.html#L464' title='Defined at 464 in deps/hiredis/async.c.'>redisAsyncHandleRead</a>(e-&gt;context);
+<a name='L20'><font color='red'>}</font>
+<a name='L21'>
+<a name='L22'><b>static</b> <b>void</b> <a href='../R/3399.html' title='Multiple refered from 2 places.'>redisAeWriteEvent</a>(aeEventLoop *el, <b>int</b> fd, <b>void</b> *privdata, <b>int</b> mask) <font color='red'>{</font>
+<a name='L23'>    ((<b>void</b>)el); ((<b>void</b>)fd); ((<b>void</b>)mask);
+<a name='L24'>
+<a name='L25'>    <a href='../D/3756.html' title='Multiple defined in 4 places.'>redisAeEvents</a> *e = (<a href='../D/3756.html' title='Multiple defined in 4 places.'>redisAeEvents</a>*)privdata;
+<a name='L26'>    <a href='../S/104.html#L485' title='Defined at 485 in deps/hiredis/async.c.'>redisAsyncHandleWrite</a>(e-&gt;context);
+<a name='L27'><font color='red'>}</font>
+<a name='L28'>
+<a name='L29'><b>static</b> <b>void</b> <a href='../R/3391.html' title='Multiple refered from 2 places.'>redisAeAddRead</a>(<b>void</b> *privdata) <font color='red'>{</font>
+<a name='L30'>    <a href='../D/3756.html' title='Multiple defined in 4 places.'>redisAeEvents</a> *e = (<a href='../D/3756.html' title='Multiple defined in 4 places.'>redisAeEvents</a>*)privdata;
+<a name='L31'>    <a href='../D/1510.html' title='Multiple defined in 2 places.'>aeEventLoop</a> *loop = e-&gt;loop;
+<a name='L32'>    <b>if</b> (!e-&gt;reading) <font color='red'>{</font>
+<a name='L33'>        e-&gt;reading = 1;
+<a name='L34'>        <a href='../S/36.html#L104' title='Defined at 104 in src/ae.c.'>aeCreateFileEvent</a>(loop,e-&gt;fd,<a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>,<a href='../D/3757.html' title='Multiple defined in 2 places.'>redisAeReadEvent</a>,e);
+<a name='L35'>    <font color='red'>}</font>
+<a name='L36'><font color='red'>}</font>
+<a name='L37'>
+<a name='L38'><b>static</b> <b>void</b> <a href='../R/3395.html' title='Multiple refered from 4 places.'>redisAeDelRead</a>(<b>void</b> *privdata) <font color='red'>{</font>
+<a name='L39'>    <a href='../D/3756.html' title='Multiple defined in 4 places.'>redisAeEvents</a> *e = (<a href='../D/3756.html' title='Multiple defined in 4 places.'>redisAeEvents</a>*)privdata;
+<a name='L40'>    <a href='../D/1510.html' title='Multiple defined in 2 places.'>aeEventLoop</a> *loop = e-&gt;loop;
+<a name='L41'>    <b>if</b> (e-&gt;reading) <font color='red'>{</font>
+<a name='L42'>        e-&gt;reading = 0;
+<a name='L43'>        <a href='../S/36.html#L121' title='Defined at 121 in src/ae.c.'>aeDeleteFileEvent</a>(loop,e-&gt;fd,<a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>);
+<a name='L44'>    <font color='red'>}</font>
+<a name='L45'><font color='red'>}</font>
+<a name='L46'>
+<a name='L47'><b>static</b> <b>void</b> <a href='../R/3392.html' title='Multiple refered from 2 places.'>redisAeAddWrite</a>(<b>void</b> *privdata) <font color='red'>{</font>
+<a name='L48'>    <a href='../D/3756.html' title='Multiple defined in 4 places.'>redisAeEvents</a> *e = (<a href='../D/3756.html' title='Multiple defined in 4 places.'>redisAeEvents</a>*)privdata;
+<a name='L49'>    <a href='../D/1510.html' title='Multiple defined in 2 places.'>aeEventLoop</a> *loop = e-&gt;loop;
+<a name='L50'>    <b>if</b> (!e-&gt;writing) <font color='red'>{</font>
+<a name='L51'>        e-&gt;writing = 1;
+<a name='L52'>        <a href='../S/36.html#L104' title='Defined at 104 in src/ae.c.'>aeCreateFileEvent</a>(loop,e-&gt;fd,<a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>,<a href='../D/3758.html' title='Multiple defined in 2 places.'>redisAeWriteEvent</a>,e);
+<a name='L53'>    <font color='red'>}</font>
+<a name='L54'><font color='red'>}</font>
+<a name='L55'>
+<a name='L56'><b>static</b> <b>void</b> <a href='../R/3396.html' title='Multiple refered from 4 places.'>redisAeDelWrite</a>(<b>void</b> *privdata) <font color='red'>{</font>
+<a name='L57'>    <a href='../D/3756.html' title='Multiple defined in 4 places.'>redisAeEvents</a> *e = (<a href='../D/3756.html' title='Multiple defined in 4 places.'>redisAeEvents</a>*)privdata;
+<a name='L58'>    <a href='../D/1510.html' title='Multiple defined in 2 places.'>aeEventLoop</a> *loop = e-&gt;loop;
+<a name='L59'>    <b>if</b> (e-&gt;writing) <font color='red'>{</font>
+<a name='L60'>        e-&gt;writing = 0;
+<a name='L61'>        <a href='../S/36.html#L121' title='Defined at 121 in src/ae.c.'>aeDeleteFileEvent</a>(loop,e-&gt;fd,<a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>);
+<a name='L62'>    <font color='red'>}</font>
+<a name='L63'><font color='red'>}</font>
+<a name='L64'>
+<a name='L65'><b>static</b> <b>void</b> <a href='../R/3394.html' title='Multiple refered from 2 places.'>redisAeCleanup</a>(<b>void</b> *privdata) <font color='red'>{</font>
+<a name='L66'>    <a href='../D/3756.html' title='Multiple defined in 4 places.'>redisAeEvents</a> *e = (<a href='../D/3756.html' title='Multiple defined in 4 places.'>redisAeEvents</a>*)privdata;
+<a name='L67'>    <a href='../D/3754.html' title='Multiple defined in 2 places.'>redisAeDelRead</a>(privdata);
+<a name='L68'>    <a href='../D/3755.html' title='Multiple defined in 2 places.'>redisAeDelWrite</a>(privdata);
+<a name='L69'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(e);
+<a name='L70'><font color='red'>}</font>
+<a name='L71'>
+<a name='L72'><b>static</b> <b>int</b> <a href='../R/3393.html' title='Multiple refered from 3 places.'>redisAeAttach</a>(aeEventLoop *loop, redisAsyncContext *ac) <font color='red'>{</font>
+<a name='L73'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c = &amp;(ac-&gt;c);
+<a name='L74'>    <a href='../D/3756.html' title='Multiple defined in 4 places.'>redisAeEvents</a> *e;
+<a name='L75'>
+<a name='L76'>    <i><font color='green'>/* Nothing should be attached when something is already attached */</font></i>
+<a name='L77'>    <b>if</b> (ac-&gt;ev.data != NULL)
+<a name='L78'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L79'>
+<a name='L80'>    <i><font color='green'>/* Create container for context and r/w events */</font></i>
+<a name='L81'>    e = (<a href='../D/3756.html' title='Multiple defined in 4 places.'>redisAeEvents</a>*)<a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(*e));
+<a name='L82'>    e-&gt;context = ac;
+<a name='L83'>    e-&gt;loop = loop;
+<a name='L84'>    e-&gt;fd = c-&gt;fd;
+<a name='L85'>    e-&gt;reading = e-&gt;writing = 0;
+<a name='L86'>
+<a name='L87'>    <i><font color='green'>/* Register functions to start/stop listening for events */</font></i>
+<a name='L88'>    ac-&gt;ev.addRead = <a href='../D/3750.html' title='Multiple defined in 2 places.'>redisAeAddRead</a>;
+<a name='L89'>    ac-&gt;ev.delRead = <a href='../D/3754.html' title='Multiple defined in 2 places.'>redisAeDelRead</a>;
+<a name='L90'>    ac-&gt;ev.addWrite = <a href='../D/3751.html' title='Multiple defined in 2 places.'>redisAeAddWrite</a>;
+<a name='L91'>    ac-&gt;ev.delWrite = <a href='../D/3755.html' title='Multiple defined in 2 places.'>redisAeDelWrite</a>;
+<a name='L92'>    ac-&gt;ev.cleanup = <a href='../D/3753.html' title='Multiple defined in 2 places.'>redisAeCleanup</a>;
+<a name='L93'>    ac-&gt;ev.data = e;
+<a name='L94'>
+<a name='L95'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L96'><font color='red'>}</font>
+<a name='L97'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L15'>[^]</a><a href='#L72'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

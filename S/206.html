@@ -1,0 +1,1732 @@
+<html>
+<head>
+<title>deps/jemalloc/src/ctl.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/395.html'>src</a>/ctl.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L21'>[^]</a><a href='#L1638'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L21' title='Defined at 21.'>ctl_named_node</a>
+<li><a href='#L28' title='Defined at 28.'>ctl_named_children</a>
+<li><a href='#L36' title='Defined at 36.'>ctl_indexed_node</a>
+<li><a href='#L67' title='Defined at 67.'>CTL_PROTO</a>
+<li><a href='#L430' title='Defined at 430.'>ctl_arena_init</a>
+<li><a href='#L444' title='Defined at 444.'>ctl_arena_clear</a>
+<li><a href='#L463' title='Defined at 463.'>ctl_arena_stats_amerge</a>
+<li><a href='#L479' title='Defined at 479.'>ctl_arena_stats_smerge</a>
+<li><a href='#L525' title='Defined at 525.'>ctl_arena_refresh</a>
+<li><a href='#L547' title='Defined at 547.'>ctl_grow</a>
+<li><a href='#L608' title='Defined at 608.'>ctl_refresh</a>
+<li><a href='#L666' title='Defined at 666.'>ctl_init</a>
+<li><a href='#L715' title='Defined at 715.'>ctl_lookup</a>
+<li><a href='#L812' title='Defined at 812.'>ctl_byname</a>
+<li><a href='#L844' title='Defined at 844.'>ctl_nametomib</a>
+<li><a href='#L859' title='Defined at 859.'>ctl_bymib</a>
+<li><a href='#L909' title='Defined at 909.'>ctl_boot</a>
+<li><a href='#L921' title='Defined at 921.'>ctl_prefork</a>
+<li><a href='#L928' title='Defined at 928.'>ctl_postfork_parent</a>
+<li><a href='#L935' title='Defined at 935.'>ctl_postfork_child</a>
+<li><a href='#L1105' title='Defined at 1105.'>CTL_RO_NL_GEN</a>
+<li><a href='#L1127' title='Defined at 1127.'>thread_tcache_enabled_ctl</a>
+<li><a href='#L1152' title='Defined at 1152.'>thread_tcache_flush_ctl</a>
+<li><a href='#L1171' title='Defined at 1171.'>thread_arena_ctl</a>
+<li><a href='#L1221' title='Defined at 1221.'>CTL_RO_NL_CGEN</a>
+<li><a href='#L1301' title='Defined at 1301.'>arena_i_purge_ctl</a>
+<li><a href='#L1318' title='Defined at 1318.'>arena_i_dss_ctl</a>
+<li><a href='#L1369' title='Defined at 1369.'>arena_i_index</a>
+<li><a href='#L1388' title='Defined at 1388.'>CTL_RO_NL_GEN</a>
+<li><a href='#L1400' title='Defined at 1400.'>CTL_RO_NL_GEN</a>
+<li><a href='#L1411' title='Defined at 1411.'>arenas_narenas_ctl</a>
+<li><a href='#L1433' title='Defined at 1433.'>arenas_initialized_ctl</a>
+<li><a href='#L1458' title='Defined at 1458.'>CTL_RO_NL_GEN</a>
+<li><a href='#L1491' title='Defined at 1491.'>arenas_extend_ctl</a>
+<li><a href='#L1513' title='Defined at 1513.'>prof_active_ctl</a>
+<li><a href='#L1542' title='Defined at 1542.'>prof_dump_ctl</a>
+<li><a href='#L1564' title='Defined at 1564.'>CTL_RO_NL_CGEN</a>
+<li><a href='#L1620' title='Defined at 1620.'>CTL_RO_CGEN</a>
+<li><a href='#L1638' title='Defined at 1638.'>CTL_RO_GEN</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> JEMALLOC_CTL_C_
+<a name='L2'><font color='darkred'>#include</font> "jemalloc/internal/jemalloc_internal.h"
+<a name='L3'>
+<a name='L4'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L5'><i><font color='green'>/* Data. */</font></i>
+<a name='L6'>
+<a name='L7'><i><font color='green'>/*</font></i>
+<a name='L8'><i><font color='green'> * ctl_mtx protects the following:</font></i>
+<a name='L9'><i><font color='green'> * - ctl_stats.*</font></i>
+<a name='L10'><i><font color='green'> * - opt_prof_active</font></i>
+<a name='L11'><i><font color='green'> */</font></i>
+<a name='L12'><b>static</b> <a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a>   ctl_mtx;
+<a name='L13'><b>static</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>             ctl_initialized;
+<a name='L14'><b>static</b> <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>         ctl_epoch;
+<a name='L15'><b>static</b> <a href='../S/135.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_stats_t</a>      ctl_stats;
+<a name='L16'>
+<a name='L17'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L18'><i><font color='green'>/* Helpers for named and indexed nodes. */</font></i>
+<a name='L19'>
+<a name='L20'><b>static</b> <b>inline</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> *
+<a name='L21'><a href='../R/1737.html' title='Multiple refered from 4 places.'>ctl_named_node</a>(<b>const</b> <a href='../S/135.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_node_t</a> *node)
+<a name='L22'><font color='red'>{</font>
+<a name='L23'>
+<a name='L24'>        <b>return</b> ((node-&gt;named) ? (<b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> *)node : NULL);
+<a name='L25'><font color='red'>}</font>
+<a name='L26'>
+<a name='L27'><b>static</b> <b>inline</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> *
+<a name='L28'><a href='../R/1736.html' title='Multiple refered from 2 places.'>ctl_named_children</a>(<b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> *node, <b>int</b> index)
+<a name='L29'><font color='red'>{</font>
+<a name='L30'>        <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> *children = <a href='../S/206.html#L21' title='Defined at 21 in deps/jemalloc/src/ctl.c.'>ctl_named_node</a>(node-&gt;children);
+<a name='L31'>
+<a name='L32'>        <b>return</b> (children ? &amp;children[index] : NULL);
+<a name='L33'><font color='red'>}</font>
+<a name='L34'>
+<a name='L35'><b>static</b> <b>inline</b> <b>const</b> <a href='../S/135.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_indexed_node_t</a> *
+<a name='L36'><a href='../R/1731.html' title='Multiple refered from 2 places.'>ctl_indexed_node</a>(<b>const</b> <a href='../S/135.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_node_t</a> *node)
+<a name='L37'><font color='red'>{</font>
+<a name='L38'>
+<a name='L39'>        <b>return</b> ((node-&gt;named == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>) ? (<b>const</b> <a href='../S/135.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_indexed_node_t</a> *)node :
+<a name='L40'>            NULL);
+<a name='L41'><font color='red'>}</font>
+<a name='L42'>
+<a name='L43'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L44'><i><font color='green'>/* Function prototypes for non-inline static functions. */</font></i>
+<a name='L45'>
+<a name='L46'><font color='darkred'>#define</font> <a href='../R/97.html' title='Multiple refered from 105 places.'>CTL_PROTO</a>(n)                                                    \
+<a name='L47'><b>static</b> <b>int</b>      n##_ctl(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp,   \
+<a name='L48'>    size_t *oldlenp, <b>void</b> *newp, size_t newlen);
+<a name='L49'>
+<a name='L50'><font color='darkred'>#define</font> <a href='../R/192.html' title='Multiple refered from 6 places.'>INDEX_PROTO</a>(n)                                                  \
+<a name='L51'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a>   *n##_index(<b>const</b> size_t *mib,           \
+<a name='L52'>    size_t miblen, size_t i);
+<a name='L53'>
+<a name='L54'><b>static</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>     <a href='../S/206.html#L430' title='Defined at 430 in deps/jemalloc/src/ctl.c.'>ctl_arena_init</a>(<a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a> *astats);
+<a name='L55'><b>static</b> <b>void</b>     <a href='../S/206.html#L444' title='Defined at 444 in deps/jemalloc/src/ctl.c.'>ctl_arena_clear</a>(<a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a> *astats);
+<a name='L56'><b>static</b> <b>void</b>     <a href='../S/206.html#L463' title='Defined at 463 in deps/jemalloc/src/ctl.c.'>ctl_arena_stats_amerge</a>(<a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a> *cstats,
+<a name='L57'>    <a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena);
+<a name='L58'><b>static</b> <b>void</b>     <a href='../S/206.html#L479' title='Defined at 479 in deps/jemalloc/src/ctl.c.'>ctl_arena_stats_smerge</a>(<a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a> *sstats,
+<a name='L59'>    <a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a> *astats);
+<a name='L60'><b>static</b> <b>void</b>     <a href='../S/206.html#L525' title='Defined at 525 in deps/jemalloc/src/ctl.c.'>ctl_arena_refresh</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, <b>unsigned</b> i);
+<a name='L61'><b>static</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>     <a href='../S/206.html#L547' title='Defined at 547 in deps/jemalloc/src/ctl.c.'>ctl_grow</a>(<b>void</b>);
+<a name='L62'><b>static</b> <b>void</b>     <a href='../S/206.html#L608' title='Defined at 608 in deps/jemalloc/src/ctl.c.'>ctl_refresh</a>(<b>void</b>);
+<a name='L63'><b>static</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>     <a href='../S/206.html#L666' title='Defined at 666 in deps/jemalloc/src/ctl.c.'>ctl_init</a>(<b>void</b>);
+<a name='L64'><b>static</b> <b>int</b>      <a href='../S/206.html#L715' title='Defined at 715 in deps/jemalloc/src/ctl.c.'>ctl_lookup</a>(<b>const</b> <b>char</b> *name, <a href='../S/135.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_node_t</a> <b>const</b> **nodesp,
+<a name='L65'>    size_t *mibp, size_t *depthp);
+<a name='L66'>
+<a name='L67'><a href='../R/97.html' title='Multiple refered from 105 places.'>CTL_PROTO</a>(version)
+<a name='L68'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(epoch)
+<a name='L69'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(thread_tcache_enabled)
+<a name='L70'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(thread_tcache_flush)
+<a name='L71'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(thread_arena)
+<a name='L72'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(thread_allocated)
+<a name='L73'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(thread_allocatedp)
+<a name='L74'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(thread_deallocated)
+<a name='L75'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(thread_deallocatedp)
+<a name='L76'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(config_debug)
+<a name='L77'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(config_dss)
+<a name='L78'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(config_fill)
+<a name='L79'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(config_lazy_lock)
+<a name='L80'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(config_mremap)
+<a name='L81'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(config_munmap)
+<a name='L82'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(config_prof)
+<a name='L83'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(config_prof_libgcc)
+<a name='L84'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(config_prof_libunwind)
+<a name='L85'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(config_stats)
+<a name='L86'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(config_tcache)
+<a name='L87'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(config_tls)
+<a name='L88'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(config_utrace)
+<a name='L89'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(config_valgrind)
+<a name='L90'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(config_xmalloc)
+<a name='L91'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_abort)
+<a name='L92'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_dss)
+<a name='L93'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_lg_chunk)
+<a name='L94'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_narenas)
+<a name='L95'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_lg_dirty_mult)
+<a name='L96'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_stats_print)
+<a name='L97'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_junk)
+<a name='L98'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_zero)
+<a name='L99'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_quarantine)
+<a name='L100'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_redzone)
+<a name='L101'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_utrace)
+<a name='L102'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_valgrind)
+<a name='L103'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_xmalloc)
+<a name='L104'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_tcache)
+<a name='L105'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_lg_tcache_max)
+<a name='L106'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_prof)
+<a name='L107'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_prof_prefix)
+<a name='L108'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_prof_active)
+<a name='L109'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_lg_prof_sample)
+<a name='L110'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_lg_prof_interval)
+<a name='L111'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_prof_gdump)
+<a name='L112'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_prof_final)
+<a name='L113'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_prof_leak)
+<a name='L114'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(opt_prof_accum)
+<a name='L115'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(arena_i_purge)
+<a name='L116'><b>static</b> <b>void</b>     arena_purge(<b>unsigned</b> arena_ind);
+<a name='L117'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(arena_i_dss)
+<a name='L118'><a href='../S/206.html#L50' title='Defined at 50 in deps/jemalloc/src/ctl.c.'>INDEX_PROTO</a>(arena_i)
+<a name='L119'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(arenas_bin_i_size)
+<a name='L120'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(arenas_bin_i_nregs)
+<a name='L121'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(arenas_bin_i_run_size)
+<a name='L122'><a href='../S/206.html#L50' title='Defined at 50 in deps/jemalloc/src/ctl.c.'>INDEX_PROTO</a>(arenas_bin_i)
+<a name='L123'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(arenas_lrun_i_size)
+<a name='L124'><a href='../S/206.html#L50' title='Defined at 50 in deps/jemalloc/src/ctl.c.'>INDEX_PROTO</a>(arenas_lrun_i)
+<a name='L125'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(arenas_narenas)
+<a name='L126'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(arenas_initialized)
+<a name='L127'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(arenas_quantum)
+<a name='L128'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(arenas_page)
+<a name='L129'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(arenas_tcache_max)
+<a name='L130'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(arenas_nbins)
+<a name='L131'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(arenas_nhbins)
+<a name='L132'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(arenas_nlruns)
+<a name='L133'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(arenas_purge)
+<a name='L134'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(arenas_extend)
+<a name='L135'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(prof_active)
+<a name='L136'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(prof_dump)
+<a name='L137'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(prof_interval)
+<a name='L138'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_chunks_current)
+<a name='L139'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_chunks_total)
+<a name='L140'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_chunks_high)
+<a name='L141'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_huge_allocated)
+<a name='L142'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_huge_nmalloc)
+<a name='L143'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_huge_ndalloc)
+<a name='L144'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_small_allocated)
+<a name='L145'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_small_nmalloc)
+<a name='L146'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_small_ndalloc)
+<a name='L147'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_small_nrequests)
+<a name='L148'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_large_allocated)
+<a name='L149'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_large_nmalloc)
+<a name='L150'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_large_ndalloc)
+<a name='L151'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_large_nrequests)
+<a name='L152'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_bins_j_allocated)
+<a name='L153'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_bins_j_nmalloc)
+<a name='L154'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_bins_j_ndalloc)
+<a name='L155'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_bins_j_nrequests)
+<a name='L156'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_bins_j_nfills)
+<a name='L157'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_bins_j_nflushes)
+<a name='L158'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_bins_j_nruns)
+<a name='L159'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_bins_j_nreruns)
+<a name='L160'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_bins_j_curruns)
+<a name='L161'><a href='../S/206.html#L50' title='Defined at 50 in deps/jemalloc/src/ctl.c.'>INDEX_PROTO</a>(stats_arenas_i_bins_j)
+<a name='L162'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_lruns_j_nmalloc)
+<a name='L163'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_lruns_j_ndalloc)
+<a name='L164'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_lruns_j_nrequests)
+<a name='L165'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_lruns_j_curruns)
+<a name='L166'><a href='../S/206.html#L50' title='Defined at 50 in deps/jemalloc/src/ctl.c.'>INDEX_PROTO</a>(stats_arenas_i_lruns_j)
+<a name='L167'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_nthreads)
+<a name='L168'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_dss)
+<a name='L169'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_pactive)
+<a name='L170'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_pdirty)
+<a name='L171'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_mapped)
+<a name='L172'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_npurge)
+<a name='L173'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_nmadvise)
+<a name='L174'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_arenas_i_purged)
+<a name='L175'><a href='../S/206.html#L50' title='Defined at 50 in deps/jemalloc/src/ctl.c.'>INDEX_PROTO</a>(stats_arenas_i)
+<a name='L176'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_cactive)
+<a name='L177'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_allocated)
+<a name='L178'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_active)
+<a name='L179'><a href='../D/99.html' title='Multiple defined in 2 places.'>CTL_PROTO</a>(stats_mapped)
+<a name='L180'>
+<a name='L181'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L182'><i><font color='green'>/* mallctl tree. */</font></i>
+<a name='L183'>
+<a name='L184'><i><font color='green'>/* Maximum tree depth. */</font></i>
+<a name='L185'><font color='darkred'>#define</font> CTL_MAX_DEPTH   6
+<a name='L186'>
+<a name='L187'><font color='darkred'>#define</font> <a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>(n) <font color='red'>{</font><a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a><font color='red'>}</font>, n
+<a name='L188'><font color='darkred'>#define</font> <a href='../R/62.html' title='Multiple refered from 24 places.'>CHILD</a>(t, c)                                                     \
+<a name='L189'>        <b>sizeof</b>(c##_node) / <b>sizeof</b>(ctl_##t##_node_t),                    \
+<a name='L190'>        (<a href='../S/135.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_node_t</a> *)c##_node,                                         \
+<a name='L191'>        NULL
+<a name='L192'><font color='darkred'>#define</font> <a href='../R/92.html' title='Multiple refered from 106 places.'>CTL</a>(c)  0, NULL, c##_ctl
+<a name='L193'>
+<a name='L194'><i><font color='green'>/*</font></i>
+<a name='L195'><i><font color='green'> * Only handles internal indexed nodes, since there are currently no external</font></i>
+<a name='L196'><i><font color='green'> * ones.</font></i>
+<a name='L197'><i><font color='green'> */</font></i>
+<a name='L198'><font color='darkred'>#define</font> <a href='../R/190.html' title='Multiple refered from 6 places.'>INDEX</a>(i)        <font color='red'>{</font><a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a><font color='red'>}</font>,        i##_index
+<a name='L199'>
+<a name='L200'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a>   tcache_node[] = <font color='red'>{</font>
+<a name='L201'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("enabled"),       <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(thread_tcache_enabled)<font color='red'>}</font>,
+<a name='L202'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("flush"),         <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(thread_tcache_flush)<font color='red'>}</font>
+<a name='L203'><font color='red'>}</font>;
+<a name='L204'>
+<a name='L205'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a>   thread_node[] = <font color='red'>{</font>
+<a name='L206'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("arena"),         <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(thread_arena)<font color='red'>}</font>,
+<a name='L207'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("allocated"),     <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(thread_allocated)<font color='red'>}</font>,
+<a name='L208'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("allocatedp"),    <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(thread_allocatedp)<font color='red'>}</font>,
+<a name='L209'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("deallocated"),   <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(thread_deallocated)<font color='red'>}</font>,
+<a name='L210'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("deallocatedp"),  <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(thread_deallocatedp)<font color='red'>}</font>,
+<a name='L211'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("tcache"),        <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(named, tcache)<font color='red'>}</font>
+<a name='L212'><font color='red'>}</font>;
+<a name='L213'>
+<a name='L214'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a>   config_node[] = <font color='red'>{</font>
+<a name='L215'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("debug"),                 <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(config_debug)<font color='red'>}</font>,
+<a name='L216'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("dss"),                   <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(config_dss)<font color='red'>}</font>,
+<a name='L217'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("fill"),                  <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(config_fill)<font color='red'>}</font>,
+<a name='L218'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("lazy_lock"),             <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(config_lazy_lock)<font color='red'>}</font>,
+<a name='L219'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("mremap"),                <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(config_mremap)<font color='red'>}</font>,
+<a name='L220'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("munmap"),                <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(config_munmap)<font color='red'>}</font>,
+<a name='L221'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("prof"),                  <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(config_prof)<font color='red'>}</font>,
+<a name='L222'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("prof_libgcc"),           <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(config_prof_libgcc)<font color='red'>}</font>,
+<a name='L223'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("prof_libunwind"),        <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(config_prof_libunwind)<font color='red'>}</font>,
+<a name='L224'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("stats"),                 <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(config_stats)<font color='red'>}</font>,
+<a name='L225'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("tcache"),                <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(config_tcache)<font color='red'>}</font>,
+<a name='L226'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("tls"),                   <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(config_tls)<font color='red'>}</font>,
+<a name='L227'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("utrace"),                <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(config_utrace)<font color='red'>}</font>,
+<a name='L228'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("valgrind"),              <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(config_valgrind)<font color='red'>}</font>,
+<a name='L229'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("xmalloc"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(config_xmalloc)<font color='red'>}</font>
+<a name='L230'><font color='red'>}</font>;
+<a name='L231'>
+<a name='L232'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> opt_node[] = <font color='red'>{</font>
+<a name='L233'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("abort"),                 <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L238' title='Defined at 238 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_abort</a>)<font color='red'>}</font>,
+<a name='L234'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("dss"),                   <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(opt_dss)<font color='red'>}</font>,
+<a name='L235'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("lg_chunk"),              <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L240' title='Defined at 240 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_lg_chunk</a>)<font color='red'>}</font>,
+<a name='L236'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("narenas"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L245' title='Defined at 245 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_narenas</a>)<font color='red'>}</font>,
+<a name='L237'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("lg_dirty_mult"),         <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L241' title='Defined at 241 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_lg_dirty_mult</a>)<font color='red'>}</font>,
+<a name='L238'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("stats_print"),           <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L255' title='Defined at 255 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_stats_print</a>)<font color='red'>}</font>,
+<a name='L239'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("junk"),                  <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L239' title='Defined at 239 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_junk</a>)<font color='red'>}</font>,
+<a name='L240'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("zero"),                  <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L260' title='Defined at 260 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_zero</a>)<font color='red'>}</font>,
+<a name='L241'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("quarantine"),            <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L253' title='Defined at 253 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_quarantine</a>)<font color='red'>}</font>,
+<a name='L242'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("redzone"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L254' title='Defined at 254 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_redzone</a>)<font color='red'>}</font>,
+<a name='L243'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("utrace"),                <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L257' title='Defined at 257 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_utrace</a>)<font color='red'>}</font>,
+<a name='L244'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("valgrind"),              <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L258' title='Defined at 258 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_valgrind</a>)<font color='red'>}</font>,
+<a name='L245'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("xmalloc"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L259' title='Defined at 259 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_xmalloc</a>)<font color='red'>}</font>,
+<a name='L246'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("tcache"),                <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L256' title='Defined at 256 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_tcache</a>)<font color='red'>}</font>,
+<a name='L247'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("lg_tcache_max"),         <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L244' title='Defined at 244 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_lg_tcache_max</a>)<font color='red'>}</font>,
+<a name='L248'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("prof"),                  <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L246' title='Defined at 246 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof</a>)<font color='red'>}</font>,
+<a name='L249'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("prof_prefix"),           <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L252' title='Defined at 252 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_prefix</a>)<font color='red'>}</font>,
+<a name='L250'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("prof_active"),           <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L248' title='Defined at 248 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_active</a>)<font color='red'>}</font>,
+<a name='L251'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("lg_prof_sample"),        <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L243' title='Defined at 243 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_lg_prof_sample</a>)<font color='red'>}</font>,
+<a name='L252'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("lg_prof_interval"),      <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L242' title='Defined at 242 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_lg_prof_interval</a>)<font color='red'>}</font>,
+<a name='L253'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("prof_gdump"),            <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L250' title='Defined at 250 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_gdump</a>)<font color='red'>}</font>,
+<a name='L254'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("prof_final"),            <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L249' title='Defined at 249 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_final</a>)<font color='red'>}</font>,
+<a name='L255'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("prof_leak"),             <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L251' title='Defined at 251 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_leak</a>)<font color='red'>}</font>,
+<a name='L256'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("prof_accum"),            <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L247' title='Defined at 247 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_accum</a>)<font color='red'>}</font>
+<a name='L257'><font color='red'>}</font>;
+<a name='L258'>
+<a name='L259'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> arena_i_node[] = <font color='red'>{</font>
+<a name='L260'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("purge"),                 <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(arena_i_purge)<font color='red'>}</font>,
+<a name='L261'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("dss"),                   <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(arena_i_dss)<font color='red'>}</font>
+<a name='L262'><font color='red'>}</font>;
+<a name='L263'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> super_arena_i_node[] = <font color='red'>{</font>
+<a name='L264'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>(""),                      <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(named, arena_i)<font color='red'>}</font>
+<a name='L265'><font color='red'>}</font>;
+<a name='L266'>
+<a name='L267'><b>static</b> <b>const</b> <a href='../S/135.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_indexed_node_t</a> arena_node[] = <font color='red'>{</font>
+<a name='L268'>        <font color='red'>{</font><a href='../D/197.html' title='Multiple defined in 2 places.'>INDEX</a>(arena_i)<font color='red'>}</font>
+<a name='L269'><font color='red'>}</font>;
+<a name='L270'>
+<a name='L271'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> arenas_bin_i_node[] = <font color='red'>{</font>
+<a name='L272'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("size"),                  <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(arenas_bin_i_size)<font color='red'>}</font>,
+<a name='L273'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("nregs"),                 <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(arenas_bin_i_nregs)<font color='red'>}</font>,
+<a name='L274'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("run_size"),              <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(arenas_bin_i_run_size)<font color='red'>}</font>
+<a name='L275'><font color='red'>}</font>;
+<a name='L276'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> super_arenas_bin_i_node[] = <font color='red'>{</font>
+<a name='L277'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>(""),                      <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(named, arenas_bin_i)<font color='red'>}</font>
+<a name='L278'><font color='red'>}</font>;
+<a name='L279'>
+<a name='L280'><b>static</b> <b>const</b> <a href='../S/135.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_indexed_node_t</a> arenas_bin_node[] = <font color='red'>{</font>
+<a name='L281'>        <font color='red'>{</font><a href='../D/197.html' title='Multiple defined in 2 places.'>INDEX</a>(arenas_bin_i)<font color='red'>}</font>
+<a name='L282'><font color='red'>}</font>;
+<a name='L283'>
+<a name='L284'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> arenas_lrun_i_node[] = <font color='red'>{</font>
+<a name='L285'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("size"),                  <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(arenas_lrun_i_size)<font color='red'>}</font>
+<a name='L286'><font color='red'>}</font>;
+<a name='L287'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> super_arenas_lrun_i_node[] = <font color='red'>{</font>
+<a name='L288'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>(""),                      <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(named, arenas_lrun_i)<font color='red'>}</font>
+<a name='L289'><font color='red'>}</font>;
+<a name='L290'>
+<a name='L291'><b>static</b> <b>const</b> <a href='../S/135.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_indexed_node_t</a> arenas_lrun_node[] = <font color='red'>{</font>
+<a name='L292'>        <font color='red'>{</font><a href='../D/197.html' title='Multiple defined in 2 places.'>INDEX</a>(arenas_lrun_i)<font color='red'>}</font>
+<a name='L293'><font color='red'>}</font>;
+<a name='L294'>
+<a name='L295'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> arenas_node[] = <font color='red'>{</font>
+<a name='L296'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("narenas"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(arenas_narenas)<font color='red'>}</font>,
+<a name='L297'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("initialized"),           <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L59' title='Defined at 59 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas_initialized</a>)<font color='red'>}</font>,
+<a name='L298'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("quantum"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(arenas_quantum)<font color='red'>}</font>,
+<a name='L299'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("page"),                  <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(arenas_page)<font color='red'>}</font>,
+<a name='L300'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("tcache_max"),            <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(arenas_tcache_max)<font color='red'>}</font>,
+<a name='L301'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("nbins"),                 <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(arenas_nbins)<font color='red'>}</font>,
+<a name='L302'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("nhbins"),                <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(arenas_nhbins)<font color='red'>}</font>,
+<a name='L303'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("bin"),                   <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(indexed, arenas_bin)<font color='red'>}</font>,
+<a name='L304'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("nlruns"),                <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(arenas_nlruns)<font color='red'>}</font>,
+<a name='L305'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("lrun"),                  <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(indexed, arenas_lrun)<font color='red'>}</font>,
+<a name='L306'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("purge"),                 <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(arenas_purge)<font color='red'>}</font>,
+<a name='L307'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("extend"),                <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../D/1670.html' title='Multiple defined in 2 places.'>arenas_extend</a>)<font color='red'>}</font>
+<a name='L308'><font color='red'>}</font>;
+<a name='L309'>
+<a name='L310'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a>   prof_node[] = <font color='red'>{</font>
+<a name='L311'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("active"),        <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(prof_active)<font color='red'>}</font>,
+<a name='L312'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("dump"),          <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/209.html#L831' title='Defined at 831 in deps/jemalloc/src/prof.c.'>prof_dump</a>)<font color='red'>}</font>,
+<a name='L313'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("interval"),      <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L273' title='Defined at 273 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_interval</a>)<font color='red'>}</font>
+<a name='L314'><font color='red'>}</font>;
+<a name='L315'>
+<a name='L316'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> stats_chunks_node[] = <font color='red'>{</font>
+<a name='L317'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("current"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_chunks_current)<font color='red'>}</font>,
+<a name='L318'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("total"),                 <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_chunks_total)<font color='red'>}</font>,
+<a name='L319'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("high"),                  <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_chunks_high)<font color='red'>}</font>
+<a name='L320'><font color='red'>}</font>;
+<a name='L321'>
+<a name='L322'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> stats_huge_node[] = <font color='red'>{</font>
+<a name='L323'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("allocated"),             <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_huge_allocated)<font color='red'>}</font>,
+<a name='L324'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("nmalloc"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_huge_nmalloc)<font color='red'>}</font>,
+<a name='L325'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("ndalloc"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_huge_ndalloc)<font color='red'>}</font>
+<a name='L326'><font color='red'>}</font>;
+<a name='L327'>
+<a name='L328'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> stats_arenas_i_small_node[] = <font color='red'>{</font>
+<a name='L329'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("allocated"),             <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_small_allocated)<font color='red'>}</font>,
+<a name='L330'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("nmalloc"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_small_nmalloc)<font color='red'>}</font>,
+<a name='L331'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("ndalloc"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_small_ndalloc)<font color='red'>}</font>,
+<a name='L332'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("nrequests"),             <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_small_nrequests)<font color='red'>}</font>
+<a name='L333'><font color='red'>}</font>;
+<a name='L334'>
+<a name='L335'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> stats_arenas_i_large_node[] = <font color='red'>{</font>
+<a name='L336'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("allocated"),             <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_large_allocated)<font color='red'>}</font>,
+<a name='L337'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("nmalloc"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_large_nmalloc)<font color='red'>}</font>,
+<a name='L338'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("ndalloc"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_large_ndalloc)<font color='red'>}</font>,
+<a name='L339'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("nrequests"),             <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_large_nrequests)<font color='red'>}</font>
+<a name='L340'><font color='red'>}</font>;
+<a name='L341'>
+<a name='L342'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> stats_arenas_i_bins_j_node[] = <font color='red'>{</font>
+<a name='L343'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("allocated"),             <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_bins_j_allocated)<font color='red'>}</font>,
+<a name='L344'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("nmalloc"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_bins_j_nmalloc)<font color='red'>}</font>,
+<a name='L345'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("ndalloc"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_bins_j_ndalloc)<font color='red'>}</font>,
+<a name='L346'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("nrequests"),             <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_bins_j_nrequests)<font color='red'>}</font>,
+<a name='L347'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("nfills"),                <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_bins_j_nfills)<font color='red'>}</font>,
+<a name='L348'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("nflushes"),              <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_bins_j_nflushes)<font color='red'>}</font>,
+<a name='L349'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("nruns"),                 <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_bins_j_nruns)<font color='red'>}</font>,
+<a name='L350'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("nreruns"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_bins_j_nreruns)<font color='red'>}</font>,
+<a name='L351'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("curruns"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_bins_j_curruns)<font color='red'>}</font>
+<a name='L352'><font color='red'>}</font>;
+<a name='L353'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> super_stats_arenas_i_bins_j_node[] = <font color='red'>{</font>
+<a name='L354'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>(""),                      <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(named, stats_arenas_i_bins_j)<font color='red'>}</font>
+<a name='L355'><font color='red'>}</font>;
+<a name='L356'>
+<a name='L357'><b>static</b> <b>const</b> <a href='../S/135.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_indexed_node_t</a> stats_arenas_i_bins_node[] = <font color='red'>{</font>
+<a name='L358'>        <font color='red'>{</font><a href='../D/197.html' title='Multiple defined in 2 places.'>INDEX</a>(stats_arenas_i_bins_j)<font color='red'>}</font>
+<a name='L359'><font color='red'>}</font>;
+<a name='L360'>
+<a name='L361'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> stats_arenas_i_lruns_j_node[] = <font color='red'>{</font>
+<a name='L362'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("nmalloc"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_lruns_j_nmalloc)<font color='red'>}</font>,
+<a name='L363'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("ndalloc"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_lruns_j_ndalloc)<font color='red'>}</font>,
+<a name='L364'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("nrequests"),             <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_lruns_j_nrequests)<font color='red'>}</font>,
+<a name='L365'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("curruns"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_lruns_j_curruns)<font color='red'>}</font>
+<a name='L366'><font color='red'>}</font>;
+<a name='L367'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> super_stats_arenas_i_lruns_j_node[] = <font color='red'>{</font>
+<a name='L368'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>(""),                      <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(named, stats_arenas_i_lruns_j)<font color='red'>}</font>
+<a name='L369'><font color='red'>}</font>;
+<a name='L370'>
+<a name='L371'><b>static</b> <b>const</b> <a href='../S/135.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_indexed_node_t</a> stats_arenas_i_lruns_node[] = <font color='red'>{</font>
+<a name='L372'>        <font color='red'>{</font><a href='../D/197.html' title='Multiple defined in 2 places.'>INDEX</a>(stats_arenas_i_lruns_j)<font color='red'>}</font>
+<a name='L373'><font color='red'>}</font>;
+<a name='L374'>
+<a name='L375'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> stats_arenas_i_node[] = <font color='red'>{</font>
+<a name='L376'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("nthreads"),              <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_nthreads)<font color='red'>}</font>,
+<a name='L377'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("dss"),                   <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_dss)<font color='red'>}</font>,
+<a name='L378'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("pactive"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_pactive)<font color='red'>}</font>,
+<a name='L379'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("pdirty"),                <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_pdirty)<font color='red'>}</font>,
+<a name='L380'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("mapped"),                <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_mapped)<font color='red'>}</font>,
+<a name='L381'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("npurge"),                <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_npurge)<font color='red'>}</font>,
+<a name='L382'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("nmadvise"),              <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_nmadvise)<font color='red'>}</font>,
+<a name='L383'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("purged"),                <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_arenas_i_purged)<font color='red'>}</font>,
+<a name='L384'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("small"),                 <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(named, stats_arenas_i_small)<font color='red'>}</font>,
+<a name='L385'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("large"),                 <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(named, stats_arenas_i_large)<font color='red'>}</font>,
+<a name='L386'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("bins"),                  <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(indexed, stats_arenas_i_bins)<font color='red'>}</font>,
+<a name='L387'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("lruns"),                 <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(indexed, stats_arenas_i_lruns)<font color='red'>}</font>
+<a name='L388'><font color='red'>}</font>;
+<a name='L389'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> super_stats_arenas_i_node[] = <font color='red'>{</font>
+<a name='L390'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>(""),                      <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(named, stats_arenas_i)<font color='red'>}</font>
+<a name='L391'><font color='red'>}</font>;
+<a name='L392'>
+<a name='L393'><b>static</b> <b>const</b> <a href='../S/135.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_indexed_node_t</a> stats_arenas_node[] = <font color='red'>{</font>
+<a name='L394'>        <font color='red'>{</font><a href='../D/197.html' title='Multiple defined in 2 places.'>INDEX</a>(stats_arenas_i)<font color='red'>}</font>
+<a name='L395'><font color='red'>}</font>;
+<a name='L396'>
+<a name='L397'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> stats_node[] = <font color='red'>{</font>
+<a name='L398'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("cactive"),               <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/138.html#L312' title='Defined at 312 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_cactive</a>)<font color='red'>}</font>,
+<a name='L399'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("allocated"),             <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_allocated)<font color='red'>}</font>,
+<a name='L400'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("active"),                <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_active)<font color='red'>}</font>,
+<a name='L401'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("mapped"),                <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(stats_mapped)<font color='red'>}</font>,
+<a name='L402'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("chunks"),                <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(named, <a href='../S/138.html#L316' title='Defined at 316 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_chunks</a>)<font color='red'>}</font>,
+<a name='L403'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("huge"),                  <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(named, stats_huge)<font color='red'>}</font>,
+<a name='L404'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("arenas"),                <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(indexed, stats_arenas)<font color='red'>}</font>
+<a name='L405'><font color='red'>}</font>;
+<a name='L406'>
+<a name='L407'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a>   root_node[] = <font color='red'>{</font>
+<a name='L408'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("version"),       <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(<a href='../S/35.html#L2419' title='Defined at 2419 in src/redis.c.'>version</a>)<font color='red'>}</font>,
+<a name='L409'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("epoch"),         <a href='../D/94.html' title='Multiple defined in 2 places.'>CTL</a>(epoch)<font color='red'>}</font>,
+<a name='L410'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("thread"),        <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(named, thread)<font color='red'>}</font>,
+<a name='L411'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("config"),        <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(named, <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>)<font color='red'>}</font>,
+<a name='L412'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("opt"),           <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(named, opt)<font color='red'>}</font>,
+<a name='L413'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("arena"),         <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(indexed, arena)<font color='red'>}</font>,
+<a name='L414'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("arenas"),        <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(named, <a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>)<font color='red'>}</font>,
+<a name='L415'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("prof"),          <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(named, prof)<font color='red'>}</font>,
+<a name='L416'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>("stats"),         <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(named, stats)<font color='red'>}</font>
+<a name='L417'><font color='red'>}</font>;
+<a name='L418'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> super_root_node[] = <font color='red'>{</font>
+<a name='L419'>        <font color='red'>{</font><a href='../S/206.html#L422' title='Defined at 422 in deps/jemalloc/src/ctl.c.'>NAME</a>(""),              <a href='../D/63.html' title='Multiple defined in 2 places.'>CHILD</a>(named, root)<font color='red'>}</font>
+<a name='L420'><font color='red'>}</font>;
+<a name='L421'>
+<a name='L422'><font color='darkred'>#undef</font> <a href='../R/463.html' title='Multiple refered from 131 places.'>NAME</a>
+<a name='L423'><font color='darkred'>#undef</font> <a href='../R/62.html' title='Multiple refered from 24 places.'>CHILD</a>
+<a name='L424'><font color='darkred'>#undef</font> <a href='../R/92.html' title='Multiple refered from 106 places.'>CTL</a>
+<a name='L425'><font color='darkred'>#undef</font> <a href='../R/190.html' title='Multiple refered from 6 places.'>INDEX</a>
+<a name='L426'>
+<a name='L427'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L428'>
+<a name='L429'><b>static</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L430'><a href='../R/1721.html' title='Multiple refered from 3 places.'>ctl_arena_init</a>(<a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a> *astats)
+<a name='L431'><font color='red'>{</font>
+<a name='L432'>
+<a name='L433'>        <b>if</b> (astats-&gt;lstats == NULL) <font color='red'>{</font>
+<a name='L434'>                astats-&gt;lstats = (<a href='../S/137.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/stats.h.'>malloc_large_stats_t</a> *)<a href='../D/1715.html' title='Multiple defined in 2 places.'>base_alloc</a>(<a href='../S/146.html#L400' title='Defined at 400 in deps/jemalloc/include/jemalloc/internal/arena.h.'>nlclasses</a> *
+<a name='L435'>                    <b>sizeof</b>(<a href='../S/137.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/stats.h.'>malloc_large_stats_t</a>));
+<a name='L436'>                <b>if</b> (astats-&gt;lstats == NULL)
+<a name='L437'>                        <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L438'>        <font color='red'>}</font>
+<a name='L439'>
+<a name='L440'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L441'><font color='red'>}</font>
+<a name='L442'>
+<a name='L443'><b>static</b> <b>void</b>
+<a name='L444'><a href='../R/1720.html' title='Multiple refered from 3 places.'>ctl_arena_clear</a>(<a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a> *astats)
+<a name='L445'><font color='red'>{</font>
+<a name='L446'>
+<a name='L447'>        astats-&gt;dss = <a href='../S/138.html#L142' title='Defined at 142 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>dss_prec_names</a>[<a href='../S/130.html#L9' title='Defined at 9 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>dss_prec_limit</a>];
+<a name='L448'>        astats-&gt;pactive = 0;
+<a name='L449'>        astats-&gt;pdirty = 0;
+<a name='L450'>        <b>if</b> (config_stats) <font color='red'>{</font>
+<a name='L451'>                memset(&amp;astats-&gt;astats, 0, <b>sizeof</b>(<a href='../S/137.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/stats.h.'>arena_stats_t</a>));
+<a name='L452'>                astats-&gt;allocated_small = 0;
+<a name='L453'>                astats-&gt;nmalloc_small = 0;
+<a name='L454'>                astats-&gt;ndalloc_small = 0;
+<a name='L455'>                astats-&gt;nrequests_small = 0;
+<a name='L456'>                memset(astats-&gt;bstats, 0, NBINS * <b>sizeof</b>(<a href='../S/137.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/stats.h.'>malloc_bin_stats_t</a>));
+<a name='L457'>                memset(astats-&gt;lstats, 0, <a href='../S/146.html#L400' title='Defined at 400 in deps/jemalloc/include/jemalloc/internal/arena.h.'>nlclasses</a> *
+<a name='L458'>                    <b>sizeof</b>(<a href='../S/137.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/stats.h.'>malloc_large_stats_t</a>));
+<a name='L459'>        <font color='red'>}</font>
+<a name='L460'><font color='red'>}</font>
+<a name='L461'>
+<a name='L462'><b>static</b> <b>void</b>
+<a name='L463'><a href='../R/1723.html' title='Multiple refered from 2 places.'>ctl_arena_stats_amerge</a>(<a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a> *cstats, <a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena)
+<a name='L464'><font color='red'>{</font>
+<a name='L465'>        <b>unsigned</b> i;
+<a name='L466'>
+<a name='L467'>        <a href='../D/1662.html' title='Multiple defined in 2 places.'>arena_stats_merge</a>(arena, &amp;cstats-&gt;dss, &amp;cstats-&gt;pactive,
+<a name='L468'>            &amp;cstats-&gt;pdirty, &amp;cstats-&gt;astats, cstats-&gt;bstats, cstats-&gt;lstats);
+<a name='L469'>
+<a name='L470'>        <b>for</b> (i = 0; i &lt; NBINS; i++) <font color='red'>{</font>
+<a name='L471'>                cstats-&gt;allocated_small += cstats-&gt;bstats[i].allocated;
+<a name='L472'>                cstats-&gt;nmalloc_small += cstats-&gt;bstats[i].nmalloc;
+<a name='L473'>                cstats-&gt;ndalloc_small += cstats-&gt;bstats[i].ndalloc;
+<a name='L474'>                cstats-&gt;nrequests_small += cstats-&gt;bstats[i].nrequests;
+<a name='L475'>        <font color='red'>}</font>
+<a name='L476'><font color='red'>}</font>
+<a name='L477'>
+<a name='L478'><b>static</b> <b>void</b>
+<a name='L479'><a href='../R/1725.html' title='Multiple refered from 2 places.'>ctl_arena_stats_smerge</a>(<a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a> *sstats, <a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a> *astats)
+<a name='L480'><font color='red'>{</font>
+<a name='L481'>        <b>unsigned</b> i;
+<a name='L482'>
+<a name='L483'>        sstats-&gt;pactive += astats-&gt;pactive;
+<a name='L484'>        sstats-&gt;pdirty += astats-&gt;pdirty;
+<a name='L485'>
+<a name='L486'>        sstats-&gt;astats.mapped += astats-&gt;astats.mapped;
+<a name='L487'>        sstats-&gt;astats.npurge += astats-&gt;astats.npurge;
+<a name='L488'>        sstats-&gt;astats.nmadvise += astats-&gt;astats.nmadvise;
+<a name='L489'>        sstats-&gt;astats.purged += astats-&gt;astats.purged;
+<a name='L490'>
+<a name='L491'>        sstats-&gt;allocated_small += astats-&gt;allocated_small;
+<a name='L492'>        sstats-&gt;nmalloc_small += astats-&gt;nmalloc_small;
+<a name='L493'>        sstats-&gt;ndalloc_small += astats-&gt;ndalloc_small;
+<a name='L494'>        sstats-&gt;nrequests_small += astats-&gt;nrequests_small;
+<a name='L495'>
+<a name='L496'>        sstats-&gt;astats.allocated_large += astats-&gt;astats.allocated_large;
+<a name='L497'>        sstats-&gt;astats.nmalloc_large += astats-&gt;astats.nmalloc_large;
+<a name='L498'>        sstats-&gt;astats.ndalloc_large += astats-&gt;astats.ndalloc_large;
+<a name='L499'>        sstats-&gt;astats.nrequests_large += astats-&gt;astats.nrequests_large;
+<a name='L500'>
+<a name='L501'>        <b>for</b> (i = 0; i &lt; <a href='../S/146.html#L400' title='Defined at 400 in deps/jemalloc/include/jemalloc/internal/arena.h.'>nlclasses</a>; i++) <font color='red'>{</font>
+<a name='L502'>                sstats-&gt;lstats[i].nmalloc += astats-&gt;lstats[i].nmalloc;
+<a name='L503'>                sstats-&gt;lstats[i].ndalloc += astats-&gt;lstats[i].ndalloc;
+<a name='L504'>                sstats-&gt;lstats[i].nrequests += astats-&gt;lstats[i].nrequests;
+<a name='L505'>                sstats-&gt;lstats[i].curruns += astats-&gt;lstats[i].curruns;
+<a name='L506'>        <font color='red'>}</font>
+<a name='L507'>
+<a name='L508'>        <b>for</b> (i = 0; i &lt; NBINS; i++) <font color='red'>{</font>
+<a name='L509'>                sstats-&gt;bstats[i].allocated += astats-&gt;bstats[i].allocated;
+<a name='L510'>                sstats-&gt;bstats[i].nmalloc += astats-&gt;bstats[i].nmalloc;
+<a name='L511'>                sstats-&gt;bstats[i].ndalloc += astats-&gt;bstats[i].ndalloc;
+<a name='L512'>                sstats-&gt;bstats[i].nrequests += astats-&gt;bstats[i].nrequests;
+<a name='L513'>                <b>if</b> (config_tcache) <font color='red'>{</font>
+<a name='L514'>                        sstats-&gt;bstats[i].nfills += astats-&gt;bstats[i].nfills;
+<a name='L515'>                        sstats-&gt;bstats[i].nflushes +=
+<a name='L516'>                            astats-&gt;bstats[i].nflushes;
+<a name='L517'>                <font color='red'>}</font>
+<a name='L518'>                sstats-&gt;bstats[i].nruns += astats-&gt;bstats[i].nruns;
+<a name='L519'>                sstats-&gt;bstats[i].reruns += astats-&gt;bstats[i].reruns;
+<a name='L520'>                sstats-&gt;bstats[i].curruns += astats-&gt;bstats[i].curruns;
+<a name='L521'>        <font color='red'>}</font>
+<a name='L522'><font color='red'>}</font>
+<a name='L523'>
+<a name='L524'><b>static</b> <b>void</b>
+<a name='L525'><a href='../R/1722.html' title='Multiple refered from 2 places.'>ctl_arena_refresh</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena, <b>unsigned</b> i)
+<a name='L526'><font color='red'>{</font>
+<a name='L527'>        <a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a> *astats = &amp;ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[i];
+<a name='L528'>        <a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a> *sstats = &amp;ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[ctl_stats.narenas];
+<a name='L529'>
+<a name='L530'>        <a href='../S/206.html#L444' title='Defined at 444 in deps/jemalloc/src/ctl.c.'>ctl_arena_clear</a>(astats);
+<a name='L531'>
+<a name='L532'>        sstats-&gt;nthreads += astats-&gt;nthreads;
+<a name='L533'>        <b>if</b> (config_stats) <font color='red'>{</font>
+<a name='L534'>                <a href='../S/206.html#L463' title='Defined at 463 in deps/jemalloc/src/ctl.c.'>ctl_arena_stats_amerge</a>(astats, arena);
+<a name='L535'>                <i><font color='green'>/* Merge into sum stats as well. */</font></i>
+<a name='L536'>                <a href='../S/206.html#L479' title='Defined at 479 in deps/jemalloc/src/ctl.c.'>ctl_arena_stats_smerge</a>(sstats, astats);
+<a name='L537'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L538'>                astats-&gt;pactive += arena-&gt;nactive;
+<a name='L539'>                astats-&gt;pdirty += arena-&gt;ndirty;
+<a name='L540'>                <i><font color='green'>/* Merge into sum stats as well. */</font></i>
+<a name='L541'>                sstats-&gt;pactive += arena-&gt;nactive;
+<a name='L542'>                sstats-&gt;pdirty += arena-&gt;ndirty;
+<a name='L543'>        <font color='red'>}</font>
+<a name='L544'><font color='red'>}</font>
+<a name='L545'>
+<a name='L546'><b>static</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L547'><a href='../R/1730.html' title='Multiple refered from 2 places.'>ctl_grow</a>(<b>void</b>)
+<a name='L548'><font color='red'>{</font>
+<a name='L549'>        size_t astats_size;
+<a name='L550'>        <a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a> *astats;
+<a name='L551'>        <a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> **tarenas;
+<a name='L552'>
+<a name='L553'>        <i><font color='green'>/* Extend arena stats and arenas arrays. */</font></i>
+<a name='L554'>        astats_size = (ctl_stats.narenas + 2) * <b>sizeof</b>(<a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a>);
+<a name='L555'>        <b>if</b> (ctl_stats.narenas == <a href='../S/138.html#L233' title='Defined at 233 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>narenas_auto</a>) <font color='red'>{</font>
+<a name='L556'>                <i><font color='green'>/* ctl_stats.arenas and arenas came from base_alloc(). */</font></i>
+<a name='L557'>                astats = (<a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a> *)<a href='../S/138.html#L198' title='Defined at 198 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>imalloc</a>(astats_size);
+<a name='L558'>                <b>if</b> (astats == NULL)
+<a name='L559'>                        <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L560'>                memcpy(astats, ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>, (ctl_stats.narenas + 1) *
+<a name='L561'>                    <b>sizeof</b>(<a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a>));
+<a name='L562'>
+<a name='L563'>                tarenas = (<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> **)<a href='../S/138.html#L198' title='Defined at 198 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>imalloc</a>((ctl_stats.narenas + 1) *
+<a name='L564'>                    <b>sizeof</b>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *));
+<a name='L565'>                <b>if</b> (tarenas == NULL) <font color='red'>{</font>
+<a name='L566'>                        <a href='../S/138.html#L196' title='Defined at 196 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>idalloc</a>(astats);
+<a name='L567'>                        <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L568'>                <font color='red'>}</font>
+<a name='L569'>                memcpy(tarenas, <a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>, ctl_stats.narenas * <b>sizeof</b>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *));
+<a name='L570'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L571'>                astats = (<a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a> *)<a href='../S/138.html#L204' title='Defined at 204 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>iralloc</a>(ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>,
+<a name='L572'>                    astats_size, 0, 0, <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>, <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L573'>                <b>if</b> (astats == NULL)
+<a name='L574'>                        <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L575'>
+<a name='L576'>                tarenas = (<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> **)<a href='../S/138.html#L204' title='Defined at 204 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>iralloc</a>(<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>, (ctl_stats.narenas + 1) *
+<a name='L577'>                    <b>sizeof</b>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *), 0, 0, <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>, <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L578'>                <b>if</b> (tarenas == NULL)
+<a name='L579'>                        <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L580'>        <font color='red'>}</font>
+<a name='L581'>        <i><font color='green'>/* Initialize the new astats and arenas elements. */</font></i>
+<a name='L582'>        memset(&amp;astats[ctl_stats.narenas + 1], 0, <b>sizeof</b>(<a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a>));
+<a name='L583'>        <b>if</b> (<a href='../S/206.html#L430' title='Defined at 430 in deps/jemalloc/src/ctl.c.'>ctl_arena_init</a>(&amp;astats[ctl_stats.narenas + 1]))
+<a name='L584'>                <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L585'>        tarenas[ctl_stats.narenas] = NULL;
+<a name='L586'>        <i><font color='green'>/* Swap merged stats to their new location. */</font></i>
+<a name='L587'>        <font color='red'>{</font>
+<a name='L588'>                <a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a> tstats;
+<a name='L589'>                memcpy(&amp;tstats, &amp;astats[ctl_stats.narenas],
+<a name='L590'>                    <b>sizeof</b>(<a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a>));
+<a name='L591'>                memcpy(&amp;astats[ctl_stats.narenas],
+<a name='L592'>                    &amp;astats[ctl_stats.narenas + 1], <b>sizeof</b>(<a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a>));
+<a name='L593'>                memcpy(&amp;astats[ctl_stats.narenas + 1], &amp;tstats,
+<a name='L594'>                    <b>sizeof</b>(<a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a>));
+<a name='L595'>        <font color='red'>}</font>
+<a name='L596'>        ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a> = astats;
+<a name='L597'>        ctl_stats.narenas++;
+<a name='L598'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;<a href='../S/138.html#L60' title='Defined at 60 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas_lock</a>);
+<a name='L599'>        <a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a> = tarenas;
+<a name='L600'>        <a href='../S/138.html#L234' title='Defined at 234 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>narenas_total</a>++;
+<a name='L601'>        <a href='../D/1670.html' title='Multiple defined in 2 places.'>arenas_extend</a>(<a href='../S/138.html#L234' title='Defined at 234 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>narenas_total</a> - 1);
+<a name='L602'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;<a href='../S/138.html#L60' title='Defined at 60 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas_lock</a>);
+<a name='L603'>
+<a name='L604'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L605'><font color='red'>}</font>
+<a name='L606'>
+<a name='L607'><b>static</b> <b>void</b>
+<a name='L608'><a href='../R/1746.html' title='Multiple refered from 3 places.'>ctl_refresh</a>(<b>void</b>)
+<a name='L609'><font color='red'>{</font>
+<a name='L610'>        <b>unsigned</b> i;
+<a name='L611'>        VARIABLE_ARRAY(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *, tarenas, ctl_stats.narenas);
+<a name='L612'>
+<a name='L613'>        <b>if</b> (config_stats) <font color='red'>{</font>
+<a name='L614'>                <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;<a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>);
+<a name='L615'>                ctl_stats.chunks.current = <a href='../S/138.html#L316' title='Defined at 316 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_chunks</a>.curchunks;
+<a name='L616'>                ctl_stats.chunks.total = <a href='../S/138.html#L316' title='Defined at 316 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_chunks</a>.nchunks;
+<a name='L617'>                ctl_stats.chunks.high = <a href='../S/138.html#L316' title='Defined at 316 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_chunks</a>.highchunks;
+<a name='L618'>                <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;<a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>);
+<a name='L619'>
+<a name='L620'>                <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;<a href='../S/138.html#L181' title='Defined at 181 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_mtx</a>);
+<a name='L621'>                ctl_stats.huge.allocated = <a href='../S/138.html#L177' title='Defined at 177 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_allocated</a>;
+<a name='L622'>                ctl_stats.huge.nmalloc = <a href='../S/138.html#L183' title='Defined at 183 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_nmalloc</a>;
+<a name='L623'>                ctl_stats.huge.ndalloc = <a href='../S/138.html#L182' title='Defined at 182 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_ndalloc</a>;
+<a name='L624'>                <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;<a href='../S/138.html#L181' title='Defined at 181 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_mtx</a>);
+<a name='L625'>        <font color='red'>}</font>
+<a name='L626'>
+<a name='L627'>        <i><font color='green'>/*</font></i>
+<a name='L628'><i><font color='green'>         * Clear sum stats, since they will be merged into by</font></i>
+<a name='L629'><i><font color='green'>         * ctl_arena_refresh().</font></i>
+<a name='L630'><i><font color='green'>         */</font></i>
+<a name='L631'>        ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[ctl_stats.narenas].nthreads = 0;
+<a name='L632'>        <a href='../S/206.html#L444' title='Defined at 444 in deps/jemalloc/src/ctl.c.'>ctl_arena_clear</a>(&amp;ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[ctl_stats.narenas]);
+<a name='L633'>
+<a name='L634'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;<a href='../S/138.html#L60' title='Defined at 60 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas_lock</a>);
+<a name='L635'>        memcpy(tarenas, <a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>, <b>sizeof</b>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *) * ctl_stats.narenas);
+<a name='L636'>        <b>for</b> (i = 0; i &lt; ctl_stats.narenas; i++) <font color='red'>{</font>
+<a name='L637'>                <b>if</b> (<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[i] != NULL)
+<a name='L638'>                        ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[i].nthreads = <a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[i]-&gt;nthreads;
+<a name='L639'>                <b>else</b>
+<a name='L640'>                        ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[i].nthreads = 0;
+<a name='L641'>        <font color='red'>}</font>
+<a name='L642'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;<a href='../S/138.html#L60' title='Defined at 60 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas_lock</a>);
+<a name='L643'>        <b>for</b> (i = 0; i &lt; ctl_stats.narenas; i++) <font color='red'>{</font>
+<a name='L644'>                <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> initialized = (tarenas[i] != NULL);
+<a name='L645'>
+<a name='L646'>                ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[i].initialized = initialized;
+<a name='L647'>                <b>if</b> (initialized)
+<a name='L648'>                        <a href='../S/206.html#L525' title='Defined at 525 in deps/jemalloc/src/ctl.c.'>ctl_arena_refresh</a>(tarenas[i], i);
+<a name='L649'>        <font color='red'>}</font>
+<a name='L650'>
+<a name='L651'>        <b>if</b> (config_stats) <font color='red'>{</font>
+<a name='L652'>                ctl_stats.allocated =
+<a name='L653'>                    ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[ctl_stats.narenas].allocated_small
+<a name='L654'>                    + ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[ctl_stats.narenas].astats.allocated_large
+<a name='L655'>                    + ctl_stats.huge.allocated;
+<a name='L656'>                ctl_stats.active =
+<a name='L657'>                    (ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[ctl_stats.narenas].pactive &lt;&lt; LG_PAGE)
+<a name='L658'>                    + ctl_stats.huge.allocated;
+<a name='L659'>                ctl_stats.mapped = (ctl_stats.chunks.current &lt;&lt; <a href='../S/138.html#L240' title='Defined at 240 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_lg_chunk</a>);
+<a name='L660'>        <font color='red'>}</font>
+<a name='L661'>
+<a name='L662'>        ctl_epoch++;
+<a name='L663'><font color='red'>}</font>
+<a name='L664'>
+<a name='L665'><b>static</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L666'><a href='../R/1734.html' title='Multiple refered from 4 places.'>ctl_init</a>(<b>void</b>)
+<a name='L667'><font color='red'>{</font>
+<a name='L668'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> ret;
+<a name='L669'>
+<a name='L670'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;ctl_mtx);
+<a name='L671'>        <b>if</b> (ctl_initialized == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>) <font color='red'>{</font>
+<a name='L672'>                <i><font color='green'>/*</font></i>
+<a name='L673'><i><font color='green'>                 * Allocate space for one extra arena stats element, which</font></i>
+<a name='L674'><i><font color='green'>                 * contains summed stats across all arenas.</font></i>
+<a name='L675'><i><font color='green'>                 */</font></i>
+<a name='L676'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/138.html#L233' title='Defined at 233 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>narenas_auto</a> == <a href='../S/138.html#L235' title='Defined at 235 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>narenas_total_get</a>());
+<a name='L677'>                ctl_stats.narenas = <a href='../S/138.html#L233' title='Defined at 233 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>narenas_auto</a>;
+<a name='L678'>                ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a> = (<a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a> *)<a href='../D/1715.html' title='Multiple defined in 2 places.'>base_alloc</a>(
+<a name='L679'>                    (ctl_stats.narenas + 1) * <b>sizeof</b>(<a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a>));
+<a name='L680'>                <b>if</b> (ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a> == NULL) <font color='red'>{</font>
+<a name='L681'>                        ret = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L682'>                        <b>goto</b> label_return;
+<a name='L683'>                <font color='red'>}</font>
+<a name='L684'>                memset(ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>, 0, (ctl_stats.narenas + 1) *
+<a name='L685'>                    <b>sizeof</b>(<a href='../S/135.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_arena_stats_t</a>));
+<a name='L686'>
+<a name='L687'>                <i><font color='green'>/*</font></i>
+<a name='L688'><i><font color='green'>                 * Initialize all stats structures, regardless of whether they</font></i>
+<a name='L689'><i><font color='green'>                 * ever get used.  Lazy initialization would allow errors to</font></i>
+<a name='L690'><i><font color='green'>                 * cause inconsistent state to be viewable by the application.</font></i>
+<a name='L691'><i><font color='green'>                 */</font></i>
+<a name='L692'>                <b>if</b> (config_stats) <font color='red'>{</font>
+<a name='L693'>                        <b>unsigned</b> i;
+<a name='L694'>                        <b>for</b> (i = 0; i &lt;= ctl_stats.narenas; i++) <font color='red'>{</font>
+<a name='L695'>                                <b>if</b> (<a href='../S/206.html#L430' title='Defined at 430 in deps/jemalloc/src/ctl.c.'>ctl_arena_init</a>(&amp;ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[i])) <font color='red'>{</font>
+<a name='L696'>                                        ret = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L697'>                                        <b>goto</b> label_return;
+<a name='L698'>                                <font color='red'>}</font>
+<a name='L699'>                        <font color='red'>}</font>
+<a name='L700'>                <font color='red'>}</font>
+<a name='L701'>                ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[ctl_stats.narenas].initialized = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L702'>
+<a name='L703'>                ctl_epoch = 0;
+<a name='L704'>                <a href='../S/206.html#L608' title='Defined at 608 in deps/jemalloc/src/ctl.c.'>ctl_refresh</a>();
+<a name='L705'>                ctl_initialized = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L706'>        <font color='red'>}</font>
+<a name='L707'>
+<a name='L708'>        ret = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L709'>label_return:
+<a name='L710'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;ctl_mtx);
+<a name='L711'>        <b>return</b> (ret);
+<a name='L712'><font color='red'>}</font>
+<a name='L713'>
+<a name='L714'><b>static</b> <b>int</b>
+<a name='L715'><a href='../R/1735.html' title='Multiple refered from 3 places.'>ctl_lookup</a>(<b>const</b> <b>char</b> *name, <a href='../S/135.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_node_t</a> <b>const</b> **nodesp, size_t *mibp,
+<a name='L716'>    size_t *depthp)
+<a name='L717'><font color='red'>{</font>
+<a name='L718'>        <b>int</b> ret;
+<a name='L719'>        <b>const</b> <b>char</b> *elm, *tdot, *dot;
+<a name='L720'>        size_t elen, i, j;
+<a name='L721'>        <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> *node;
+<a name='L722'>
+<a name='L723'>        elm = name;
+<a name='L724'>        <i><font color='green'>/* Equivalent to strchrnul(). */</font></i>
+<a name='L725'>        dot = ((tdot = strchr(elm, '.')) != NULL) ? tdot : strchr(elm, '\0');
+<a name='L726'>        elen = (size_t)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)dot - (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)elm);
+<a name='L727'>        <b>if</b> (elen == 0) <font color='red'>{</font>
+<a name='L728'>                ret = ENOENT;
+<a name='L729'>                <b>goto</b> label_return;
+<a name='L730'>        <font color='red'>}</font>
+<a name='L731'>        node = super_root_node;
+<a name='L732'>        <b>for</b> (i = 0; i &lt; *depthp; i++) <font color='red'>{</font>
+<a name='L733'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(node);
+<a name='L734'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(node-&gt;nchildren &gt; 0);
+<a name='L735'>                <b>if</b> (<a href='../S/206.html#L21' title='Defined at 21 in deps/jemalloc/src/ctl.c.'>ctl_named_node</a>(node-&gt;children) != NULL) <font color='red'>{</font>
+<a name='L736'>                        <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> *pnode = node;
+<a name='L737'>
+<a name='L738'>                        <i><font color='green'>/* Children are named. */</font></i>
+<a name='L739'>                        <b>for</b> (j = 0; j &lt; node-&gt;nchildren; j++) <font color='red'>{</font>
+<a name='L740'>                                <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> *child =
+<a name='L741'>                                    <a href='../S/206.html#L28' title='Defined at 28 in deps/jemalloc/src/ctl.c.'>ctl_named_children</a>(node, j);
+<a name='L742'>                                <b>if</b> (strlen(child-&gt;name) == elen &amp;&amp;
+<a name='L743'>                                    strncmp(elm, child-&gt;name, elen) == 0) <font color='red'>{</font>
+<a name='L744'>                                        node = child;
+<a name='L745'>                                        <b>if</b> (nodesp != NULL)
+<a name='L746'>                                                nodesp[i] =
+<a name='L747'>                                                    (<b>const</b> <a href='../S/135.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_node_t</a> *)node;
+<a name='L748'>                                        mibp[i] = j;
+<a name='L749'>                                        <b>break</b>;
+<a name='L750'>                                <font color='red'>}</font>
+<a name='L751'>                        <font color='red'>}</font>
+<a name='L752'>                        <b>if</b> (node == pnode) <font color='red'>{</font>
+<a name='L753'>                                ret = ENOENT;
+<a name='L754'>                                <b>goto</b> label_return;
+<a name='L755'>                        <font color='red'>}</font>
+<a name='L756'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L757'>                        <a href='../S/160.html#L124' title='Defined at 124 in deps/jemalloc/include/msvc_compat/stdint.h.'>uintmax_t</a> index;
+<a name='L758'>                        <b>const</b> <a href='../S/135.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_indexed_node_t</a> *inode;
+<a name='L759'>
+<a name='L760'>                        <i><font color='green'>/* Children are indexed. */</font></i>
+<a name='L761'>                        index = <a href='../D/3283.html' title='Multiple defined in 2 places.'>malloc_strtoumax</a>(elm, NULL, 10);
+<a name='L762'>                        <b>if</b> (index == <a href='../S/160.html#L187' title='Defined at 187 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINTMAX_MAX</a> || index &gt; SIZE_T_MAX) <font color='red'>{</font>
+<a name='L763'>                                ret = ENOENT;
+<a name='L764'>                                <b>goto</b> label_return;
+<a name='L765'>                        <font color='red'>}</font>
+<a name='L766'>
+<a name='L767'>                        inode = <a href='../S/206.html#L36' title='Defined at 36 in deps/jemalloc/src/ctl.c.'>ctl_indexed_node</a>(node-&gt;children);
+<a name='L768'>                        node = inode-&gt;index(mibp, *depthp, (size_t)index);
+<a name='L769'>                        <b>if</b> (node == NULL) <font color='red'>{</font>
+<a name='L770'>                                ret = ENOENT;
+<a name='L771'>                                <b>goto</b> label_return;
+<a name='L772'>                        <font color='red'>}</font>
+<a name='L773'>
+<a name='L774'>                        <b>if</b> (nodesp != NULL)
+<a name='L775'>                                nodesp[i] = (<b>const</b> <a href='../S/135.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_node_t</a> *)node;
+<a name='L776'>                        mibp[i] = (size_t)index;
+<a name='L777'>                <font color='red'>}</font>
+<a name='L778'>
+<a name='L779'>                <b>if</b> (node-&gt;ctl != NULL) <font color='red'>{</font>
+<a name='L780'>                        <i><font color='green'>/* Terminal node. */</font></i>
+<a name='L781'>                        <b>if</b> (*dot != '\0') <font color='red'>{</font>
+<a name='L782'>                                <i><font color='green'>/*</font></i>
+<a name='L783'><i><font color='green'>                                 * The name contains more elements than are</font></i>
+<a name='L784'><i><font color='green'>                                 * in this path through the tree.</font></i>
+<a name='L785'><i><font color='green'>                                 */</font></i>
+<a name='L786'>                                ret = ENOENT;
+<a name='L787'>                                <b>goto</b> label_return;
+<a name='L788'>                        <font color='red'>}</font>
+<a name='L789'>                        <i><font color='green'>/* Complete lookup successful. */</font></i>
+<a name='L790'>                        *depthp = i + 1;
+<a name='L791'>                        <b>break</b>;
+<a name='L792'>                <font color='red'>}</font>
+<a name='L793'>
+<a name='L794'>                <i><font color='green'>/* Update elm. */</font></i>
+<a name='L795'>                <b>if</b> (*dot == '\0') <font color='red'>{</font>
+<a name='L796'>                        <i><font color='green'>/* No more elements. */</font></i>
+<a name='L797'>                        ret = ENOENT;
+<a name='L798'>                        <b>goto</b> label_return;
+<a name='L799'>                <font color='red'>}</font>
+<a name='L800'>                elm = &amp;dot[1];
+<a name='L801'>                dot = ((tdot = strchr(elm, '.')) != NULL) ? tdot :
+<a name='L802'>                    strchr(elm, '\0');
+<a name='L803'>                elen = (size_t)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)dot - (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)elm);
+<a name='L804'>        <font color='red'>}</font>
+<a name='L805'>
+<a name='L806'>        ret = 0;
+<a name='L807'>label_return:
+<a name='L808'>        <b>return</b> (ret);
+<a name='L809'><font color='red'>}</font>
+<a name='L810'>
+<a name='L811'><b>int</b>
+<a name='L812'><a href='../R/1729.html' title='Multiple refered from 3 places.'>ctl_byname</a>(<b>const</b> <b>char</b> *name, <b>void</b> *oldp, size_t *oldlenp, <b>void</b> *newp,
+<a name='L813'>    size_t newlen)
+<a name='L814'><font color='red'>{</font>
+<a name='L815'>        <b>int</b> ret;
+<a name='L816'>        size_t depth;
+<a name='L817'>        <a href='../S/135.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_node_t</a> <b>const</b> *nodes[CTL_MAX_DEPTH];
+<a name='L818'>        size_t mib[CTL_MAX_DEPTH];
+<a name='L819'>        <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> *node;
+<a name='L820'>
+<a name='L821'>        <b>if</b> (ctl_initialized == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a> &amp;&amp; <a href='../S/206.html#L666' title='Defined at 666 in deps/jemalloc/src/ctl.c.'>ctl_init</a>()) <font color='red'>{</font>
+<a name='L822'>                ret = EAGAIN;
+<a name='L823'>                <b>goto</b> label_return;
+<a name='L824'>        <font color='red'>}</font>
+<a name='L825'>
+<a name='L826'>        depth = CTL_MAX_DEPTH;
+<a name='L827'>        ret = <a href='../S/206.html#L715' title='Defined at 715 in deps/jemalloc/src/ctl.c.'>ctl_lookup</a>(name, nodes, mib, &amp;depth);
+<a name='L828'>        <b>if</b> (ret != 0)
+<a name='L829'>                <b>goto</b> label_return;
+<a name='L830'>
+<a name='L831'>        node = <a href='../S/206.html#L21' title='Defined at 21 in deps/jemalloc/src/ctl.c.'>ctl_named_node</a>(nodes[depth-1]);
+<a name='L832'>        <b>if</b> (node != NULL &amp;&amp; node-&gt;ctl)
+<a name='L833'>                ret = node-&gt;ctl(mib, depth, oldp, oldlenp, newp, newlen);
+<a name='L834'>        <b>else</b> <font color='red'>{</font>
+<a name='L835'>                <i><font color='green'>/* The name refers to a partial path through the ctl tree. */</font></i>
+<a name='L836'>                ret = ENOENT;
+<a name='L837'>        <font color='red'>}</font>
+<a name='L838'>
+<a name='L839'>label_return:
+<a name='L840'>        <b>return</b>(ret);
+<a name='L841'><font color='red'>}</font>
+<a name='L842'>
+<a name='L843'><b>int</b>
+<a name='L844'><a href='../R/1740.html' title='Multiple refered from 3 places.'>ctl_nametomib</a>(<b>const</b> <b>char</b> *name, size_t *mibp, size_t *miblenp)
+<a name='L845'><font color='red'>{</font>
+<a name='L846'>        <b>int</b> ret;
+<a name='L847'>
+<a name='L848'>        <b>if</b> (ctl_initialized == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a> &amp;&amp; <a href='../S/206.html#L666' title='Defined at 666 in deps/jemalloc/src/ctl.c.'>ctl_init</a>()) <font color='red'>{</font>
+<a name='L849'>                ret = EAGAIN;
+<a name='L850'>                <b>goto</b> label_return;
+<a name='L851'>        <font color='red'>}</font>
+<a name='L852'>
+<a name='L853'>        ret = <a href='../S/206.html#L715' title='Defined at 715 in deps/jemalloc/src/ctl.c.'>ctl_lookup</a>(name, NULL, mibp, miblenp);
+<a name='L854'>label_return:
+<a name='L855'>        <b>return</b>(ret);
+<a name='L856'><font color='red'>}</font>
+<a name='L857'>
+<a name='L858'><b>int</b>
+<a name='L859'><a href='../R/1728.html' title='Multiple refered from 3 places.'>ctl_bymib</a>(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp, size_t *oldlenp,
+<a name='L860'>    <b>void</b> *newp, size_t newlen)
+<a name='L861'><font color='red'>{</font>
+<a name='L862'>        <b>int</b> ret;
+<a name='L863'>        <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> *node;
+<a name='L864'>        size_t i;
+<a name='L865'>
+<a name='L866'>        <b>if</b> (ctl_initialized == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a> &amp;&amp; <a href='../S/206.html#L666' title='Defined at 666 in deps/jemalloc/src/ctl.c.'>ctl_init</a>()) <font color='red'>{</font>
+<a name='L867'>                ret = EAGAIN;
+<a name='L868'>                <b>goto</b> label_return;
+<a name='L869'>        <font color='red'>}</font>
+<a name='L870'>
+<a name='L871'>        <i><font color='green'>/* Iterate down the tree. */</font></i>
+<a name='L872'>        node = super_root_node;
+<a name='L873'>        <b>for</b> (i = 0; i &lt; miblen; i++) <font color='red'>{</font>
+<a name='L874'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(node);
+<a name='L875'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(node-&gt;nchildren &gt; 0);
+<a name='L876'>                <b>if</b> (<a href='../S/206.html#L21' title='Defined at 21 in deps/jemalloc/src/ctl.c.'>ctl_named_node</a>(node-&gt;children) != NULL) <font color='red'>{</font>
+<a name='L877'>                        <i><font color='green'>/* Children are named. */</font></i>
+<a name='L878'>                        <b>if</b> (node-&gt;nchildren &lt;= mib[i]) <font color='red'>{</font>
+<a name='L879'>                                ret = ENOENT;
+<a name='L880'>                                <b>goto</b> label_return;
+<a name='L881'>                        <font color='red'>}</font>
+<a name='L882'>                        node = <a href='../S/206.html#L28' title='Defined at 28 in deps/jemalloc/src/ctl.c.'>ctl_named_children</a>(node, mib[i]);
+<a name='L883'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L884'>                        <b>const</b> <a href='../S/135.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_indexed_node_t</a> *inode;
+<a name='L885'>
+<a name='L886'>                        <i><font color='green'>/* Indexed element. */</font></i>
+<a name='L887'>                        inode = <a href='../S/206.html#L36' title='Defined at 36 in deps/jemalloc/src/ctl.c.'>ctl_indexed_node</a>(node-&gt;children);
+<a name='L888'>                        node = inode-&gt;index(mib, miblen, mib[i]);
+<a name='L889'>                        <b>if</b> (node == NULL) <font color='red'>{</font>
+<a name='L890'>                                ret = ENOENT;
+<a name='L891'>                                <b>goto</b> label_return;
+<a name='L892'>                        <font color='red'>}</font>
+<a name='L893'>                <font color='red'>}</font>
+<a name='L894'>        <font color='red'>}</font>
+<a name='L895'>
+<a name='L896'>        <i><font color='green'>/* Call the ctl function. */</font></i>
+<a name='L897'>        <b>if</b> (node &amp;&amp; node-&gt;ctl)
+<a name='L898'>                ret = node-&gt;ctl(mib, miblen, oldp, oldlenp, newp, newlen);
+<a name='L899'>        <b>else</b> <font color='red'>{</font>
+<a name='L900'>                <i><font color='green'>/* Partial MIB. */</font></i>
+<a name='L901'>                ret = ENOENT;
+<a name='L902'>        <font color='red'>}</font>
+<a name='L903'>
+<a name='L904'>label_return:
+<a name='L905'>        <b>return</b>(ret);
+<a name='L906'><font color='red'>}</font>
+<a name='L907'>
+<a name='L908'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L909'><a href='../R/1727.html' title='Multiple refered from 3 places.'>ctl_boot</a>(<b>void</b>)
+<a name='L910'><font color='red'>{</font>
+<a name='L911'>
+<a name='L912'>        <b>if</b> (<a href='../D/3272.html' title='Multiple defined in 2 places.'>malloc_mutex_init</a>(&amp;ctl_mtx))
+<a name='L913'>                <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L914'>
+<a name='L915'>        ctl_initialized = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L916'>
+<a name='L917'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L918'><font color='red'>}</font>
+<a name='L919'>
+<a name='L920'><b>void</b>
+<a name='L921'><a href='../R/1745.html' title='Multiple refered from 3 places.'>ctl_prefork</a>(<b>void</b>)
+<a name='L922'><font color='red'>{</font>
+<a name='L923'>
+<a name='L924'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;ctl_mtx);
+<a name='L925'><font color='red'>}</font>
+<a name='L926'>
+<a name='L927'><b>void</b>
+<a name='L928'><a href='../R/1744.html' title='Multiple refered from 3 places.'>ctl_postfork_parent</a>(<b>void</b>)
+<a name='L929'><font color='red'>{</font>
+<a name='L930'>
+<a name='L931'>        <a href='../D/3275.html' title='Multiple defined in 2 places.'>malloc_mutex_postfork_parent</a>(&amp;ctl_mtx);
+<a name='L932'><font color='red'>}</font>
+<a name='L933'>
+<a name='L934'><b>void</b>
+<a name='L935'><a href='../R/1743.html' title='Multiple refered from 3 places.'>ctl_postfork_child</a>(<b>void</b>)
+<a name='L936'><font color='red'>{</font>
+<a name='L937'>
+<a name='L938'>        <a href='../D/3274.html' title='Multiple defined in 2 places.'>malloc_mutex_postfork_child</a>(&amp;ctl_mtx);
+<a name='L939'><font color='red'>}</font>
+<a name='L940'>
+<a name='L941'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L942'><i><font color='green'>/* *_ctl() functions. */</font></i>
+<a name='L943'>
+<a name='L944'><font color='darkred'>#define</font> <a href='../R/601.html' title='Multiple refered from 11 places.'>READONLY</a>()      <b>do</b> <font color='red'>{</font>                                            \
+<a name='L945'>        <b>if</b> (newp != NULL || newlen != 0) <font color='red'>{</font>                              \
+<a name='L946'>                ret = EPERM;                                            \
+<a name='L947'>                <b>goto</b> label_return;                                      \
+<a name='L948'>        <font color='red'>}</font>                                                               \
+<a name='L949'><font color='red'>}</font> <b>while</b> (0)
+<a name='L950'>
+<a name='L951'><font color='darkred'>#define</font> <a href='../R/1052.html' title='Multiple refered from 4 places.'>WRITEONLY</a>()     <b>do</b> <font color='red'>{</font>                                            \
+<a name='L952'>        <b>if</b> (oldp != NULL || oldlenp != NULL) <font color='red'>{</font>                          \
+<a name='L953'>                ret = EPERM;                                            \
+<a name='L954'>                <b>goto</b> label_return;                                      \
+<a name='L955'>        <font color='red'>}</font>                                                               \
+<a name='L956'><font color='red'>}</font> <b>while</b> (0)
+<a name='L957'>
+<a name='L958'><font color='darkred'>#define</font> <a href='../R/600.html' title='Multiple refered from 13 places.'>READ</a>(v, t)      <b>do</b> <font color='red'>{</font>                                            \
+<a name='L959'>        <b>if</b> (oldp != NULL &amp;&amp; oldlenp != NULL) <font color='red'>{</font>                          \
+<a name='L960'>                <b>if</b> (*oldlenp != <b>sizeof</b>(t)) <font color='red'>{</font>                            \
+<a name='L961'>                        size_t  copylen = (<b>sizeof</b>(t) &lt;= *oldlenp)       \
+<a name='L962'>                            ? <b>sizeof</b>(t) : *oldlenp;                     \
+<a name='L963'>                        memcpy(oldp, (<b>void</b> *)&amp;v, copylen);              \
+<a name='L964'>                        ret = EINVAL;                                   \
+<a name='L965'>                        <b>goto</b> label_return;                              \
+<a name='L966'>                <font color='red'>}</font> <b>else</b>                                                  \
+<a name='L967'>                        *(t *)oldp = v;                                 \
+<a name='L968'>        <font color='red'>}</font>                                                               \
+<a name='L969'><font color='red'>}</font> <b>while</b> (0)
+<a name='L970'>
+<a name='L971'><font color='darkred'>#define</font> <a href='../R/1051.html' title='Multiple refered from 6 places.'>WRITE</a>(v, t)     <b>do</b> <font color='red'>{</font>                                            \
+<a name='L972'>        <b>if</b> (newp != NULL) <font color='red'>{</font>                                             \
+<a name='L973'>                <b>if</b> (newlen != <b>sizeof</b>(t)) <font color='red'>{</font>                              \
+<a name='L974'>                        ret = EINVAL;                                   \
+<a name='L975'>                        <b>goto</b> label_return;                              \
+<a name='L976'>                <font color='red'>}</font>                                                       \
+<a name='L977'>                v = *(t *)newp;                                         \
+<a name='L978'>        <font color='red'>}</font>                                                               \
+<a name='L979'><font color='red'>}</font> <b>while</b> (0)
+<a name='L980'>
+<a name='L981'><i><font color='green'>/*</font></i>
+<a name='L982'><i><font color='green'> * There's a lot of code duplication in the following macros due to limitations</font></i>
+<a name='L983'><i><font color='green'> * in how nested cpp macros are expanded.</font></i>
+<a name='L984'><i><font color='green'> */</font></i>
+<a name='L985'><font color='darkred'>#define</font> CTL_RO_CLGEN(c, l, n, v, t)                                     \
+<a name='L986'><b>static</b> <b>int</b>                                                              \
+<a name='L987'>n##_ctl(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp, size_t *oldlenp,  \
+<a name='L988'>    <b>void</b> *newp, size_t newlen)                                          \
+<a name='L989'><font color='red'>{</font>                                                                       \
+<a name='L990'>        <b>int</b> ret;                                                        \
+<a name='L991'>        t oldval;                                                       \
+<a name='L992'>                                                                        \
+<a name='L993'>        <b>if</b> ((c) == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)                                               \
+<a name='L994'>                <b>return</b> (ENOENT);                                        \
+<a name='L995'>        <b>if</b> (l)                                                          \
+<a name='L996'>                <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;ctl_mtx);                            \
+<a name='L997'>        <a href='../S/206.html#L944' title='Defined at 944 in deps/jemalloc/src/ctl.c.'>READONLY</a>();                                                     \
+<a name='L998'>        oldval = v;                                                     \
+<a name='L999'>        <a href='../S/206.html#L958' title='Defined at 958 in deps/jemalloc/src/ctl.c.'>READ</a>(oldval, t);                                                \
+<a name='L1000'>                                                                        \
+<a name='L1001'>        ret = 0;                                                        \
+<a name='L1002'>label_return:                                                           \
+<a name='L1003'>        <b>if</b> (l)                                                          \
+<a name='L1004'>                <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;ctl_mtx);                          \
+<a name='L1005'>        <b>return</b> (ret);                                                   \
+<a name='L1006'><font color='red'>}</font>
+<a name='L1007'>
+<a name='L1008'><font color='darkred'>#define</font> <a href='../R/99.html' title='Multiple refered from 35 places.'>CTL_RO_CGEN</a>(c, n, v, t)                                         \
+<a name='L1009'><b>static</b> <b>int</b>                                                              \
+<a name='L1010'>n##_ctl(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp, size_t *oldlenp,  \
+<a name='L1011'>    <b>void</b> *newp, size_t newlen)                                          \
+<a name='L1012'><font color='red'>{</font>                                                                       \
+<a name='L1013'>        <b>int</b> ret;                                                        \
+<a name='L1014'>        t oldval;                                                       \
+<a name='L1015'>                                                                        \
+<a name='L1016'>        <b>if</b> ((c) == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)                                               \
+<a name='L1017'>                <b>return</b> (ENOENT);                                        \
+<a name='L1018'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;ctl_mtx);                                    \
+<a name='L1019'>        <a href='../S/206.html#L944' title='Defined at 944 in deps/jemalloc/src/ctl.c.'>READONLY</a>();                                                     \
+<a name='L1020'>        oldval = v;                                                     \
+<a name='L1021'>        <a href='../S/206.html#L958' title='Defined at 958 in deps/jemalloc/src/ctl.c.'>READ</a>(oldval, t);                                                \
+<a name='L1022'>                                                                        \
+<a name='L1023'>        ret = 0;                                                        \
+<a name='L1024'>label_return:                                                           \
+<a name='L1025'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;ctl_mtx);                                  \
+<a name='L1026'>        <b>return</b> (ret);                                                   \
+<a name='L1027'><font color='red'>}</font>
+<a name='L1028'>
+<a name='L1029'><font color='darkred'>#define</font> <a href='../R/100.html' title='Multiple refered from 3 places.'>CTL_RO_GEN</a>(n, v, t)                                             \
+<a name='L1030'><b>static</b> <b>int</b>                                                              \
+<a name='L1031'>n##_ctl(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp, size_t *oldlenp,  \
+<a name='L1032'>    <b>void</b> *newp, size_t newlen)                                          \
+<a name='L1033'><font color='red'>{</font>                                                                       \
+<a name='L1034'>        <b>int</b> ret;                                                        \
+<a name='L1035'>        t oldval;                                                       \
+<a name='L1036'>                                                                        \
+<a name='L1037'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;ctl_mtx);                                    \
+<a name='L1038'>        <a href='../S/206.html#L944' title='Defined at 944 in deps/jemalloc/src/ctl.c.'>READONLY</a>();                                                     \
+<a name='L1039'>        oldval = v;                                                     \
+<a name='L1040'>        <a href='../S/206.html#L958' title='Defined at 958 in deps/jemalloc/src/ctl.c.'>READ</a>(oldval, t);                                                \
+<a name='L1041'>                                                                        \
+<a name='L1042'>        ret = 0;                                                        \
+<a name='L1043'>label_return:                                                           \
+<a name='L1044'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;ctl_mtx);                                  \
+<a name='L1045'>        <b>return</b> (ret);                                                   \
+<a name='L1046'><font color='red'>}</font>
+<a name='L1047'>
+<a name='L1048'><i><font color='green'>/*</font></i>
+<a name='L1049'><i><font color='green'> * ctl_mtx is not acquired, under the assumption that no pertinent data will</font></i>
+<a name='L1050'><i><font color='green'> * mutate during the call.</font></i>
+<a name='L1051'><i><font color='green'> */</font></i>
+<a name='L1052'><font color='darkred'>#define</font> <a href='../R/101.html' title='Multiple refered from 22 places.'>CTL_RO_NL_CGEN</a>(c, n, v, t)                                      \
+<a name='L1053'><b>static</b> <b>int</b>                                                              \
+<a name='L1054'>n##_ctl(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp, size_t *oldlenp,  \
+<a name='L1055'>    <b>void</b> *newp, size_t newlen)                                          \
+<a name='L1056'><font color='red'>{</font>                                                                       \
+<a name='L1057'>        <b>int</b> ret;                                                        \
+<a name='L1058'>        t oldval;                                                       \
+<a name='L1059'>                                                                        \
+<a name='L1060'>        <b>if</b> ((c) == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)                                               \
+<a name='L1061'>                <b>return</b> (ENOENT);                                        \
+<a name='L1062'>        <a href='../S/206.html#L944' title='Defined at 944 in deps/jemalloc/src/ctl.c.'>READONLY</a>();                                                     \
+<a name='L1063'>        oldval = v;                                                     \
+<a name='L1064'>        <a href='../S/206.html#L958' title='Defined at 958 in deps/jemalloc/src/ctl.c.'>READ</a>(oldval, t);                                                \
+<a name='L1065'>                                                                        \
+<a name='L1066'>        ret = 0;                                                        \
+<a name='L1067'>label_return:                                                           \
+<a name='L1068'>        <b>return</b> (ret);                                                   \
+<a name='L1069'><font color='red'>}</font>
+<a name='L1070'>
+<a name='L1071'><font color='darkred'>#define</font> <a href='../R/102.html' title='Multiple refered from 11 places.'>CTL_RO_NL_GEN</a>(n, v, t)                                          \
+<a name='L1072'><b>static</b> <b>int</b>                                                              \
+<a name='L1073'>n##_ctl(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp, size_t *oldlenp,  \
+<a name='L1074'>    <b>void</b> *newp, size_t newlen)                                          \
+<a name='L1075'><font color='red'>{</font>                                                                       \
+<a name='L1076'>        <b>int</b> ret;                                                        \
+<a name='L1077'>        t oldval;                                                       \
+<a name='L1078'>                                                                        \
+<a name='L1079'>        <a href='../S/206.html#L944' title='Defined at 944 in deps/jemalloc/src/ctl.c.'>READONLY</a>();                                                     \
+<a name='L1080'>        oldval = v;                                                     \
+<a name='L1081'>        <a href='../S/206.html#L958' title='Defined at 958 in deps/jemalloc/src/ctl.c.'>READ</a>(oldval, t);                                                \
+<a name='L1082'>                                                                        \
+<a name='L1083'>        ret = 0;                                                        \
+<a name='L1084'>label_return:                                                           \
+<a name='L1085'>        <b>return</b> (ret);                                                   \
+<a name='L1086'><font color='red'>}</font>
+<a name='L1087'>
+<a name='L1088'><font color='darkred'>#define</font> <a href='../R/98.html' title='Multiple refered from 15 places.'>CTL_RO_BOOL_CONFIG_GEN</a>(n)                                       \
+<a name='L1089'><b>static</b> <b>int</b>                                                              \
+<a name='L1090'>n##_ctl(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp, size_t *oldlenp,  \
+<a name='L1091'>    <b>void</b> *newp, size_t newlen)                                          \
+<a name='L1092'><font color='red'>{</font>                                                                       \
+<a name='L1093'>        <b>int</b> ret;                                                        \
+<a name='L1094'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> oldval;                                                    \
+<a name='L1095'>                                                                        \
+<a name='L1096'>        <a href='../S/206.html#L944' title='Defined at 944 in deps/jemalloc/src/ctl.c.'>READONLY</a>();                                                     \
+<a name='L1097'>        oldval = n;                                                     \
+<a name='L1098'>        <a href='../S/206.html#L958' title='Defined at 958 in deps/jemalloc/src/ctl.c.'>READ</a>(oldval, <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>);                                             \
+<a name='L1099'>                                                                        \
+<a name='L1100'>        ret = 0;                                                        \
+<a name='L1101'>label_return:                                                           \
+<a name='L1102'>        <b>return</b> (ret);                                                   \
+<a name='L1103'><font color='red'>}</font>
+<a name='L1104'>
+<a name='L1105'><a href='../R/102.html' title='Multiple refered from 11 places.'>CTL_RO_NL_GEN</a>(version, JEMALLOC_VERSION, <b>const</b> <b>char</b> *)
+<a name='L1106'>
+<a name='L1107'><b>static</b> <b>int</b>
+<a name='L1108'>epoch_ctl(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp, size_t *oldlenp,
+<a name='L1109'>    <b>void</b> *newp, size_t newlen)
+<a name='L1110'><font color='red'>{</font>
+<a name='L1111'>        <b>int</b> ret;
+<a name='L1112'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> newval;
+<a name='L1113'>
+<a name='L1114'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;ctl_mtx);
+<a name='L1115'>        <a href='../S/206.html#L971' title='Defined at 971 in deps/jemalloc/src/ctl.c.'>WRITE</a>(newval, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>);
+<a name='L1116'>        <b>if</b> (newp != NULL)
+<a name='L1117'>                <a href='../S/206.html#L608' title='Defined at 608 in deps/jemalloc/src/ctl.c.'>ctl_refresh</a>();
+<a name='L1118'>        <a href='../S/206.html#L958' title='Defined at 958 in deps/jemalloc/src/ctl.c.'>READ</a>(ctl_epoch, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>);
+<a name='L1119'>
+<a name='L1120'>        ret = 0;
+<a name='L1121'>label_return:
+<a name='L1122'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;ctl_mtx);
+<a name='L1123'>        <b>return</b> (ret);
+<a name='L1124'><font color='red'>}</font>
+<a name='L1125'>
+<a name='L1126'><b>static</b> <b>int</b>
+<a name='L1127'>thread_tcache_enabled_ctl(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp,
+<a name='L1128'>    size_t *oldlenp, <b>void</b> *newp, size_t newlen)
+<a name='L1129'><font color='red'>{</font>
+<a name='L1130'>        <b>int</b> ret;
+<a name='L1131'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> oldval;
+<a name='L1132'>
+<a name='L1133'>        <b>if</b> (config_tcache == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)
+<a name='L1134'>                <b>return</b> (ENOENT);
+<a name='L1135'>
+<a name='L1136'>        oldval = <a href='../D/4313.html' title='Multiple defined in 2 places.'>tcache_enabled_get</a>();
+<a name='L1137'>        <b>if</b> (newp != NULL) <font color='red'>{</font>
+<a name='L1138'>                <b>if</b> (newlen != <b>sizeof</b>(<a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>)) <font color='red'>{</font>
+<a name='L1139'>                        ret = EINVAL;
+<a name='L1140'>                        <b>goto</b> label_return;
+<a name='L1141'>                <font color='red'>}</font>
+<a name='L1142'>                <a href='../D/4315.html' title='Multiple defined in 2 places.'>tcache_enabled_set</a>(*(<a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> *)newp);
+<a name='L1143'>        <font color='red'>}</font>
+<a name='L1144'>        <a href='../S/206.html#L958' title='Defined at 958 in deps/jemalloc/src/ctl.c.'>READ</a>(oldval, <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>);
+<a name='L1145'>
+<a name='L1146'>        ret = 0;
+<a name='L1147'>label_return:
+<a name='L1148'>        <b>return</b> (ret);
+<a name='L1149'><font color='red'>}</font>
+<a name='L1150'>
+<a name='L1151'><b>static</b> <b>int</b>
+<a name='L1152'>thread_tcache_flush_ctl(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp,
+<a name='L1153'>    size_t *oldlenp, <b>void</b> *newp, size_t newlen)
+<a name='L1154'><font color='red'>{</font>
+<a name='L1155'>        <b>int</b> ret;
+<a name='L1156'>
+<a name='L1157'>        <b>if</b> (config_tcache == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)
+<a name='L1158'>                <b>return</b> (ENOENT);
+<a name='L1159'>
+<a name='L1160'>        <a href='../S/206.html#L944' title='Defined at 944 in deps/jemalloc/src/ctl.c.'>READONLY</a>();
+<a name='L1161'>        <a href='../S/206.html#L951' title='Defined at 951 in deps/jemalloc/src/ctl.c.'>WRITEONLY</a>();
+<a name='L1162'>
+<a name='L1163'>        <a href='../S/138.html#L346' title='Defined at 346 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_flush</a>();
+<a name='L1164'>
+<a name='L1165'>        ret = 0;
+<a name='L1166'>label_return:
+<a name='L1167'>        <b>return</b> (ret);
+<a name='L1168'><font color='red'>}</font>
+<a name='L1169'>
+<a name='L1170'><b>static</b> <b>int</b>
+<a name='L1171'>thread_arena_ctl(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp, size_t *oldlenp,
+<a name='L1172'>    <b>void</b> *newp, size_t newlen)
+<a name='L1173'><font color='red'>{</font>
+<a name='L1174'>        <b>int</b> ret;
+<a name='L1175'>        <b>unsigned</b> newind, oldind;
+<a name='L1176'>
+<a name='L1177'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;ctl_mtx);
+<a name='L1178'>        newind = oldind = <a href='../S/138.html#L94' title='Defined at 94 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>choose_arena</a>(NULL)-&gt;ind;
+<a name='L1179'>        <a href='../S/206.html#L971' title='Defined at 971 in deps/jemalloc/src/ctl.c.'>WRITE</a>(newind, <b>unsigned</b>);
+<a name='L1180'>        <a href='../S/206.html#L958' title='Defined at 958 in deps/jemalloc/src/ctl.c.'>READ</a>(oldind, <b>unsigned</b>);
+<a name='L1181'>        <b>if</b> (newind != oldind) <font color='red'>{</font>
+<a name='L1182'>                <a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena;
+<a name='L1183'>
+<a name='L1184'>                <b>if</b> (newind &gt;= ctl_stats.narenas) <font color='red'>{</font>
+<a name='L1185'>                        <i><font color='green'>/* New arena index is out of range. */</font></i>
+<a name='L1186'>                        ret = EFAULT;
+<a name='L1187'>                        <b>goto</b> label_return;
+<a name='L1188'>                <font color='red'>}</font>
+<a name='L1189'>
+<a name='L1190'>                <i><font color='green'>/* Initialize arena if necessary. */</font></i>
+<a name='L1191'>                <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;<a href='../S/138.html#L60' title='Defined at 60 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas_lock</a>);
+<a name='L1192'>                <b>if</b> ((arena = <a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[newind]) == NULL &amp;&amp; (arena =
+<a name='L1193'>                    <a href='../D/1670.html' title='Multiple defined in 2 places.'>arenas_extend</a>(newind)) == NULL) <font color='red'>{</font>
+<a name='L1194'>                        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;<a href='../S/138.html#L60' title='Defined at 60 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas_lock</a>);
+<a name='L1195'>                        ret = EAGAIN;
+<a name='L1196'>                        <b>goto</b> label_return;
+<a name='L1197'>                <font color='red'>}</font>
+<a name='L1198'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(arena == <a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[newind]);
+<a name='L1199'>                <a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[oldind]-&gt;nthreads--;
+<a name='L1200'>                <a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[newind]-&gt;nthreads++;
+<a name='L1201'>                <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;<a href='../S/138.html#L60' title='Defined at 60 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas_lock</a>);
+<a name='L1202'>
+<a name='L1203'>                <i><font color='green'>/* Set new arena association. */</font></i>
+<a name='L1204'>                <b>if</b> (config_tcache) <font color='red'>{</font>
+<a name='L1205'>                        <a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache;
+<a name='L1206'>                        <b>if</b> ((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)(tcache = *<a href='../S/138.html#L357' title='Defined at 357 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_tsd_get</a>()) &gt;
+<a name='L1207'>                            (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/151.html#L16' title='Defined at 16 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>TCACHE_STATE_MAX</a>) <font color='red'>{</font>
+<a name='L1208'>                                <a href='../D/4293.html' title='Multiple defined in 2 places.'>tcache_arena_dissociate</a>(tcache);
+<a name='L1209'>                                <a href='../D/4292.html' title='Multiple defined in 2 places.'>tcache_arena_associate</a>(tcache, arena);
+<a name='L1210'>                        <font color='red'>}</font>
+<a name='L1211'>                <font color='red'>}</font>
+<a name='L1212'>                <a href='../S/138.html#L66' title='Defined at 66 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas_tsd_set</a>(&amp;arena);
+<a name='L1213'>        <font color='red'>}</font>
+<a name='L1214'>
+<a name='L1215'>        ret = 0;
+<a name='L1216'>label_return:
+<a name='L1217'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;ctl_mtx);
+<a name='L1218'>        <b>return</b> (ret);
+<a name='L1219'><font color='red'>}</font>
+<a name='L1220'>
+<a name='L1221'><a href='../R/101.html' title='Multiple refered from 22 places.'>CTL_RO_NL_CGEN</a>(config_stats, thread_allocated,
+<a name='L1222'>    thread_allocated_tsd_get()-&gt;allocated, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1223'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_stats, thread_allocatedp,
+<a name='L1224'>    &amp;thread_allocated_tsd_get()-&gt;allocated, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> *)
+<a name='L1225'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_stats, thread_deallocated,
+<a name='L1226'>    thread_allocated_tsd_get()-&gt;deallocated, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1227'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_stats, thread_deallocatedp,
+<a name='L1228'>    &amp;thread_allocated_tsd_get()-&gt;deallocated, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> *)
+<a name='L1229'>
+<a name='L1230'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L1231'>
+<a name='L1232'><a href='../S/206.html#L1088' title='Defined at 1088 in deps/jemalloc/src/ctl.c.'>CTL_RO_BOOL_CONFIG_GEN</a>(config_debug)
+<a name='L1233'><a href='../S/206.html#L1088' title='Defined at 1088 in deps/jemalloc/src/ctl.c.'>CTL_RO_BOOL_CONFIG_GEN</a>(config_dss)
+<a name='L1234'><a href='../S/206.html#L1088' title='Defined at 1088 in deps/jemalloc/src/ctl.c.'>CTL_RO_BOOL_CONFIG_GEN</a>(config_fill)
+<a name='L1235'><a href='../S/206.html#L1088' title='Defined at 1088 in deps/jemalloc/src/ctl.c.'>CTL_RO_BOOL_CONFIG_GEN</a>(config_lazy_lock)
+<a name='L1236'><a href='../S/206.html#L1088' title='Defined at 1088 in deps/jemalloc/src/ctl.c.'>CTL_RO_BOOL_CONFIG_GEN</a>(config_mremap)
+<a name='L1237'><a href='../S/206.html#L1088' title='Defined at 1088 in deps/jemalloc/src/ctl.c.'>CTL_RO_BOOL_CONFIG_GEN</a>(config_munmap)
+<a name='L1238'><a href='../S/206.html#L1088' title='Defined at 1088 in deps/jemalloc/src/ctl.c.'>CTL_RO_BOOL_CONFIG_GEN</a>(config_prof)
+<a name='L1239'><a href='../S/206.html#L1088' title='Defined at 1088 in deps/jemalloc/src/ctl.c.'>CTL_RO_BOOL_CONFIG_GEN</a>(config_prof_libgcc)
+<a name='L1240'><a href='../S/206.html#L1088' title='Defined at 1088 in deps/jemalloc/src/ctl.c.'>CTL_RO_BOOL_CONFIG_GEN</a>(config_prof_libunwind)
+<a name='L1241'><a href='../S/206.html#L1088' title='Defined at 1088 in deps/jemalloc/src/ctl.c.'>CTL_RO_BOOL_CONFIG_GEN</a>(config_stats)
+<a name='L1242'><a href='../S/206.html#L1088' title='Defined at 1088 in deps/jemalloc/src/ctl.c.'>CTL_RO_BOOL_CONFIG_GEN</a>(config_tcache)
+<a name='L1243'><a href='../S/206.html#L1088' title='Defined at 1088 in deps/jemalloc/src/ctl.c.'>CTL_RO_BOOL_CONFIG_GEN</a>(config_tls)
+<a name='L1244'><a href='../S/206.html#L1088' title='Defined at 1088 in deps/jemalloc/src/ctl.c.'>CTL_RO_BOOL_CONFIG_GEN</a>(config_utrace)
+<a name='L1245'><a href='../S/206.html#L1088' title='Defined at 1088 in deps/jemalloc/src/ctl.c.'>CTL_RO_BOOL_CONFIG_GEN</a>(config_valgrind)
+<a name='L1246'><a href='../S/206.html#L1088' title='Defined at 1088 in deps/jemalloc/src/ctl.c.'>CTL_RO_BOOL_CONFIG_GEN</a>(config_xmalloc)
+<a name='L1247'>
+<a name='L1248'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L1249'>
+<a name='L1250'><a href='../D/105.html' title='Multiple defined in 5 places.'>CTL_RO_NL_GEN</a>(opt_abort, opt_abort, bool)
+<a name='L1251'><a href='../D/105.html' title='Multiple defined in 5 places.'>CTL_RO_NL_GEN</a>(opt_dss, opt_dss, <b>const</b> <b>char</b> *)
+<a name='L1252'><a href='../D/105.html' title='Multiple defined in 5 places.'>CTL_RO_NL_GEN</a>(opt_lg_chunk, opt_lg_chunk, size_t)
+<a name='L1253'><a href='../D/105.html' title='Multiple defined in 5 places.'>CTL_RO_NL_GEN</a>(opt_narenas, opt_narenas, size_t)
+<a name='L1254'><a href='../D/105.html' title='Multiple defined in 5 places.'>CTL_RO_NL_GEN</a>(opt_lg_dirty_mult, opt_lg_dirty_mult, ssize_t)
+<a name='L1255'><a href='../D/105.html' title='Multiple defined in 5 places.'>CTL_RO_NL_GEN</a>(opt_stats_print, opt_stats_print, bool)
+<a name='L1256'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_fill, opt_junk, opt_junk, bool)
+<a name='L1257'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_fill, opt_zero, opt_zero, bool)
+<a name='L1258'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_fill, opt_quarantine, opt_quarantine, size_t)
+<a name='L1259'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_fill, opt_redzone, opt_redzone, bool)
+<a name='L1260'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_utrace, opt_utrace, opt_utrace, bool)
+<a name='L1261'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_valgrind, opt_valgrind, opt_valgrind, bool)
+<a name='L1262'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_xmalloc, opt_xmalloc, opt_xmalloc, bool)
+<a name='L1263'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_tcache, opt_tcache, opt_tcache, bool)
+<a name='L1264'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_tcache, opt_lg_tcache_max, opt_lg_tcache_max, ssize_t)
+<a name='L1265'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_prof, opt_prof, opt_prof, bool)
+<a name='L1266'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_prof, opt_prof_prefix, opt_prof_prefix, <b>const</b> <b>char</b> *)
+<a name='L1267'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_prof, opt_prof_active, opt_prof_active, bool) <i><font color='green'>/* Mutable. */</font></i>
+<a name='L1268'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_prof, opt_lg_prof_sample, opt_lg_prof_sample, size_t)
+<a name='L1269'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_prof, opt_lg_prof_interval, opt_lg_prof_interval, ssize_t)
+<a name='L1270'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_prof, opt_prof_gdump, opt_prof_gdump, bool)
+<a name='L1271'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_prof, opt_prof_final, opt_prof_final, bool)
+<a name='L1272'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_prof, opt_prof_leak, opt_prof_leak, bool)
+<a name='L1273'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_prof, opt_prof_accum, opt_prof_accum, bool)
+<a name='L1274'>
+<a name='L1275'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L1276'>
+<a name='L1277'><i><font color='green'>/* ctl_mutex must be held during execution of this function. */</font></i>
+<a name='L1278'><b>static</b> <b>void</b>
+<a name='L1279'>arena_purge(<b>unsigned</b> arena_ind)
+<a name='L1280'><font color='red'>{</font>
+<a name='L1281'>        VARIABLE_ARRAY(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *, tarenas, ctl_stats.narenas);
+<a name='L1282'>
+<a name='L1283'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;<a href='../S/138.html#L60' title='Defined at 60 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas_lock</a>);
+<a name='L1284'>        memcpy(tarenas, <a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>, <b>sizeof</b>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *) * ctl_stats.narenas);
+<a name='L1285'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;<a href='../S/138.html#L60' title='Defined at 60 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas_lock</a>);
+<a name='L1286'>
+<a name='L1287'>        <b>if</b> (arena_ind == ctl_stats.narenas) <font color='red'>{</font>
+<a name='L1288'>                <b>unsigned</b> i;
+<a name='L1289'>                <b>for</b> (i = 0; i &lt; ctl_stats.narenas; i++) <font color='red'>{</font>
+<a name='L1290'>                        <b>if</b> (tarenas[i] != NULL)
+<a name='L1291'>                                <a href='../D/1641.html' title='Multiple defined in 2 places.'>arena_purge_all</a>(tarenas[i]);
+<a name='L1292'>                <font color='red'>}</font>
+<a name='L1293'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1294'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(arena_ind &lt; ctl_stats.narenas);
+<a name='L1295'>                <b>if</b> (tarenas[arena_ind] != NULL)
+<a name='L1296'>                        <a href='../D/1641.html' title='Multiple defined in 2 places.'>arena_purge_all</a>(tarenas[arena_ind]);
+<a name='L1297'>        <font color='red'>}</font>
+<a name='L1298'><font color='red'>}</font>
+<a name='L1299'>
+<a name='L1300'><b>static</b> <b>int</b>
+<a name='L1301'>arena_i_purge_ctl(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp, size_t *oldlenp,
+<a name='L1302'>    <b>void</b> *newp, size_t newlen)
+<a name='L1303'><font color='red'>{</font>
+<a name='L1304'>        <b>int</b> ret;
+<a name='L1305'>
+<a name='L1306'>        <a href='../S/206.html#L944' title='Defined at 944 in deps/jemalloc/src/ctl.c.'>READONLY</a>();
+<a name='L1307'>        <a href='../S/206.html#L951' title='Defined at 951 in deps/jemalloc/src/ctl.c.'>WRITEONLY</a>();
+<a name='L1308'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;ctl_mtx);
+<a name='L1309'>        <a href='../S/203.html#L861' title='Defined at 861 in deps/jemalloc/src/arena.c.'>arena_purge</a>(mib[1]);
+<a name='L1310'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;ctl_mtx);
+<a name='L1311'>
+<a name='L1312'>        ret = 0;
+<a name='L1313'>label_return:
+<a name='L1314'>        <b>return</b> (ret);
+<a name='L1315'><font color='red'>}</font>
+<a name='L1316'>
+<a name='L1317'><b>static</b> <b>int</b>
+<a name='L1318'>arena_i_dss_ctl(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp, size_t *oldlenp,
+<a name='L1319'>    <b>void</b> *newp, size_t newlen)
+<a name='L1320'><font color='red'>{</font>
+<a name='L1321'>        <b>int</b> ret, i;
+<a name='L1322'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> <a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a>, err;
+<a name='L1323'>        <b>const</b> <b>char</b> *dss;
+<a name='L1324'>        <b>unsigned</b> arena_ind = mib[1];
+<a name='L1325'>        <a href='../S/130.html#L10' title='Defined at 10 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>dss_prec_t</a> dss_prec_old = <a href='../S/130.html#L9' title='Defined at 9 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>dss_prec_limit</a>;
+<a name='L1326'>        <a href='../S/130.html#L10' title='Defined at 10 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>dss_prec_t</a> dss_prec = <a href='../S/130.html#L9' title='Defined at 9 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>dss_prec_limit</a>;
+<a name='L1327'>
+<a name='L1328'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;ctl_mtx);
+<a name='L1329'>        <a href='../S/206.html#L971' title='Defined at 971 in deps/jemalloc/src/ctl.c.'>WRITE</a>(dss, <b>const</b> <b>char</b> *);
+<a name='L1330'>        <a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a> = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L1331'>        <b>for</b> (i = 0; i &lt; <a href='../S/130.html#L9' title='Defined at 9 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>dss_prec_limit</a>; i++) <font color='red'>{</font>
+<a name='L1332'>                <b>if</b> (strcmp(<a href='../S/138.html#L142' title='Defined at 142 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>dss_prec_names</a>[i], dss) == 0) <font color='red'>{</font>
+<a name='L1333'>                        dss_prec = i;
+<a name='L1334'>                        <a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a> = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L1335'>                        <b>break</b>;
+<a name='L1336'>                <font color='red'>}</font>
+<a name='L1337'>        <font color='red'>}</font>
+<a name='L1338'>        <b>if</b> (<a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a> == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>) <font color='red'>{</font>
+<a name='L1339'>                ret = EINVAL;
+<a name='L1340'>                <b>goto</b> label_return;
+<a name='L1341'>        <font color='red'>}</font>
+<a name='L1342'>
+<a name='L1343'>        <b>if</b> (arena_ind &lt; ctl_stats.narenas) <font color='red'>{</font>
+<a name='L1344'>                <a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena = <a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[arena_ind];
+<a name='L1345'>                <b>if</b> (arena != NULL) <font color='red'>{</font>
+<a name='L1346'>                        dss_prec_old = <a href='../D/1603.html' title='Multiple defined in 2 places.'>arena_dss_prec_get</a>(arena);
+<a name='L1347'>                        <a href='../D/1604.html' title='Multiple defined in 2 places.'>arena_dss_prec_set</a>(arena, dss_prec);
+<a name='L1348'>                        err = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L1349'>                <font color='red'>}</font> <b>else</b>
+<a name='L1350'>                        err = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L1351'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1352'>                dss_prec_old = <a href='../D/1849.html' title='Multiple defined in 2 places.'>chunk_dss_prec_get</a>();
+<a name='L1353'>                err = <a href='../D/1850.html' title='Multiple defined in 2 places.'>chunk_dss_prec_set</a>(dss_prec);
+<a name='L1354'>        <font color='red'>}</font>
+<a name='L1355'>        dss = <a href='../S/138.html#L142' title='Defined at 142 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>dss_prec_names</a>[dss_prec_old];
+<a name='L1356'>        <a href='../S/206.html#L958' title='Defined at 958 in deps/jemalloc/src/ctl.c.'>READ</a>(dss, <b>const</b> <b>char</b> *);
+<a name='L1357'>        <b>if</b> (err) <font color='red'>{</font>
+<a name='L1358'>                ret = EFAULT;
+<a name='L1359'>                <b>goto</b> label_return;
+<a name='L1360'>        <font color='red'>}</font>
+<a name='L1361'>
+<a name='L1362'>        ret = 0;
+<a name='L1363'>label_return:
+<a name='L1364'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;ctl_mtx);
+<a name='L1365'>        <b>return</b> (ret);
+<a name='L1366'><font color='red'>}</font>
+<a name='L1367'>
+<a name='L1368'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> *
+<a name='L1369'>arena_i_index(<b>const</b> size_t *mib, size_t miblen, size_t i)
+<a name='L1370'><font color='red'>{</font>
+<a name='L1371'>        <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> * ret;
+<a name='L1372'>
+<a name='L1373'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;ctl_mtx);
+<a name='L1374'>        <b>if</b> (i &gt; ctl_stats.narenas) <font color='red'>{</font>
+<a name='L1375'>                ret = NULL;
+<a name='L1376'>                <b>goto</b> label_return;
+<a name='L1377'>        <font color='red'>}</font>
+<a name='L1378'>
+<a name='L1379'>        ret = super_arena_i_node;
+<a name='L1380'>label_return:
+<a name='L1381'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;ctl_mtx);
+<a name='L1382'>        <b>return</b> (ret);
+<a name='L1383'><font color='red'>}</font>
+<a name='L1384'>
+<a name='L1385'>
+<a name='L1386'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L1387'>
+<a name='L1388'><a href='../R/102.html' title='Multiple refered from 11 places.'>CTL_RO_NL_GEN</a>(arenas_bin_i_size, arena_bin_info[mib[2]].reg_size, size_t)
+<a name='L1389'><a href='../D/105.html' title='Multiple defined in 5 places.'>CTL_RO_NL_GEN</a>(arenas_bin_i_nregs, arena_bin_info[mib[2]].nregs, <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a>)
+<a name='L1390'><a href='../D/105.html' title='Multiple defined in 5 places.'>CTL_RO_NL_GEN</a>(arenas_bin_i_run_size, arena_bin_info[mib[2]].run_size, size_t)
+<a name='L1391'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> *
+<a name='L1392'>arenas_bin_i_index(<b>const</b> size_t *mib, size_t miblen, size_t i)
+<a name='L1393'><font color='red'>{</font>
+<a name='L1394'>
+<a name='L1395'>        <b>if</b> (i &gt; NBINS)
+<a name='L1396'>                <b>return</b> (NULL);
+<a name='L1397'>        <b>return</b> (super_arenas_bin_i_node);
+<a name='L1398'><font color='red'>}</font>
+<a name='L1399'>
+<a name='L1400'><a href='../R/102.html' title='Multiple refered from 11 places.'>CTL_RO_NL_GEN</a>(arenas_lrun_i_size, ((mib[2]+1) &lt;&lt; LG_PAGE), size_t)
+<a name='L1401'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> *
+<a name='L1402'>arenas_lrun_i_index(<b>const</b> size_t *mib, size_t miblen, size_t i)
+<a name='L1403'><font color='red'>{</font>
+<a name='L1404'>
+<a name='L1405'>        <b>if</b> (i &gt; <a href='../S/146.html#L400' title='Defined at 400 in deps/jemalloc/include/jemalloc/internal/arena.h.'>nlclasses</a>)
+<a name='L1406'>                <b>return</b> (NULL);
+<a name='L1407'>        <b>return</b> (super_arenas_lrun_i_node);
+<a name='L1408'><font color='red'>}</font>
+<a name='L1409'>
+<a name='L1410'><b>static</b> <b>int</b>
+<a name='L1411'>arenas_narenas_ctl(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp,
+<a name='L1412'>    size_t *oldlenp, <b>void</b> *newp, size_t newlen)
+<a name='L1413'><font color='red'>{</font>
+<a name='L1414'>        <b>int</b> ret;
+<a name='L1415'>        <b>unsigned</b> narenas;
+<a name='L1416'>
+<a name='L1417'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;ctl_mtx);
+<a name='L1418'>        <a href='../S/206.html#L944' title='Defined at 944 in deps/jemalloc/src/ctl.c.'>READONLY</a>();
+<a name='L1419'>        <b>if</b> (*oldlenp != <b>sizeof</b>(<b>unsigned</b>)) <font color='red'>{</font>
+<a name='L1420'>                ret = EINVAL;
+<a name='L1421'>                <b>goto</b> label_return;
+<a name='L1422'>        <font color='red'>}</font>
+<a name='L1423'>        narenas = ctl_stats.narenas;
+<a name='L1424'>        <a href='../S/206.html#L958' title='Defined at 958 in deps/jemalloc/src/ctl.c.'>READ</a>(narenas, <b>unsigned</b>);
+<a name='L1425'>
+<a name='L1426'>        ret = 0;
+<a name='L1427'>label_return:
+<a name='L1428'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;ctl_mtx);
+<a name='L1429'>        <b>return</b> (ret);
+<a name='L1430'><font color='red'>}</font>
+<a name='L1431'>
+<a name='L1432'><b>static</b> <b>int</b>
+<a name='L1433'>arenas_initialized_ctl(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp,
+<a name='L1434'>    size_t *oldlenp, <b>void</b> *newp, size_t newlen)
+<a name='L1435'><font color='red'>{</font>
+<a name='L1436'>        <b>int</b> ret;
+<a name='L1437'>        <b>unsigned</b> nread, i;
+<a name='L1438'>
+<a name='L1439'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;ctl_mtx);
+<a name='L1440'>        <a href='../S/206.html#L944' title='Defined at 944 in deps/jemalloc/src/ctl.c.'>READONLY</a>();
+<a name='L1441'>        <b>if</b> (*oldlenp != ctl_stats.narenas * <b>sizeof</b>(<a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>)) <font color='red'>{</font>
+<a name='L1442'>                ret = EINVAL;
+<a name='L1443'>                nread = (*oldlenp &lt; ctl_stats.narenas * <b>sizeof</b>(<a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>))
+<a name='L1444'>                    ? (*oldlenp / <b>sizeof</b>(<a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>)) : ctl_stats.narenas;
+<a name='L1445'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1446'>                ret = 0;
+<a name='L1447'>                nread = ctl_stats.narenas;
+<a name='L1448'>        <font color='red'>}</font>
+<a name='L1449'>
+<a name='L1450'>        <b>for</b> (i = 0; i &lt; nread; i++)
+<a name='L1451'>                ((<a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> *)oldp)[i] = ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[i].initialized;
+<a name='L1452'>
+<a name='L1453'>label_return:
+<a name='L1454'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;ctl_mtx);
+<a name='L1455'>        <b>return</b> (ret);
+<a name='L1456'><font color='red'>}</font>
+<a name='L1457'>
+<a name='L1458'><a href='../R/102.html' title='Multiple refered from 11 places.'>CTL_RO_NL_GEN</a>(arenas_quantum, QUANTUM, size_t)
+<a name='L1459'><a href='../D/105.html' title='Multiple defined in 5 places.'>CTL_RO_NL_GEN</a>(arenas_page, PAGE, size_t)
+<a name='L1460'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_tcache, arenas_tcache_max, tcache_maxclass, size_t)
+<a name='L1461'><a href='../D/105.html' title='Multiple defined in 5 places.'>CTL_RO_NL_GEN</a>(arenas_nbins, NBINS, <b>unsigned</b>)
+<a name='L1462'><a href='../D/104.html' title='Multiple defined in 3 places.'>CTL_RO_NL_CGEN</a>(config_tcache, arenas_nhbins, nhbins, <b>unsigned</b>)
+<a name='L1463'><a href='../D/105.html' title='Multiple defined in 5 places.'>CTL_RO_NL_GEN</a>(arenas_nlruns, nlclasses, size_t)
+<a name='L1464'>
+<a name='L1465'><b>static</b> <b>int</b>
+<a name='L1466'>arenas_purge_ctl(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp, size_t *oldlenp,
+<a name='L1467'>    <b>void</b> *newp, size_t newlen)
+<a name='L1468'><font color='red'>{</font>
+<a name='L1469'>        <b>int</b> ret;
+<a name='L1470'>        <b>unsigned</b> arena_ind;
+<a name='L1471'>
+<a name='L1472'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;ctl_mtx);
+<a name='L1473'>        <a href='../S/206.html#L951' title='Defined at 951 in deps/jemalloc/src/ctl.c.'>WRITEONLY</a>();
+<a name='L1474'>        arena_ind = UINT_MAX;
+<a name='L1475'>        <a href='../S/206.html#L971' title='Defined at 971 in deps/jemalloc/src/ctl.c.'>WRITE</a>(arena_ind, <b>unsigned</b>);
+<a name='L1476'>        <b>if</b> (newp != NULL &amp;&amp; arena_ind &gt;= ctl_stats.narenas)
+<a name='L1477'>                ret = EFAULT;
+<a name='L1478'>        <b>else</b> <font color='red'>{</font>
+<a name='L1479'>                <b>if</b> (arena_ind == UINT_MAX)
+<a name='L1480'>                        arena_ind = ctl_stats.narenas;
+<a name='L1481'>                <a href='../S/203.html#L861' title='Defined at 861 in deps/jemalloc/src/arena.c.'>arena_purge</a>(arena_ind);
+<a name='L1482'>                ret = 0;
+<a name='L1483'>        <font color='red'>}</font>
+<a name='L1484'>
+<a name='L1485'>label_return:
+<a name='L1486'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;ctl_mtx);
+<a name='L1487'>        <b>return</b> (ret);
+<a name='L1488'><font color='red'>}</font>
+<a name='L1489'>
+<a name='L1490'><b>static</b> <b>int</b>
+<a name='L1491'>arenas_extend_ctl(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp, size_t *oldlenp,
+<a name='L1492'>    <b>void</b> *newp, size_t newlen)
+<a name='L1493'><font color='red'>{</font>
+<a name='L1494'>        <b>int</b> ret;
+<a name='L1495'>
+<a name='L1496'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;ctl_mtx);
+<a name='L1497'>        <a href='../S/206.html#L944' title='Defined at 944 in deps/jemalloc/src/ctl.c.'>READONLY</a>();
+<a name='L1498'>        <b>if</b> (<a href='../S/206.html#L547' title='Defined at 547 in deps/jemalloc/src/ctl.c.'>ctl_grow</a>()) <font color='red'>{</font>
+<a name='L1499'>                ret = EAGAIN;
+<a name='L1500'>                <b>goto</b> label_return;
+<a name='L1501'>        <font color='red'>}</font>
+<a name='L1502'>        <a href='../S/206.html#L958' title='Defined at 958 in deps/jemalloc/src/ctl.c.'>READ</a>(ctl_stats.narenas - 1, <b>unsigned</b>);
+<a name='L1503'>
+<a name='L1504'>        ret = 0;
+<a name='L1505'>label_return:
+<a name='L1506'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;ctl_mtx);
+<a name='L1507'>        <b>return</b> (ret);
+<a name='L1508'><font color='red'>}</font>
+<a name='L1509'>
+<a name='L1510'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L1511'>
+<a name='L1512'><b>static</b> <b>int</b>
+<a name='L1513'>prof_active_ctl(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp, size_t *oldlenp,
+<a name='L1514'>    <b>void</b> *newp, size_t newlen)
+<a name='L1515'><font color='red'>{</font>
+<a name='L1516'>        <b>int</b> ret;
+<a name='L1517'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> oldval;
+<a name='L1518'>
+<a name='L1519'>        <b>if</b> (config_prof == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)
+<a name='L1520'>                <b>return</b> (ENOENT);
+<a name='L1521'>
+<a name='L1522'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;ctl_mtx); <i><font color='green'>/* Protect opt_prof_active. */</font></i>
+<a name='L1523'>        oldval = <a href='../S/138.html#L248' title='Defined at 248 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_active</a>;
+<a name='L1524'>        <b>if</b> (newp != NULL) <font color='red'>{</font>
+<a name='L1525'>                <i><font color='green'>/*</font></i>
+<a name='L1526'><i><font color='green'>                 * The memory barriers will tend to make opt_prof_active</font></i>
+<a name='L1527'><i><font color='green'>                 * propagate faster on systems with weak memory ordering.</font></i>
+<a name='L1528'><i><font color='green'>                 */</font></i>
+<a name='L1529'>                <a href='../D/3341.html' title='Multiple defined in 7 places.'>mb_write</a>();
+<a name='L1530'>                <a href='../S/206.html#L971' title='Defined at 971 in deps/jemalloc/src/ctl.c.'>WRITE</a>(<a href='../S/138.html#L248' title='Defined at 248 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_active</a>, <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>);
+<a name='L1531'>                <a href='../D/3341.html' title='Multiple defined in 7 places.'>mb_write</a>();
+<a name='L1532'>        <font color='red'>}</font>
+<a name='L1533'>        <a href='../S/206.html#L958' title='Defined at 958 in deps/jemalloc/src/ctl.c.'>READ</a>(oldval, <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>);
+<a name='L1534'>
+<a name='L1535'>        ret = 0;
+<a name='L1536'>label_return:
+<a name='L1537'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;ctl_mtx);
+<a name='L1538'>        <b>return</b> (ret);
+<a name='L1539'><font color='red'>}</font>
+<a name='L1540'>
+<a name='L1541'><b>static</b> <b>int</b>
+<a name='L1542'>prof_dump_ctl(<b>const</b> size_t *mib, size_t miblen, <b>void</b> *oldp, size_t *oldlenp,
+<a name='L1543'>    <b>void</b> *newp, size_t newlen)
+<a name='L1544'><font color='red'>{</font>
+<a name='L1545'>        <b>int</b> ret;
+<a name='L1546'>        <b>const</b> <b>char</b> *filename = NULL;
+<a name='L1547'>
+<a name='L1548'>        <b>if</b> (config_prof == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)
+<a name='L1549'>                <b>return</b> (ENOENT);
+<a name='L1550'>
+<a name='L1551'>        <a href='../S/206.html#L951' title='Defined at 951 in deps/jemalloc/src/ctl.c.'>WRITEONLY</a>();
+<a name='L1552'>        <a href='../S/206.html#L971' title='Defined at 971 in deps/jemalloc/src/ctl.c.'>WRITE</a>(filename, <b>const</b> <b>char</b> *);
+<a name='L1553'>
+<a name='L1554'>        <b>if</b> (<a href='../D/3568.html' title='Multiple defined in 2 places.'>prof_mdump</a>(filename)) <font color='red'>{</font>
+<a name='L1555'>                ret = EFAULT;
+<a name='L1556'>                <b>goto</b> label_return;
+<a name='L1557'>        <font color='red'>}</font>
+<a name='L1558'>
+<a name='L1559'>        ret = 0;
+<a name='L1560'>label_return:
+<a name='L1561'>        <b>return</b> (ret);
+<a name='L1562'><font color='red'>}</font>
+<a name='L1563'>
+<a name='L1564'><a href='../R/101.html' title='Multiple refered from 22 places.'>CTL_RO_NL_CGEN</a>(config_prof, prof_interval, prof_interval, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1565'>
+<a name='L1566'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L1567'>
+<a name='L1568'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_chunks_current, ctl_stats.chunks.current,
+<a name='L1569'>    size_t)
+<a name='L1570'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_chunks_total, ctl_stats.chunks.total, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1571'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_chunks_high, ctl_stats.chunks.high, size_t)
+<a name='L1572'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_huge_allocated, huge_allocated, size_t)
+<a name='L1573'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_huge_nmalloc, huge_nmalloc, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1574'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_huge_ndalloc, huge_ndalloc, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1575'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_small_allocated,
+<a name='L1576'>    ctl_stats.arenas[mib[2]].allocated_small, size_t)
+<a name='L1577'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_small_nmalloc,
+<a name='L1578'>    ctl_stats.arenas[mib[2]].nmalloc_small, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1579'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_small_ndalloc,
+<a name='L1580'>    ctl_stats.arenas[mib[2]].ndalloc_small, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1581'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_small_nrequests,
+<a name='L1582'>    ctl_stats.arenas[mib[2]].nrequests_small, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1583'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_large_allocated,
+<a name='L1584'>    ctl_stats.arenas[mib[2]].astats.allocated_large, size_t)
+<a name='L1585'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_large_nmalloc,
+<a name='L1586'>    ctl_stats.arenas[mib[2]].astats.nmalloc_large, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1587'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_large_ndalloc,
+<a name='L1588'>    ctl_stats.arenas[mib[2]].astats.ndalloc_large, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1589'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_large_nrequests,
+<a name='L1590'>    ctl_stats.arenas[mib[2]].astats.nrequests_large, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1591'>
+<a name='L1592'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_bins_j_allocated,
+<a name='L1593'>    ctl_stats.arenas[mib[2]].bstats[mib[4]].allocated, size_t)
+<a name='L1594'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_bins_j_nmalloc,
+<a name='L1595'>    ctl_stats.arenas[mib[2]].bstats[mib[4]].nmalloc, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1596'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_bins_j_ndalloc,
+<a name='L1597'>    ctl_stats.arenas[mib[2]].bstats[mib[4]].ndalloc, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1598'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_bins_j_nrequests,
+<a name='L1599'>    ctl_stats.arenas[mib[2]].bstats[mib[4]].nrequests, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1600'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats &amp;&amp; config_tcache, stats_arenas_i_bins_j_nfills,
+<a name='L1601'>    ctl_stats.arenas[mib[2]].bstats[mib[4]].nfills, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1602'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats &amp;&amp; config_tcache, stats_arenas_i_bins_j_nflushes,
+<a name='L1603'>    ctl_stats.arenas[mib[2]].bstats[mib[4]].nflushes, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1604'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_bins_j_nruns,
+<a name='L1605'>    ctl_stats.arenas[mib[2]].bstats[mib[4]].nruns, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1606'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_bins_j_nreruns,
+<a name='L1607'>    ctl_stats.arenas[mib[2]].bstats[mib[4]].reruns, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1608'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_bins_j_curruns,
+<a name='L1609'>    ctl_stats.arenas[mib[2]].bstats[mib[4]].curruns, size_t)
+<a name='L1610'>
+<a name='L1611'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> *
+<a name='L1612'>stats_arenas_i_bins_j_index(<b>const</b> size_t *mib, size_t miblen, size_t j)
+<a name='L1613'><font color='red'>{</font>
+<a name='L1614'>
+<a name='L1615'>        <b>if</b> (j &gt; NBINS)
+<a name='L1616'>                <b>return</b> (NULL);
+<a name='L1617'>        <b>return</b> (super_stats_arenas_i_bins_j_node);
+<a name='L1618'><font color='red'>}</font>
+<a name='L1619'>
+<a name='L1620'><a href='../R/99.html' title='Multiple refered from 35 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_lruns_j_nmalloc,
+<a name='L1621'>    ctl_stats.arenas[mib[2]].lstats[mib[4]].nmalloc, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1622'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_lruns_j_ndalloc,
+<a name='L1623'>    ctl_stats.arenas[mib[2]].lstats[mib[4]].ndalloc, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1624'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_lruns_j_nrequests,
+<a name='L1625'>    ctl_stats.arenas[mib[2]].lstats[mib[4]].nrequests, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1626'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_lruns_j_curruns,
+<a name='L1627'>    ctl_stats.arenas[mib[2]].lstats[mib[4]].curruns, size_t)
+<a name='L1628'>
+<a name='L1629'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> *
+<a name='L1630'>stats_arenas_i_lruns_j_index(<b>const</b> size_t *mib, size_t miblen, size_t j)
+<a name='L1631'><font color='red'>{</font>
+<a name='L1632'>
+<a name='L1633'>        <b>if</b> (j &gt; <a href='../S/146.html#L400' title='Defined at 400 in deps/jemalloc/include/jemalloc/internal/arena.h.'>nlclasses</a>)
+<a name='L1634'>                <b>return</b> (NULL);
+<a name='L1635'>        <b>return</b> (super_stats_arenas_i_lruns_j_node);
+<a name='L1636'><font color='red'>}</font>
+<a name='L1637'>
+<a name='L1638'><a href='../R/100.html' title='Multiple refered from 3 places.'>CTL_RO_GEN</a>(stats_arenas_i_nthreads, ctl_stats.arenas[mib[2]].nthreads, <b>unsigned</b>)
+<a name='L1639'><a href='../D/103.html' title='Multiple defined in 2 places.'>CTL_RO_GEN</a>(stats_arenas_i_dss, ctl_stats.arenas[mib[2]].dss, <b>const</b> <b>char</b> *)
+<a name='L1640'><a href='../D/103.html' title='Multiple defined in 2 places.'>CTL_RO_GEN</a>(stats_arenas_i_pactive, ctl_stats.arenas[mib[2]].pactive, size_t)
+<a name='L1641'><a href='../D/103.html' title='Multiple defined in 2 places.'>CTL_RO_GEN</a>(stats_arenas_i_pdirty, ctl_stats.arenas[mib[2]].pdirty, size_t)
+<a name='L1642'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_mapped,
+<a name='L1643'>    ctl_stats.arenas[mib[2]].astats.mapped, size_t)
+<a name='L1644'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_npurge,
+<a name='L1645'>    ctl_stats.arenas[mib[2]].astats.npurge, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1646'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_nmadvise,
+<a name='L1647'>    ctl_stats.arenas[mib[2]].astats.nmadvise, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1648'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_arenas_i_purged,
+<a name='L1649'>    ctl_stats.arenas[mib[2]].astats.purged, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)
+<a name='L1650'>
+<a name='L1651'><b>static</b> <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> *
+<a name='L1652'>stats_arenas_i_index(<b>const</b> size_t *mib, size_t miblen, size_t i)
+<a name='L1653'><font color='red'>{</font>
+<a name='L1654'>        <b>const</b> <a href='../S/135.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ctl.h.'>ctl_named_node_t</a> * ret;
+<a name='L1655'>
+<a name='L1656'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;ctl_mtx);
+<a name='L1657'>        <b>if</b> (i &gt; ctl_stats.narenas || ctl_stats.<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[i].initialized == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>) <font color='red'>{</font>
+<a name='L1658'>                ret = NULL;
+<a name='L1659'>                <b>goto</b> label_return;
+<a name='L1660'>        <font color='red'>}</font>
+<a name='L1661'>
+<a name='L1662'>        ret = super_stats_arenas_i_node;
+<a name='L1663'>label_return:
+<a name='L1664'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;ctl_mtx);
+<a name='L1665'>        <b>return</b> (ret);
+<a name='L1666'><font color='red'>}</font>
+<a name='L1667'>
+<a name='L1668'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_cactive, &amp;stats_cactive, size_t *)
+<a name='L1669'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_allocated, ctl_stats.allocated, size_t)
+<a name='L1670'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_active, ctl_stats.active, size_t)
+<a name='L1671'><a href='../D/101.html' title='Multiple defined in 2 places.'>CTL_RO_CGEN</a>(config_stats, stats_mapped, ctl_stats.mapped, size_t)
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L21'>[^]</a><a href='#L1638'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

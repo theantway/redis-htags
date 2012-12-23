@@ -1,0 +1,378 @@
+<html>
+<head>
+<title>src/adlist.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/adlist.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L41'>[^]</a><a href='#L328'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L41' title='Defined at 41.'>listCreate</a>
+<li><a href='#L58' title='Defined at 58.'>listRelease</a>
+<li><a href='#L80' title='Defined at 80.'>listAddNodeHead</a>
+<li><a href='#L106' title='Defined at 106.'>listAddNodeTail</a>
+<li><a href='#L126' title='Defined at 126.'>listInsertNode</a>
+<li><a href='#L159' title='Defined at 159.'>listDelNode</a>
+<li><a href='#L178' title='Defined at 178.'>listGetIterator</a>
+<li><a href='#L192' title='Defined at 192.'>listReleaseIterator</a>
+<li><a href='#L197' title='Defined at 197.'>listRewind</a>
+<li><a href='#L202' title='Defined at 202.'>listRewindTail</a>
+<li><a href='#L221' title='Defined at 221.'>listNext</a>
+<li><a href='#L242' title='Defined at 242.'>listDup</a>
+<li><a href='#L285' title='Defined at 285.'>listSearchKey</a>
+<li><a href='#L313' title='Defined at 313.'>listIndex</a>
+<li><a href='#L328' title='Defined at 328.'>listRotate</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* adlist.c - A generic doubly linked list implementation</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2006-2010, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'>
+<a name='L32'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L33'><font color='darkred'>#include</font> "<a href='58.html'>adlist.h</a>"
+<a name='L34'><font color='darkred'>#include</font> "<a href='28.html'>zmalloc.h</a>"
+<a name='L35'>
+<a name='L36'><i><font color='green'>/* Create a new list. The created list can be freed with</font></i>
+<a name='L37'><i><font color='green'> * AlFreeList(), but private value of every node need to be freed</font></i>
+<a name='L38'><i><font color='green'> * by the user before to call AlFreeList().</font></i>
+<a name='L39'><i><font color='green'> *</font></i>
+<a name='L40'><i><font color='green'> * On error, NULL is returned. Otherwise the pointer to the new list. */</font></i>
+<a name='L41'><a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *<a href='../R/2382.html' title='Multiple refered from 28 places.'>listCreate</a>(<b>void</b>)
+<a name='L42'><font color='red'>{</font>
+<a name='L43'>    <b>struct</b> <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>;
+<a name='L44'>
+<a name='L45'>    <b>if</b> ((<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(*<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>))) == NULL)
+<a name='L46'>        <b>return</b> NULL;
+<a name='L47'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head = <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail = NULL;
+<a name='L48'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;len = 0;
+<a name='L49'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;dup = NULL;
+<a name='L50'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> = NULL;
+<a name='L51'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;<a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a> = NULL;
+<a name='L52'>    <b>return</b> <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>;
+<a name='L53'><font color='red'>}</font>
+<a name='L54'>
+<a name='L55'><i><font color='green'>/* Free the whole list.</font></i>
+<a name='L56'><i><font color='green'> *</font></i>
+<a name='L57'><i><font color='green'> * This function can't fail. */</font></i>
+<a name='L58'><b>void</b> <a href='../R/2397.html' title='Multiple refered from 17 places.'>listRelease</a>(list *list)
+<a name='L59'><font color='red'>{</font>
+<a name='L60'>    <b>unsigned</b> <b>long</b> len;
+<a name='L61'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *current, *<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L62'>
+<a name='L63'>    current = <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head;
+<a name='L64'>    len = <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;len;
+<a name='L65'>    <b>while</b>(len--) <font color='red'>{</font>
+<a name='L66'>        <a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = current-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L67'>        <b>if</b> (<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>) <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(current-&gt;value);
+<a name='L68'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(current);
+<a name='L69'>        current = <a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L70'>    <font color='red'>}</font>
+<a name='L71'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>);
+<a name='L72'><font color='red'>}</font>
+<a name='L73'>
+<a name='L74'><i><font color='green'>/* Add a new node to the list, to head, contaning the specified 'value'</font></i>
+<a name='L75'><i><font color='green'> * pointer as value.</font></i>
+<a name='L76'><i><font color='green'> *</font></i>
+<a name='L77'><i><font color='green'> * On error, NULL is returned and no operation is performed (i.e. the</font></i>
+<a name='L78'><i><font color='green'> * list remains unaltered).</font></i>
+<a name='L79'><i><font color='green'> * On success the 'list' pointer you pass to the function is returned. */</font></i>
+<a name='L80'><a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *<a href='../R/2380.html' title='Multiple refered from 4 places.'>listAddNodeHead</a>(list *list, <b>void</b> *value)
+<a name='L81'><font color='red'>{</font>
+<a name='L82'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *node;
+<a name='L83'>
+<a name='L84'>    <b>if</b> ((node = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(*node))) == NULL)
+<a name='L85'>        <b>return</b> NULL;
+<a name='L86'>    node-&gt;value = value;
+<a name='L87'>    <b>if</b> (<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;len == 0) <font color='red'>{</font>
+<a name='L88'>        <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head = <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail = node;
+<a name='L89'>        node-&gt;prev = node-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = NULL;
+<a name='L90'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L91'>        node-&gt;prev = NULL;
+<a name='L92'>        node-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head;
+<a name='L93'>        <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head-&gt;prev = node;
+<a name='L94'>        <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head = node;
+<a name='L95'>    <font color='red'>}</font>
+<a name='L96'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;len++;
+<a name='L97'>    <b>return</b> <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>;
+<a name='L98'><font color='red'>}</font>
+<a name='L99'>
+<a name='L100'><i><font color='green'>/* Add a new node to the list, to tail, contaning the specified 'value'</font></i>
+<a name='L101'><i><font color='green'> * pointer as value.</font></i>
+<a name='L102'><i><font color='green'> *</font></i>
+<a name='L103'><i><font color='green'> * On error, NULL is returned and no operation is performed (i.e. the</font></i>
+<a name='L104'><i><font color='green'> * list remains unaltered).</font></i>
+<a name='L105'><i><font color='green'> * On success the 'list' pointer you pass to the function is returned. */</font></i>
+<a name='L106'><a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *<a href='../R/2381.html' title='Multiple refered from 30 places.'>listAddNodeTail</a>(list *list, <b>void</b> *value)
+<a name='L107'><font color='red'>{</font>
+<a name='L108'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *node;
+<a name='L109'>
+<a name='L110'>    <b>if</b> ((node = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(*node))) == NULL)
+<a name='L111'>        <b>return</b> NULL;
+<a name='L112'>    node-&gt;value = value;
+<a name='L113'>    <b>if</b> (<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;len == 0) <font color='red'>{</font>
+<a name='L114'>        <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head = <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail = node;
+<a name='L115'>        node-&gt;prev = node-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = NULL;
+<a name='L116'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L117'>        node-&gt;prev = <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail;
+<a name='L118'>        node-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = NULL;
+<a name='L119'>        <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = node;
+<a name='L120'>        <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail = node;
+<a name='L121'>    <font color='red'>}</font>
+<a name='L122'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;len++;
+<a name='L123'>    <b>return</b> <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>;
+<a name='L124'><font color='red'>}</font>
+<a name='L125'>
+<a name='L126'><a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *<a href='../R/2388.html' title='Multiple refered from 3 places.'>listInsertNode</a>(list *list, listNode *old_node, <b>void</b> *value, <b>int</b> after) <font color='red'>{</font>
+<a name='L127'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *node;
+<a name='L128'>
+<a name='L129'>    <b>if</b> ((node = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(*node))) == NULL)
+<a name='L130'>        <b>return</b> NULL;
+<a name='L131'>    node-&gt;value = value;
+<a name='L132'>    <b>if</b> (after) <font color='red'>{</font>
+<a name='L133'>        node-&gt;prev = old_node;
+<a name='L134'>        node-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = old_node-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L135'>        <b>if</b> (<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail == old_node) <font color='red'>{</font>
+<a name='L136'>            <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail = node;
+<a name='L137'>        <font color='red'>}</font>
+<a name='L138'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L139'>        node-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = old_node;
+<a name='L140'>        node-&gt;prev = old_node-&gt;prev;
+<a name='L141'>        <b>if</b> (<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head == old_node) <font color='red'>{</font>
+<a name='L142'>            <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head = node;
+<a name='L143'>        <font color='red'>}</font>
+<a name='L144'>    <font color='red'>}</font>
+<a name='L145'>    <b>if</b> (node-&gt;prev != NULL) <font color='red'>{</font>
+<a name='L146'>        node-&gt;prev-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = node;
+<a name='L147'>    <font color='red'>}</font>
+<a name='L148'>    <b>if</b> (node-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> != NULL) <font color='red'>{</font>
+<a name='L149'>        node-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>-&gt;prev = node;
+<a name='L150'>    <font color='red'>}</font>
+<a name='L151'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;len++;
+<a name='L152'>    <b>return</b> <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>;
+<a name='L153'><font color='red'>}</font>
+<a name='L154'>
+<a name='L155'><i><font color='green'>/* Remove the specified node from the specified list.</font></i>
+<a name='L156'><i><font color='green'> * It's up to the caller to free the private value of the node.</font></i>
+<a name='L157'><i><font color='green'> *</font></i>
+<a name='L158'><i><font color='green'> * This function can't fail. */</font></i>
+<a name='L159'><b>void</b> <a href='../R/2383.html' title='Multiple refered from 28 places.'>listDelNode</a>(list *list, listNode *node)
+<a name='L160'><font color='red'>{</font>
+<a name='L161'>    <b>if</b> (node-&gt;prev)
+<a name='L162'>        node-&gt;prev-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = node-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L163'>    <b>else</b>
+<a name='L164'>        <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head = node-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L165'>    <b>if</b> (node-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>)
+<a name='L166'>        node-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>-&gt;prev = node-&gt;prev;
+<a name='L167'>    <b>else</b>
+<a name='L168'>        <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail = node-&gt;prev;
+<a name='L169'>    <b>if</b> (<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>) <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(node-&gt;value);
+<a name='L170'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(node);
+<a name='L171'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;len--;
+<a name='L172'><font color='red'>}</font>
+<a name='L173'>
+<a name='L174'><i><font color='green'>/* Returns a list iterator 'iter'. After the initialization every</font></i>
+<a name='L175'><i><font color='green'> * call to listNext() will return the next element of the list.</font></i>
+<a name='L176'><i><font color='green'> *</font></i>
+<a name='L177'><i><font color='green'> * This function can't fail. */</font></i>
+<a name='L178'><a href='../D/2703.html' title='Multiple defined in 2 places.'>listIter</a> *<a href='../R/2386.html' title='Multiple refered from 3 places.'>listGetIterator</a>(list *list, <b>int</b> direction)
+<a name='L179'><font color='red'>{</font>
+<a name='L180'>    <a href='../D/2703.html' title='Multiple defined in 2 places.'>listIter</a> *iter;
+<a name='L181'>    
+<a name='L182'>    <b>if</b> ((iter = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(*iter))) == NULL) <b>return</b> NULL;
+<a name='L183'>    <b>if</b> (direction == <a href='../S/58.html#L90' title='Defined at 90 in src/adlist.h.'>AL_START_HEAD</a>)
+<a name='L184'>        iter-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head;
+<a name='L185'>    <b>else</b>
+<a name='L186'>        iter-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail;
+<a name='L187'>    iter-&gt;direction = direction;
+<a name='L188'>    <b>return</b> iter;
+<a name='L189'><font color='red'>}</font>
+<a name='L190'>
+<a name='L191'><i><font color='green'>/* Release the iterator memory */</font></i>
+<a name='L192'><b>void</b> <a href='../R/2398.html' title='Multiple refered from 7 places.'>listReleaseIterator</a>(listIter *iter) <font color='red'>{</font>
+<a name='L193'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(iter);
+<a name='L194'><font color='red'>}</font>
+<a name='L195'>
+<a name='L196'><i><font color='green'>/* Create an iterator in the list private iterator structure */</font></i>
+<a name='L197'><b>void</b> <a href='../R/2399.html' title='Multiple refered from 32 places.'>listRewind</a>(list *list, listIter *li) <font color='red'>{</font>
+<a name='L198'>    li-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head;
+<a name='L199'>    li-&gt;direction = <a href='../S/58.html#L90' title='Defined at 90 in src/adlist.h.'>AL_START_HEAD</a>;
+<a name='L200'><font color='red'>}</font>
+<a name='L201'>
+<a name='L202'><b>void</b> <a href='../S/58.html#L86' title='Refered from 86 in src/adlist.h.'>listRewindTail</a>(list *list, listIter *li) <font color='red'>{</font>
+<a name='L203'>    li-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail;
+<a name='L204'>    li-&gt;direction = <a href='../S/58.html#L91' title='Defined at 91 in src/adlist.h.'>AL_START_TAIL</a>;
+<a name='L205'><font color='red'>}</font>
+<a name='L206'>
+<a name='L207'><i><font color='green'>/* Return the next element of an iterator.</font></i>
+<a name='L208'><i><font color='green'> * It's valid to remove the currently returned element using</font></i>
+<a name='L209'><i><font color='green'> * listDelNode(), but not to remove other elements.</font></i>
+<a name='L210'><i><font color='green'> *</font></i>
+<a name='L211'><i><font color='green'> * The function returns a pointer to the next element of the list,</font></i>
+<a name='L212'><i><font color='green'> * or NULL if there are no more elements, so the classical usage patter</font></i>
+<a name='L213'><i><font color='green'> * is:</font></i>
+<a name='L214'><i><font color='green'> *</font></i>
+<a name='L215'><i><font color='green'> * iter = listGetIterator(list,&lt;direction&gt;);</font></i>
+<a name='L216'><i><font color='green'> * while ((node = listNext(iter)) != NULL) {</font></i>
+<a name='L217'><i><font color='green'> *     doSomethingWith(listNodeValue(node));</font></i>
+<a name='L218'><i><font color='green'> * }</font></i>
+<a name='L219'><i><font color='green'> *</font></i>
+<a name='L220'><i><font color='green'> * */</font></i>
+<a name='L221'><a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *<a href='../R/2394.html' title='Multiple refered from 34 places.'>listNext</a>(listIter *iter)
+<a name='L222'><font color='red'>{</font>
+<a name='L223'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *current = iter-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L224'>
+<a name='L225'>    <b>if</b> (current != NULL) <font color='red'>{</font>
+<a name='L226'>        <b>if</b> (iter-&gt;direction == <a href='../S/58.html#L90' title='Defined at 90 in src/adlist.h.'>AL_START_HEAD</a>)
+<a name='L227'>            iter-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = current-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L228'>        <b>else</b>
+<a name='L229'>            iter-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = current-&gt;prev;
+<a name='L230'>    <font color='red'>}</font>
+<a name='L231'>    <b>return</b> current;
+<a name='L232'><font color='red'>}</font>
+<a name='L233'>
+<a name='L234'><i><font color='green'>/* Duplicate the whole list. On out of memory NULL is returned.</font></i>
+<a name='L235'><i><font color='green'> * On success a copy of the original list is returned.</font></i>
+<a name='L236'><i><font color='green'> *</font></i>
+<a name='L237'><i><font color='green'> * The 'Dup' method set with listSetDupMethod() function is used</font></i>
+<a name='L238'><i><font color='green'> * to copy the node value. Otherwise the same pointer value of</font></i>
+<a name='L239'><i><font color='green'> * the original node is used as value of the copied node.</font></i>
+<a name='L240'><i><font color='green'> *</font></i>
+<a name='L241'><i><font color='green'> * The original list both on success or error is never modified. */</font></i>
+<a name='L242'><a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *<a href='../R/2384.html' title='Multiple refered from 2 places.'>listDup</a>(list *orig)
+<a name='L243'><font color='red'>{</font>
+<a name='L244'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *copy;
+<a name='L245'>    <a href='../D/2703.html' title='Multiple defined in 2 places.'>listIter</a> *iter;
+<a name='L246'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *node;
+<a name='L247'>
+<a name='L248'>    <b>if</b> ((copy = <a href='../S/54.html#L41' title='Defined at 41 in src/adlist.c.'>listCreate</a>()) == NULL)
+<a name='L249'>        <b>return</b> NULL;
+<a name='L250'>    copy-&gt;dup = orig-&gt;dup;
+<a name='L251'>    copy-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> = orig-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>;
+<a name='L252'>    copy-&gt;<a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a> = orig-&gt;<a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a>;
+<a name='L253'>    iter = <a href='../S/54.html#L178' title='Defined at 178 in src/adlist.c.'>listGetIterator</a>(orig, <a href='../S/58.html#L90' title='Defined at 90 in src/adlist.h.'>AL_START_HEAD</a>);
+<a name='L254'>    <b>while</b>((node = <a href='../S/54.html#L221' title='Defined at 221 in src/adlist.c.'>listNext</a>(iter)) != NULL) <font color='red'>{</font>
+<a name='L255'>        <b>void</b> *value;
+<a name='L256'>
+<a name='L257'>        <b>if</b> (copy-&gt;dup) <font color='red'>{</font>
+<a name='L258'>            value = copy-&gt;dup(node-&gt;value);
+<a name='L259'>            <b>if</b> (value == NULL) <font color='red'>{</font>
+<a name='L260'>                <a href='../S/54.html#L58' title='Defined at 58 in src/adlist.c.'>listRelease</a>(copy);
+<a name='L261'>                <a href='../S/54.html#L192' title='Defined at 192 in src/adlist.c.'>listReleaseIterator</a>(iter);
+<a name='L262'>                <b>return</b> NULL;
+<a name='L263'>            <font color='red'>}</font>
+<a name='L264'>        <font color='red'>}</font> <b>else</b>
+<a name='L265'>            value = node-&gt;value;
+<a name='L266'>        <b>if</b> (<a href='../S/54.html#L106' title='Defined at 106 in src/adlist.c.'>listAddNodeTail</a>(copy, value) == NULL) <font color='red'>{</font>
+<a name='L267'>            <a href='../S/54.html#L58' title='Defined at 58 in src/adlist.c.'>listRelease</a>(copy);
+<a name='L268'>            <a href='../S/54.html#L192' title='Defined at 192 in src/adlist.c.'>listReleaseIterator</a>(iter);
+<a name='L269'>            <b>return</b> NULL;
+<a name='L270'>        <font color='red'>}</font>
+<a name='L271'>    <font color='red'>}</font>
+<a name='L272'>    <a href='../S/54.html#L192' title='Defined at 192 in src/adlist.c.'>listReleaseIterator</a>(iter);
+<a name='L273'>    <b>return</b> copy;
+<a name='L274'><font color='red'>}</font>
+<a name='L275'>
+<a name='L276'><i><font color='green'>/* Search the list for a node matching a given key.</font></i>
+<a name='L277'><i><font color='green'> * The match is performed using the 'match' method</font></i>
+<a name='L278'><i><font color='green'> * set with listSetMatchMethod(). If no 'match' method</font></i>
+<a name='L279'><i><font color='green'> * is set, the 'value' pointer of every node is directly</font></i>
+<a name='L280'><i><font color='green'> * compared with the 'key' pointer.</font></i>
+<a name='L281'><i><font color='green'> *</font></i>
+<a name='L282'><i><font color='green'> * On success the first matching node pointer is returned</font></i>
+<a name='L283'><i><font color='green'> * (search starts from head). If no matching node exists</font></i>
+<a name='L284'><i><font color='green'> * NULL is returned. */</font></i>
+<a name='L285'><a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *<a href='../R/2402.html' title='Multiple refered from 12 places.'>listSearchKey</a>(list *list, <b>void</b> *key)
+<a name='L286'><font color='red'>{</font>
+<a name='L287'>    <a href='../D/2703.html' title='Multiple defined in 2 places.'>listIter</a> *iter;
+<a name='L288'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *node;
+<a name='L289'>
+<a name='L290'>    iter = <a href='../S/54.html#L178' title='Defined at 178 in src/adlist.c.'>listGetIterator</a>(<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>, <a href='../S/58.html#L90' title='Defined at 90 in src/adlist.h.'>AL_START_HEAD</a>);
+<a name='L291'>    <b>while</b>((node = <a href='../S/54.html#L221' title='Defined at 221 in src/adlist.c.'>listNext</a>(iter)) != NULL) <font color='red'>{</font>
+<a name='L292'>        <b>if</b> (<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;<a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a>) <font color='red'>{</font>
+<a name='L293'>            <b>if</b> (<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;<a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a>(node-&gt;value, key)) <font color='red'>{</font>
+<a name='L294'>                <a href='../S/54.html#L192' title='Defined at 192 in src/adlist.c.'>listReleaseIterator</a>(iter);
+<a name='L295'>                <b>return</b> node;
+<a name='L296'>            <font color='red'>}</font>
+<a name='L297'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L298'>            <b>if</b> (key == node-&gt;value) <font color='red'>{</font>
+<a name='L299'>                <a href='../S/54.html#L192' title='Defined at 192 in src/adlist.c.'>listReleaseIterator</a>(iter);
+<a name='L300'>                <b>return</b> node;
+<a name='L301'>            <font color='red'>}</font>
+<a name='L302'>        <font color='red'>}</font>
+<a name='L303'>    <font color='red'>}</font>
+<a name='L304'>    <a href='../S/54.html#L192' title='Defined at 192 in src/adlist.c.'>listReleaseIterator</a>(iter);
+<a name='L305'>    <b>return</b> NULL;
+<a name='L306'><font color='red'>}</font>
+<a name='L307'>
+<a name='L308'><i><font color='green'>/* Return the element at the specified zero-based index</font></i>
+<a name='L309'><i><font color='green'> * where 0 is the head, 1 is the element next to head</font></i>
+<a name='L310'><i><font color='green'> * and so on. Negative integers are used in order to count</font></i>
+<a name='L311'><i><font color='green'> * from the tail, -1 is the last element, -2 the penultimante</font></i>
+<a name='L312'><i><font color='green'> * and so on. If the index is out of range NULL is returned. */</font></i>
+<a name='L313'><a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *<a href='../R/2387.html' title='Multiple refered from 6 places.'>listIndex</a>(list *list, <b>long</b> index) <font color='red'>{</font>
+<a name='L314'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *n;
+<a name='L315'>
+<a name='L316'>    <b>if</b> (index &lt; 0) <font color='red'>{</font>
+<a name='L317'>        index = (-index)-1;
+<a name='L318'>        n = <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail;
+<a name='L319'>        <b>while</b>(index-- &amp;&amp; n) n = n-&gt;prev;
+<a name='L320'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L321'>        n = <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head;
+<a name='L322'>        <b>while</b>(index-- &amp;&amp; n) n = n-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L323'>    <font color='red'>}</font>
+<a name='L324'>    <b>return</b> n;
+<a name='L325'><font color='red'>}</font>
+<a name='L326'>
+<a name='L327'><i><font color='green'>/* Rotate the list removing the tail node and inserting it to the head. */</font></i>
+<a name='L328'><b>void</b> <a href='../R/2401.html' title='Multiple refered from 2 places.'>listRotate</a>(list *list) <font color='red'>{</font>
+<a name='L329'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *tail = <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail;
+<a name='L330'>
+<a name='L331'>    <b>if</b> (<a href='../S/58.html#L57' title='Defined at 57 in src/adlist.h.'>listLength</a>(<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>) &lt;= 1) <b>return</b>;
+<a name='L332'>
+<a name='L333'>    <i><font color='green'>/* Detatch current tail */</font></i>
+<a name='L334'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail = tail-&gt;prev;
+<a name='L335'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;tail-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = NULL;
+<a name='L336'>    <i><font color='green'>/* Move it as head */</font></i>
+<a name='L337'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head-&gt;prev = tail;
+<a name='L338'>    tail-&gt;prev = NULL;
+<a name='L339'>    tail-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head;
+<a name='L340'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>-&gt;head = tail;
+<a name='L341'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L41'>[^]</a><a href='#L328'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

@@ -1,0 +1,286 @@
+<html>
+<head>
+<title>src/memtest.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/memtest.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L59'>[^]</a><a href='#L243'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L59' title='Defined at 59.'>memtest_progress_start</a>
+<li><a href='#L74' title='Defined at 74.'>memtest_progress_end</a>
+<li><a href='#L78' title='Defined at 78.'>memtest_progress_step</a>
+<li><a href='#L91' title='Defined at 91.'>memtest_addressing</a>
+<li><a href='#L119' title='Defined at 119.'>memtest_fill_random</a>
+<li><a href='#L149' title='Defined at 149.'>memtest_fill_value</a>
+<li><a href='#L180' title='Defined at 180.'>memtest_compare</a>
+<li><a href='#L199' title='Defined at 199.'>memtest_compare_times</a>
+<li><a href='#L209' title='Defined at 209.'>memtest_test</a>
+<li><a href='#L243' title='Defined at 243.'>memtest</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L3'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L4'><i><font color='green'> *</font></i>
+<a name='L5'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L6'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L7'><i><font color='green'> *</font></i>
+<a name='L8'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L9'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L10'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L11'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L12'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L13'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L14'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L15'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L16'><i><font color='green'> *</font></i>
+<a name='L17'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L18'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L19'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L20'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L21'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L22'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L23'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L24'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L25'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L26'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L27'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L28'><i><font color='green'> */</font></i>
+<a name='L29'>
+<a name='L30'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L31'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L32'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L33'><font color='darkred'>#include</font> &lt;assert.h&gt;
+<a name='L34'><font color='darkred'>#include</font> &lt;limits.h&gt;
+<a name='L35'><font color='darkred'>#include</font> &lt;errno.h&gt;
+<a name='L36'><font color='darkred'>#include</font> &lt;termios.h&gt;
+<a name='L37'><font color='darkred'>#include</font> &lt;sys/ioctl.h&gt;
+<a name='L38'>
+<a name='L39'><font color='darkred'>#if</font> (ULONG_MAX == 4294967295UL)
+<a name='L40'><font color='darkred'>#define</font> <a href='../R/453.html' title='Multiple refered from 3 places.'>MEMTEST_32BIT</a>
+<a name='L41'><font color='darkred'>#elif</font> (ULONG_MAX == 18446744073709551615ULL)
+<a name='L42'><font color='darkred'>#define</font> MEMTEST_64BIT
+<a name='L43'><font color='darkred'>#else</font>
+<a name='L44'><font color='darkred'>#error</font> "ULONG_MAX value not supported."
+<a name='L45'><font color='darkred'>#endif</font>
+<a name='L46'>
+<a name='L47'><font color='darkred'>#ifdef</font> <a href='../S/19.html#L40' title='Defined at 40 in src/memtest.c.'>MEMTEST_32BIT</a>
+<a name='L48'><font color='darkred'>#define</font> <a href='../S/19.html#L237' title='Refered from 237 in src/memtest.c.'>ULONG_ONEZERO</a> 0xaaaaaaaaUL
+<a name='L49'><font color='darkred'>#define</font> <a href='../S/19.html#L237' title='Refered from 237 in src/memtest.c.'>ULONG_ZEROONE</a> 0x55555555UL
+<a name='L50'><font color='darkred'>#else</font>
+<a name='L51'><font color='darkred'>#define</font> <a href='../S/19.html#L237' title='Refered from 237 in src/memtest.c.'>ULONG_ONEZERO</a> 0xaaaaaaaaaaaaaaaaUL
+<a name='L52'><font color='darkred'>#define</font> <a href='../S/19.html#L237' title='Refered from 237 in src/memtest.c.'>ULONG_ZEROONE</a> 0x5555555555555555UL
+<a name='L53'><font color='darkred'>#endif</font>
+<a name='L54'>
+<a name='L55'><b>static</b> <b>struct</b> winsize ws;
+<a name='L56'>size_t progress_printed; <i><font color='green'>/* Printed chars in screen-wide progress bar. */</font></i>
+<a name='L57'>size_t progress_full; <i><font color='green'>/* How many chars to write to fill the progress bar. */</font></i>
+<a name='L58'>
+<a name='L59'><b>void</b> <a href='../R/3009.html' title='Multiple refered from 5 places.'>memtest_progress_start</a>(<b>char</b> *title, <b>int</b> pass) <font color='red'>{</font>
+<a name='L60'>    <b>int</b> j;
+<a name='L61'>
+<a name='L62'>    printf("\x1b[H\x1b[2J");    <i><font color='green'>/* Cursor home, clear screen. */</font></i>
+<a name='L63'>    <i><font color='green'>/* Fill with dots. */</font></i>
+<a name='L64'>    <b>for</b> (j = 0; j &lt; ws.ws_col*(ws.ws_row-2); j++) printf(".");
+<a name='L65'>    printf("Please keep the test running several minutes per GB of memory.\n");
+<a name='L66'>    printf("Also check http://www.memtest86.com/ and http://pyropus.ca/software/memtester/");
+<a name='L67'>    printf("\x1b[H\x1b[2K");          <i><font color='green'>/* Cursor home, clear current line.  */</font></i>
+<a name='L68'>    printf("%s [%d]\n", title, pass); <i><font color='green'>/* Print title. */</font></i>
+<a name='L69'>    progress_printed = 0;
+<a name='L70'>    progress_full = ws.ws_col*(ws.ws_row-3);
+<a name='L71'>    fflush(stdout);
+<a name='L72'><font color='red'>}</font>
+<a name='L73'>
+<a name='L74'><b>void</b> <a href='../R/3008.html' title='Multiple refered from 5 places.'>memtest_progress_end</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L75'>    printf("\x1b[H\x1b[2J");    <i><font color='green'>/* Cursor home, clear screen. */</font></i>
+<a name='L76'><font color='red'>}</font>
+<a name='L77'>
+<a name='L78'><b>void</b> <a href='../R/3010.html' title='Multiple refered from 5 places.'>memtest_progress_step</a>(size_t curr, size_t size, <b>char</b> c) <font color='red'>{</font>
+<a name='L79'>    size_t chars = ((<b>unsigned</b> <b>long</b> <b>long</b>)curr*progress_full)/size, j;
+<a name='L80'>
+<a name='L81'>    <b>for</b> (j = 0; j &lt; chars-progress_printed; j++) <font color='red'>{</font>
+<a name='L82'>        printf("%c",c);
+<a name='L83'>        progress_printed++;
+<a name='L84'>    <font color='red'>}</font>
+<a name='L85'>    fflush(stdout);
+<a name='L86'><font color='red'>}</font>
+<a name='L87'>
+<a name='L88'><i><font color='green'>/* Test that addressing is fine. Every location is populated with its own</font></i>
+<a name='L89'><i><font color='green'> * address, and finally verified. This test is very fast but may detect</font></i>
+<a name='L90'><i><font color='green'> * ASAP big issues with the memory subsystem. */</font></i>
+<a name='L91'><b>void</b> <a href='../S/19.html#L223' title='Refered from 223 in src/memtest.c.'>memtest_addressing</a>(<b>unsigned</b> <b>long</b> *l, size_t bytes) <font color='red'>{</font>
+<a name='L92'>    <b>unsigned</b> <b>long</b> words = bytes/<b>sizeof</b>(<b>unsigned</b> <b>long</b>);
+<a name='L93'>    <b>unsigned</b> <b>long</b> j, *p;
+<a name='L94'>
+<a name='L95'>    <i><font color='green'>/* Fill */</font></i>
+<a name='L96'>    p = l;
+<a name='L97'>    <b>for</b> (j = 0; j &lt; words; j++) <font color='red'>{</font>
+<a name='L98'>        *p = (<b>unsigned</b> <b>long</b>)p;
+<a name='L99'>        p++;
+<a name='L100'>        <b>if</b> ((j &amp; 0xffff) == 0) <a href='../S/19.html#L78' title='Defined at 78 in src/memtest.c.'>memtest_progress_step</a>(j,words*2,'A');
+<a name='L101'>    <font color='red'>}</font>
+<a name='L102'>    <i><font color='green'>/* Test */</font></i>
+<a name='L103'>    p = l;
+<a name='L104'>    <b>for</b> (j = 0; j &lt; words; j++) <font color='red'>{</font>
+<a name='L105'>        <b>if</b> (*p != (<b>unsigned</b> <b>long</b>)p) <font color='red'>{</font>
+<a name='L106'>            printf("\n*** MEMORY ADDRESSING ERROR: %p contains %lu\n",
+<a name='L107'>                (<b>void</b>*) p, *p);
+<a name='L108'>            exit(1);
+<a name='L109'>        <font color='red'>}</font>
+<a name='L110'>        p++;
+<a name='L111'>        <b>if</b> ((j &amp; 0xffff) == 0) <a href='../S/19.html#L78' title='Defined at 78 in src/memtest.c.'>memtest_progress_step</a>(j+words,words*2,'A');
+<a name='L112'>    <font color='red'>}</font>
+<a name='L113'><font color='red'>}</font>
+<a name='L114'>
+<a name='L115'><i><font color='green'>/* Fill words stepping a single page at every write, so we continue to</font></i>
+<a name='L116'><i><font color='green'> * touch all the pages in the smallest amount of time reducing the</font></i>
+<a name='L117'><i><font color='green'> * effectiveness of caches, and making it hard for the OS to transfer</font></i>
+<a name='L118'><i><font color='green'> * pages on the swap. */</font></i>
+<a name='L119'><b>void</b> <a href='../S/19.html#L227' title='Refered from 227 in src/memtest.c.'>memtest_fill_random</a>(<b>unsigned</b> <b>long</b> *l, size_t bytes) <font color='red'>{</font>
+<a name='L120'>    <b>unsigned</b> <b>long</b> step = 4096/<b>sizeof</b>(<b>unsigned</b> <b>long</b>);
+<a name='L121'>    <b>unsigned</b> <b>long</b> words = bytes/<b>sizeof</b>(<b>unsigned</b> <b>long</b>)/2;
+<a name='L122'>    <b>unsigned</b> <b>long</b> iwords = words/step;  <i><font color='green'>/* words per iteration */</font></i>
+<a name='L123'>    <b>unsigned</b> <b>long</b> off, w, *l1, *l2;
+<a name='L124'>
+<a name='L125'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((bytes &amp; 4095) == 0);
+<a name='L126'>    <b>for</b> (off = 0; off &lt; step; off++) <font color='red'>{</font>
+<a name='L127'>        l1 = l+off;
+<a name='L128'>        l2 = l1+words;
+<a name='L129'>        <b>for</b> (w = 0; w &lt; iwords; w++) <font color='red'>{</font>
+<a name='L130'><font color='darkred'>#ifdef</font> <a href='../S/19.html#L40' title='Defined at 40 in src/memtest.c.'>MEMTEST_32BIT</a>
+<a name='L131'>            *l1 = *l2 = ((<b>unsigned</b> <b>long</b>)     (rand()&amp;0xffff)) |
+<a name='L132'>                        (((<b>unsigned</b> <b>long</b>)    (rand()&amp;0xffff)) &lt;&lt; 16);
+<a name='L133'><font color='darkred'>#else</font>
+<a name='L134'>            *l1 = *l2 = ((<b>unsigned</b> <b>long</b>)     (rand()&amp;0xffff)) |
+<a name='L135'>                        (((<b>unsigned</b> <b>long</b>)    (rand()&amp;0xffff)) &lt;&lt; 16) |
+<a name='L136'>                        (((<b>unsigned</b> <b>long</b>)    (rand()&amp;0xffff)) &lt;&lt; 32) |
+<a name='L137'>                        (((<b>unsigned</b> <b>long</b>)    (rand()&amp;0xffff)) &lt;&lt; 48);
+<a name='L138'><font color='darkred'>#endif</font>
+<a name='L139'>            l1 += step;
+<a name='L140'>            l2 += step;
+<a name='L141'>            <b>if</b> ((w &amp; 0xffff) == 0)
+<a name='L142'>                <a href='../S/19.html#L78' title='Defined at 78 in src/memtest.c.'>memtest_progress_step</a>(w+iwords*off,words,'R');
+<a name='L143'>        <font color='red'>}</font>
+<a name='L144'>    <font color='red'>}</font>
+<a name='L145'><font color='red'>}</font>
+<a name='L146'>
+<a name='L147'><i><font color='green'>/* Like memtest_fill_random() but uses the two specified values to fill</font></i>
+<a name='L148'><i><font color='green'> * memory, in an alternated way (v1|v2|v1|v2|...) */</font></i>
+<a name='L149'><b>void</b> <a href='../R/3007.html' title='Multiple refered from 2 places.'>memtest_fill_value</a>(<b>unsigned</b> <b>long</b> *l, size_t bytes, <b>unsigned</b> <b>long</b> v1,
+<a name='L150'>                        <b>unsigned</b> <b>long</b> v2, <b>char</b> sym)
+<a name='L151'><font color='red'>{</font>
+<a name='L152'>    <b>unsigned</b> <b>long</b> step = 4096/<b>sizeof</b>(<b>unsigned</b> <b>long</b>);
+<a name='L153'>    <b>unsigned</b> <b>long</b> words = bytes/<b>sizeof</b>(<b>unsigned</b> <b>long</b>)/2;
+<a name='L154'>    <b>unsigned</b> <b>long</b> iwords = words/step;  <i><font color='green'>/* words per iteration */</font></i>
+<a name='L155'>    <b>unsigned</b> <b>long</b> off, w, *l1, *l2, v;
+<a name='L156'>
+<a name='L157'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((bytes &amp; 4095) == 0);
+<a name='L158'>    <b>for</b> (off = 0; off &lt; step; off++) <font color='red'>{</font>
+<a name='L159'>        l1 = l+off;
+<a name='L160'>        l2 = l1+words;
+<a name='L161'>        v = (off &amp; 1) ? v2 : v1;
+<a name='L162'>        <b>for</b> (w = 0; w &lt; iwords; w++) <font color='red'>{</font>
+<a name='L163'><font color='darkred'>#ifdef</font> <a href='../S/19.html#L40' title='Defined at 40 in src/memtest.c.'>MEMTEST_32BIT</a>
+<a name='L164'>            *l1 = *l2 = ((<b>unsigned</b> <b>long</b>)     v) |
+<a name='L165'>                        (((<b>unsigned</b> <b>long</b>)    v) &lt;&lt; 16);
+<a name='L166'><font color='darkred'>#else</font>
+<a name='L167'>            *l1 = *l2 = ((<b>unsigned</b> <b>long</b>)     v) |
+<a name='L168'>                        (((<b>unsigned</b> <b>long</b>)    v) &lt;&lt; 16) |
+<a name='L169'>                        (((<b>unsigned</b> <b>long</b>)    v) &lt;&lt; 32) |
+<a name='L170'>                        (((<b>unsigned</b> <b>long</b>)    v) &lt;&lt; 48);
+<a name='L171'><font color='darkred'>#endif</font>
+<a name='L172'>            l1 += step;
+<a name='L173'>            l2 += step;
+<a name='L174'>            <b>if</b> ((w &amp; 0xffff) == 0)
+<a name='L175'>                <a href='../S/19.html#L78' title='Defined at 78 in src/memtest.c.'>memtest_progress_step</a>(w+iwords*off,words,sym);
+<a name='L176'>        <font color='red'>}</font>
+<a name='L177'>    <font color='red'>}</font>
+<a name='L178'><font color='red'>}</font>
+<a name='L179'>
+<a name='L180'><b>void</b> <a href='../S/19.html#L204' title='Refered from 204 in src/memtest.c.'>memtest_compare</a>(<b>unsigned</b> <b>long</b> *l, size_t bytes) <font color='red'>{</font>
+<a name='L181'>    <b>unsigned</b> <b>long</b> words = bytes/<b>sizeof</b>(<b>unsigned</b> <b>long</b>)/2;
+<a name='L182'>    <b>unsigned</b> <b>long</b> w, *l1, *l2;
+<a name='L183'>
+<a name='L184'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((bytes &amp; 4095) == 0);
+<a name='L185'>    l1 = l;
+<a name='L186'>    l2 = l1+words;
+<a name='L187'>    <b>for</b> (w = 0; w &lt; words; w++) <font color='red'>{</font>
+<a name='L188'>        <b>if</b> (*l1 != *l2) <font color='red'>{</font>
+<a name='L189'>            printf("\n*** MEMORY ERROR DETECTED: %p != %p (%lu vs %lu)\n",
+<a name='L190'>                (<b>void</b>*)l1, (<b>void</b>*)l2, *l1, *l2);
+<a name='L191'>            exit(1);
+<a name='L192'>        <font color='red'>}</font>
+<a name='L193'>        l1 ++;
+<a name='L194'>        l2 ++;
+<a name='L195'>        <b>if</b> ((w &amp; 0xffff) == 0) <a href='../S/19.html#L78' title='Defined at 78 in src/memtest.c.'>memtest_progress_step</a>(w,words,'=');
+<a name='L196'>    <font color='red'>}</font>
+<a name='L197'><font color='red'>}</font>
+<a name='L198'>
+<a name='L199'><b>void</b> <a href='../R/3005.html' title='Multiple refered from 3 places.'>memtest_compare_times</a>(<b>unsigned</b> <b>long</b> *m, size_t bytes, <b>int</b> pass, <b>int</b> times) <font color='red'>{</font>
+<a name='L200'>    <b>int</b> j;
+<a name='L201'>
+<a name='L202'>    <b>for</b> (j = 0; j &lt; times; j++) <font color='red'>{</font>
+<a name='L203'>        <a href='../S/19.html#L59' title='Defined at 59 in src/memtest.c.'>memtest_progress_start</a>("Compare",pass);
+<a name='L204'>        <a href='../S/19.html#L180' title='Defined at 180 in src/memtest.c.'>memtest_compare</a>(m,bytes);
+<a name='L205'>        <a href='../S/19.html#L74' title='Defined at 74 in src/memtest.c.'>memtest_progress_end</a>();
+<a name='L206'>    <font color='red'>}</font>
+<a name='L207'><font color='red'>}</font>
+<a name='L208'>
+<a name='L209'><b>void</b> <a href='../S/19.html#L248' title='Refered from 248 in src/memtest.c.'>memtest_test</a>(size_t megabytes, <b>int</b> passes) <font color='red'>{</font>
+<a name='L210'>    size_t bytes = megabytes*1024*1024;
+<a name='L211'>    <b>unsigned</b> <b>long</b> *m = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(bytes);
+<a name='L212'>    <b>int</b> pass = 0;
+<a name='L213'>
+<a name='L214'>    <b>if</b> (m == NULL) <font color='red'>{</font>
+<a name='L215'>        fprintf(stderr,"Unable to allocate %zu megabytes: %s",
+<a name='L216'>            megabytes, strerror(errno));
+<a name='L217'>        exit(1);
+<a name='L218'>    <font color='red'>}</font>
+<a name='L219'>    <b>while</b> (pass != passes) <font color='red'>{</font>
+<a name='L220'>        pass++;
+<a name='L221'>
+<a name='L222'>        <a href='../S/19.html#L59' title='Defined at 59 in src/memtest.c.'>memtest_progress_start</a>("Addressing test",pass);
+<a name='L223'>        <a href='../S/19.html#L91' title='Defined at 91 in src/memtest.c.'>memtest_addressing</a>(m,bytes);
+<a name='L224'>        <a href='../S/19.html#L74' title='Defined at 74 in src/memtest.c.'>memtest_progress_end</a>();
+<a name='L225'>
+<a name='L226'>        <a href='../S/19.html#L59' title='Defined at 59 in src/memtest.c.'>memtest_progress_start</a>("Random fill",pass);
+<a name='L227'>        <a href='../S/19.html#L119' title='Defined at 119 in src/memtest.c.'>memtest_fill_random</a>(m,bytes);
+<a name='L228'>        <a href='../S/19.html#L74' title='Defined at 74 in src/memtest.c.'>memtest_progress_end</a>();
+<a name='L229'>        <a href='../S/19.html#L199' title='Defined at 199 in src/memtest.c.'>memtest_compare_times</a>(m,bytes,pass,4);
+<a name='L230'>
+<a name='L231'>        <a href='../S/19.html#L59' title='Defined at 59 in src/memtest.c.'>memtest_progress_start</a>("Solid fill",pass);
+<a name='L232'>        <a href='../S/19.html#L149' title='Defined at 149 in src/memtest.c.'>memtest_fill_value</a>(m,bytes,0,(<b>unsigned</b> <b>long</b>)-1,'S');
+<a name='L233'>        <a href='../S/19.html#L74' title='Defined at 74 in src/memtest.c.'>memtest_progress_end</a>();
+<a name='L234'>        <a href='../S/19.html#L199' title='Defined at 199 in src/memtest.c.'>memtest_compare_times</a>(m,bytes,pass,4);
+<a name='L235'>
+<a name='L236'>        <a href='../S/19.html#L59' title='Defined at 59 in src/memtest.c.'>memtest_progress_start</a>("Checkerboard fill",pass);
+<a name='L237'>        <a href='../S/19.html#L149' title='Defined at 149 in src/memtest.c.'>memtest_fill_value</a>(m,bytes,<a href='../D/1259.html' title='Multiple defined in 2 places.'>ULONG_ONEZERO</a>,<a href='../D/1260.html' title='Multiple defined in 2 places.'>ULONG_ZEROONE</a>,'C');
+<a name='L238'>        <a href='../S/19.html#L74' title='Defined at 74 in src/memtest.c.'>memtest_progress_end</a>();
+<a name='L239'>        <a href='../S/19.html#L199' title='Defined at 199 in src/memtest.c.'>memtest_compare_times</a>(m,bytes,pass,4);
+<a name='L240'>    <font color='red'>}</font>
+<a name='L241'><font color='red'>}</font>
+<a name='L242'>
+<a name='L243'><b>void</b> <a href='../R/3002.html' title='Multiple refered from 2 places.'>memtest</a>(size_t megabytes, <b>int</b> passes) <font color='red'>{</font>
+<a name='L244'>    <b>if</b> (ioctl(1, TIOCGWINSZ, &amp;ws) == -1) <font color='red'>{</font>
+<a name='L245'>        ws.ws_col = 80;
+<a name='L246'>        ws.ws_row = 20;
+<a name='L247'>    <font color='red'>}</font>
+<a name='L248'>    <a href='../S/19.html#L209' title='Defined at 209 in src/memtest.c.'>memtest_test</a>(megabytes,passes);
+<a name='L249'>    printf("\nYour memory passed this test.\n");
+<a name='L250'>    printf("Please if you are still in doubt use the following two tools:\n");
+<a name='L251'>    printf("1) memtest86: http://www.memtest86.com/\n");
+<a name='L252'>    printf("2) memtester: http://pyropus.ca/software/memtester/\n");
+<a name='L253'>    exit(0);
+<a name='L254'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L59'>[^]</a><a href='#L243'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

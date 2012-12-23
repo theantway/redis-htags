@@ -1,0 +1,687 @@
+<html>
+<head>
+<title>deps/hiredis/test.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/388.html'>hiredis</a>/test.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L37'>[^]</a><a href='#L595'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L37' title='Defined at 37.'>usec</a>
+<li><a href='#L43' title='Defined at 43.'>select_database</a>
+<li><a href='#L65' title='Defined at 65.'>disconnect</a>
+<li><a href='#L80' title='Defined at 80.'>connect</a>
+<li><a href='#L99' title='Defined at 99.'>test_format_commands</a>
+<li><a href='#L203' title='Defined at 203.'>test_reply_reader</a>
+<li><a href='#L280' title='Defined at 280.'>test_blocking_connection_errors</a>
+<li><a href='#L302' title='Defined at 302.'>test_blocking_connection</a>
+<li><a href='#L380' title='Defined at 380.'>test_blocking_io_errors</a>
+<li><a href='#L431' title='Defined at 431.'>test_throughput</a>
+<li><a href='#L595' title='Defined at 595.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#include</font> "<a href='../I/12.html'>fmacros.h</a>"
+<a name='L2'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L3'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L4'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L5'><font color='darkred'>#include</font> &lt;<a href='157.html'>strings.h</a>&gt;
+<a name='L6'><font color='darkred'>#include</font> &lt;sys/time.h&gt;
+<a name='L7'><font color='darkred'>#include</font> &lt;assert.h&gt;
+<a name='L8'><font color='darkred'>#include</font> &lt;unistd.h&gt;
+<a name='L9'><font color='darkred'>#include</font> &lt;signal.h&gt;
+<a name='L10'><font color='darkred'>#include</font> &lt;errno.h&gt;
+<a name='L11'>
+<a name='L12'><font color='darkred'>#include</font> "<a href='121.html'>hiredis.h</a>"
+<a name='L13'>
+<a name='L14'><b>enum</b> <a href='../S/122.html#L20' title='Refered from 20 in deps/hiredis/test.c.'>connection_type</a> <font color='red'>{</font>
+<a name='L15'>    <a href='../R/84.html' title='Multiple refered from 2 places.'>CONN_TCP</a>,
+<a name='L16'>    <a href='../R/85.html' title='Multiple refered from 2 places.'>CONN_UNIX</a>
+<a name='L17'><font color='red'>}</font>;
+<a name='L18'>
+<a name='L19'><b>struct</b> <a href='../R/1669.html' title='Multiple refered from 239 places.'>config</a> <font color='red'>{</font>
+<a name='L20'>    <b>enum</b> <a href='../S/122.html#L14' title='Defined at 14 in deps/hiredis/test.c.'>connection_type</a> type;
+<a name='L21'>
+<a name='L22'>    <b>struct</b> <font color='red'>{</font>
+<a name='L23'>        <b>const</b> <b>char</b> *host;
+<a name='L24'>        <b>int</b> port;
+<a name='L25'>    <font color='red'>}</font> tcp;
+<a name='L26'>
+<a name='L27'>    <b>struct</b> <font color='red'>{</font>
+<a name='L28'>        <b>const</b> <b>char</b> *path;
+<a name='L29'>    <font color='red'>}</font> unix;
+<a name='L30'><font color='red'>}</font>;
+<a name='L31'>
+<a name='L32'><i><font color='green'>/* The following lines make up our testing "framework" :) */</font></i>
+<a name='L33'><b>static</b> <b>int</b> tests = 0, fails = 0;
+<a name='L34'><font color='darkred'>#define</font> <a href='../R/3966.html' title='Multiple refered from 36 places.'>test</a>(_s) <font color='red'>{</font> printf("#%02d ", ++tests); printf(_s); <font color='red'>}</font>
+<a name='L35'><font color='darkred'>#define</font> <a href='../R/3978.html' title='Multiple refered from 71 places.'>test_cond</a>(_c) <b>if</b>(_c) printf("\033[0;32mPASSED\033[0;0m\n"); <b>else</b> <font color='red'>{</font>printf("\033[0;31mFAILED\033[0;0m\n"); fails++;<font color='red'>}</font>
+<a name='L36'>
+<a name='L37'><b>static</b> <b>long</b> <b>long</b> <a href='../R/4071.html' title='Multiple refered from 12 places.'>usec</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L38'>    <b>struct</b> timeval tv;
+<a name='L39'>    gettimeofday(&amp;tv,NULL);
+<a name='L40'>    <b>return</b> (((<b>long</b> <b>long</b>)tv.tv_sec)*1000000)+tv.tv_usec;
+<a name='L41'><font color='red'>}</font>
+<a name='L42'>
+<a name='L43'><b>static</b> <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *<a href='../S/122.html#L96' title='Refered from 96 in deps/hiredis/test.c.'>select_database</a>(redisContext *c) <font color='red'>{</font>
+<a name='L44'>    <a href='../D/3855.html' title='Multiple defined in 2 places.'>redisReply</a> *reply;
+<a name='L45'>
+<a name='L46'>    <i><font color='green'>/* Switch to DB 9 for testing, now that we know we can chat. */</font></i>
+<a name='L47'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"SELECT 9");
+<a name='L48'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(reply != NULL);
+<a name='L49'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L50'>
+<a name='L51'>    <i><font color='green'>/* Make sure the DB is emtpy */</font></i>
+<a name='L52'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"DBSIZE");
+<a name='L53'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(reply != NULL);
+<a name='L54'>    <b>if</b> (reply-&gt;type == <a href='../S/121.html#L84' title='Defined at 84 in deps/hiredis/hiredis.h.'>REDIS_REPLY_INTEGER</a> &amp;&amp; reply-&gt;integer == 0) <font color='red'>{</font>
+<a name='L55'>        <i><font color='green'>/* Awesome, DB 9 is empty and we can continue. */</font></i>
+<a name='L56'>        <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L57'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L58'>        printf("Database #9 is not empty, test can not continue\n");
+<a name='L59'>        exit(1);
+<a name='L60'>    <font color='red'>}</font>
+<a name='L61'>
+<a name='L62'>    <b>return</b> c;
+<a name='L63'><font color='red'>}</font>
+<a name='L64'>
+<a name='L65'><b>static</b> <b>void</b> <a href='../R/1859.html' title='Multiple refered from 2 places.'>disconnect</a>(redisContext *c) <font color='red'>{</font>
+<a name='L66'>    <a href='../D/3855.html' title='Multiple defined in 2 places.'>redisReply</a> *reply;
+<a name='L67'>
+<a name='L68'>    <i><font color='green'>/* Make sure we're on DB 9. */</font></i>
+<a name='L69'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"SELECT 9");
+<a name='L70'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(reply != NULL);
+<a name='L71'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L72'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"FLUSHDB");
+<a name='L73'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(reply != NULL);
+<a name='L74'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L75'>
+<a name='L76'>    <i><font color='green'>/* Free the context as well. */</font></i>
+<a name='L77'>    <a href='../S/120.html#L1003' title='Defined at 1003 in deps/hiredis/hiredis.c.'>redisFree</a>(c);
+<a name='L78'><font color='red'>}</font>
+<a name='L79'>
+<a name='L80'><b>static</b> <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *<a href='../R/1676.html' title='Multiple refered from 8 places.'>connect</a>(<b>struct</b> config config) <font color='red'>{</font>
+<a name='L81'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c = NULL;
+<a name='L82'>
+<a name='L83'>    <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.type == <a href='../S/122.html#L15' title='Defined at 15 in deps/hiredis/test.c.'>CONN_TCP</a>) <font color='red'>{</font>
+<a name='L84'>        c = <a href='../S/120.html#L1016' title='Defined at 1016 in deps/hiredis/hiredis.c.'>redisConnect</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.tcp.host, <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.tcp.port);
+<a name='L85'>    <font color='red'>}</font> <b>else</b> <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.type == <a href='../S/122.html#L16' title='Defined at 16 in deps/hiredis/test.c.'>CONN_UNIX</a>) <font color='red'>{</font>
+<a name='L86'>        c = <a href='../S/120.html#L1037' title='Defined at 1037 in deps/hiredis/hiredis.c.'>redisConnectUnix</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.unix.path);
+<a name='L87'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L88'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(NULL);
+<a name='L89'>    <font color='red'>}</font>
+<a name='L90'>
+<a name='L91'>    <b>if</b> (c-&gt;err) <font color='red'>{</font>
+<a name='L92'>        printf("Connection error: %s\n", c-&gt;errstr);
+<a name='L93'>        exit(1);
+<a name='L94'>    <font color='red'>}</font>
+<a name='L95'>
+<a name='L96'>    <b>return</b> <a href='../S/122.html#L43' title='Defined at 43 in deps/hiredis/test.c.'>select_database</a>(c);
+<a name='L97'><font color='red'>}</font>
+<a name='L98'>
+<a name='L99'><b>static</b> <b>void</b> <a href='../S/122.html#L631' title='Refered from 631 in deps/hiredis/test.c.'>test_format_commands</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L100'>    <b>char</b> *cmd;
+<a name='L101'>    <b>int</b> len;
+<a name='L102'>
+<a name='L103'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Format command without interpolation: ");
+<a name='L104'>    len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"SET foo bar");
+<a name='L105'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(strncmp(cmd,"*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n",len) == 0 &amp;&amp;
+<a name='L106'>        len == 4+4+(3+2)+4+(3+2)+4+(3+2));
+<a name='L107'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L108'>
+<a name='L109'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Format command with %%s string interpolation: ");
+<a name='L110'>    len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"SET %s %s","foo","bar");
+<a name='L111'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(strncmp(cmd,"*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n",len) == 0 &amp;&amp;
+<a name='L112'>        len == 4+4+(3+2)+4+(3+2)+4+(3+2));
+<a name='L113'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L114'>
+<a name='L115'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Format command with %%s and an empty string: ");
+<a name='L116'>    len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"SET %s %s","foo","");
+<a name='L117'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(strncmp(cmd,"*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$0\r\n\r\n",len) == 0 &amp;&amp;
+<a name='L118'>        len == 4+4+(3+2)+4+(3+2)+4+(0+2));
+<a name='L119'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L120'>
+<a name='L121'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Format command with an empty string in between proper interpolations: ");
+<a name='L122'>    len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"SET %s %s","","foo");
+<a name='L123'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(strncmp(cmd,"*3\r\n$3\r\nSET\r\n$0\r\n\r\n$3\r\nfoo\r\n",len) == 0 &amp;&amp;
+<a name='L124'>        len == 4+4+(3+2)+4+(0+2)+4+(3+2));
+<a name='L125'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L126'>
+<a name='L127'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Format command with %%b string interpolation: ");
+<a name='L128'>    len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"SET %b %b","foo",3,"b\0r",3);
+<a name='L129'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(strncmp(cmd,"*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nb\0r\r\n",len) == 0 &amp;&amp;
+<a name='L130'>        len == 4+4+(3+2)+4+(3+2)+4+(3+2));
+<a name='L131'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L132'>
+<a name='L133'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Format command with %%b and an empty string: ");
+<a name='L134'>    len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"SET %b %b","foo",3,"",0);
+<a name='L135'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(strncmp(cmd,"*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$0\r\n\r\n",len) == 0 &amp;&amp;
+<a name='L136'>        len == 4+4+(3+2)+4+(3+2)+4+(0+2));
+<a name='L137'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L138'>
+<a name='L139'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Format command with literal %%: ");
+<a name='L140'>    len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"SET %% %%");
+<a name='L141'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(strncmp(cmd,"*3\r\n$3\r\nSET\r\n$1\r\n%\r\n$1\r\n%\r\n",len) == 0 &amp;&amp;
+<a name='L142'>        len == 4+4+(3+2)+4+(1+2)+4+(1+2));
+<a name='L143'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L144'>
+<a name='L145'>    <i><font color='green'>/* Vararg width depends on the type. These tests make sure that the</font></i>
+<a name='L146'><i><font color='green'>     * width is correctly determined using the format and subsequent varargs</font></i>
+<a name='L147'><i><font color='green'>     * can correctly be interpolated. */</font></i>
+<a name='L148'><font color='darkred'>#define</font> <a href='../R/206.html' title='Multiple refered from 10 places.'>INTEGER_WIDTH_TEST</a>(fmt, type) <b>do</b> <font color='red'>{</font>                                                \
+<a name='L149'>    type value = 123;                                                                     \
+<a name='L150'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Format command with printf-delegation (" #type "): ");                          \
+<a name='L151'>    len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"key:%08" fmt " str:%s", value, "hello");               \
+<a name='L152'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(strncmp(cmd,"*2\r\n$12\r\nkey:00000123\r\n$9\r\nstr:hello\r\n",len) == 0 &amp;&amp; \
+<a name='L153'>        len == 4+5+(12+2)+4+(9+2));                                                       \
+<a name='L154'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);                                                                            \
+<a name='L155'><font color='red'>}</font> <b>while</b>(0)
+<a name='L156'>
+<a name='L157'><font color='darkred'>#define</font> <a href='../R/150.html' title='Multiple refered from 2 places.'>FLOAT_WIDTH_TEST</a>(type) <b>do</b> <font color='red'>{</font>                                                       \
+<a name='L158'>    type value = 123.0;                                                                   \
+<a name='L159'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Format command with printf-delegation (" #type "): ");                          \
+<a name='L160'>    len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"key:%08.3f str:%s", value, "hello");                   \
+<a name='L161'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(strncmp(cmd,"*2\r\n$12\r\nkey:0123.000\r\n$9\r\nstr:hello\r\n",len) == 0 &amp;&amp; \
+<a name='L162'>        len == 4+5+(12+2)+4+(9+2));                                                       \
+<a name='L163'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);                                                                            \
+<a name='L164'><font color='red'>}</font> <b>while</b>(0)
+<a name='L165'>
+<a name='L166'>    <a href='../S/122.html#L148' title='Defined at 148 in deps/hiredis/test.c.'>INTEGER_WIDTH_TEST</a>("d", <b>int</b>);
+<a name='L167'>    <a href='../S/122.html#L148' title='Defined at 148 in deps/hiredis/test.c.'>INTEGER_WIDTH_TEST</a>("hhd", <b>char</b>);
+<a name='L168'>    <a href='../S/122.html#L148' title='Defined at 148 in deps/hiredis/test.c.'>INTEGER_WIDTH_TEST</a>("hd", <b>short</b>);
+<a name='L169'>    <a href='../S/122.html#L148' title='Defined at 148 in deps/hiredis/test.c.'>INTEGER_WIDTH_TEST</a>("ld", <b>long</b>);
+<a name='L170'>    <a href='../S/122.html#L148' title='Defined at 148 in deps/hiredis/test.c.'>INTEGER_WIDTH_TEST</a>("lld", <b>long</b> <b>long</b>);
+<a name='L171'>    <a href='../S/122.html#L148' title='Defined at 148 in deps/hiredis/test.c.'>INTEGER_WIDTH_TEST</a>("u", <b>unsigned</b> <b>int</b>);
+<a name='L172'>    <a href='../S/122.html#L148' title='Defined at 148 in deps/hiredis/test.c.'>INTEGER_WIDTH_TEST</a>("hhu", <b>unsigned</b> <b>char</b>);
+<a name='L173'>    <a href='../S/122.html#L148' title='Defined at 148 in deps/hiredis/test.c.'>INTEGER_WIDTH_TEST</a>("hu", <b>unsigned</b> <b>short</b>);
+<a name='L174'>    <a href='../S/122.html#L148' title='Defined at 148 in deps/hiredis/test.c.'>INTEGER_WIDTH_TEST</a>("lu", <b>unsigned</b> <b>long</b>);
+<a name='L175'>    <a href='../S/122.html#L148' title='Defined at 148 in deps/hiredis/test.c.'>INTEGER_WIDTH_TEST</a>("llu", <b>unsigned</b> <b>long</b> <b>long</b>);
+<a name='L176'>    <a href='../S/122.html#L157' title='Defined at 157 in deps/hiredis/test.c.'>FLOAT_WIDTH_TEST</a>(<b>float</b>);
+<a name='L177'>    <a href='../S/122.html#L157' title='Defined at 157 in deps/hiredis/test.c.'>FLOAT_WIDTH_TEST</a>(<b>double</b>);
+<a name='L178'>
+<a name='L179'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Format command with invalid printf format: ");
+<a name='L180'>    len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"key:%08p %b",(<b>void</b>*)1234,"foo",3);
+<a name='L181'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(len == -1);
+<a name='L182'>
+<a name='L183'>    <b>const</b> <b>char</b> *argv[3];
+<a name='L184'>    argv[0] = "SET";
+<a name='L185'>    argv[1] = "foo\0xxx";
+<a name='L186'>    argv[2] = "bar";
+<a name='L187'>    size_t lens[3] = <font color='red'>{</font> 3, 7, 3 <font color='red'>}</font>;
+<a name='L188'>    <b>int</b> argc = 3;
+<a name='L189'>
+<a name='L190'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Format command by passing argc/argv without lengths: ");
+<a name='L191'>    len = <a href='../S/120.html#L939' title='Defined at 939 in deps/hiredis/hiredis.c.'>redisFormatCommandArgv</a>(&amp;cmd,argc,argv,NULL);
+<a name='L192'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(strncmp(cmd,"*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n",len) == 0 &amp;&amp;
+<a name='L193'>        len == 4+4+(3+2)+4+(3+2)+4+(3+2));
+<a name='L194'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L195'>
+<a name='L196'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Format command by passing argc/argv with lengths: ");
+<a name='L197'>    len = <a href='../S/120.html#L939' title='Defined at 939 in deps/hiredis/hiredis.c.'>redisFormatCommandArgv</a>(&amp;cmd,argc,argv,lens);
+<a name='L198'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(strncmp(cmd,"*3\r\n$3\r\nSET\r\n$7\r\nfoo\0xxx\r\n$3\r\nbar\r\n",len) == 0 &amp;&amp;
+<a name='L199'>        len == 4+4+(3+2)+4+(7+2)+4+(3+2));
+<a name='L200'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L201'><font color='red'>}</font>
+<a name='L202'>
+<a name='L203'><b>static</b> <b>void</b> <a href='../S/122.html#L632' title='Refered from 632 in deps/hiredis/test.c.'>test_reply_reader</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L204'>    <a href='../D/3850.html' title='Multiple defined in 2 places.'>redisReader</a> *reader;
+<a name='L205'>    <b>void</b> *reply;
+<a name='L206'>    <b>int</b> ret;
+<a name='L207'>
+<a name='L208'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Error handling in reply parser: ");
+<a name='L209'>    reader = <a href='../S/120.html#L556' title='Defined at 556 in deps/hiredis/hiredis.c.'>redisReaderCreate</a>();
+<a name='L210'>    <a href='../S/120.html#L585' title='Defined at 585 in deps/hiredis/hiredis.c.'>redisReaderFeed</a>(reader,(<b>char</b>*)"@foo\r\n",6);
+<a name='L211'>    ret = <a href='../S/120.html#L617' title='Defined at 617 in deps/hiredis/hiredis.c.'>redisReaderGetReply</a>(reader,NULL);
+<a name='L212'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(ret == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> &amp;&amp;
+<a name='L213'>              strcasecmp(reader-&gt;errstr,"Protocol error, got \"@\" as reply type byte") == 0);
+<a name='L214'>    <a href='../S/120.html#L577' title='Defined at 577 in deps/hiredis/hiredis.c.'>redisReaderFree</a>(reader);
+<a name='L215'>
+<a name='L216'>    <i><font color='green'>/* when the reply already contains multiple items, they must be free'd</font></i>
+<a name='L217'><i><font color='green'>     * on an error. valgrind will bark when this doesn't happen. */</font></i>
+<a name='L218'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Memory cleanup in reply parser: ");
+<a name='L219'>    reader = <a href='../S/120.html#L556' title='Defined at 556 in deps/hiredis/hiredis.c.'>redisReaderCreate</a>();
+<a name='L220'>    <a href='../S/120.html#L585' title='Defined at 585 in deps/hiredis/hiredis.c.'>redisReaderFeed</a>(reader,(<b>char</b>*)"*2\r\n",4);
+<a name='L221'>    <a href='../S/120.html#L585' title='Defined at 585 in deps/hiredis/hiredis.c.'>redisReaderFeed</a>(reader,(<b>char</b>*)"$5\r\nhello\r\n",11);
+<a name='L222'>    <a href='../S/120.html#L585' title='Defined at 585 in deps/hiredis/hiredis.c.'>redisReaderFeed</a>(reader,(<b>char</b>*)"@foo\r\n",6);
+<a name='L223'>    ret = <a href='../S/120.html#L617' title='Defined at 617 in deps/hiredis/hiredis.c.'>redisReaderGetReply</a>(reader,NULL);
+<a name='L224'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(ret == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> &amp;&amp;
+<a name='L225'>              strcasecmp(reader-&gt;errstr,"Protocol error, got \"@\" as reply type byte") == 0);
+<a name='L226'>    <a href='../S/120.html#L577' title='Defined at 577 in deps/hiredis/hiredis.c.'>redisReaderFree</a>(reader);
+<a name='L227'>
+<a name='L228'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Set error on nested multi bulks with depth &gt; 2: ");
+<a name='L229'>    reader = <a href='../S/120.html#L556' title='Defined at 556 in deps/hiredis/hiredis.c.'>redisReaderCreate</a>();
+<a name='L230'>    <a href='../S/120.html#L585' title='Defined at 585 in deps/hiredis/hiredis.c.'>redisReaderFeed</a>(reader,(<b>char</b>*)"*1\r\n",4);
+<a name='L231'>    <a href='../S/120.html#L585' title='Defined at 585 in deps/hiredis/hiredis.c.'>redisReaderFeed</a>(reader,(<b>char</b>*)"*1\r\n",4);
+<a name='L232'>    <a href='../S/120.html#L585' title='Defined at 585 in deps/hiredis/hiredis.c.'>redisReaderFeed</a>(reader,(<b>char</b>*)"*1\r\n",4);
+<a name='L233'>    <a href='../S/120.html#L585' title='Defined at 585 in deps/hiredis/hiredis.c.'>redisReaderFeed</a>(reader,(<b>char</b>*)"*1\r\n",4);
+<a name='L234'>    ret = <a href='../S/120.html#L617' title='Defined at 617 in deps/hiredis/hiredis.c.'>redisReaderGetReply</a>(reader,NULL);
+<a name='L235'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(ret == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> &amp;&amp;
+<a name='L236'>              strncasecmp(reader-&gt;errstr,"No support for",14) == 0);
+<a name='L237'>    <a href='../S/120.html#L577' title='Defined at 577 in deps/hiredis/hiredis.c.'>redisReaderFree</a>(reader);
+<a name='L238'>
+<a name='L239'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Works with NULL functions for reply: ");
+<a name='L240'>    reader = <a href='../S/120.html#L556' title='Defined at 556 in deps/hiredis/hiredis.c.'>redisReaderCreate</a>();
+<a name='L241'>    reader-&gt;fn = NULL;
+<a name='L242'>    <a href='../S/120.html#L585' title='Defined at 585 in deps/hiredis/hiredis.c.'>redisReaderFeed</a>(reader,(<b>char</b>*)"+OK\r\n",5);
+<a name='L243'>    ret = <a href='../S/120.html#L617' title='Defined at 617 in deps/hiredis/hiredis.c.'>redisReaderGetReply</a>(reader,&amp;reply);
+<a name='L244'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(ret == <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a> &amp;&amp; reply == (<b>void</b>*)<a href='../S/121.html#L86' title='Defined at 86 in deps/hiredis/hiredis.h.'>REDIS_REPLY_STATUS</a>);
+<a name='L245'>    <a href='../S/120.html#L577' title='Defined at 577 in deps/hiredis/hiredis.c.'>redisReaderFree</a>(reader);
+<a name='L246'>
+<a name='L247'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Works when a single newline (\\r\\n) covers two calls to feed: ");
+<a name='L248'>    reader = <a href='../S/120.html#L556' title='Defined at 556 in deps/hiredis/hiredis.c.'>redisReaderCreate</a>();
+<a name='L249'>    reader-&gt;fn = NULL;
+<a name='L250'>    <a href='../S/120.html#L585' title='Defined at 585 in deps/hiredis/hiredis.c.'>redisReaderFeed</a>(reader,(<b>char</b>*)"+OK\r",4);
+<a name='L251'>    ret = <a href='../S/120.html#L617' title='Defined at 617 in deps/hiredis/hiredis.c.'>redisReaderGetReply</a>(reader,&amp;reply);
+<a name='L252'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ret == <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a> &amp;&amp; reply == NULL);
+<a name='L253'>    <a href='../S/120.html#L585' title='Defined at 585 in deps/hiredis/hiredis.c.'>redisReaderFeed</a>(reader,(<b>char</b>*)"\n",1);
+<a name='L254'>    ret = <a href='../S/120.html#L617' title='Defined at 617 in deps/hiredis/hiredis.c.'>redisReaderGetReply</a>(reader,&amp;reply);
+<a name='L255'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(ret == <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a> &amp;&amp; reply == (<b>void</b>*)<a href='../S/121.html#L86' title='Defined at 86 in deps/hiredis/hiredis.h.'>REDIS_REPLY_STATUS</a>);
+<a name='L256'>    <a href='../S/120.html#L577' title='Defined at 577 in deps/hiredis/hiredis.c.'>redisReaderFree</a>(reader);
+<a name='L257'>
+<a name='L258'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Don't reset state after protocol error: ");
+<a name='L259'>    reader = <a href='../S/120.html#L556' title='Defined at 556 in deps/hiredis/hiredis.c.'>redisReaderCreate</a>();
+<a name='L260'>    reader-&gt;fn = NULL;
+<a name='L261'>    <a href='../S/120.html#L585' title='Defined at 585 in deps/hiredis/hiredis.c.'>redisReaderFeed</a>(reader,(<b>char</b>*)"x",1);
+<a name='L262'>    ret = <a href='../S/120.html#L617' title='Defined at 617 in deps/hiredis/hiredis.c.'>redisReaderGetReply</a>(reader,&amp;reply);
+<a name='L263'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ret == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>);
+<a name='L264'>    ret = <a href='../S/120.html#L617' title='Defined at 617 in deps/hiredis/hiredis.c.'>redisReaderGetReply</a>(reader,&amp;reply);
+<a name='L265'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(ret == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> &amp;&amp; reply == NULL);
+<a name='L266'>    <a href='../S/120.html#L577' title='Defined at 577 in deps/hiredis/hiredis.c.'>redisReaderFree</a>(reader);
+<a name='L267'>
+<a name='L268'>    <i><font color='green'>/* Regression test for issue #45 on GitHub. */</font></i>
+<a name='L269'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Don't do empty allocation for empty multi bulk: ");
+<a name='L270'>    reader = <a href='../S/120.html#L556' title='Defined at 556 in deps/hiredis/hiredis.c.'>redisReaderCreate</a>();
+<a name='L271'>    <a href='../S/120.html#L585' title='Defined at 585 in deps/hiredis/hiredis.c.'>redisReaderFeed</a>(reader,(<b>char</b>*)"*0\r\n",4);
+<a name='L272'>    ret = <a href='../S/120.html#L617' title='Defined at 617 in deps/hiredis/hiredis.c.'>redisReaderGetReply</a>(reader,&amp;reply);
+<a name='L273'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(ret == <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a> &amp;&amp;
+<a name='L274'>        ((<a href='../D/3855.html' title='Multiple defined in 2 places.'>redisReply</a>*)reply)-&gt;type == <a href='../S/121.html#L83' title='Defined at 83 in deps/hiredis/hiredis.h.'>REDIS_REPLY_ARRAY</a> &amp;&amp;
+<a name='L275'>        ((<a href='../D/3855.html' title='Multiple defined in 2 places.'>redisReply</a>*)reply)-&gt;elements == 0);
+<a name='L276'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L277'>    <a href='../S/120.html#L577' title='Defined at 577 in deps/hiredis/hiredis.c.'>redisReaderFree</a>(reader);
+<a name='L278'><font color='red'>}</font>
+<a name='L279'>
+<a name='L280'><b>static</b> <b>void</b> <a href='../S/122.html#L633' title='Refered from 633 in deps/hiredis/test.c.'>test_blocking_connection_errors</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L281'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c;
+<a name='L282'>
+<a name='L283'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Returns error when host cannot be resolved: ");
+<a name='L284'>    c = <a href='../S/120.html#L1016' title='Defined at 1016 in deps/hiredis/hiredis.c.'>redisConnect</a>((<b>char</b>*)"idontexist.local", 6379);
+<a name='L285'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(c-&gt;err == <a href='../S/121.html#L53' title='Defined at 53 in deps/hiredis/hiredis.h.'>REDIS_ERR_OTHER</a> &amp;&amp;
+<a name='L286'>        (strcmp(c-&gt;errstr,"Name or service not known") == 0 ||
+<a name='L287'>         strcmp(c-&gt;errstr,"Can't resolve: idontexist.local") == 0));
+<a name='L288'>    <a href='../S/120.html#L1003' title='Defined at 1003 in deps/hiredis/hiredis.c.'>redisFree</a>(c);
+<a name='L289'>
+<a name='L290'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Returns error when the port is not open: ");
+<a name='L291'>    c = <a href='../S/120.html#L1016' title='Defined at 1016 in deps/hiredis/hiredis.c.'>redisConnect</a>((<b>char</b>*)"localhost", 1);
+<a name='L292'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(c-&gt;err == <a href='../S/121.html#L49' title='Defined at 49 in deps/hiredis/hiredis.h.'>REDIS_ERR_IO</a> &amp;&amp;
+<a name='L293'>        strcmp(c-&gt;errstr,"Connection refused") == 0);
+<a name='L294'>    <a href='../S/120.html#L1003' title='Defined at 1003 in deps/hiredis/hiredis.c.'>redisFree</a>(c);
+<a name='L295'>
+<a name='L296'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Returns error when the unix socket path doesn't accept connections: ");
+<a name='L297'>    c = <a href='../S/120.html#L1037' title='Defined at 1037 in deps/hiredis/hiredis.c.'>redisConnectUnix</a>((<b>char</b>*)"/tmp/idontexist.sock");
+<a name='L298'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(c-&gt;err == <a href='../S/121.html#L49' title='Defined at 49 in deps/hiredis/hiredis.h.'>REDIS_ERR_IO</a>); <i><font color='green'>/* Don't care about the message... */</font></i>
+<a name='L299'>    <a href='../S/120.html#L1003' title='Defined at 1003 in deps/hiredis/hiredis.c.'>redisFree</a>(c);
+<a name='L300'><font color='red'>}</font>
+<a name='L301'>
+<a name='L302'><b>static</b> <b>void</b> <a href='../R/3975.html' title='Multiple refered from 2 places.'>test_blocking_connection</a>(<b>struct</b> config config) <font color='red'>{</font>
+<a name='L303'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c;
+<a name='L304'>    <a href='../D/3855.html' title='Multiple defined in 2 places.'>redisReply</a> *reply;
+<a name='L305'>
+<a name='L306'>    c = <a href='../S/122.html#L80' title='Defined at 80 in deps/hiredis/test.c.'>connect</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>);
+<a name='L307'>
+<a name='L308'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Is able to deliver commands: ");
+<a name='L309'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"PING");
+<a name='L310'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(reply-&gt;type == <a href='../S/121.html#L86' title='Defined at 86 in deps/hiredis/hiredis.h.'>REDIS_REPLY_STATUS</a> &amp;&amp;
+<a name='L311'>        strcasecmp(reply-&gt;str,"pong") == 0)
+<a name='L312'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L313'>
+<a name='L314'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Is a able to send commands verbatim: ");
+<a name='L315'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"SET foo bar");
+<a name='L316'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a> (reply-&gt;type == <a href='../S/121.html#L86' title='Defined at 86 in deps/hiredis/hiredis.h.'>REDIS_REPLY_STATUS</a> &amp;&amp;
+<a name='L317'>        strcasecmp(reply-&gt;str,"ok") == 0)
+<a name='L318'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L319'>
+<a name='L320'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("%%s String interpolation works: ");
+<a name='L321'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"SET %s %s","foo","hello world");
+<a name='L322'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L323'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"GET foo");
+<a name='L324'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(reply-&gt;type == <a href='../S/121.html#L82' title='Defined at 82 in deps/hiredis/hiredis.h.'>REDIS_REPLY_STRING</a> &amp;&amp;
+<a name='L325'>        strcmp(reply-&gt;str,"hello world") == 0);
+<a name='L326'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L327'>
+<a name='L328'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("%%b String interpolation works: ");
+<a name='L329'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"SET %b %b","foo",3,"hello\x00world",11);
+<a name='L330'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L331'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"GET foo");
+<a name='L332'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(reply-&gt;type == <a href='../S/121.html#L82' title='Defined at 82 in deps/hiredis/hiredis.h.'>REDIS_REPLY_STRING</a> &amp;&amp;
+<a name='L333'>        memcmp(reply-&gt;str,"hello\x00world",11) == 0)
+<a name='L334'>
+<a name='L335'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Binary reply length is correct: ");
+<a name='L336'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(reply-&gt;len == 11)
+<a name='L337'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L338'>
+<a name='L339'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Can parse nil replies: ");
+<a name='L340'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"GET nokey");
+<a name='L341'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(reply-&gt;type == <a href='../S/121.html#L85' title='Defined at 85 in deps/hiredis/hiredis.h.'>REDIS_REPLY_NIL</a>)
+<a name='L342'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L343'>
+<a name='L344'>    <i><font color='green'>/* test 7 */</font></i>
+<a name='L345'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Can parse integer replies: ");
+<a name='L346'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"INCR mycounter");
+<a name='L347'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(reply-&gt;type == <a href='../S/121.html#L84' title='Defined at 84 in deps/hiredis/hiredis.h.'>REDIS_REPLY_INTEGER</a> &amp;&amp; reply-&gt;integer == 1)
+<a name='L348'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L349'>
+<a name='L350'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Can parse multi bulk replies: ");
+<a name='L351'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(<a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"LPUSH mylist foo"));
+<a name='L352'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(<a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"LPUSH mylist bar"));
+<a name='L353'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"LRANGE mylist 0 -1");
+<a name='L354'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(reply-&gt;type == <a href='../S/121.html#L83' title='Defined at 83 in deps/hiredis/hiredis.h.'>REDIS_REPLY_ARRAY</a> &amp;&amp;
+<a name='L355'>              reply-&gt;elements == 2 &amp;&amp;
+<a name='L356'>              !memcmp(reply-&gt;element[0]-&gt;str,"bar",3) &amp;&amp;
+<a name='L357'>              !memcmp(reply-&gt;element[1]-&gt;str,"foo",3))
+<a name='L358'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L359'>
+<a name='L360'>    <i><font color='green'>/* m/e with multi bulk reply *before* other reply.</font></i>
+<a name='L361'><i><font color='green'>     * specifically test ordering of reply items to parse. */</font></i>
+<a name='L362'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Can handle nested multi bulk replies: ");
+<a name='L363'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(<a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"MULTI"));
+<a name='L364'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(<a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"LRANGE mylist 0 -1"));
+<a name='L365'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(<a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"PING"));
+<a name='L366'>    reply = (<a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"EXEC"));
+<a name='L367'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(reply-&gt;type == <a href='../S/121.html#L83' title='Defined at 83 in deps/hiredis/hiredis.h.'>REDIS_REPLY_ARRAY</a> &amp;&amp;
+<a name='L368'>              reply-&gt;elements == 2 &amp;&amp;
+<a name='L369'>              reply-&gt;element[0]-&gt;type == <a href='../S/121.html#L83' title='Defined at 83 in deps/hiredis/hiredis.h.'>REDIS_REPLY_ARRAY</a> &amp;&amp;
+<a name='L370'>              reply-&gt;element[0]-&gt;elements == 2 &amp;&amp;
+<a name='L371'>              !memcmp(reply-&gt;element[0]-&gt;element[0]-&gt;str,"bar",3) &amp;&amp;
+<a name='L372'>              !memcmp(reply-&gt;element[0]-&gt;element[1]-&gt;str,"foo",3) &amp;&amp;
+<a name='L373'>              reply-&gt;element[1]-&gt;type == <a href='../S/121.html#L86' title='Defined at 86 in deps/hiredis/hiredis.h.'>REDIS_REPLY_STATUS</a> &amp;&amp;
+<a name='L374'>              strcasecmp(reply-&gt;element[1]-&gt;str,"pong") == 0);
+<a name='L375'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L376'>
+<a name='L377'>    <a href='../S/122.html#L65' title='Defined at 65 in deps/hiredis/test.c.'>disconnect</a>(c);
+<a name='L378'><font color='red'>}</font>
+<a name='L379'>
+<a name='L380'><b>static</b> <b>void</b> <a href='../R/3977.html' title='Multiple refered from 2 places.'>test_blocking_io_errors</a>(<b>struct</b> config config) <font color='red'>{</font>
+<a name='L381'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c;
+<a name='L382'>    <a href='../D/3855.html' title='Multiple defined in 2 places.'>redisReply</a> *reply;
+<a name='L383'>    <b>void</b> *_reply;
+<a name='L384'>    <b>int</b> major, minor;
+<a name='L385'>
+<a name='L386'>    <i><font color='green'>/* Connect to target given by config. */</font></i>
+<a name='L387'>    c = <a href='../S/122.html#L80' title='Defined at 80 in deps/hiredis/test.c.'>connect</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>);
+<a name='L388'>    <font color='red'>{</font>
+<a name='L389'>        <i><font color='green'>/* Find out Redis version to determine the path for the next test */</font></i>
+<a name='L390'>        <b>const</b> <b>char</b> *<a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a> = "redis_version:";
+<a name='L391'>        <b>char</b> *p, *eptr;
+<a name='L392'>
+<a name='L393'>        reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"INFO");
+<a name='L394'>        p = strstr(reply-&gt;str,<a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>);
+<a name='L395'>        major = strtol(p+strlen(<a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>),&amp;eptr,10);
+<a name='L396'>        p = eptr+1; <i><font color='green'>/* char next to the first "." */</font></i>
+<a name='L397'>        minor = strtol(p,&amp;eptr,10);
+<a name='L398'>        <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L399'>    <font color='red'>}</font>
+<a name='L400'>
+<a name='L401'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Returns I/O error when the connection is lost: ");
+<a name='L402'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"QUIT");
+<a name='L403'>    <b>if</b> (major &gt;= 2 &amp;&amp; minor &gt; 0) <font color='red'>{</font>
+<a name='L404'>        <i><font color='green'>/* &gt; 2.0 returns OK on QUIT and read() should be issued once more</font></i>
+<a name='L405'><i><font color='green'>         * to know the descriptor is at EOF. */</font></i>
+<a name='L406'>        <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(strcasecmp(reply-&gt;str,"OK") == 0 &amp;&amp;
+<a name='L407'>            <a href='../S/120.html#L1146' title='Defined at 1146 in deps/hiredis/hiredis.c.'>redisGetReply</a>(c,&amp;_reply) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>);
+<a name='L408'>        <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L409'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L410'>        <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(reply == NULL);
+<a name='L411'>    <font color='red'>}</font>
+<a name='L412'>
+<a name='L413'>    <i><font color='green'>/* On 2.0, QUIT will cause the connection to be closed immediately and</font></i>
+<a name='L414'><i><font color='green'>     * the read(2) for the reply on QUIT will set the error to EOF.</font></i>
+<a name='L415'><i><font color='green'>     * On &gt;2.0, QUIT will return with OK and another read(2) needed to be</font></i>
+<a name='L416'><i><font color='green'>     * issued to find out the socket was closed by the server. In both</font></i>
+<a name='L417'><i><font color='green'>     * conditions, the error will be set to EOF. */</font></i>
+<a name='L418'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(c-&gt;err == <a href='../S/121.html#L50' title='Defined at 50 in deps/hiredis/hiredis.h.'>REDIS_ERR_EOF</a> &amp;&amp;
+<a name='L419'>        strcmp(c-&gt;errstr,"Server closed the connection") == 0);
+<a name='L420'>    <a href='../S/120.html#L1003' title='Defined at 1003 in deps/hiredis/hiredis.c.'>redisFree</a>(c);
+<a name='L421'>
+<a name='L422'>    c = <a href='../S/122.html#L80' title='Defined at 80 in deps/hiredis/test.c.'>connect</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>);
+<a name='L423'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Returns I/O error on socket timeout: ");
+<a name='L424'>    <b>struct</b> timeval tv = <font color='red'>{</font> 0, 1000 <font color='red'>}</font>;
+<a name='L425'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/120.html#L1059' title='Defined at 1059 in deps/hiredis/hiredis.c.'>redisSetTimeout</a>(c,tv) == <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>);
+<a name='L426'>    <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>(<a href='../S/120.html#L1146' title='Defined at 1146 in deps/hiredis/hiredis.c.'>redisGetReply</a>(c,&amp;_reply) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> &amp;&amp;
+<a name='L427'>        c-&gt;err == <a href='../S/121.html#L49' title='Defined at 49 in deps/hiredis/hiredis.h.'>REDIS_ERR_IO</a> &amp;&amp; errno == EAGAIN);
+<a name='L428'>    <a href='../S/120.html#L1003' title='Defined at 1003 in deps/hiredis/hiredis.c.'>redisFree</a>(c);
+<a name='L429'><font color='red'>}</font>
+<a name='L430'>
+<a name='L431'><b>static</b> <b>void</b> <a href='../R/3987.html' title='Multiple refered from 2 places.'>test_throughput</a>(<b>struct</b> config config) <font color='red'>{</font>
+<a name='L432'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c = <a href='../S/122.html#L80' title='Defined at 80 in deps/hiredis/test.c.'>connect</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>);
+<a name='L433'>    <a href='../D/3855.html' title='Multiple defined in 2 places.'>redisReply</a> **replies;
+<a name='L434'>    <b>int</b> i, num;
+<a name='L435'>    <b>long</b> <b>long</b> t1, t2;
+<a name='L436'>
+<a name='L437'>    <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>("Throughput:\n");
+<a name='L438'>    <b>for</b> (i = 0; i &lt; 500; i++)
+<a name='L439'>        <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(<a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"LPUSH mylist foo"));
+<a name='L440'>
+<a name='L441'>    num = 1000;
+<a name='L442'>    replies = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(<a href='../D/3855.html' title='Multiple defined in 2 places.'>redisReply</a>*)*num);
+<a name='L443'>    t1 = <a href='../D/4459.html' title='Multiple defined in 3 places.'>usec</a>();
+<a name='L444'>    <b>for</b> (i = 0; i &lt; num; i++) <font color='red'>{</font>
+<a name='L445'>        replies[i] = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"PING");
+<a name='L446'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(replies[i] != NULL &amp;&amp; replies[i]-&gt;type == <a href='../S/121.html#L86' title='Defined at 86 in deps/hiredis/hiredis.h.'>REDIS_REPLY_STATUS</a>);
+<a name='L447'>    <font color='red'>}</font>
+<a name='L448'>    t2 = <a href='../D/4459.html' title='Multiple defined in 3 places.'>usec</a>();
+<a name='L449'>    <b>for</b> (i = 0; i &lt; num; i++) <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(replies[i]);
+<a name='L450'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(replies);
+<a name='L451'>    printf("\t(%dx PING: %.3fs)\n", num, (t2-t1)/1000000.0);
+<a name='L452'>
+<a name='L453'>    replies = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(<a href='../D/3855.html' title='Multiple defined in 2 places.'>redisReply</a>*)*num);
+<a name='L454'>    t1 = <a href='../D/4459.html' title='Multiple defined in 3 places.'>usec</a>();
+<a name='L455'>    <b>for</b> (i = 0; i &lt; num; i++) <font color='red'>{</font>
+<a name='L456'>        replies[i] = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"LRANGE mylist 0 499");
+<a name='L457'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(replies[i] != NULL &amp;&amp; replies[i]-&gt;type == <a href='../S/121.html#L83' title='Defined at 83 in deps/hiredis/hiredis.h.'>REDIS_REPLY_ARRAY</a>);
+<a name='L458'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(replies[i] != NULL &amp;&amp; replies[i]-&gt;elements == 500);
+<a name='L459'>    <font color='red'>}</font>
+<a name='L460'>    t2 = <a href='../D/4459.html' title='Multiple defined in 3 places.'>usec</a>();
+<a name='L461'>    <b>for</b> (i = 0; i &lt; num; i++) <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(replies[i]);
+<a name='L462'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(replies);
+<a name='L463'>    printf("\t(%dx LRANGE with 500 elements: %.3fs)\n", num, (t2-t1)/1000000.0);
+<a name='L464'>
+<a name='L465'>    num = 10000;
+<a name='L466'>    replies = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(<a href='../D/3855.html' title='Multiple defined in 2 places.'>redisReply</a>*)*num);
+<a name='L467'>    <b>for</b> (i = 0; i &lt; num; i++)
+<a name='L468'>        <a href='../S/120.html#L1215' title='Defined at 1215 in deps/hiredis/hiredis.c.'>redisAppendCommand</a>(c,"PING");
+<a name='L469'>    t1 = <a href='../D/4459.html' title='Multiple defined in 3 places.'>usec</a>();
+<a name='L470'>    <b>for</b> (i = 0; i &lt; num; i++) <font color='red'>{</font>
+<a name='L471'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/120.html#L1146' title='Defined at 1146 in deps/hiredis/hiredis.c.'>redisGetReply</a>(c, (<b>void</b>*)&amp;replies[i]) == <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>);
+<a name='L472'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(replies[i] != NULL &amp;&amp; replies[i]-&gt;type == <a href='../S/121.html#L86' title='Defined at 86 in deps/hiredis/hiredis.h.'>REDIS_REPLY_STATUS</a>);
+<a name='L473'>    <font color='red'>}</font>
+<a name='L474'>    t2 = <a href='../D/4459.html' title='Multiple defined in 3 places.'>usec</a>();
+<a name='L475'>    <b>for</b> (i = 0; i &lt; num; i++) <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(replies[i]);
+<a name='L476'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(replies);
+<a name='L477'>    printf("\t(%dx PING (pipelined): %.3fs)\n", num, (t2-t1)/1000000.0);
+<a name='L478'>
+<a name='L479'>    replies = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(<a href='../D/3855.html' title='Multiple defined in 2 places.'>redisReply</a>*)*num);
+<a name='L480'>    <b>for</b> (i = 0; i &lt; num; i++)
+<a name='L481'>        <a href='../S/120.html#L1215' title='Defined at 1215 in deps/hiredis/hiredis.c.'>redisAppendCommand</a>(c,"LRANGE mylist 0 499");
+<a name='L482'>    t1 = <a href='../D/4459.html' title='Multiple defined in 3 places.'>usec</a>();
+<a name='L483'>    <b>for</b> (i = 0; i &lt; num; i++) <font color='red'>{</font>
+<a name='L484'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/120.html#L1146' title='Defined at 1146 in deps/hiredis/hiredis.c.'>redisGetReply</a>(c, (<b>void</b>*)&amp;replies[i]) == <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>);
+<a name='L485'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(replies[i] != NULL &amp;&amp; replies[i]-&gt;type == <a href='../S/121.html#L83' title='Defined at 83 in deps/hiredis/hiredis.h.'>REDIS_REPLY_ARRAY</a>);
+<a name='L486'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(replies[i] != NULL &amp;&amp; replies[i]-&gt;elements == 500);
+<a name='L487'>    <font color='red'>}</font>
+<a name='L488'>    t2 = <a href='../D/4459.html' title='Multiple defined in 3 places.'>usec</a>();
+<a name='L489'>    <b>for</b> (i = 0; i &lt; num; i++) <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(replies[i]);
+<a name='L490'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(replies);
+<a name='L491'>    printf("\t(%dx LRANGE with 500 elements (pipelined): %.3fs)\n", num, (t2-t1)/1000000.0);
+<a name='L492'>
+<a name='L493'>    <a href='../S/122.html#L65' title='Defined at 65 in deps/hiredis/test.c.'>disconnect</a>(c);
+<a name='L494'><font color='red'>}</font>
+<a name='L495'>
+<a name='L496'><i><font color='green'>// static long __test_callback_flags = 0;</font></i>
+<a name='L497'><i><font color='green'>// static void __test_callback(redisContext *c, void *privdata) {</font></i>
+<a name='L498'><i><font color='green'>//     ((void)c);</font></i>
+<a name='L499'><i><font color='green'>//     /* Shift to detect execution order */</font></i>
+<a name='L500'><i><font color='green'>//     __test_callback_flags &lt;&lt;= 8;</font></i>
+<a name='L501'><i><font color='green'>//     __test_callback_flags |= (long)privdata;</font></i>
+<a name='L502'><i><font color='green'>// }</font></i>
+<a name='L503'><i><font color='green'>//</font></i>
+<a name='L504'><i><font color='green'>// static void __test_reply_callback(redisContext *c, redisReply *reply, void *privdata) {</font></i>
+<a name='L505'><i><font color='green'>//     ((void)c);</font></i>
+<a name='L506'><i><font color='green'>//     /* Shift to detect execution order */</font></i>
+<a name='L507'><i><font color='green'>//     __test_callback_flags &lt;&lt;= 8;</font></i>
+<a name='L508'><i><font color='green'>//     __test_callback_flags |= (long)privdata;</font></i>
+<a name='L509'><i><font color='green'>//     if (reply) freeReplyObject(reply);</font></i>
+<a name='L510'><i><font color='green'>// }</font></i>
+<a name='L511'><i><font color='green'>//</font></i>
+<a name='L512'><i><font color='green'>// static redisContext *__connect_nonblock() {</font></i>
+<a name='L513'><i><font color='green'>//     /* Reset callback flags */</font></i>
+<a name='L514'><i><font color='green'>//     __test_callback_flags = 0;</font></i>
+<a name='L515'><i><font color='green'>//     return redisConnectNonBlock("127.0.0.1", port, NULL);</font></i>
+<a name='L516'><i><font color='green'>// }</font></i>
+<a name='L517'><i><font color='green'>//</font></i>
+<a name='L518'><i><font color='green'>// static void test_nonblocking_connection() {</font></i>
+<a name='L519'><i><font color='green'>//     redisContext *c;</font></i>
+<a name='L520'><i><font color='green'>//     int wdone = 0;</font></i>
+<a name='L521'><i><font color='green'>//</font></i>
+<a name='L522'><i><font color='green'>//     test("Calls command callback when command is issued: ");</font></i>
+<a name='L523'><i><font color='green'>//     c = __connect_nonblock();</font></i>
+<a name='L524'><i><font color='green'>//     redisSetCommandCallback(c,__test_callback,(void*)1);</font></i>
+<a name='L525'><i><font color='green'>//     redisCommand(c,"PING");</font></i>
+<a name='L526'><i><font color='green'>//     test_cond(__test_callback_flags == 1);</font></i>
+<a name='L527'><i><font color='green'>//     redisFree(c);</font></i>
+<a name='L528'><i><font color='green'>//</font></i>
+<a name='L529'><i><font color='green'>//     test("Calls disconnect callback on redisDisconnect: ");</font></i>
+<a name='L530'><i><font color='green'>//     c = __connect_nonblock();</font></i>
+<a name='L531'><i><font color='green'>//     redisSetDisconnectCallback(c,__test_callback,(void*)2);</font></i>
+<a name='L532'><i><font color='green'>//     redisDisconnect(c);</font></i>
+<a name='L533'><i><font color='green'>//     test_cond(__test_callback_flags == 2);</font></i>
+<a name='L534'><i><font color='green'>//     redisFree(c);</font></i>
+<a name='L535'><i><font color='green'>//</font></i>
+<a name='L536'><i><font color='green'>//     test("Calls disconnect callback and free callback on redisFree: ");</font></i>
+<a name='L537'><i><font color='green'>//     c = __connect_nonblock();</font></i>
+<a name='L538'><i><font color='green'>//     redisSetDisconnectCallback(c,__test_callback,(void*)2);</font></i>
+<a name='L539'><i><font color='green'>//     redisSetFreeCallback(c,__test_callback,(void*)4);</font></i>
+<a name='L540'><i><font color='green'>//     redisFree(c);</font></i>
+<a name='L541'><i><font color='green'>//     test_cond(__test_callback_flags == ((2 &lt;&lt; 8) | 4));</font></i>
+<a name='L542'><i><font color='green'>//</font></i>
+<a name='L543'><i><font color='green'>//     test("redisBufferWrite against empty write buffer: ");</font></i>
+<a name='L544'><i><font color='green'>//     c = __connect_nonblock();</font></i>
+<a name='L545'><i><font color='green'>//     test_cond(redisBufferWrite(c,&amp;wdone) == REDIS_OK &amp;&amp; wdone == 1);</font></i>
+<a name='L546'><i><font color='green'>//     redisFree(c);</font></i>
+<a name='L547'><i><font color='green'>//</font></i>
+<a name='L548'><i><font color='green'>//     test("redisBufferWrite against not yet connected fd: ");</font></i>
+<a name='L549'><i><font color='green'>//     c = __connect_nonblock();</font></i>
+<a name='L550'><i><font color='green'>//     redisCommand(c,"PING");</font></i>
+<a name='L551'><i><font color='green'>//     test_cond(redisBufferWrite(c,NULL) == REDIS_ERR &amp;&amp;</font></i>
+<a name='L552'><i><font color='green'>//               strncmp(c-&gt;error,"write:",6) == 0);</font></i>
+<a name='L553'><i><font color='green'>//     redisFree(c);</font></i>
+<a name='L554'><i><font color='green'>//</font></i>
+<a name='L555'><i><font color='green'>//     test("redisBufferWrite against closed fd: ");</font></i>
+<a name='L556'><i><font color='green'>//     c = __connect_nonblock();</font></i>
+<a name='L557'><i><font color='green'>//     redisCommand(c,"PING");</font></i>
+<a name='L558'><i><font color='green'>//     redisDisconnect(c);</font></i>
+<a name='L559'><i><font color='green'>//     test_cond(redisBufferWrite(c,NULL) == REDIS_ERR &amp;&amp;</font></i>
+<a name='L560'><i><font color='green'>//               strncmp(c-&gt;error,"write:",6) == 0);</font></i>
+<a name='L561'><i><font color='green'>//     redisFree(c);</font></i>
+<a name='L562'><i><font color='green'>//</font></i>
+<a name='L563'><i><font color='green'>//     test("Process callbacks in the right sequence: ");</font></i>
+<a name='L564'><i><font color='green'>//     c = __connect_nonblock();</font></i>
+<a name='L565'><i><font color='green'>//     redisCommandWithCallback(c,__test_reply_callback,(void*)1,"PING");</font></i>
+<a name='L566'><i><font color='green'>//     redisCommandWithCallback(c,__test_reply_callback,(void*)2,"PING");</font></i>
+<a name='L567'><i><font color='green'>//     redisCommandWithCallback(c,__test_reply_callback,(void*)3,"PING");</font></i>
+<a name='L568'><i><font color='green'>//</font></i>
+<a name='L569'><i><font color='green'>//     /* Write output buffer */</font></i>
+<a name='L570'><i><font color='green'>//     wdone = 0;</font></i>
+<a name='L571'><i><font color='green'>//     while(!wdone) {</font></i>
+<a name='L572'><i><font color='green'>//         usleep(500);</font></i>
+<a name='L573'><i><font color='green'>//         redisBufferWrite(c,&amp;wdone);</font></i>
+<a name='L574'><i><font color='green'>//     }</font></i>
+<a name='L575'><i><font color='green'>//</font></i>
+<a name='L576'><i><font color='green'>//     /* Read until at least one callback is executed (the 3 replies will</font></i>
+<a name='L577'><i><font color='green'>//      * arrive in a single packet, causing all callbacks to be executed in</font></i>
+<a name='L578'><i><font color='green'>//      * a single pass). */</font></i>
+<a name='L579'><i><font color='green'>//     while(__test_callback_flags == 0) {</font></i>
+<a name='L580'><i><font color='green'>//         assert(redisBufferRead(c) == REDIS_OK);</font></i>
+<a name='L581'><i><font color='green'>//         redisProcessCallbacks(c);</font></i>
+<a name='L582'><i><font color='green'>//     }</font></i>
+<a name='L583'><i><font color='green'>//     test_cond(__test_callback_flags == 0x010203);</font></i>
+<a name='L584'><i><font color='green'>//     redisFree(c);</font></i>
+<a name='L585'><i><font color='green'>//</font></i>
+<a name='L586'><i><font color='green'>//     test("redisDisconnect executes pending callbacks with NULL reply: ");</font></i>
+<a name='L587'><i><font color='green'>//     c = __connect_nonblock();</font></i>
+<a name='L588'><i><font color='green'>//     redisSetDisconnectCallback(c,__test_callback,(void*)1);</font></i>
+<a name='L589'><i><font color='green'>//     redisCommandWithCallback(c,__test_reply_callback,(void*)2,"PING");</font></i>
+<a name='L590'><i><font color='green'>//     redisDisconnect(c);</font></i>
+<a name='L591'><i><font color='green'>//     test_cond(__test_callback_flags == 0x0201);</font></i>
+<a name='L592'><i><font color='green'>//     redisFree(c);</font></i>
+<a name='L593'><i><font color='green'>// }</font></i>
+<a name='L594'>
+<a name='L595'><b>int</b> main(<b>int</b> argc, <b>char</b> **argv) <font color='red'>{</font>
+<a name='L596'>    <b>struct</b> <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a> cfg = <font color='red'>{</font>
+<a name='L597'>        .tcp = <font color='red'>{</font>
+<a name='L598'>            .host = "127.0.0.1",
+<a name='L599'>            .port = 6379
+<a name='L600'>        <font color='red'>}</font>,
+<a name='L601'>        .unix = <font color='red'>{</font>
+<a name='L602'>            .path = "/tmp/redis.sock"
+<a name='L603'>        <font color='red'>}</font>
+<a name='L604'>    <font color='red'>}</font>;
+<a name='L605'>    <b>int</b> throughput = 1;
+<a name='L606'>
+<a name='L607'>    <i><font color='green'>/* Ignore broken pipe signal (for I/O error tests). */</font></i>
+<a name='L608'>    signal(SIGPIPE, SIG_IGN);
+<a name='L609'>
+<a name='L610'>    <i><font color='green'>/* Parse command line options. */</font></i>
+<a name='L611'>    argv++; argc--;
+<a name='L612'>    <b>while</b> (argc) <font color='red'>{</font>
+<a name='L613'>        <b>if</b> (argc &gt;= 2 &amp;&amp; !strcmp(argv[0],"-h")) <font color='red'>{</font>
+<a name='L614'>            argv++; argc--;
+<a name='L615'>            cfg.tcp.host = argv[0];
+<a name='L616'>        <font color='red'>}</font> <b>else</b> <b>if</b> (argc &gt;= 2 &amp;&amp; !strcmp(argv[0],"-p")) <font color='red'>{</font>
+<a name='L617'>            argv++; argc--;
+<a name='L618'>            cfg.tcp.port = atoi(argv[0]);
+<a name='L619'>        <font color='red'>}</font> <b>else</b> <b>if</b> (argc &gt;= 2 &amp;&amp; !strcmp(argv[0],"-s")) <font color='red'>{</font>
+<a name='L620'>            argv++; argc--;
+<a name='L621'>            cfg.unix.path = argv[0];
+<a name='L622'>        <font color='red'>}</font> <b>else</b> <b>if</b> (argc &gt;= 1 &amp;&amp; !strcmp(argv[0],"--skip-throughput")) <font color='red'>{</font>
+<a name='L623'>            throughput = 0;
+<a name='L624'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L625'>            fprintf(stderr, "Invalid argument: %s\n", argv[0]);
+<a name='L626'>            exit(1);
+<a name='L627'>        <font color='red'>}</font>
+<a name='L628'>        argv++; argc--;
+<a name='L629'>    <font color='red'>}</font>
+<a name='L630'>
+<a name='L631'>    <a href='../S/122.html#L99' title='Defined at 99 in deps/hiredis/test.c.'>test_format_commands</a>();
+<a name='L632'>    <a href='../S/122.html#L203' title='Defined at 203 in deps/hiredis/test.c.'>test_reply_reader</a>();
+<a name='L633'>    <a href='../S/122.html#L280' title='Defined at 280 in deps/hiredis/test.c.'>test_blocking_connection_errors</a>();
+<a name='L634'>
+<a name='L635'>    printf("\nTesting against TCP connection (%s:%d):\n", cfg.tcp.host, cfg.tcp.port);
+<a name='L636'>    cfg.type = <a href='../S/122.html#L15' title='Defined at 15 in deps/hiredis/test.c.'>CONN_TCP</a>;
+<a name='L637'>    <a href='../S/122.html#L302' title='Defined at 302 in deps/hiredis/test.c.'>test_blocking_connection</a>(cfg);
+<a name='L638'>    <a href='../S/122.html#L380' title='Defined at 380 in deps/hiredis/test.c.'>test_blocking_io_errors</a>(cfg);
+<a name='L639'>    <b>if</b> (throughput) <a href='../S/122.html#L431' title='Defined at 431 in deps/hiredis/test.c.'>test_throughput</a>(cfg);
+<a name='L640'>
+<a name='L641'>    printf("\nTesting against Unix socket connection (%s):\n", cfg.unix.path);
+<a name='L642'>    cfg.type = <a href='../S/122.html#L16' title='Defined at 16 in deps/hiredis/test.c.'>CONN_UNIX</a>;
+<a name='L643'>    <a href='../S/122.html#L302' title='Defined at 302 in deps/hiredis/test.c.'>test_blocking_connection</a>(cfg);
+<a name='L644'>    <a href='../S/122.html#L380' title='Defined at 380 in deps/hiredis/test.c.'>test_blocking_io_errors</a>(cfg);
+<a name='L645'>    <b>if</b> (throughput) <a href='../S/122.html#L431' title='Defined at 431 in deps/hiredis/test.c.'>test_throughput</a>(cfg);
+<a name='L646'>
+<a name='L647'>    <b>if</b> (fails) <font color='red'>{</font>
+<a name='L648'>        printf("*** %d TESTS FAILED ***\n", fails);
+<a name='L649'>        <b>return</b> 1;
+<a name='L650'>    <font color='red'>}</font>
+<a name='L651'>
+<a name='L652'>    printf("ALL TESTS PASSED\n");
+<a name='L653'>    <b>return</b> 0;
+<a name='L654'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L37'>[^]</a><a href='#L595'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

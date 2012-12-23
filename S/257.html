@@ -1,0 +1,53 @@
+<html>
+<head>
+<title>deps/lua/src/lfunc.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/lfunc.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/104.html' title='Multiple included from 10 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: lfunc.h,v 2.4.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Auxiliary functions to manipulate prototypes and closures</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'><font color='darkred'>#ifndef</font> <a href='../S/257.html#L8' title='Defined at 8 in deps/lua/src/lfunc.h.'>lfunc_h</a>
+<a name='L8'><font color='darkred'>#define</font> <a href='../S/257.html#L7' title='Refered from 7 in deps/lua/src/lfunc.h.'>lfunc_h</a>
+<a name='L9'>
+<a name='L10'>
+<a name='L11'><font color='darkred'>#include</font> "<a href='282.html'>lobject.h</a>"
+<a name='L12'>
+<a name='L13'>
+<a name='L14'><font color='darkred'>#define</font> <a href='../R/3805.html' title='Multiple refered from 3 places.'>sizeCclosure</a>(n) (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>int</b>, <b>sizeof</b>(<a href='../D/60.html' title='Multiple defined in 2 places.'>CClosure</a>)) + \
+<a name='L15'>                         <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>int</b>, <b>sizeof</b>(<a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a>)*((n)-1)))
+<a name='L16'>
+<a name='L17'><font color='darkred'>#define</font> <a href='../R/3806.html' title='Multiple refered from 3 places.'>sizeLclosure</a>(n) (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>int</b>, <b>sizeof</b>(<a href='../D/280.html' title='Multiple defined in 2 places.'>LClosure</a>)) + \
+<a name='L18'>                         <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>int</b>, <b>sizeof</b>(<a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *)*((n)-1)))
+<a name='L19'>
+<a name='L20'>
+<a name='L21'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <a href='../D/722.html' title='Multiple defined in 2 places.'>Proto</a> *<a href='../S/258.html#L115' title='Defined at 115 in deps/lua/src/lfunc.c.'>luaF_newproto</a> (lua_State *L);
+<a name='L22'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <a href='../D/109.html' title='Multiple defined in 2 places.'>Closure</a> *<a href='../S/258.html#L23' title='Defined at 23 in deps/lua/src/lfunc.c.'>luaF_newCclosure</a> (lua_State *L, <b>int</b> nelems, Table *e);
+<a name='L23'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <a href='../D/109.html' title='Multiple defined in 2 places.'>Closure</a> *<a href='../S/258.html#L33' title='Defined at 33 in deps/lua/src/lfunc.c.'>luaF_newLclosure</a> (lua_State *L, <b>int</b> nelems, Table *e);
+<a name='L24'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <a href='../D/1270.html' title='Multiple defined in 2 places.'>UpVal</a> *<a href='../S/258.html#L44' title='Defined at 44 in deps/lua/src/lfunc.c.'>luaF_newupval</a> (lua_State *L);
+<a name='L25'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <a href='../D/1270.html' title='Multiple defined in 2 places.'>UpVal</a> *<a href='../S/258.html#L53' title='Defined at 53 in deps/lua/src/lfunc.c.'>luaF_findupval</a> (lua_State *L, StkId level);
+<a name='L26'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/258.html#L96' title='Defined at 96 in deps/lua/src/lfunc.c.'>luaF_close</a> (lua_State *L, StkId level);
+<a name='L27'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/258.html#L141' title='Defined at 141 in deps/lua/src/lfunc.c.'>luaF_freeproto</a> (lua_State *L, Proto *f);
+<a name='L28'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/258.html#L152' title='Defined at 152 in deps/lua/src/lfunc.c.'>luaF_freeclosure</a> (lua_State *L, Closure *c);
+<a name='L29'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/258.html#L89' title='Defined at 89 in deps/lua/src/lfunc.c.'>luaF_freeupval</a> (lua_State *L, UpVal *uv);
+<a name='L30'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>const</b> <b>char</b> *<a href='../S/258.html#L163' title='Defined at 163 in deps/lua/src/lfunc.c.'>luaF_getlocalname</a> (<b>const</b> Proto *func, <b>int</b> local_number,
+<a name='L31'>                                         <b>int</b> pc);
+<a name='L32'>
+<a name='L33'>
+<a name='L34'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

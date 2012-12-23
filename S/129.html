@@ -1,0 +1,990 @@
+<html>
+<head>
+<title>deps/jemalloc/include/jemalloc/internal/rb.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/391.html'>include</a>/<a href='../files/392.html'>jemalloc</a>/<a href='../files/393.html'>internal</a>/rb.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*-</font></i>
+<a name='L2'><i><font color='green'> *******************************************************************************</font></i>
+<a name='L3'><i><font color='green'> *</font></i>
+<a name='L4'><i><font color='green'> * cpp macro implementation of left-leaning 2-3 red-black trees.  Parent</font></i>
+<a name='L5'><i><font color='green'> * pointers are not used, and color bits are stored in the least significant</font></i>
+<a name='L6'><i><font color='green'> * bit of right-child pointers (if RB_COMPACT is defined), thus making node</font></i>
+<a name='L7'><i><font color='green'> * linkage as compact as is possible for red-black trees.</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> * Usage:</font></i>
+<a name='L10'><i><font color='green'> *</font></i>
+<a name='L11'><i><font color='green'> *   #include &lt;stdint.h&gt;</font></i>
+<a name='L12'><i><font color='green'> *   #include &lt;stdbool.h&gt;</font></i>
+<a name='L13'><i><font color='green'> *   #define NDEBUG // (Optional, see assert(3).)</font></i>
+<a name='L14'><i><font color='green'> *   #include &lt;assert.h&gt;</font></i>
+<a name='L15'><i><font color='green'> *   #define RB_COMPACT // (Optional, embed color bits in right-child pointers.)</font></i>
+<a name='L16'><i><font color='green'> *   #include &lt;rb.h&gt;</font></i>
+<a name='L17'><i><font color='green'> *   ...</font></i>
+<a name='L18'><i><font color='green'> *</font></i>
+<a name='L19'><i><font color='green'> *******************************************************************************</font></i>
+<a name='L20'><i><font color='green'> */</font></i>
+<a name='L21'>
+<a name='L22'><font color='darkred'>#ifndef</font> <a href='../S/129.html#L23' title='Defined at 23 in deps/jemalloc/include/jemalloc/internal/rb.h.'>RB_H_</a>
+<a name='L23'><font color='darkred'>#define</font> <a href='../S/129.html#L22' title='Refered from 22 in deps/jemalloc/include/jemalloc/internal/rb.h.'>RB_H_</a>
+<a name='L24'>
+<a name='L25'><font color='darkred'>#if</font> 0
+<a name='L26'>__FBSDID("$FreeBSD: head/lib/libc/stdlib/rb.h 204493 2010-02-28 22:57:13Z jasone $");
+<a name='L27'><font color='darkred'>#endif</font>
+<a name='L28'>
+<a name='L29'><font color='darkred'>#ifdef</font> RB_COMPACT
+<a name='L30'><i><font color='green'>/* Node structure. */</font></i>
+<a name='L31'><font color='darkred'>#define</font> <a href='../R/3321.html' title='Multiple refered from 4 places.'>rb_node</a>(a_type)                                                 \
+<a name='L32'><b>struct</b> <font color='red'>{</font>                                                                \
+<a name='L33'>    a_type *rbn_left;                                                   \
+<a name='L34'>    a_type *rbn_right_red;                                              \
+<a name='L35'><font color='red'>}</font>
+<a name='L36'><font color='darkred'>#else</font>
+<a name='L37'><font color='darkred'>#define</font> <a href='../R/3321.html' title='Multiple refered from 4 places.'>rb_node</a>(a_type)                                                 \
+<a name='L38'><b>struct</b> <font color='red'>{</font>                                                                \
+<a name='L39'>    a_type *rbn_left;                                                   \
+<a name='L40'>    a_type *rbn_right;                                                  \
+<a name='L41'>    <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> rbn_red;                                                       \
+<a name='L42'><font color='red'>}</font>
+<a name='L43'><font color='darkred'>#endif</font>
+<a name='L44'>
+<a name='L45'><i><font color='green'>/* Root structure. */</font></i>
+<a name='L46'><font color='darkred'>#define</font> <a href='../R/3323.html' title='Multiple refered from 4 places.'>rb_tree</a>(a_type)                                                 \
+<a name='L47'><b>struct</b> <font color='red'>{</font>                                                                \
+<a name='L48'>    a_type *rbt_root;                                                   \
+<a name='L49'>    a_type rbt_nil;                                                     \
+<a name='L50'><font color='red'>}</font>
+<a name='L51'>
+<a name='L52'><i><font color='green'>/* Left accessors. */</font></i>
+<a name='L53'><font color='darkred'>#define</font> <a href='../R/3329.html' title='Multiple refered from 30 places.'>rbtn_left_get</a>(a_type, a_field, a_node)                          \
+<a name='L54'>    ((a_node)-&gt;a_field.rbn_left)
+<a name='L55'><font color='darkred'>#define</font> <a href='../R/3330.html' title='Multiple refered from 14 places.'>rbtn_left_set</a>(a_type, a_field, a_node, a_left) <b>do</b> <font color='red'>{</font>             \
+<a name='L56'>    (a_node)-&gt;a_field.rbn_left = a_left;                                \
+<a name='L57'><font color='red'>}</font> <b>while</b> (0)
+<a name='L58'>
+<a name='L59'><font color='darkred'>#ifdef</font> RB_COMPACT
+<a name='L60'><i><font color='green'>/* Right accessors. */</font></i>
+<a name='L61'><font color='darkred'>#define</font> <a href='../R/3333.html' title='Multiple refered from 23 places.'>rbtn_right_get</a>(a_type, a_field, a_node)                         \
+<a name='L62'>    ((a_type *) (((<a href='../D/2506.html' title='Multiple defined in 2 places.'>intptr_t</a>) (a_node)-&gt;a_field.rbn_right_red)           \
+<a name='L63'>      &amp; ((ssize_t)-2)))
+<a name='L64'><font color='darkred'>#define</font> <a href='../R/3334.html' title='Multiple refered from 16 places.'>rbtn_right_set</a>(a_type, a_field, a_node, a_right) <b>do</b> <font color='red'>{</font>           \
+<a name='L65'>    (a_node)-&gt;a_field.rbn_right_red = (a_type *) (((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>) a_right) \
+<a name='L66'>      | (((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>) (a_node)-&gt;a_field.rbn_right_red) &amp; ((size_t)1))); \
+<a name='L67'><font color='red'>}</font> <b>while</b> (0)
+<a name='L68'>
+<a name='L69'><i><font color='green'>/* Color accessors. */</font></i>
+<a name='L70'><font color='darkred'>#define</font> <a href='../R/3331.html' title='Multiple refered from 20 places.'>rbtn_red_get</a>(a_type, a_field, a_node)                           \
+<a name='L71'>    ((<a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>) (((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>) (a_node)-&gt;a_field.rbn_right_red)              \
+<a name='L72'>      &amp; ((size_t)1)))
+<a name='L73'><font color='darkred'>#define</font> <a href='../R/3326.html' title='Multiple refered from 3 places.'>rbtn_color_set</a>(a_type, a_field, a_node, a_red) <b>do</b> <font color='red'>{</font>             \
+<a name='L74'>    (a_node)-&gt;a_field.rbn_right_red = (a_type *) ((((<a href='../D/2506.html' title='Multiple defined in 2 places.'>intptr_t</a>)          \
+<a name='L75'>      (a_node)-&gt;a_field.rbn_right_red) &amp; ((ssize_t)-2))                 \
+<a name='L76'>      | ((ssize_t)a_red));                                              \
+<a name='L77'><font color='red'>}</font> <b>while</b> (0)
+<a name='L78'><font color='darkred'>#define</font> <a href='../R/3332.html' title='Multiple refered from 8 places.'>rbtn_red_set</a>(a_type, a_field, a_node) <b>do</b> <font color='red'>{</font>                      \
+<a name='L79'>    (a_node)-&gt;a_field.rbn_right_red = (a_type *) (((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)          \
+<a name='L80'>      (a_node)-&gt;a_field.rbn_right_red) | ((size_t)1));                  \
+<a name='L81'><font color='red'>}</font> <b>while</b> (0)
+<a name='L82'><font color='darkred'>#define</font> <a href='../R/3325.html' title='Multiple refered from 14 places.'>rbtn_black_set</a>(a_type, a_field, a_node) <b>do</b> <font color='red'>{</font>                    \
+<a name='L83'>    (a_node)-&gt;a_field.rbn_right_red = (a_type *) (((<a href='../D/2506.html' title='Multiple defined in 2 places.'>intptr_t</a>)           \
+<a name='L84'>      (a_node)-&gt;a_field.rbn_right_red) &amp; ((ssize_t)-2));                \
+<a name='L85'><font color='red'>}</font> <b>while</b> (0)
+<a name='L86'><font color='darkred'>#else</font>
+<a name='L87'><i><font color='green'>/* Right accessors. */</font></i>
+<a name='L88'><font color='darkred'>#define</font> <a href='../R/3333.html' title='Multiple refered from 23 places.'>rbtn_right_get</a>(a_type, a_field, a_node)                         \
+<a name='L89'>    ((a_node)-&gt;a_field.rbn_right)
+<a name='L90'><font color='darkred'>#define</font> <a href='../R/3334.html' title='Multiple refered from 16 places.'>rbtn_right_set</a>(a_type, a_field, a_node, a_right) <b>do</b> <font color='red'>{</font>           \
+<a name='L91'>    (a_node)-&gt;a_field.rbn_right = a_right;                              \
+<a name='L92'><font color='red'>}</font> <b>while</b> (0)
+<a name='L93'>
+<a name='L94'><i><font color='green'>/* Color accessors. */</font></i>
+<a name='L95'><font color='darkred'>#define</font> <a href='../R/3331.html' title='Multiple refered from 20 places.'>rbtn_red_get</a>(a_type, a_field, a_node)                           \
+<a name='L96'>    ((a_node)-&gt;a_field.rbn_red)
+<a name='L97'><font color='darkred'>#define</font> <a href='../R/3326.html' title='Multiple refered from 3 places.'>rbtn_color_set</a>(a_type, a_field, a_node, a_red) <b>do</b> <font color='red'>{</font>             \
+<a name='L98'>    (a_node)-&gt;a_field.rbn_red = (a_red);                                \
+<a name='L99'><font color='red'>}</font> <b>while</b> (0)
+<a name='L100'><font color='darkred'>#define</font> <a href='../R/3332.html' title='Multiple refered from 8 places.'>rbtn_red_set</a>(a_type, a_field, a_node) <b>do</b> <font color='red'>{</font>                      \
+<a name='L101'>    (a_node)-&gt;a_field.rbn_red = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;                                   \
+<a name='L102'><font color='red'>}</font> <b>while</b> (0)
+<a name='L103'><font color='darkred'>#define</font> <a href='../R/3325.html' title='Multiple refered from 14 places.'>rbtn_black_set</a>(a_type, a_field, a_node) <b>do</b> <font color='red'>{</font>                    \
+<a name='L104'>    (a_node)-&gt;a_field.rbn_red = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;                                  \
+<a name='L105'><font color='red'>}</font> <b>while</b> (0)
+<a name='L106'><font color='darkred'>#endif</font>
+<a name='L107'>
+<a name='L108'><i><font color='green'>/* Node initializer. */</font></i>
+<a name='L109'><font color='darkred'>#define</font> <a href='../R/3324.html' title='Multiple refered from 2 places.'>rbt_node_new</a>(a_type, a_field, a_rbt, a_node) <b>do</b> <font color='red'>{</font>               \
+<a name='L110'>    <a href='../S/129.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_set</a>(a_type, a_field, (a_node), &amp;(a_rbt)-&gt;rbt_nil);        \
+<a name='L111'>    <a href='../D/3693.html' title='Multiple defined in 2 places.'>rbtn_right_set</a>(a_type, a_field, (a_node), &amp;(a_rbt)-&gt;rbt_nil);       \
+<a name='L112'>    <a href='../D/3691.html' title='Multiple defined in 2 places.'>rbtn_red_set</a>(a_type, a_field, (a_node));                            \
+<a name='L113'><font color='red'>}</font> <b>while</b> (0)
+<a name='L114'>
+<a name='L115'><i><font color='green'>/* Tree initializer. */</font></i>
+<a name='L116'><font color='darkred'>#define</font> <a href='../S/129.html#L314' title='Refered from 314 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rb_new</a>(a_type, a_field, a_rbt) <b>do</b> <font color='red'>{</font>                             \
+<a name='L117'>    (a_rbt)-&gt;rbt_root = &amp;(a_rbt)-&gt;rbt_nil;                              \
+<a name='L118'>    <a href='../S/129.html#L109' title='Defined at 109 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbt_node_new</a>(a_type, a_field, a_rbt, &amp;(a_rbt)-&gt;rbt_nil);            \
+<a name='L119'>    <a href='../D/3684.html' title='Multiple defined in 2 places.'>rbtn_black_set</a>(a_type, a_field, &amp;(a_rbt)-&gt;rbt_nil);                 \
+<a name='L120'><font color='red'>}</font> <b>while</b> (0)
+<a name='L121'>
+<a name='L122'><i><font color='green'>/* Internal utility macros. */</font></i>
+<a name='L123'><font color='darkred'>#define</font> <a href='../R/3327.html' title='Multiple refered from 2 places.'>rbtn_first</a>(a_type, a_field, a_rbt, a_root, r_node) <b>do</b> <font color='red'>{</font>         \
+<a name='L124'>    (r_node) = (a_root);                                                \
+<a name='L125'>    <b>if</b> ((r_node) != &amp;(a_rbt)-&gt;rbt_nil) <font color='red'>{</font>                                \
+<a name='L126'>        <b>for</b> (;                                                          \
+<a name='L127'>          <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, (r_node)) != &amp;(a_rbt)-&gt;rbt_nil;\
+<a name='L128'>          (r_node) = <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, (r_node))) <font color='red'>{</font>        \
+<a name='L129'>        <font color='red'>}</font>                                                               \
+<a name='L130'>    <font color='red'>}</font>                                                                   \
+<a name='L131'><font color='red'>}</font> <b>while</b> (0)
+<a name='L132'>
+<a name='L133'><font color='darkred'>#define</font> <a href='../R/3328.html' title='Multiple refered from 2 places.'>rbtn_last</a>(a_type, a_field, a_rbt, a_root, r_node) <b>do</b> <font color='red'>{</font>          \
+<a name='L134'>    (r_node) = (a_root);                                                \
+<a name='L135'>    <b>if</b> ((r_node) != &amp;(a_rbt)-&gt;rbt_nil) <font color='red'>{</font>                                \
+<a name='L136'>        <b>for</b> (; <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type, a_field, (r_node)) !=             \
+<a name='L137'>          &amp;(a_rbt)-&gt;rbt_nil; (r_node) = <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type, a_field, \
+<a name='L138'>          (r_node))) <font color='red'>{</font>                                                  \
+<a name='L139'>        <font color='red'>}</font>                                                               \
+<a name='L140'>    <font color='red'>}</font>                                                                   \
+<a name='L141'><font color='red'>}</font> <b>while</b> (0)
+<a name='L142'>
+<a name='L143'><font color='darkred'>#define</font> <a href='../R/3335.html' title='Multiple refered from 6 places.'>rbtn_rotate_left</a>(a_type, a_field, a_node, r_node) <b>do</b> <font color='red'>{</font>          \
+<a name='L144'>    (r_node) = <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type, a_field, (a_node));               \
+<a name='L145'>    <a href='../D/3693.html' title='Multiple defined in 2 places.'>rbtn_right_set</a>(a_type, a_field, (a_node),                           \
+<a name='L146'>      <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, (r_node)));                        \
+<a name='L147'>    <a href='../S/129.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_set</a>(a_type, a_field, (r_node), (a_node));                 \
+<a name='L148'><font color='red'>}</font> <b>while</b> (0)
+<a name='L149'>
+<a name='L150'><font color='darkred'>#define</font> <a href='../R/3336.html' title='Multiple refered from 8 places.'>rbtn_rotate_right</a>(a_type, a_field, a_node, r_node) <b>do</b> <font color='red'>{</font>         \
+<a name='L151'>    (r_node) = <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, (a_node));                \
+<a name='L152'>    <a href='../S/129.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_set</a>(a_type, a_field, (a_node),                            \
+<a name='L153'>      <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type, a_field, (r_node)));                       \
+<a name='L154'>    <a href='../D/3693.html' title='Multiple defined in 2 places.'>rbtn_right_set</a>(a_type, a_field, (r_node), (a_node));                \
+<a name='L155'><font color='red'>}</font> <b>while</b> (0)
+<a name='L156'>
+<a name='L157'><i><font color='green'>/*</font></i>
+<a name='L158'><i><font color='green'> * The rb_proto() macro generates function prototypes that correspond to the</font></i>
+<a name='L159'><i><font color='green'> * functions generated by an equivalently parameterized call to rb_gen().</font></i>
+<a name='L160'><i><font color='green'> */</font></i>
+<a name='L161'>
+<a name='L162'><font color='darkred'>#define</font> <a href='../S/147.html#L36' title='Refered from 36 in deps/jemalloc/include/jemalloc/internal/extent.h.'>rb_proto</a>(a_attr, a_prefix, a_rbt_type, a_type)                  \
+<a name='L163'>a_attr <b>void</b>                                                             \
+<a name='L164'>a_prefix##new(a_rbt_type *rbtree);                                      \
+<a name='L165'>a_attr a_type *                                                         \
+<a name='L166'>a_prefix##first(a_rbt_type *rbtree);                                    \
+<a name='L167'>a_attr a_type *                                                         \
+<a name='L168'>a_prefix##last(a_rbt_type *rbtree);                                     \
+<a name='L169'>a_attr a_type *                                                         \
+<a name='L170'>a_prefix##<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>(a_rbt_type *rbtree, a_type *node);                       \
+<a name='L171'>a_attr a_type *                                                         \
+<a name='L172'>a_prefix##prev(a_rbt_type *rbtree, a_type *node);                       \
+<a name='L173'>a_attr a_type *                                                         \
+<a name='L174'>a_prefix##search(a_rbt_type *rbtree, a_type *key);                      \
+<a name='L175'>a_attr a_type *                                                         \
+<a name='L176'>a_prefix##nsearch(a_rbt_type *rbtree, a_type *key);                     \
+<a name='L177'>a_attr a_type *                                                         \
+<a name='L178'>a_prefix##psearch(a_rbt_type *rbtree, a_type *key);                     \
+<a name='L179'>a_attr <b>void</b>                                                             \
+<a name='L180'>a_prefix##insert(a_rbt_type *rbtree, a_type *node);                     \
+<a name='L181'>a_attr <b>void</b>                                                             \
+<a name='L182'>a_prefix##remove(a_rbt_type *rbtree, a_type *node);                     \
+<a name='L183'>a_attr a_type *                                                         \
+<a name='L184'>a_prefix##iter(a_rbt_type *rbtree, a_type *start, a_type *(*cb)(        \
+<a name='L185'>  a_rbt_type *, a_type *, <b>void</b> *), <b>void</b> *arg);                          \
+<a name='L186'>a_attr a_type *                                                         \
+<a name='L187'>a_prefix##reverse_iter(a_rbt_type *rbtree, a_type *start,               \
+<a name='L188'>  a_type *(*cb)(a_rbt_type *, a_type *, <b>void</b> *), <b>void</b> *arg);
+<a name='L189'>
+<a name='L190'><i><font color='green'>/*</font></i>
+<a name='L191'><i><font color='green'> * The rb_gen() macro generates a type-specific red-black tree implementation,</font></i>
+<a name='L192'><i><font color='green'> * based on the above cpp macros.</font></i>
+<a name='L193'><i><font color='green'> *</font></i>
+<a name='L194'><i><font color='green'> * Arguments:</font></i>
+<a name='L195'><i><font color='green'> *</font></i>
+<a name='L196'><i><font color='green'> *   a_attr    : Function attribute for generated functions (ex: static).</font></i>
+<a name='L197'><i><font color='green'> *   a_prefix  : Prefix for generated functions (ex: ex_).</font></i>
+<a name='L198'><i><font color='green'> *   a_rb_type : Type for red-black tree data structure (ex: ex_t).</font></i>
+<a name='L199'><i><font color='green'> *   a_type    : Type for red-black tree node data structure (ex: ex_node_t).</font></i>
+<a name='L200'><i><font color='green'> *   a_field   : Name of red-black tree node linkage (ex: ex_link).</font></i>
+<a name='L201'><i><font color='green'> *   a_cmp     : Node comparison function name, with the following prototype:</font></i>
+<a name='L202'><i><font color='green'> *                 int (a_cmp *)(a_type *a_node, a_type *a_other);</font></i>
+<a name='L203'><i><font color='green'> *                                       ^^^^^^</font></i>
+<a name='L204'><i><font color='green'> *                                    or a_key</font></i>
+<a name='L205'><i><font color='green'> *               Interpretation of comparision function return values:</font></i>
+<a name='L206'><i><font color='green'> *                 -1 : a_node &lt;  a_other</font></i>
+<a name='L207'><i><font color='green'> *                  0 : a_node == a_other</font></i>
+<a name='L208'><i><font color='green'> *                  1 : a_node &gt;  a_other</font></i>
+<a name='L209'><i><font color='green'> *               In all cases, the a_node or a_key macro argument is the first</font></i>
+<a name='L210'><i><font color='green'> *               argument to the comparison function, which makes it possible</font></i>
+<a name='L211'><i><font color='green'> *               to write comparison functions that treat the first argument</font></i>
+<a name='L212'><i><font color='green'> *               specially.</font></i>
+<a name='L213'><i><font color='green'> *</font></i>
+<a name='L214'><i><font color='green'> * Assuming the following setup:</font></i>
+<a name='L215'><i><font color='green'> *</font></i>
+<a name='L216'><i><font color='green'> *   typedef struct ex_node_s ex_node_t;</font></i>
+<a name='L217'><i><font color='green'> *   struct ex_node_s {</font></i>
+<a name='L218'><i><font color='green'> *       rb_node(ex_node_t) ex_link;</font></i>
+<a name='L219'><i><font color='green'> *   };</font></i>
+<a name='L220'><i><font color='green'> *   typedef rb_tree(ex_node_t) ex_t;</font></i>
+<a name='L221'><i><font color='green'> *   rb_gen(static, ex_, ex_t, ex_node_t, ex_link, ex_cmp)</font></i>
+<a name='L222'><i><font color='green'> *</font></i>
+<a name='L223'><i><font color='green'> * The following API is generated:</font></i>
+<a name='L224'><i><font color='green'> *</font></i>
+<a name='L225'><i><font color='green'> *   static void</font></i>
+<a name='L226'><i><font color='green'> *   ex_new(ex_t *tree);</font></i>
+<a name='L227'><i><font color='green'> *       Description: Initialize a red-black tree structure.</font></i>
+<a name='L228'><i><font color='green'> *       Args:</font></i>
+<a name='L229'><i><font color='green'> *         tree: Pointer to an uninitialized red-black tree object.</font></i>
+<a name='L230'><i><font color='green'> *</font></i>
+<a name='L231'><i><font color='green'> *   static ex_node_t *</font></i>
+<a name='L232'><i><font color='green'> *   ex_first(ex_t *tree);</font></i>
+<a name='L233'><i><font color='green'> *   static ex_node_t *</font></i>
+<a name='L234'><i><font color='green'> *   ex_last(ex_t *tree);</font></i>
+<a name='L235'><i><font color='green'> *       Description: Get the first/last node in tree.</font></i>
+<a name='L236'><i><font color='green'> *       Args:</font></i>
+<a name='L237'><i><font color='green'> *         tree: Pointer to an initialized red-black tree object.</font></i>
+<a name='L238'><i><font color='green'> *       Ret: First/last node in tree, or NULL if tree is empty.</font></i>
+<a name='L239'><i><font color='green'> *</font></i>
+<a name='L240'><i><font color='green'> *   static ex_node_t *</font></i>
+<a name='L241'><i><font color='green'> *   ex_next(ex_t *tree, ex_node_t *node);</font></i>
+<a name='L242'><i><font color='green'> *   static ex_node_t *</font></i>
+<a name='L243'><i><font color='green'> *   ex_prev(ex_t *tree, ex_node_t *node);</font></i>
+<a name='L244'><i><font color='green'> *       Description: Get node's successor/predecessor.</font></i>
+<a name='L245'><i><font color='green'> *       Args:</font></i>
+<a name='L246'><i><font color='green'> *         tree: Pointer to an initialized red-black tree object.</font></i>
+<a name='L247'><i><font color='green'> *         node: A node in tree.</font></i>
+<a name='L248'><i><font color='green'> *       Ret: node's successor/predecessor in tree, or NULL if node is</font></i>
+<a name='L249'><i><font color='green'> *            last/first.</font></i>
+<a name='L250'><i><font color='green'> *</font></i>
+<a name='L251'><i><font color='green'> *   static ex_node_t *</font></i>
+<a name='L252'><i><font color='green'> *   ex_search(ex_t *tree, ex_node_t *key);</font></i>
+<a name='L253'><i><font color='green'> *       Description: Search for node that matches key.</font></i>
+<a name='L254'><i><font color='green'> *       Args:</font></i>
+<a name='L255'><i><font color='green'> *         tree: Pointer to an initialized red-black tree object.</font></i>
+<a name='L256'><i><font color='green'> *         key : Search key.</font></i>
+<a name='L257'><i><font color='green'> *       Ret: Node in tree that matches key, or NULL if no match.</font></i>
+<a name='L258'><i><font color='green'> *</font></i>
+<a name='L259'><i><font color='green'> *   static ex_node_t *</font></i>
+<a name='L260'><i><font color='green'> *   ex_nsearch(ex_t *tree, ex_node_t *key);</font></i>
+<a name='L261'><i><font color='green'> *   static ex_node_t *</font></i>
+<a name='L262'><i><font color='green'> *   ex_psearch(ex_t *tree, ex_node_t *key);</font></i>
+<a name='L263'><i><font color='green'> *       Description: Search for node that matches key.  If no match is found,</font></i>
+<a name='L264'><i><font color='green'> *                    return what would be key's successor/predecessor, were</font></i>
+<a name='L265'><i><font color='green'> *                    key in tree.</font></i>
+<a name='L266'><i><font color='green'> *       Args:</font></i>
+<a name='L267'><i><font color='green'> *         tree: Pointer to an initialized red-black tree object.</font></i>
+<a name='L268'><i><font color='green'> *         key : Search key.</font></i>
+<a name='L269'><i><font color='green'> *       Ret: Node in tree that matches key, or if no match, hypothetical node's</font></i>
+<a name='L270'><i><font color='green'> *            successor/predecessor (NULL if no successor/predecessor).</font></i>
+<a name='L271'><i><font color='green'> *</font></i>
+<a name='L272'><i><font color='green'> *   static void</font></i>
+<a name='L273'><i><font color='green'> *   ex_insert(ex_t *tree, ex_node_t *node);</font></i>
+<a name='L274'><i><font color='green'> *       Description: Insert node into tree.</font></i>
+<a name='L275'><i><font color='green'> *       Args:</font></i>
+<a name='L276'><i><font color='green'> *         tree: Pointer to an initialized red-black tree object.</font></i>
+<a name='L277'><i><font color='green'> *         node: Node to be inserted into tree.</font></i>
+<a name='L278'><i><font color='green'> *</font></i>
+<a name='L279'><i><font color='green'> *   static void</font></i>
+<a name='L280'><i><font color='green'> *   ex_remove(ex_t *tree, ex_node_t *node);</font></i>
+<a name='L281'><i><font color='green'> *       Description: Remove node from tree.</font></i>
+<a name='L282'><i><font color='green'> *       Args:</font></i>
+<a name='L283'><i><font color='green'> *         tree: Pointer to an initialized red-black tree object.</font></i>
+<a name='L284'><i><font color='green'> *         node: Node in tree to be removed.</font></i>
+<a name='L285'><i><font color='green'> *</font></i>
+<a name='L286'><i><font color='green'> *   static ex_node_t *</font></i>
+<a name='L287'><i><font color='green'> *   ex_iter(ex_t *tree, ex_node_t *start, ex_node_t *(*cb)(ex_t *,</font></i>
+<a name='L288'><i><font color='green'> *     ex_node_t *, void *), void *arg);</font></i>
+<a name='L289'><i><font color='green'> *   static ex_node_t *</font></i>
+<a name='L290'><i><font color='green'> *   ex_reverse_iter(ex_t *tree, ex_node_t *start, ex_node *(*cb)(ex_t *,</font></i>
+<a name='L291'><i><font color='green'> *     ex_node_t *, void *), void *arg);</font></i>
+<a name='L292'><i><font color='green'> *       Description: Iterate forward/backward over tree, starting at node.  If</font></i>
+<a name='L293'><i><font color='green'> *                    tree is modified, iteration must be immediately</font></i>
+<a name='L294'><i><font color='green'> *                    terminated by the callback function that causes the</font></i>
+<a name='L295'><i><font color='green'> *                    modification.</font></i>
+<a name='L296'><i><font color='green'> *       Args:</font></i>
+<a name='L297'><i><font color='green'> *         tree : Pointer to an initialized red-black tree object.</font></i>
+<a name='L298'><i><font color='green'> *         start: Node at which to start iteration, or NULL to start at</font></i>
+<a name='L299'><i><font color='green'> *                first/last node.</font></i>
+<a name='L300'><i><font color='green'> *         cb   : Callback function, which is called for each node during</font></i>
+<a name='L301'><i><font color='green'> *                iteration.  Under normal circumstances the callback function</font></i>
+<a name='L302'><i><font color='green'> *                should return NULL, which causes iteration to continue.  If a</font></i>
+<a name='L303'><i><font color='green'> *                callback function returns non-NULL, iteration is immediately</font></i>
+<a name='L304'><i><font color='green'> *                terminated and the non-NULL return value is returned by the</font></i>
+<a name='L305'><i><font color='green'> *                iterator.  This is useful for re-starting iteration after</font></i>
+<a name='L306'><i><font color='green'> *                modifying tree.</font></i>
+<a name='L307'><i><font color='green'> *         arg  : Opaque pointer passed to cb().</font></i>
+<a name='L308'><i><font color='green'> *       Ret: NULL if iteration completed, or the non-NULL callback return value</font></i>
+<a name='L309'><i><font color='green'> *            that caused termination of the iteration.</font></i>
+<a name='L310'><i><font color='green'> */</font></i>
+<a name='L311'><font color='darkred'>#define</font> <a href='../S/197.html#L38' title='Refered from 38 in deps/jemalloc/src/extent.c.'>rb_gen</a>(a_attr, a_prefix, a_rbt_type, a_type, a_field, a_cmp)    \
+<a name='L312'>a_attr <b>void</b>                                                             \
+<a name='L313'>a_prefix##new(a_rbt_type *rbtree) <font color='red'>{</font>                                     \
+<a name='L314'>    <a href='../S/129.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rb_new</a>(a_type, a_field, rbtree);                                    \
+<a name='L315'><font color='red'>}</font>                                                                       \
+<a name='L316'>a_attr a_type *                                                         \
+<a name='L317'>a_prefix##first(a_rbt_type *rbtree) <font color='red'>{</font>                                   \
+<a name='L318'>    a_type *ret;                                                        \
+<a name='L319'>    <a href='../S/129.html#L123' title='Defined at 123 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_first</a>(a_type, a_field, rbtree, rbtree-&gt;rbt_root, ret);         \
+<a name='L320'>    <b>if</b> (ret == &amp;rbtree-&gt;rbt_nil) <font color='red'>{</font>                                      \
+<a name='L321'>        ret = NULL;                                                     \
+<a name='L322'>    <font color='red'>}</font>                                                                   \
+<a name='L323'>    <b>return</b> (ret);                                                       \
+<a name='L324'><font color='red'>}</font>                                                                       \
+<a name='L325'>a_attr a_type *                                                         \
+<a name='L326'>a_prefix##last(a_rbt_type *rbtree) <font color='red'>{</font>                                    \
+<a name='L327'>    a_type *ret;                                                        \
+<a name='L328'>    <a href='../S/129.html#L133' title='Defined at 133 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_last</a>(a_type, a_field, rbtree, rbtree-&gt;rbt_root, ret);          \
+<a name='L329'>    <b>if</b> (ret == &amp;rbtree-&gt;rbt_nil) <font color='red'>{</font>                                      \
+<a name='L330'>        ret = NULL;                                                     \
+<a name='L331'>    <font color='red'>}</font>                                                                   \
+<a name='L332'>    <b>return</b> (ret);                                                       \
+<a name='L333'><font color='red'>}</font>                                                                       \
+<a name='L334'>a_attr a_type *                                                         \
+<a name='L335'>a_prefix##<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>(a_rbt_type *rbtree, a_type *node) <font color='red'>{</font>                      \
+<a name='L336'>    a_type *ret;                                                        \
+<a name='L337'>    <b>if</b> (<a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type, a_field, node) != &amp;rbtree-&gt;rbt_nil) <font color='red'>{</font>    \
+<a name='L338'>        <a href='../S/129.html#L123' title='Defined at 123 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_first</a>(a_type, a_field, rbtree, <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type,      \
+<a name='L339'>          a_field, node), ret);                                         \
+<a name='L340'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                            \
+<a name='L341'>        a_type *tnode = rbtree-&gt;rbt_root;                               \
+<a name='L342'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(tnode != &amp;rbtree-&gt;rbt_nil);                              \
+<a name='L343'>        ret = &amp;rbtree-&gt;rbt_nil;                                         \
+<a name='L344'>        <b>while</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>) <font color='red'>{</font>                                                  \
+<a name='L345'>            <b>int</b> cmp = (a_cmp)(node, tnode);                             \
+<a name='L346'>            <b>if</b> (cmp &lt; 0) <font color='red'>{</font>                                              \
+<a name='L347'>                ret = tnode;                                            \
+<a name='L348'>                tnode = <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, tnode);          \
+<a name='L349'>            <font color='red'>}</font> <b>else</b> <b>if</b> (cmp &gt; 0) <font color='red'>{</font>                                       \
+<a name='L350'>                tnode = <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type, a_field, tnode);         \
+<a name='L351'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                    \
+<a name='L352'>                <b>break</b>;                                                  \
+<a name='L353'>            <font color='red'>}</font>                                                           \
+<a name='L354'>            <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(tnode != &amp;rbtree-&gt;rbt_nil);                          \
+<a name='L355'>        <font color='red'>}</font>                                                               \
+<a name='L356'>    <font color='red'>}</font>                                                                   \
+<a name='L357'>    <b>if</b> (ret == &amp;rbtree-&gt;rbt_nil) <font color='red'>{</font>                                      \
+<a name='L358'>        ret = (NULL);                                                   \
+<a name='L359'>    <font color='red'>}</font>                                                                   \
+<a name='L360'>    <b>return</b> (ret);                                                       \
+<a name='L361'><font color='red'>}</font>                                                                       \
+<a name='L362'>a_attr a_type *                                                         \
+<a name='L363'>a_prefix##prev(a_rbt_type *rbtree, a_type *node) <font color='red'>{</font>                      \
+<a name='L364'>    a_type *ret;                                                        \
+<a name='L365'>    <b>if</b> (<a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, node) != &amp;rbtree-&gt;rbt_nil) <font color='red'>{</font>     \
+<a name='L366'>        <a href='../S/129.html#L133' title='Defined at 133 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_last</a>(a_type, a_field, rbtree, <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type,        \
+<a name='L367'>          a_field, node), ret);                                         \
+<a name='L368'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                            \
+<a name='L369'>        a_type *tnode = rbtree-&gt;rbt_root;                               \
+<a name='L370'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(tnode != &amp;rbtree-&gt;rbt_nil);                              \
+<a name='L371'>        ret = &amp;rbtree-&gt;rbt_nil;                                         \
+<a name='L372'>        <b>while</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>) <font color='red'>{</font>                                                  \
+<a name='L373'>            <b>int</b> cmp = (a_cmp)(node, tnode);                             \
+<a name='L374'>            <b>if</b> (cmp &lt; 0) <font color='red'>{</font>                                              \
+<a name='L375'>                tnode = <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, tnode);          \
+<a name='L376'>            <font color='red'>}</font> <b>else</b> <b>if</b> (cmp &gt; 0) <font color='red'>{</font>                                       \
+<a name='L377'>                ret = tnode;                                            \
+<a name='L378'>                tnode = <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type, a_field, tnode);         \
+<a name='L379'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                    \
+<a name='L380'>                <b>break</b>;                                                  \
+<a name='L381'>            <font color='red'>}</font>                                                           \
+<a name='L382'>            <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(tnode != &amp;rbtree-&gt;rbt_nil);                          \
+<a name='L383'>        <font color='red'>}</font>                                                               \
+<a name='L384'>    <font color='red'>}</font>                                                                   \
+<a name='L385'>    <b>if</b> (ret == &amp;rbtree-&gt;rbt_nil) <font color='red'>{</font>                                      \
+<a name='L386'>        ret = (NULL);                                                   \
+<a name='L387'>    <font color='red'>}</font>                                                                   \
+<a name='L388'>    <b>return</b> (ret);                                                       \
+<a name='L389'><font color='red'>}</font>                                                                       \
+<a name='L390'>a_attr a_type *                                                         \
+<a name='L391'>a_prefix##search(a_rbt_type *rbtree, a_type *key) <font color='red'>{</font>                     \
+<a name='L392'>    a_type *ret;                                                        \
+<a name='L393'>    <b>int</b> cmp;                                                            \
+<a name='L394'>    ret = rbtree-&gt;rbt_root;                                             \
+<a name='L395'>    <b>while</b> (ret != &amp;rbtree-&gt;rbt_nil                                      \
+<a name='L396'>      &amp;&amp; (cmp = (a_cmp)(key, ret)) != 0) <font color='red'>{</font>                              \
+<a name='L397'>        <b>if</b> (cmp &lt; 0) <font color='red'>{</font>                                                  \
+<a name='L398'>            ret = <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, ret);                  \
+<a name='L399'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                        \
+<a name='L400'>            ret = <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type, a_field, ret);                 \
+<a name='L401'>        <font color='red'>}</font>                                                               \
+<a name='L402'>    <font color='red'>}</font>                                                                   \
+<a name='L403'>    <b>if</b> (ret == &amp;rbtree-&gt;rbt_nil) <font color='red'>{</font>                                      \
+<a name='L404'>        ret = (NULL);                                                   \
+<a name='L405'>    <font color='red'>}</font>                                                                   \
+<a name='L406'>    <b>return</b> (ret);                                                       \
+<a name='L407'><font color='red'>}</font>                                                                       \
+<a name='L408'>a_attr a_type *                                                         \
+<a name='L409'>a_prefix##nsearch(a_rbt_type *rbtree, a_type *key) <font color='red'>{</font>                    \
+<a name='L410'>    a_type *ret;                                                        \
+<a name='L411'>    a_type *tnode = rbtree-&gt;rbt_root;                                   \
+<a name='L412'>    ret = &amp;rbtree-&gt;rbt_nil;                                             \
+<a name='L413'>    <b>while</b> (tnode != &amp;rbtree-&gt;rbt_nil) <font color='red'>{</font>                                 \
+<a name='L414'>        <b>int</b> cmp = (a_cmp)(key, tnode);                                  \
+<a name='L415'>        <b>if</b> (cmp &lt; 0) <font color='red'>{</font>                                                  \
+<a name='L416'>            ret = tnode;                                                \
+<a name='L417'>            tnode = <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, tnode);              \
+<a name='L418'>        <font color='red'>}</font> <b>else</b> <b>if</b> (cmp &gt; 0) <font color='red'>{</font>                                           \
+<a name='L419'>            tnode = <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type, a_field, tnode);             \
+<a name='L420'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                        \
+<a name='L421'>            ret = tnode;                                                \
+<a name='L422'>            <b>break</b>;                                                      \
+<a name='L423'>        <font color='red'>}</font>                                                               \
+<a name='L424'>    <font color='red'>}</font>                                                                   \
+<a name='L425'>    <b>if</b> (ret == &amp;rbtree-&gt;rbt_nil) <font color='red'>{</font>                                      \
+<a name='L426'>        ret = (NULL);                                                   \
+<a name='L427'>    <font color='red'>}</font>                                                                   \
+<a name='L428'>    <b>return</b> (ret);                                                       \
+<a name='L429'><font color='red'>}</font>                                                                       \
+<a name='L430'>a_attr a_type *                                                         \
+<a name='L431'>a_prefix##psearch(a_rbt_type *rbtree, a_type *key) <font color='red'>{</font>                    \
+<a name='L432'>    a_type *ret;                                                        \
+<a name='L433'>    a_type *tnode = rbtree-&gt;rbt_root;                                   \
+<a name='L434'>    ret = &amp;rbtree-&gt;rbt_nil;                                             \
+<a name='L435'>    <b>while</b> (tnode != &amp;rbtree-&gt;rbt_nil) <font color='red'>{</font>                                 \
+<a name='L436'>        <b>int</b> cmp = (a_cmp)(key, tnode);                                  \
+<a name='L437'>        <b>if</b> (cmp &lt; 0) <font color='red'>{</font>                                                  \
+<a name='L438'>            tnode = <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, tnode);              \
+<a name='L439'>        <font color='red'>}</font> <b>else</b> <b>if</b> (cmp &gt; 0) <font color='red'>{</font>                                           \
+<a name='L440'>            ret = tnode;                                                \
+<a name='L441'>            tnode = <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type, a_field, tnode);             \
+<a name='L442'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                        \
+<a name='L443'>            ret = tnode;                                                \
+<a name='L444'>            <b>break</b>;                                                      \
+<a name='L445'>        <font color='red'>}</font>                                                               \
+<a name='L446'>    <font color='red'>}</font>                                                                   \
+<a name='L447'>    <b>if</b> (ret == &amp;rbtree-&gt;rbt_nil) <font color='red'>{</font>                                      \
+<a name='L448'>        ret = (NULL);                                                   \
+<a name='L449'>    <font color='red'>}</font>                                                                   \
+<a name='L450'>    <b>return</b> (ret);                                                       \
+<a name='L451'><font color='red'>}</font>                                                                       \
+<a name='L452'>a_attr <b>void</b>                                                             \
+<a name='L453'>a_prefix##insert(a_rbt_type *rbtree, a_type *node) <font color='red'>{</font>                    \
+<a name='L454'>    <b>struct</b> <font color='red'>{</font>                                                            \
+<a name='L455'>        a_type *node;                                                   \
+<a name='L456'>        <b>int</b> cmp;                                                        \
+<a name='L457'>    <font color='red'>}</font> path[<b>sizeof</b>(<b>void</b> *) &lt;&lt; 4], *pathp;                                \
+<a name='L458'>    <a href='../S/129.html#L109' title='Defined at 109 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbt_node_new</a>(a_type, a_field, rbtree, node);                        \
+<a name='L459'>    <i><font color='green'>/* Wind. */</font></i>                                                         \
+<a name='L460'>    path-&gt;node = rbtree-&gt;rbt_root;                                      \
+<a name='L461'>    <b>for</b> (pathp = path; pathp-&gt;node != &amp;rbtree-&gt;rbt_nil; pathp++) <font color='red'>{</font>      \
+<a name='L462'>        <b>int</b> cmp = pathp-&gt;cmp = a_cmp(node, pathp-&gt;node);                \
+<a name='L463'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(cmp != 0);                                               \
+<a name='L464'>        <b>if</b> (cmp &lt; 0) <font color='red'>{</font>                                                  \
+<a name='L465'>            pathp[1].node = <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field,              \
+<a name='L466'>              pathp-&gt;node);                                             \
+<a name='L467'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                        \
+<a name='L468'>            pathp[1].node = <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type, a_field,             \
+<a name='L469'>              pathp-&gt;node);                                             \
+<a name='L470'>        <font color='red'>}</font>                                                               \
+<a name='L471'>    <font color='red'>}</font>                                                                   \
+<a name='L472'>    pathp-&gt;node = node;                                                 \
+<a name='L473'>    <i><font color='green'>/* Unwind. */</font></i>                                                       \
+<a name='L474'>    <b>for</b> (pathp--; (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)pathp &gt;= (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)path; pathp--) <font color='red'>{</font>       \
+<a name='L475'>        a_type *cnode = pathp-&gt;node;                                    \
+<a name='L476'>        <b>if</b> (pathp-&gt;cmp &lt; 0) <font color='red'>{</font>                                           \
+<a name='L477'>            a_type *left = pathp[1].node;                               \
+<a name='L478'>            <a href='../S/129.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_set</a>(a_type, a_field, cnode, left);                \
+<a name='L479'>            <b>if</b> (<a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, left)) <font color='red'>{</font>                  \
+<a name='L480'>                a_type *leftleft = <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, left);\
+<a name='L481'>                <b>if</b> (<a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, leftleft)) <font color='red'>{</font>          \
+<a name='L482'>                    <i><font color='green'>/* Fix up 4-node. */</font></i>                                \
+<a name='L483'>                    a_type *tnode;                                      \
+<a name='L484'>                    <a href='../D/3684.html' title='Multiple defined in 2 places.'>rbtn_black_set</a>(a_type, a_field, leftleft);          \
+<a name='L485'>                    <a href='../S/129.html#L150' title='Defined at 150 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_rotate_right</a>(a_type, a_field, cnode, tnode);   \
+<a name='L486'>                    cnode = tnode;                                      \
+<a name='L487'>                <font color='red'>}</font>                                                       \
+<a name='L488'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                    \
+<a name='L489'>                <b>return</b>;                                                 \
+<a name='L490'>            <font color='red'>}</font>                                                           \
+<a name='L491'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                        \
+<a name='L492'>            a_type *right = pathp[1].node;                              \
+<a name='L493'>            <a href='../D/3693.html' title='Multiple defined in 2 places.'>rbtn_right_set</a>(a_type, a_field, cnode, right);              \
+<a name='L494'>            <b>if</b> (<a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, right)) <font color='red'>{</font>                 \
+<a name='L495'>                a_type *left = <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, cnode);   \
+<a name='L496'>                <b>if</b> (<a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, left)) <font color='red'>{</font>              \
+<a name='L497'>                    <i><font color='green'>/* Split 4-node. */</font></i>                                 \
+<a name='L498'>                    <a href='../D/3684.html' title='Multiple defined in 2 places.'>rbtn_black_set</a>(a_type, a_field, left);              \
+<a name='L499'>                    <a href='../D/3684.html' title='Multiple defined in 2 places.'>rbtn_black_set</a>(a_type, a_field, right);             \
+<a name='L500'>                    <a href='../D/3691.html' title='Multiple defined in 2 places.'>rbtn_red_set</a>(a_type, a_field, cnode);               \
+<a name='L501'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                \
+<a name='L502'>                    <i><font color='green'>/* Lean left. */</font></i>                                    \
+<a name='L503'>                    a_type *tnode;                                      \
+<a name='L504'>                    <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> tred = <a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, cnode);   \
+<a name='L505'>                    <a href='../S/129.html#L143' title='Defined at 143 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_rotate_left</a>(a_type, a_field, cnode, tnode);    \
+<a name='L506'>                    <a href='../D/3685.html' title='Multiple defined in 2 places.'>rbtn_color_set</a>(a_type, a_field, tnode, tred);       \
+<a name='L507'>                    <a href='../D/3691.html' title='Multiple defined in 2 places.'>rbtn_red_set</a>(a_type, a_field, cnode);               \
+<a name='L508'>                    cnode = tnode;                                      \
+<a name='L509'>                <font color='red'>}</font>                                                       \
+<a name='L510'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                    \
+<a name='L511'>                <b>return</b>;                                                 \
+<a name='L512'>            <font color='red'>}</font>                                                           \
+<a name='L513'>        <font color='red'>}</font>                                                               \
+<a name='L514'>        pathp-&gt;node = cnode;                                            \
+<a name='L515'>    <font color='red'>}</font>                                                                   \
+<a name='L516'>    <i><font color='green'>/* Set root, and make it black. */</font></i>                                  \
+<a name='L517'>    rbtree-&gt;rbt_root = path-&gt;node;                                      \
+<a name='L518'>    <a href='../D/3684.html' title='Multiple defined in 2 places.'>rbtn_black_set</a>(a_type, a_field, rbtree-&gt;rbt_root);                  \
+<a name='L519'><font color='red'>}</font>                                                                       \
+<a name='L520'>a_attr <b>void</b>                                                             \
+<a name='L521'>a_prefix##remove(a_rbt_type *rbtree, a_type *node) <font color='red'>{</font>                    \
+<a name='L522'>    <b>struct</b> <font color='red'>{</font>                                                            \
+<a name='L523'>        a_type *node;                                                   \
+<a name='L524'>        <b>int</b> cmp;                                                        \
+<a name='L525'>    <font color='red'>}</font> *pathp, *nodep, path[<b>sizeof</b>(<b>void</b> *) &lt;&lt; 4];                        \
+<a name='L526'>    <i><font color='green'>/* Wind. */</font></i>                                                         \
+<a name='L527'>    nodep = NULL; <i><font color='green'>/* Silence compiler warning. */</font></i>                       \
+<a name='L528'>    path-&gt;node = rbtree-&gt;rbt_root;                                      \
+<a name='L529'>    <b>for</b> (pathp = path; pathp-&gt;node != &amp;rbtree-&gt;rbt_nil; pathp++) <font color='red'>{</font>      \
+<a name='L530'>        <b>int</b> cmp = pathp-&gt;cmp = a_cmp(node, pathp-&gt;node);                \
+<a name='L531'>        <b>if</b> (cmp &lt; 0) <font color='red'>{</font>                                                  \
+<a name='L532'>            pathp[1].node = <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field,              \
+<a name='L533'>              pathp-&gt;node);                                             \
+<a name='L534'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                        \
+<a name='L535'>            pathp[1].node = <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type, a_field,             \
+<a name='L536'>              pathp-&gt;node);                                             \
+<a name='L537'>            <b>if</b> (cmp == 0) <font color='red'>{</font>                                             \
+<a name='L538'>                <i><font color='green'>/* Find node's successor, in preparation for swap. */</font></i>   \
+<a name='L539'>                pathp-&gt;cmp = 1;                                         \
+<a name='L540'>                nodep = pathp;                                          \
+<a name='L541'>                <b>for</b> (pathp++; pathp-&gt;node != &amp;rbtree-&gt;rbt_nil;          \
+<a name='L542'>                  pathp++) <font color='red'>{</font>                                            \
+<a name='L543'>                    pathp-&gt;cmp = -1;                                    \
+<a name='L544'>                    pathp[1].node = <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field,      \
+<a name='L545'>                      pathp-&gt;node);                                     \
+<a name='L546'>                <font color='red'>}</font>                                                       \
+<a name='L547'>                <b>break</b>;                                                  \
+<a name='L548'>            <font color='red'>}</font>                                                           \
+<a name='L549'>        <font color='red'>}</font>                                                               \
+<a name='L550'>    <font color='red'>}</font>                                                                   \
+<a name='L551'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(nodep-&gt;node == node);                                        \
+<a name='L552'>    pathp--;                                                            \
+<a name='L553'>    <b>if</b> (pathp-&gt;node != node) <font color='red'>{</font>                                          \
+<a name='L554'>        <i><font color='green'>/* Swap node with its successor. */</font></i>                             \
+<a name='L555'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> tred = <a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, pathp-&gt;node);         \
+<a name='L556'>        <a href='../D/3685.html' title='Multiple defined in 2 places.'>rbtn_color_set</a>(a_type, a_field, pathp-&gt;node,                    \
+<a name='L557'>          <a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, node));                         \
+<a name='L558'>        <a href='../S/129.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_set</a>(a_type, a_field, pathp-&gt;node,                     \
+<a name='L559'>          <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, node));                        \
+<a name='L560'>        <i><font color='green'>/* If node's successor is its right child, the following code */</font></i>\
+<a name='L561'>        <i><font color='green'>/* will do the wrong thing for the right child pointer.       */</font></i>\
+<a name='L562'>        <i><font color='green'>/* However, it doesn't matter, because the pointer will be    */</font></i>\
+<a name='L563'>        <i><font color='green'>/* properly set when the successor is pruned.                 */</font></i>\
+<a name='L564'>        <a href='../D/3693.html' title='Multiple defined in 2 places.'>rbtn_right_set</a>(a_type, a_field, pathp-&gt;node,                    \
+<a name='L565'>          <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type, a_field, node));                       \
+<a name='L566'>        <a href='../D/3685.html' title='Multiple defined in 2 places.'>rbtn_color_set</a>(a_type, a_field, node, tred);                    \
+<a name='L567'>        <i><font color='green'>/* The pruned leaf node's child pointers are never accessed   */</font></i>\
+<a name='L568'>        <i><font color='green'>/* again, so don't bother setting them to nil.                */</font></i>\
+<a name='L569'>        nodep-&gt;node = pathp-&gt;node;                                      \
+<a name='L570'>        pathp-&gt;node = node;                                             \
+<a name='L571'>        <b>if</b> (nodep == path) <font color='red'>{</font>                                            \
+<a name='L572'>            rbtree-&gt;rbt_root = nodep-&gt;node;                             \
+<a name='L573'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                        \
+<a name='L574'>            <b>if</b> (nodep[-1].cmp &lt; 0) <font color='red'>{</font>                                    \
+<a name='L575'>                <a href='../S/129.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_set</a>(a_type, a_field, nodep[-1].node,          \
+<a name='L576'>                  nodep-&gt;node);                                         \
+<a name='L577'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                    \
+<a name='L578'>                <a href='../D/3693.html' title='Multiple defined in 2 places.'>rbtn_right_set</a>(a_type, a_field, nodep[-1].node,         \
+<a name='L579'>                  nodep-&gt;node);                                         \
+<a name='L580'>            <font color='red'>}</font>                                                           \
+<a name='L581'>        <font color='red'>}</font>                                                               \
+<a name='L582'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                            \
+<a name='L583'>        a_type *left = <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, node);            \
+<a name='L584'>        <b>if</b> (left != &amp;rbtree-&gt;rbt_nil) <font color='red'>{</font>                                 \
+<a name='L585'>            <i><font color='green'>/* node has no successor, but it has a left child.        */</font></i>\
+<a name='L586'>            <i><font color='green'>/* Splice node out, without losing the left child.        */</font></i>\
+<a name='L587'>            <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, node) == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);       \
+<a name='L588'>            <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, left));                \
+<a name='L589'>            <a href='../D/3684.html' title='Multiple defined in 2 places.'>rbtn_black_set</a>(a_type, a_field, left);                      \
+<a name='L590'>            <b>if</b> (pathp == path) <font color='red'>{</font>                                        \
+<a name='L591'>                rbtree-&gt;rbt_root = left;                                \
+<a name='L592'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                    \
+<a name='L593'>                <b>if</b> (pathp[-1].cmp &lt; 0) <font color='red'>{</font>                                \
+<a name='L594'>                    <a href='../S/129.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_set</a>(a_type, a_field, pathp[-1].node,      \
+<a name='L595'>                      left);                                            \
+<a name='L596'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                \
+<a name='L597'>                    <a href='../D/3693.html' title='Multiple defined in 2 places.'>rbtn_right_set</a>(a_type, a_field, pathp[-1].node,     \
+<a name='L598'>                      left);                                            \
+<a name='L599'>                <font color='red'>}</font>                                                       \
+<a name='L600'>            <font color='red'>}</font>                                                           \
+<a name='L601'>            <b>return</b>;                                                     \
+<a name='L602'>        <font color='red'>}</font> <b>else</b> <b>if</b> (pathp == path) <font color='red'>{</font>                                     \
+<a name='L603'>            <i><font color='green'>/* The tree only contained one node. */</font></i>                     \
+<a name='L604'>            rbtree-&gt;rbt_root = &amp;rbtree-&gt;rbt_nil;                        \
+<a name='L605'>            <b>return</b>;                                                     \
+<a name='L606'>        <font color='red'>}</font>                                                               \
+<a name='L607'>    <font color='red'>}</font>                                                                   \
+<a name='L608'>    <b>if</b> (<a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, pathp-&gt;node)) <font color='red'>{</font>                   \
+<a name='L609'>        <i><font color='green'>/* Prune red node, which requires no fixup. */</font></i>                  \
+<a name='L610'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(pathp[-1].cmp &lt; 0);                                      \
+<a name='L611'>        <a href='../S/129.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_set</a>(a_type, a_field, pathp[-1].node,                  \
+<a name='L612'>          &amp;rbtree-&gt;rbt_nil);                                            \
+<a name='L613'>        <b>return</b>;                                                         \
+<a name='L614'>    <font color='red'>}</font>                                                                   \
+<a name='L615'>    <i><font color='green'>/* The node to be pruned is black, so unwind until balance is     */</font></i>\
+<a name='L616'>    <i><font color='green'>/* restored.                                                      */</font></i>\
+<a name='L617'>    pathp-&gt;node = &amp;rbtree-&gt;rbt_nil;                                     \
+<a name='L618'>    <b>for</b> (pathp--; (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)pathp &gt;= (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)path; pathp--) <font color='red'>{</font>       \
+<a name='L619'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(pathp-&gt;cmp != 0);                                        \
+<a name='L620'>        <b>if</b> (pathp-&gt;cmp &lt; 0) <font color='red'>{</font>                                           \
+<a name='L621'>            <a href='../S/129.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_set</a>(a_type, a_field, pathp-&gt;node,                 \
+<a name='L622'>              pathp[1].node);                                           \
+<a name='L623'>            <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, pathp[1].node)         \
+<a name='L624'>              == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);                                                \
+<a name='L625'>            <b>if</b> (<a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, pathp-&gt;node)) <font color='red'>{</font>           \
+<a name='L626'>                a_type *right = <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type, a_field,         \
+<a name='L627'>                  pathp-&gt;node);                                         \
+<a name='L628'>                a_type *rightleft = <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field,      \
+<a name='L629'>                  right);                                               \
+<a name='L630'>                a_type *tnode;                                          \
+<a name='L631'>                <b>if</b> (<a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, rightleft)) <font color='red'>{</font>         \
+<a name='L632'>                    <i><font color='green'>/* In the following diagrams, ||, //, and \\      */</font></i>\
+<a name='L633'>                    <i><font color='green'>/* indicate the path to the removed node.         */</font></i>\
+<a name='L634'>                    <i><font color='green'>/*                                                */</font></i>\
+<a name='L635'>                    <i><font color='green'>/*      ||                                        */</font></i>\
+<a name='L636'>                    <i><font color='green'>/*    pathp(r)                                    */</font></i>\
+<a name='L637'>                    <i><font color='green'>/*  //        \                                   */</font></i>\
+<a name='L638'>                    <i><font color='green'>/* (b)        (b)                                 */</font></i>\
+<a name='L639'>                    <i><font color='green'>/*           /                                    */</font></i>\
+<a name='L640'>                    <i><font color='green'>/*          (r)                                   */</font></i>\
+<a name='L641'>                    <i><font color='green'>/*                                                */</font></i>\
+<a name='L642'>                    <a href='../D/3684.html' title='Multiple defined in 2 places.'>rbtn_black_set</a>(a_type, a_field, pathp-&gt;node);       \
+<a name='L643'>                    <a href='../S/129.html#L150' title='Defined at 150 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_rotate_right</a>(a_type, a_field, right, tnode);   \
+<a name='L644'>                    <a href='../D/3693.html' title='Multiple defined in 2 places.'>rbtn_right_set</a>(a_type, a_field, pathp-&gt;node, tnode);\
+<a name='L645'>                    <a href='../S/129.html#L143' title='Defined at 143 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_rotate_left</a>(a_type, a_field, pathp-&gt;node,      \
+<a name='L646'>                      tnode);                                           \
+<a name='L647'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                \
+<a name='L648'>                    <i><font color='green'>/*      ||                                        */</font></i>\
+<a name='L649'>                    <i><font color='green'>/*    pathp(r)                                    */</font></i>\
+<a name='L650'>                    <i><font color='green'>/*  //        \                                   */</font></i>\
+<a name='L651'>                    <i><font color='green'>/* (b)        (b)                                 */</font></i>\
+<a name='L652'>                    <i><font color='green'>/*           /                                    */</font></i>\
+<a name='L653'>                    <i><font color='green'>/*          (b)                                   */</font></i>\
+<a name='L654'>                    <i><font color='green'>/*                                                */</font></i>\
+<a name='L655'>                    <a href='../S/129.html#L143' title='Defined at 143 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_rotate_left</a>(a_type, a_field, pathp-&gt;node,      \
+<a name='L656'>                      tnode);                                           \
+<a name='L657'>                <font color='red'>}</font>                                                       \
+<a name='L658'>                <i><font color='green'>/* Balance restored, but rotation modified subtree    */</font></i>\
+<a name='L659'>                <i><font color='green'>/* root.                                              */</font></i>\
+<a name='L660'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)pathp &gt; (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)path);             \
+<a name='L661'>                <b>if</b> (pathp[-1].cmp &lt; 0) <font color='red'>{</font>                                \
+<a name='L662'>                    <a href='../S/129.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_set</a>(a_type, a_field, pathp[-1].node,      \
+<a name='L663'>                      tnode);                                           \
+<a name='L664'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                \
+<a name='L665'>                    <a href='../D/3693.html' title='Multiple defined in 2 places.'>rbtn_right_set</a>(a_type, a_field, pathp[-1].node,     \
+<a name='L666'>                      tnode);                                           \
+<a name='L667'>                <font color='red'>}</font>                                                       \
+<a name='L668'>                <b>return</b>;                                                 \
+<a name='L669'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                    \
+<a name='L670'>                a_type *right = <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type, a_field,         \
+<a name='L671'>                  pathp-&gt;node);                                         \
+<a name='L672'>                a_type *rightleft = <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field,      \
+<a name='L673'>                  right);                                               \
+<a name='L674'>                <b>if</b> (<a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, rightleft)) <font color='red'>{</font>         \
+<a name='L675'>                    <i><font color='green'>/*      ||                                        */</font></i>\
+<a name='L676'>                    <i><font color='green'>/*    pathp(b)                                    */</font></i>\
+<a name='L677'>                    <i><font color='green'>/*  //        \                                   */</font></i>\
+<a name='L678'>                    <i><font color='green'>/* (b)        (b)                                 */</font></i>\
+<a name='L679'>                    <i><font color='green'>/*           /                                    */</font></i>\
+<a name='L680'>                    <i><font color='green'>/*          (r)                                   */</font></i>\
+<a name='L681'>                    a_type *tnode;                                      \
+<a name='L682'>                    <a href='../D/3684.html' title='Multiple defined in 2 places.'>rbtn_black_set</a>(a_type, a_field, rightleft);         \
+<a name='L683'>                    <a href='../S/129.html#L150' title='Defined at 150 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_rotate_right</a>(a_type, a_field, right, tnode);   \
+<a name='L684'>                    <a href='../D/3693.html' title='Multiple defined in 2 places.'>rbtn_right_set</a>(a_type, a_field, pathp-&gt;node, tnode);\
+<a name='L685'>                    <a href='../S/129.html#L143' title='Defined at 143 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_rotate_left</a>(a_type, a_field, pathp-&gt;node,      \
+<a name='L686'>                      tnode);                                           \
+<a name='L687'>                    <i><font color='green'>/* Balance restored, but rotation modified        */</font></i>\
+<a name='L688'>                    <i><font color='green'>/* subree root, which may actually be the tree    */</font></i>\
+<a name='L689'>                    <i><font color='green'>/* root.                                          */</font></i>\
+<a name='L690'>                    <b>if</b> (pathp == path) <font color='red'>{</font>                                \
+<a name='L691'>                        <i><font color='green'>/* Set root. */</font></i>                                 \
+<a name='L692'>                        rbtree-&gt;rbt_root = tnode;                       \
+<a name='L693'>                    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                            \
+<a name='L694'>                        <b>if</b> (pathp[-1].cmp &lt; 0) <font color='red'>{</font>                        \
+<a name='L695'>                            <a href='../S/129.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_set</a>(a_type, a_field,              \
+<a name='L696'>                              pathp[-1].node, tnode);                   \
+<a name='L697'>                        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                        \
+<a name='L698'>                            <a href='../D/3693.html' title='Multiple defined in 2 places.'>rbtn_right_set</a>(a_type, a_field,             \
+<a name='L699'>                              pathp[-1].node, tnode);                   \
+<a name='L700'>                        <font color='red'>}</font>                                               \
+<a name='L701'>                    <font color='red'>}</font>                                                   \
+<a name='L702'>                    <b>return</b>;                                             \
+<a name='L703'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                \
+<a name='L704'>                    <i><font color='green'>/*      ||                                        */</font></i>\
+<a name='L705'>                    <i><font color='green'>/*    pathp(b)                                    */</font></i>\
+<a name='L706'>                    <i><font color='green'>/*  //        \                                   */</font></i>\
+<a name='L707'>                    <i><font color='green'>/* (b)        (b)                                 */</font></i>\
+<a name='L708'>                    <i><font color='green'>/*           /                                    */</font></i>\
+<a name='L709'>                    <i><font color='green'>/*          (b)                                   */</font></i>\
+<a name='L710'>                    a_type *tnode;                                      \
+<a name='L711'>                    <a href='../D/3691.html' title='Multiple defined in 2 places.'>rbtn_red_set</a>(a_type, a_field, pathp-&gt;node);         \
+<a name='L712'>                    <a href='../S/129.html#L143' title='Defined at 143 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_rotate_left</a>(a_type, a_field, pathp-&gt;node,      \
+<a name='L713'>                      tnode);                                           \
+<a name='L714'>                    pathp-&gt;node = tnode;                                \
+<a name='L715'>                <font color='red'>}</font>                                                       \
+<a name='L716'>            <font color='red'>}</font>                                                           \
+<a name='L717'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                        \
+<a name='L718'>            a_type *left;                                               \
+<a name='L719'>            <a href='../D/3693.html' title='Multiple defined in 2 places.'>rbtn_right_set</a>(a_type, a_field, pathp-&gt;node,                \
+<a name='L720'>              pathp[1].node);                                           \
+<a name='L721'>            left = <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, pathp-&gt;node);         \
+<a name='L722'>            <b>if</b> (<a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, left)) <font color='red'>{</font>                  \
+<a name='L723'>                a_type *tnode;                                          \
+<a name='L724'>                a_type *leftright = <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type, a_field,     \
+<a name='L725'>                  left);                                                \
+<a name='L726'>                a_type *leftrightleft = <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field,  \
+<a name='L727'>                  leftright);                                           \
+<a name='L728'>                <b>if</b> (<a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, leftrightleft)) <font color='red'>{</font>     \
+<a name='L729'>                    <i><font color='green'>/*      ||                                        */</font></i>\
+<a name='L730'>                    <i><font color='green'>/*    pathp(b)                                    */</font></i>\
+<a name='L731'>                    <i><font color='green'>/*   /        \\                                  */</font></i>\
+<a name='L732'>                    <i><font color='green'>/* (r)        (b)                                 */</font></i>\
+<a name='L733'>                    <i><font color='green'>/*   \                                            */</font></i>\
+<a name='L734'>                    <i><font color='green'>/*   (b)                                          */</font></i>\
+<a name='L735'>                    <i><font color='green'>/*   /                                            */</font></i>\
+<a name='L736'>                    <i><font color='green'>/* (r)                                            */</font></i>\
+<a name='L737'>                    a_type *unode;                                      \
+<a name='L738'>                    <a href='../D/3684.html' title='Multiple defined in 2 places.'>rbtn_black_set</a>(a_type, a_field, leftrightleft);     \
+<a name='L739'>                    <a href='../S/129.html#L150' title='Defined at 150 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_rotate_right</a>(a_type, a_field, pathp-&gt;node,     \
+<a name='L740'>                      unode);                                           \
+<a name='L741'>                    <a href='../S/129.html#L150' title='Defined at 150 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_rotate_right</a>(a_type, a_field, pathp-&gt;node,     \
+<a name='L742'>                      tnode);                                           \
+<a name='L743'>                    <a href='../D/3693.html' title='Multiple defined in 2 places.'>rbtn_right_set</a>(a_type, a_field, unode, tnode);      \
+<a name='L744'>                    <a href='../S/129.html#L143' title='Defined at 143 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_rotate_left</a>(a_type, a_field, unode, tnode);    \
+<a name='L745'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                \
+<a name='L746'>                    <i><font color='green'>/*      ||                                        */</font></i>\
+<a name='L747'>                    <i><font color='green'>/*    pathp(b)                                    */</font></i>\
+<a name='L748'>                    <i><font color='green'>/*   /        \\                                  */</font></i>\
+<a name='L749'>                    <i><font color='green'>/* (r)        (b)                                 */</font></i>\
+<a name='L750'>                    <i><font color='green'>/*   \                                            */</font></i>\
+<a name='L751'>                    <i><font color='green'>/*   (b)                                          */</font></i>\
+<a name='L752'>                    <i><font color='green'>/*   /                                            */</font></i>\
+<a name='L753'>                    <i><font color='green'>/* (b)                                            */</font></i>\
+<a name='L754'>                    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(leftright != &amp;rbtree-&gt;rbt_nil);              \
+<a name='L755'>                    <a href='../D/3691.html' title='Multiple defined in 2 places.'>rbtn_red_set</a>(a_type, a_field, leftright);           \
+<a name='L756'>                    <a href='../S/129.html#L150' title='Defined at 150 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_rotate_right</a>(a_type, a_field, pathp-&gt;node,     \
+<a name='L757'>                      tnode);                                           \
+<a name='L758'>                    <a href='../D/3684.html' title='Multiple defined in 2 places.'>rbtn_black_set</a>(a_type, a_field, tnode);             \
+<a name='L759'>                <font color='red'>}</font>                                                       \
+<a name='L760'>                <i><font color='green'>/* Balance restored, but rotation modified subtree    */</font></i>\
+<a name='L761'>                <i><font color='green'>/* root, which may actually be the tree root.         */</font></i>\
+<a name='L762'>                <b>if</b> (pathp == path) <font color='red'>{</font>                                    \
+<a name='L763'>                    <i><font color='green'>/* Set root. */</font></i>                                     \
+<a name='L764'>                    rbtree-&gt;rbt_root = tnode;                           \
+<a name='L765'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                \
+<a name='L766'>                    <b>if</b> (pathp[-1].cmp &lt; 0) <font color='red'>{</font>                            \
+<a name='L767'>                        <a href='../S/129.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_set</a>(a_type, a_field, pathp[-1].node,  \
+<a name='L768'>                          tnode);                                       \
+<a name='L769'>                    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                            \
+<a name='L770'>                        <a href='../D/3693.html' title='Multiple defined in 2 places.'>rbtn_right_set</a>(a_type, a_field, pathp[-1].node, \
+<a name='L771'>                          tnode);                                       \
+<a name='L772'>                    <font color='red'>}</font>                                                   \
+<a name='L773'>                <font color='red'>}</font>                                                       \
+<a name='L774'>                <b>return</b>;                                                 \
+<a name='L775'>            <font color='red'>}</font> <b>else</b> <b>if</b> (<a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, pathp-&gt;node)) <font color='red'>{</font>    \
+<a name='L776'>                a_type *leftleft = <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, left);\
+<a name='L777'>                <b>if</b> (<a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, leftleft)) <font color='red'>{</font>          \
+<a name='L778'>                    <i><font color='green'>/*        ||                                      */</font></i>\
+<a name='L779'>                    <i><font color='green'>/*      pathp(r)                                  */</font></i>\
+<a name='L780'>                    <i><font color='green'>/*     /        \\                                */</font></i>\
+<a name='L781'>                    <i><font color='green'>/*   (b)        (b)                               */</font></i>\
+<a name='L782'>                    <i><font color='green'>/*   /                                            */</font></i>\
+<a name='L783'>                    <i><font color='green'>/* (r)                                            */</font></i>\
+<a name='L784'>                    a_type *tnode;                                      \
+<a name='L785'>                    <a href='../D/3684.html' title='Multiple defined in 2 places.'>rbtn_black_set</a>(a_type, a_field, pathp-&gt;node);       \
+<a name='L786'>                    <a href='../D/3691.html' title='Multiple defined in 2 places.'>rbtn_red_set</a>(a_type, a_field, left);                \
+<a name='L787'>                    <a href='../D/3684.html' title='Multiple defined in 2 places.'>rbtn_black_set</a>(a_type, a_field, leftleft);          \
+<a name='L788'>                    <a href='../S/129.html#L150' title='Defined at 150 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_rotate_right</a>(a_type, a_field, pathp-&gt;node,     \
+<a name='L789'>                      tnode);                                           \
+<a name='L790'>                    <i><font color='green'>/* Balance restored, but rotation modified        */</font></i>\
+<a name='L791'>                    <i><font color='green'>/* subtree root.                                  */</font></i>\
+<a name='L792'>                    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)pathp &gt; (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)path);         \
+<a name='L793'>                    <b>if</b> (pathp[-1].cmp &lt; 0) <font color='red'>{</font>                            \
+<a name='L794'>                        <a href='../S/129.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_set</a>(a_type, a_field, pathp[-1].node,  \
+<a name='L795'>                          tnode);                                       \
+<a name='L796'>                    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                            \
+<a name='L797'>                        <a href='../D/3693.html' title='Multiple defined in 2 places.'>rbtn_right_set</a>(a_type, a_field, pathp[-1].node, \
+<a name='L798'>                          tnode);                                       \
+<a name='L799'>                    <font color='red'>}</font>                                                   \
+<a name='L800'>                    <b>return</b>;                                             \
+<a name='L801'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                \
+<a name='L802'>                    <i><font color='green'>/*        ||                                      */</font></i>\
+<a name='L803'>                    <i><font color='green'>/*      pathp(r)                                  */</font></i>\
+<a name='L804'>                    <i><font color='green'>/*     /        \\                                */</font></i>\
+<a name='L805'>                    <i><font color='green'>/*   (b)        (b)                               */</font></i>\
+<a name='L806'>                    <i><font color='green'>/*   /                                            */</font></i>\
+<a name='L807'>                    <i><font color='green'>/* (b)                                            */</font></i>\
+<a name='L808'>                    <a href='../D/3691.html' title='Multiple defined in 2 places.'>rbtn_red_set</a>(a_type, a_field, left);                \
+<a name='L809'>                    <a href='../D/3684.html' title='Multiple defined in 2 places.'>rbtn_black_set</a>(a_type, a_field, pathp-&gt;node);       \
+<a name='L810'>                    <i><font color='green'>/* Balance restored. */</font></i>                             \
+<a name='L811'>                    <b>return</b>;                                             \
+<a name='L812'>                <font color='red'>}</font>                                                       \
+<a name='L813'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                    \
+<a name='L814'>                a_type *leftleft = <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, left);\
+<a name='L815'>                <b>if</b> (<a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, leftleft)) <font color='red'>{</font>          \
+<a name='L816'>                    <i><font color='green'>/*               ||                               */</font></i>\
+<a name='L817'>                    <i><font color='green'>/*             pathp(b)                           */</font></i>\
+<a name='L818'>                    <i><font color='green'>/*            /        \\                         */</font></i>\
+<a name='L819'>                    <i><font color='green'>/*          (b)        (b)                        */</font></i>\
+<a name='L820'>                    <i><font color='green'>/*          /                                     */</font></i>\
+<a name='L821'>                    <i><font color='green'>/*        (r)                                     */</font></i>\
+<a name='L822'>                    a_type *tnode;                                      \
+<a name='L823'>                    <a href='../D/3684.html' title='Multiple defined in 2 places.'>rbtn_black_set</a>(a_type, a_field, leftleft);          \
+<a name='L824'>                    <a href='../S/129.html#L150' title='Defined at 150 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_rotate_right</a>(a_type, a_field, pathp-&gt;node,     \
+<a name='L825'>                      tnode);                                           \
+<a name='L826'>                    <i><font color='green'>/* Balance restored, but rotation modified        */</font></i>\
+<a name='L827'>                    <i><font color='green'>/* subtree root, which may actually be the tree   */</font></i>\
+<a name='L828'>                    <i><font color='green'>/* root.                                          */</font></i>\
+<a name='L829'>                    <b>if</b> (pathp == path) <font color='red'>{</font>                                \
+<a name='L830'>                        <i><font color='green'>/* Set root. */</font></i>                                 \
+<a name='L831'>                        rbtree-&gt;rbt_root = tnode;                       \
+<a name='L832'>                    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                            \
+<a name='L833'>                        <b>if</b> (pathp[-1].cmp &lt; 0) <font color='red'>{</font>                        \
+<a name='L834'>                            <a href='../S/129.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_set</a>(a_type, a_field,              \
+<a name='L835'>                              pathp[-1].node, tnode);                   \
+<a name='L836'>                        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                        \
+<a name='L837'>                            <a href='../D/3693.html' title='Multiple defined in 2 places.'>rbtn_right_set</a>(a_type, a_field,             \
+<a name='L838'>                              pathp[-1].node, tnode);                   \
+<a name='L839'>                        <font color='red'>}</font>                                               \
+<a name='L840'>                    <font color='red'>}</font>                                                   \
+<a name='L841'>                    <b>return</b>;                                             \
+<a name='L842'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                \
+<a name='L843'>                    <i><font color='green'>/*               ||                               */</font></i>\
+<a name='L844'>                    <i><font color='green'>/*             pathp(b)                           */</font></i>\
+<a name='L845'>                    <i><font color='green'>/*            /        \\                         */</font></i>\
+<a name='L846'>                    <i><font color='green'>/*          (b)        (b)                        */</font></i>\
+<a name='L847'>                    <i><font color='green'>/*          /                                     */</font></i>\
+<a name='L848'>                    <i><font color='green'>/*        (b)                                     */</font></i>\
+<a name='L849'>                    <a href='../D/3691.html' title='Multiple defined in 2 places.'>rbtn_red_set</a>(a_type, a_field, left);                \
+<a name='L850'>                <font color='red'>}</font>                                                       \
+<a name='L851'>            <font color='red'>}</font>                                                           \
+<a name='L852'>        <font color='red'>}</font>                                                               \
+<a name='L853'>    <font color='red'>}</font>                                                                   \
+<a name='L854'>    <i><font color='green'>/* Set root. */</font></i>                                                     \
+<a name='L855'>    rbtree-&gt;rbt_root = path-&gt;node;                                      \
+<a name='L856'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/3690.html' title='Multiple defined in 2 places.'>rbtn_red_get</a>(a_type, a_field, rbtree-&gt;rbt_root) == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);   \
+<a name='L857'><font color='red'>}</font>                                                                       \
+<a name='L858'>a_attr a_type *                                                         \
+<a name='L859'>a_prefix##iter_recurse(a_rbt_type *rbtree, a_type *node,                \
+<a name='L860'>  a_type *(*cb)(a_rbt_type *, a_type *, <b>void</b> *), <b>void</b> *arg) <font color='red'>{</font>           \
+<a name='L861'>    <b>if</b> (node == &amp;rbtree-&gt;rbt_nil) <font color='red'>{</font>                                     \
+<a name='L862'>        <b>return</b> (&amp;rbtree-&gt;rbt_nil);                                      \
+<a name='L863'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                            \
+<a name='L864'>        a_type *ret;                                                    \
+<a name='L865'>        <b>if</b> ((ret = a_prefix##iter_recurse(rbtree, <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, \
+<a name='L866'>          a_field, node), cb, arg)) != &amp;rbtree-&gt;rbt_nil                 \
+<a name='L867'>          || (ret = cb(rbtree, node, arg)) != NULL) <font color='red'>{</font>                   \
+<a name='L868'>            <b>return</b> (ret);                                               \
+<a name='L869'>        <font color='red'>}</font>                                                               \
+<a name='L870'>        <b>return</b> (a_prefix##iter_recurse(rbtree, <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type,   \
+<a name='L871'>          a_field, node), cb, arg));                                    \
+<a name='L872'>    <font color='red'>}</font>                                                                   \
+<a name='L873'><font color='red'>}</font>                                                                       \
+<a name='L874'>a_attr a_type *                                                         \
+<a name='L875'>a_prefix##iter_start(a_rbt_type *rbtree, a_type *start, a_type *node,   \
+<a name='L876'>  a_type *(*cb)(a_rbt_type *, a_type *, <b>void</b> *), <b>void</b> *arg) <font color='red'>{</font>           \
+<a name='L877'>    <b>int</b> cmp = a_cmp(start, node);                                       \
+<a name='L878'>    <b>if</b> (cmp &lt; 0) <font color='red'>{</font>                                                      \
+<a name='L879'>        a_type *ret;                                                    \
+<a name='L880'>        <b>if</b> ((ret = a_prefix##iter_start(rbtree, start,                  \
+<a name='L881'>          <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, node), cb, arg)) !=            \
+<a name='L882'>          &amp;rbtree-&gt;rbt_nil || (ret = cb(rbtree, node, arg)) != NULL) <font color='red'>{</font>  \
+<a name='L883'>            <b>return</b> (ret);                                               \
+<a name='L884'>        <font color='red'>}</font>                                                               \
+<a name='L885'>        <b>return</b> (a_prefix##iter_recurse(rbtree, <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type,   \
+<a name='L886'>          a_field, node), cb, arg));                                    \
+<a name='L887'>    <font color='red'>}</font> <b>else</b> <b>if</b> (cmp &gt; 0) <font color='red'>{</font>                                               \
+<a name='L888'>        <b>return</b> (a_prefix##iter_start(rbtree, start,                     \
+<a name='L889'>          <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type, a_field, node), cb, arg));             \
+<a name='L890'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                            \
+<a name='L891'>        a_type *ret;                                                    \
+<a name='L892'>        <b>if</b> ((ret = cb(rbtree, node, arg)) != NULL) <font color='red'>{</font>                    \
+<a name='L893'>            <b>return</b> (ret);                                               \
+<a name='L894'>        <font color='red'>}</font>                                                               \
+<a name='L895'>        <b>return</b> (a_prefix##iter_recurse(rbtree, <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type,   \
+<a name='L896'>          a_field, node), cb, arg));                                    \
+<a name='L897'>    <font color='red'>}</font>                                                                   \
+<a name='L898'><font color='red'>}</font>                                                                       \
+<a name='L899'>a_attr a_type *                                                         \
+<a name='L900'>a_prefix##iter(a_rbt_type *rbtree, a_type *start, a_type *(*cb)(        \
+<a name='L901'>  a_rbt_type *, a_type *, <b>void</b> *), <b>void</b> *arg) <font color='red'>{</font>                         \
+<a name='L902'>    a_type *ret;                                                        \
+<a name='L903'>    <b>if</b> (start != NULL) <font color='red'>{</font>                                                \
+<a name='L904'>        ret = a_prefix##iter_start(rbtree, start, rbtree-&gt;rbt_root,     \
+<a name='L905'>          cb, arg);                                                     \
+<a name='L906'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                            \
+<a name='L907'>        ret = a_prefix##iter_recurse(rbtree, rbtree-&gt;rbt_root, cb, arg);\
+<a name='L908'>    <font color='red'>}</font>                                                                   \
+<a name='L909'>    <b>if</b> (ret == &amp;rbtree-&gt;rbt_nil) <font color='red'>{</font>                                      \
+<a name='L910'>        ret = NULL;                                                     \
+<a name='L911'>    <font color='red'>}</font>                                                                   \
+<a name='L912'>    <b>return</b> (ret);                                                       \
+<a name='L913'><font color='red'>}</font>                                                                       \
+<a name='L914'>a_attr a_type *                                                         \
+<a name='L915'>a_prefix##reverse_iter_recurse(a_rbt_type *rbtree, a_type *node,        \
+<a name='L916'>  a_type *(*cb)(a_rbt_type *, a_type *, <b>void</b> *), <b>void</b> *arg) <font color='red'>{</font>           \
+<a name='L917'>    <b>if</b> (node == &amp;rbtree-&gt;rbt_nil) <font color='red'>{</font>                                     \
+<a name='L918'>        <b>return</b> (&amp;rbtree-&gt;rbt_nil);                                      \
+<a name='L919'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                            \
+<a name='L920'>        a_type *ret;                                                    \
+<a name='L921'>        <b>if</b> ((ret = a_prefix##reverse_iter_recurse(rbtree,               \
+<a name='L922'>          <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type, a_field, node), cb, arg)) !=           \
+<a name='L923'>          &amp;rbtree-&gt;rbt_nil || (ret = cb(rbtree, node, arg)) != NULL) <font color='red'>{</font>  \
+<a name='L924'>            <b>return</b> (ret);                                               \
+<a name='L925'>        <font color='red'>}</font>                                                               \
+<a name='L926'>        <b>return</b> (a_prefix##reverse_iter_recurse(rbtree,                  \
+<a name='L927'>          <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, node), cb, arg));              \
+<a name='L928'>    <font color='red'>}</font>                                                                   \
+<a name='L929'><font color='red'>}</font>                                                                       \
+<a name='L930'>a_attr a_type *                                                         \
+<a name='L931'>a_prefix##reverse_iter_start(a_rbt_type *rbtree, a_type *start,         \
+<a name='L932'>  a_type *node, a_type *(*cb)(a_rbt_type *, a_type *, <b>void</b> *),          \
+<a name='L933'>  <b>void</b> *arg) <font color='red'>{</font>                                                          \
+<a name='L934'>    <b>int</b> cmp = a_cmp(start, node);                                       \
+<a name='L935'>    <b>if</b> (cmp &gt; 0) <font color='red'>{</font>                                                      \
+<a name='L936'>        a_type *ret;                                                    \
+<a name='L937'>        <b>if</b> ((ret = a_prefix##reverse_iter_start(rbtree, start,          \
+<a name='L938'>          <a href='../D/3692.html' title='Multiple defined in 2 places.'>rbtn_right_get</a>(a_type, a_field, node), cb, arg)) !=           \
+<a name='L939'>          &amp;rbtree-&gt;rbt_nil || (ret = cb(rbtree, node, arg)) != NULL) <font color='red'>{</font>  \
+<a name='L940'>            <b>return</b> (ret);                                               \
+<a name='L941'>        <font color='red'>}</font>                                                               \
+<a name='L942'>        <b>return</b> (a_prefix##reverse_iter_recurse(rbtree,                  \
+<a name='L943'>          <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, node), cb, arg));              \
+<a name='L944'>    <font color='red'>}</font> <b>else</b> <b>if</b> (cmp &lt; 0) <font color='red'>{</font>                                               \
+<a name='L945'>        <b>return</b> (a_prefix##reverse_iter_start(rbtree, start,             \
+<a name='L946'>          <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, node), cb, arg));              \
+<a name='L947'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                            \
+<a name='L948'>        a_type *ret;                                                    \
+<a name='L949'>        <b>if</b> ((ret = cb(rbtree, node, arg)) != NULL) <font color='red'>{</font>                    \
+<a name='L950'>            <b>return</b> (ret);                                               \
+<a name='L951'>        <font color='red'>}</font>                                                               \
+<a name='L952'>        <b>return</b> (a_prefix##reverse_iter_recurse(rbtree,                  \
+<a name='L953'>          <a href='../S/129.html#L53' title='Defined at 53 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rbtn_left_get</a>(a_type, a_field, node), cb, arg));              \
+<a name='L954'>    <font color='red'>}</font>                                                                   \
+<a name='L955'><font color='red'>}</font>                                                                       \
+<a name='L956'>a_attr a_type *                                                         \
+<a name='L957'>a_prefix##reverse_iter(a_rbt_type *rbtree, a_type *start,               \
+<a name='L958'>  a_type *(*cb)(a_rbt_type *, a_type *, <b>void</b> *), <b>void</b> *arg) <font color='red'>{</font>           \
+<a name='L959'>    a_type *ret;                                                        \
+<a name='L960'>    <b>if</b> (start != NULL) <font color='red'>{</font>                                                \
+<a name='L961'>        ret = a_prefix##reverse_iter_start(rbtree, start,               \
+<a name='L962'>          rbtree-&gt;rbt_root, cb, arg);                                   \
+<a name='L963'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                            \
+<a name='L964'>        ret = a_prefix##reverse_iter_recurse(rbtree, rbtree-&gt;rbt_root,  \
+<a name='L965'>          cb, arg);                                                     \
+<a name='L966'>    <font color='red'>}</font>                                                                   \
+<a name='L967'>    <b>if</b> (ret == &amp;rbtree-&gt;rbt_nil) <font color='red'>{</font>                                      \
+<a name='L968'>        ret = NULL;                                                     \
+<a name='L969'>    <font color='red'>}</font>                                                                   \
+<a name='L970'>    <b>return</b> (ret);                                                       \
+<a name='L971'><font color='red'>}</font>
+<a name='L972'>
+<a name='L973'><font color='darkred'>#endif</font> <i><font color='green'>/* RB_H_ */</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

@@ -1,0 +1,229 @@
+<html>
+<head>
+<title>deps/hiredis/hiredis.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/388.html'>hiredis</a>/hiredis.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/14.html' title='Multiple included from 14 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2009-2011, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2010-2011, Pieter Noordhuis &lt;pcnoordhuis at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> *</font></i>
+<a name='L5'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L6'><i><font color='green'> *</font></i>
+<a name='L7'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L8'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L9'><i><font color='green'> *</font></i>
+<a name='L10'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L11'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L12'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L13'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L14'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L15'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L16'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L17'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L18'><i><font color='green'> *</font></i>
+<a name='L19'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L20'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L21'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L22'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L23'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L24'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L25'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L26'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L27'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L28'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L29'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L30'><i><font color='green'> */</font></i>
+<a name='L31'>
+<a name='L32'><font color='darkred'>#ifndef</font> <a href='../S/121.html#L33' title='Defined at 33 in deps/hiredis/hiredis.h.'>__HIREDIS_H</a>
+<a name='L33'><font color='darkred'>#define</font> <a href='../S/121.html#L32' title='Refered from 32 in deps/hiredis/hiredis.h.'>__HIREDIS_H</a>
+<a name='L34'><font color='darkred'>#include</font> &lt;stdio.h&gt; <i><font color='green'>/* for size_t */</font></i>
+<a name='L35'><font color='darkred'>#include</font> &lt;stdarg.h&gt; <i><font color='green'>/* for va_list */</font></i>
+<a name='L36'><font color='darkred'>#include</font> &lt;sys/time.h&gt; <i><font color='green'>/* for struct timeval */</font></i>
+<a name='L37'>
+<a name='L38'><font color='darkred'>#define</font> HIREDIS_MAJOR 0
+<a name='L39'><font color='darkred'>#define</font> HIREDIS_MINOR 10
+<a name='L40'><font color='darkred'>#define</font> HIREDIS_PATCH 1
+<a name='L41'>
+<a name='L42'><font color='darkred'>#define</font> <a href='../R/656.html' title='Multiple refered from 201 places.'>REDIS_ERR</a> -1
+<a name='L43'><font color='darkred'>#define</font> <a href='../R/709.html' title='Multiple refered from 264 places.'>REDIS_OK</a> 0
+<a name='L44'>
+<a name='L45'><i><font color='green'>/* When an error occurs, the err flag in a context is set to hold the type of</font></i>
+<a name='L46'><i><font color='green'> * error that occured. REDIS_ERR_IO means there was an I/O error and you</font></i>
+<a name='L47'><i><font color='green'> * should use the "errno" variable to find out what is wrong.</font></i>
+<a name='L48'><i><font color='green'> * For other values, the "errstr" field will hold a description. */</font></i>
+<a name='L49'><font color='darkred'>#define</font> <a href='../R/658.html' title='Multiple refered from 19 places.'>REDIS_ERR_IO</a> 1 <i><font color='green'>/* Error in read or write */</font></i>
+<a name='L50'><font color='darkred'>#define</font> <a href='../R/657.html' title='Multiple refered from 3 places.'>REDIS_ERR_EOF</a> 3 <i><font color='green'>/* End of file */</font></i>
+<a name='L51'><font color='darkred'>#define</font> <a href='../R/661.html' title='Multiple refered from 2 places.'>REDIS_ERR_PROTOCOL</a> 4 <i><font color='green'>/* Protocol error */</font></i>
+<a name='L52'><font color='darkred'>#define</font> <a href='../R/659.html' title='Multiple refered from 4 places.'>REDIS_ERR_OOM</a> 5 <i><font color='green'>/* Out of memory */</font></i>
+<a name='L53'><font color='darkred'>#define</font> <a href='../R/660.html' title='Multiple refered from 4 places.'>REDIS_ERR_OTHER</a> 2 <i><font color='green'>/* Everything else... */</font></i>
+<a name='L54'>
+<a name='L55'><i><font color='green'>/* Connection type can be blocking or non-blocking and is set in the</font></i>
+<a name='L56'><i><font color='green'> * least significant bit of the flags field in redisContext. */</font></i>
+<a name='L57'><font color='darkred'>#define</font> <a href='../R/616.html' title='Multiple refered from 13 places.'>REDIS_BLOCK</a> 0x1
+<a name='L58'>
+<a name='L59'><i><font color='green'>/* Connection may be disconnected before being free'd. The second bit</font></i>
+<a name='L60'><i><font color='green'> * in the flags field is set when the context is connected. */</font></i>
+<a name='L61'><font color='darkred'>#define</font> <a href='../R/641.html' title='Multiple refered from 9 places.'>REDIS_CONNECTED</a> 0x2
+<a name='L62'>
+<a name='L63'><i><font color='green'>/* The async API might try to disconnect cleanly and flush the output</font></i>
+<a name='L64'><i><font color='green'> * buffer and read all subsequent replies before disconnecting.</font></i>
+<a name='L65'><i><font color='green'> * This flag means no new commands can come in and the connection</font></i>
+<a name='L66'><i><font color='green'> * should be terminated once all replies have been read. */</font></i>
+<a name='L67'><font color='darkred'>#define</font> <a href='../R/647.html' title='Multiple refered from 4 places.'>REDIS_DISCONNECTING</a> 0x4
+<a name='L68'>
+<a name='L69'><i><font color='green'>/* Flag specific to the async API which means that the context should be clean</font></i>
+<a name='L70'><i><font color='green'> * up as soon as possible. */</font></i>
+<a name='L71'><font color='darkred'>#define</font> <a href='../R/666.html' title='Multiple refered from 4 places.'>REDIS_FREEING</a> 0x8
+<a name='L72'>
+<a name='L73'><i><font color='green'>/* Flag that is set when an async callback is executed. */</font></i>
+<a name='L74'><font color='darkred'>#define</font> <a href='../R/679.html' title='Multiple refered from 4 places.'>REDIS_IN_CALLBACK</a> 0x10
+<a name='L75'>
+<a name='L76'><i><font color='green'>/* Flag that is set when the async context has one or more subscriptions. */</font></i>
+<a name='L77'><font color='darkred'>#define</font> <a href='../R/782.html' title='Multiple refered from 6 places.'>REDIS_SUBSCRIBED</a> 0x20
+<a name='L78'>
+<a name='L79'><i><font color='green'>/* Flag that is set when monitor mode is active */</font></i>
+<a name='L80'><font color='darkred'>#define</font> <a href='../R/705.html' title='Multiple refered from 3 places.'>REDIS_MONITORING</a> 0x40
+<a name='L81'>
+<a name='L82'><font color='darkred'>#define</font> <a href='../R/749.html' title='Multiple refered from 18 places.'>REDIS_REPLY_STRING</a> 1
+<a name='L83'><font color='darkred'>#define</font> <a href='../R/743.html' title='Multiple refered from 23 places.'>REDIS_REPLY_ARRAY</a> 2
+<a name='L84'><font color='darkred'>#define</font> <a href='../R/746.html' title='Multiple refered from 14 places.'>REDIS_REPLY_INTEGER</a> 3
+<a name='L85'><font color='darkred'>#define</font> <a href='../R/747.html' title='Multiple refered from 7 places.'>REDIS_REPLY_NIL</a> 4
+<a name='L86'><font color='darkred'>#define</font> <a href='../R/748.html' title='Multiple refered from 16 places.'>REDIS_REPLY_STATUS</a> 5
+<a name='L87'><font color='darkred'>#define</font> <a href='../R/745.html' title='Multiple refered from 14 places.'>REDIS_REPLY_ERROR</a> 6
+<a name='L88'>
+<a name='L89'><font color='darkred'>#define</font> <a href='../S/120.html#L567' title='Refered from 567 in deps/hiredis/hiredis.c.'>REDIS_READER_MAX_BUF</a> (1024*16)  <i><font color='green'>/* Default max unused reader buffer. */</font></i>
+<a name='L90'>
+<a name='L91'><font color='darkred'>#ifdef</font> __cplusplus
+<a name='L92'><b>extern</b> "C" <font color='red'>{</font>
+<a name='L93'><font color='darkred'>#endif</font>
+<a name='L94'>
+<a name='L95'><i><font color='green'>/* This is the reply object returned by redisCommand() */</font></i>
+<a name='L96'><b>typedef</b> <b>struct</b> <a href='../R/3492.html' title='Multiple refered from 39 places.'>redisReply</a> <font color='red'>{</font>
+<a name='L97'>    <b>int</b> type; <i><font color='green'>/* REDIS_REPLY_* */</font></i>
+<a name='L98'>    <b>long</b> <b>long</b> integer; <i><font color='green'>/* The integer when type is REDIS_REPLY_INTEGER */</font></i>
+<a name='L99'>    <b>int</b> len; <i><font color='green'>/* Length of string */</font></i>
+<a name='L100'>    <b>char</b> *str; <i><font color='green'>/* Used for both REDIS_REPLY_ERROR and REDIS_REPLY_STRING */</font></i>
+<a name='L101'>    size_t elements; <i><font color='green'>/* number of elements, for REDIS_REPLY_ARRAY */</font></i>
+<a name='L102'>    <b>struct</b> <a href='../D/3855.html' title='Multiple defined in 2 places.'>redisReply</a> **element; <i><font color='green'>/* elements vector for REDIS_REPLY_ARRAY */</font></i>
+<a name='L103'><font color='red'>}</font> <a href='../R/3492.html' title='Multiple refered from 39 places.'>redisReply</a>;
+<a name='L104'>
+<a name='L105'><b>typedef</b> <b>struct</b> <a href='../R/3486.html' title='Multiple refered from 11 places.'>redisReadTask</a> <font color='red'>{</font>
+<a name='L106'>    <b>int</b> type;
+<a name='L107'>    <b>int</b> elements; <i><font color='green'>/* number of elements in multibulk container */</font></i>
+<a name='L108'>    <b>int</b> idx; <i><font color='green'>/* index in parent (array) object */</font></i>
+<a name='L109'>    <b>void</b> *obj; <i><font color='green'>/* holds user-generated value for a read task */</font></i>
+<a name='L110'>    <b>struct</b> <a href='../D/3849.html' title='Multiple defined in 2 places.'>redisReadTask</a> *parent; <i><font color='green'>/* parent task */</font></i>
+<a name='L111'>    <b>void</b> *privdata; <i><font color='green'>/* user-settable arbitrary field */</font></i>
+<a name='L112'><font color='red'>}</font> <a href='../R/3486.html' title='Multiple refered from 11 places.'>redisReadTask</a>;
+<a name='L113'>
+<a name='L114'><b>typedef</b> <b>struct</b> <a href='../R/3493.html' title='Multiple refered from 2 places.'>redisReplyObjectFunctions</a> <font color='red'>{</font>
+<a name='L115'>    <b>void</b> *(*createString)(<b>const</b> <a href='../D/3849.html' title='Multiple defined in 2 places.'>redisReadTask</a>*, <b>char</b>*, size_t);
+<a name='L116'>    <b>void</b> *(*createArray)(<b>const</b> <a href='../D/3849.html' title='Multiple defined in 2 places.'>redisReadTask</a>*, <b>int</b>);
+<a name='L117'>    <b>void</b> *(*createInteger)(<b>const</b> <a href='../D/3849.html' title='Multiple defined in 2 places.'>redisReadTask</a>*, <b>long</b> <b>long</b>);
+<a name='L118'>    <b>void</b> *(*createNil)(<b>const</b> <a href='../D/3849.html' title='Multiple defined in 2 places.'>redisReadTask</a>*);
+<a name='L119'>    <b>void</b> (*freeObject)(<b>void</b>*);
+<a name='L120'><font color='red'>}</font> <a href='../R/3493.html' title='Multiple refered from 2 places.'>redisReplyObjectFunctions</a>;
+<a name='L121'>
+<a name='L122'><i><font color='green'>/* State for the protocol parser */</font></i>
+<a name='L123'><b>typedef</b> <b>struct</b> <a href='../R/3487.html' title='Multiple refered from 13 places.'>redisReader</a> <font color='red'>{</font>
+<a name='L124'>    <b>int</b> err; <i><font color='green'>/* Error flags, 0 when there is no error */</font></i>
+<a name='L125'>    <b>char</b> errstr[128]; <i><font color='green'>/* String representation of error when applicable */</font></i>
+<a name='L126'>
+<a name='L127'>    <b>char</b> *buf; <i><font color='green'>/* Read buffer */</font></i>
+<a name='L128'>    size_t <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>; <i><font color='green'>/* Buffer cursor */</font></i>
+<a name='L129'>    size_t len; <i><font color='green'>/* Buffer length */</font></i>
+<a name='L130'>    size_t maxbuf; <i><font color='green'>/* Max length of unused buffer */</font></i>
+<a name='L131'>
+<a name='L132'>    <a href='../D/3849.html' title='Multiple defined in 2 places.'>redisReadTask</a> rstack[9];
+<a name='L133'>    <b>int</b> ridx; <i><font color='green'>/* Index of current read task */</font></i>
+<a name='L134'>    <b>void</b> *reply; <i><font color='green'>/* Temporary reply pointer */</font></i>
+<a name='L135'>
+<a name='L136'>    <a href='../D/3856.html' title='Multiple defined in 2 places.'>redisReplyObjectFunctions</a> *fn;
+<a name='L137'>    <b>void</b> *privdata;
+<a name='L138'><font color='red'>}</font> <a href='../R/3487.html' title='Multiple refered from 13 places.'>redisReader</a>;
+<a name='L139'>
+<a name='L140'><i><font color='green'>/* Public API for the protocol parser. */</font></i>
+<a name='L141'><a href='../D/3850.html' title='Multiple defined in 2 places.'>redisReader</a> *<a href='../S/120.html#L556' title='Defined at 556 in deps/hiredis/hiredis.c.'>redisReaderCreate</a>(<b>void</b>);
+<a name='L142'><b>void</b> <a href='../S/120.html#L577' title='Defined at 577 in deps/hiredis/hiredis.c.'>redisReaderFree</a>(<a href='../D/3850.html' title='Multiple defined in 2 places.'>redisReader</a> *r);
+<a name='L143'><b>int</b> <a href='../S/120.html#L585' title='Defined at 585 in deps/hiredis/hiredis.c.'>redisReaderFeed</a>(<a href='../D/3850.html' title='Multiple defined in 2 places.'>redisReader</a> *r, <b>const</b> <b>char</b> *buf, size_t len);
+<a name='L144'><b>int</b> <a href='../S/120.html#L617' title='Defined at 617 in deps/hiredis/hiredis.c.'>redisReaderGetReply</a>(<a href='../D/3850.html' title='Multiple defined in 2 places.'>redisReader</a> *r, <b>void</b> **reply);
+<a name='L145'>
+<a name='L146'><i><font color='green'>/* Backwards compatibility, can be removed on big version bump. */</font></i>
+<a name='L147'><font color='darkred'>#define</font> redisReplyReaderCreate <a href='../S/120.html#L556' title='Defined at 556 in deps/hiredis/hiredis.c.'>redisReaderCreate</a>
+<a name='L148'><font color='darkred'>#define</font> redisReplyReaderFree <a href='../S/120.html#L577' title='Defined at 577 in deps/hiredis/hiredis.c.'>redisReaderFree</a>
+<a name='L149'><font color='darkred'>#define</font> redisReplyReaderFeed <a href='../S/120.html#L585' title='Defined at 585 in deps/hiredis/hiredis.c.'>redisReaderFeed</a>
+<a name='L150'><font color='darkred'>#define</font> redisReplyReaderGetReply <a href='../S/120.html#L617' title='Defined at 617 in deps/hiredis/hiredis.c.'>redisReaderGetReply</a>
+<a name='L151'><font color='darkred'>#define</font> redisReplyReaderSetPrivdata(_r, _p) (<b>int</b>)(((<a href='../D/3850.html' title='Multiple defined in 2 places.'>redisReader</a>*)(_r))-&gt;privdata = (_p))
+<a name='L152'><font color='darkred'>#define</font> redisReplyReaderGetObject(_r) (((<a href='../D/3850.html' title='Multiple defined in 2 places.'>redisReader</a>*)(_r))-&gt;reply)
+<a name='L153'><font color='darkred'>#define</font> redisReplyReaderGetError(_r) (((<a href='../D/3850.html' title='Multiple defined in 2 places.'>redisReader</a>*)(_r))-&gt;errstr)
+<a name='L154'>
+<a name='L155'><i><font color='green'>/* Function to free the reply objects hiredis returns by default. */</font></i>
+<a name='L156'><b>void</b> <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(<b>void</b> *reply);
+<a name='L157'>
+<a name='L158'><i><font color='green'>/* Functions to format a command according to the protocol. */</font></i>
+<a name='L159'><b>int</b> <a href='../S/120.html#L686' title='Defined at 686 in deps/hiredis/hiredis.c.'>redisvFormatCommand</a>(<b>char</b> **target, <b>const</b> <b>char</b> *format, va_list ap);
+<a name='L160'><b>int</b> <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(<b>char</b> **target, <b>const</b> <b>char</b> *format, ...);
+<a name='L161'><b>int</b> <a href='../S/120.html#L939' title='Defined at 939 in deps/hiredis/hiredis.c.'>redisFormatCommandArgv</a>(<b>char</b> **target, <b>int</b> argc, <b>const</b> <b>char</b> **argv, <b>const</b> size_t *argvlen);
+<a name='L162'>
+<a name='L163'><i><font color='green'>/* Context for a connection to Redis */</font></i>
+<a name='L164'><b>typedef</b> <b>struct</b> <a href='../R/3432.html' title='Multiple refered from 62 places.'>redisContext</a> <font color='red'>{</font>
+<a name='L165'>    <b>int</b> err; <i><font color='green'>/* Error flags, 0 when there is no error */</font></i>
+<a name='L166'>    <b>char</b> errstr[128]; <i><font color='green'>/* String representation of error when applicable */</font></i>
+<a name='L167'>    <b>int</b> fd;
+<a name='L168'>    <b>int</b> flags;
+<a name='L169'>    <b>char</b> *obuf; <i><font color='green'>/* Write buffer */</font></i>
+<a name='L170'>    <a href='../D/3850.html' title='Multiple defined in 2 places.'>redisReader</a> *reader; <i><font color='green'>/* Protocol reader */</font></i>
+<a name='L171'><font color='red'>}</font> <a href='../R/3432.html' title='Multiple refered from 62 places.'>redisContext</a>;
+<a name='L172'>
+<a name='L173'><a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *<a href='../S/120.html#L1016' title='Defined at 1016 in deps/hiredis/hiredis.c.'>redisConnect</a>(<b>const</b> <b>char</b> *ip, <b>int</b> port);
+<a name='L174'><a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *<a href='../S/120.html#L1023' title='Defined at 1023 in deps/hiredis/hiredis.c.'>redisConnectWithTimeout</a>(<b>const</b> <b>char</b> *ip, <b>int</b> port, <b>struct</b> timeval tv);
+<a name='L175'><a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *<a href='../S/120.html#L1030' title='Defined at 1030 in deps/hiredis/hiredis.c.'>redisConnectNonBlock</a>(<b>const</b> <b>char</b> *ip, <b>int</b> port);
+<a name='L176'><a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *<a href='../S/120.html#L1037' title='Defined at 1037 in deps/hiredis/hiredis.c.'>redisConnectUnix</a>(<b>const</b> <b>char</b> *path);
+<a name='L177'><a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *<a href='../S/120.html#L1044' title='Defined at 1044 in deps/hiredis/hiredis.c.'>redisConnectUnixWithTimeout</a>(<b>const</b> <b>char</b> *path, <b>struct</b> timeval tv);
+<a name='L178'><a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *<a href='../S/120.html#L1051' title='Defined at 1051 in deps/hiredis/hiredis.c.'>redisConnectUnixNonBlock</a>(<b>const</b> <b>char</b> *path);
+<a name='L179'><b>int</b> <a href='../S/120.html#L1059' title='Defined at 1059 in deps/hiredis/hiredis.c.'>redisSetTimeout</a>(<a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c, <b>struct</b> timeval tv);
+<a name='L180'><b>void</b> <a href='../S/120.html#L1003' title='Defined at 1003 in deps/hiredis/hiredis.c.'>redisFree</a>(<a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c);
+<a name='L181'><b>int</b> <a href='../S/120.html#L1070' title='Defined at 1070 in deps/hiredis/hiredis.c.'>redisBufferRead</a>(<a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c);
+<a name='L182'><b>int</b> <a href='../S/120.html#L1107' title='Defined at 1107 in deps/hiredis/hiredis.c.'>redisBufferWrite</a>(<a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c, <b>int</b> *done);
+<a name='L183'>
+<a name='L184'><i><font color='green'>/* In a blocking context, this function first checks if there are unconsumed</font></i>
+<a name='L185'><i><font color='green'> * replies to return and returns one if so. Otherwise, it flushes the output</font></i>
+<a name='L186'><i><font color='green'> * buffer to the socket and reads until it has a reply. In a non-blocking</font></i>
+<a name='L187'><i><font color='green'> * context, it will return unconsumed replies until there are no more. */</font></i>
+<a name='L188'><b>int</b> <a href='../S/120.html#L1146' title='Defined at 1146 in deps/hiredis/hiredis.c.'>redisGetReply</a>(<a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c, <b>void</b> **reply);
+<a name='L189'><b>int</b> <a href='../S/120.html#L1138' title='Defined at 1138 in deps/hiredis/hiredis.c.'>redisGetReplyFromReader</a>(<a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c, <b>void</b> **reply);
+<a name='L190'>
+<a name='L191'><i><font color='green'>/* Write a command to the output buffer. Use these functions in blocking mode</font></i>
+<a name='L192'><i><font color='green'> * to get a pipeline of commands. */</font></i>
+<a name='L193'><b>int</b> <a href='../S/120.html#L1196' title='Defined at 1196 in deps/hiredis/hiredis.c.'>redisvAppendCommand</a>(<a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c, <b>const</b> <b>char</b> *format, va_list ap);
+<a name='L194'><b>int</b> <a href='../S/120.html#L1215' title='Defined at 1215 in deps/hiredis/hiredis.c.'>redisAppendCommand</a>(<a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c, <b>const</b> <b>char</b> *format, ...);
+<a name='L195'><b>int</b> <a href='../S/120.html#L1225' title='Defined at 1225 in deps/hiredis/hiredis.c.'>redisAppendCommandArgv</a>(<a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c, <b>int</b> argc, <b>const</b> <b>char</b> **argv, <b>const</b> size_t *argvlen);
+<a name='L196'>
+<a name='L197'><i><font color='green'>/* Issue a command to Redis. In a blocking context, it is identical to calling</font></i>
+<a name='L198'><i><font color='green'> * redisAppendCommand, followed by redisGetReply. The function will return</font></i>
+<a name='L199'><i><font color='green'> * NULL if there was an error in performing the request, otherwise it will</font></i>
+<a name='L200'><i><font color='green'> * return the reply. In a non-blocking context, it is identical to calling</font></i>
+<a name='L201'><i><font color='green'> * only redisAppendCommand and will always return NULL. */</font></i>
+<a name='L202'><b>void</b> *<a href='../S/120.html#L1266' title='Defined at 1266 in deps/hiredis/hiredis.c.'>redisvCommand</a>(<a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c, <b>const</b> <b>char</b> *format, va_list ap);
+<a name='L203'><b>void</b> *<a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(<a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c, <b>const</b> <b>char</b> *format, ...);
+<a name='L204'><b>void</b> *<a href='../S/120.html#L1281' title='Defined at 1281 in deps/hiredis/hiredis.c.'>redisCommandArgv</a>(<a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c, <b>int</b> argc, <b>const</b> <b>char</b> **argv, <b>const</b> size_t *argvlen);
+<a name='L205'>
+<a name='L206'><font color='darkred'>#ifdef</font> __cplusplus
+<a name='L207'><font color='red'>}</font>
+<a name='L208'><font color='darkred'>#endif</font>
+<a name='L209'>
+<a name='L210'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

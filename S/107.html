@@ -1,0 +1,377 @@
+<html>
+<head>
+<title>deps/hiredis/dict.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/388.html'>hiredis</a>/dict.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L53'>[^]</a><a href='#L320'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L53' title='Defined at 53.'>dictGenHashFunction</a>
+<li><a href='#L65' title='Defined at 65.'>_dictReset</a>
+<li><a href='#L73' title='Defined at 73.'>dictCreate</a>
+<li><a href='#L80' title='Defined at 80.'>_dictInit</a>
+<li><a href='#L88' title='Defined at 88.'>dictExpand</a>
+<li><a href='#L135' title='Defined at 135.'>dictAdd</a>
+<li><a href='#L160' title='Defined at 160.'>dictReplace</a>
+<li><a href='#L182' title='Defined at 182.'>dictDelete</a>
+<li><a href='#L213' title='Defined at 213.'>_dictClear</a>
+<li><a href='#L238' title='Defined at 238.'>dictRelease</a>
+<li><a href='#L243' title='Defined at 243.'>dictFind</a>
+<li><a href='#L258' title='Defined at 258.'>dictGetIterator</a>
+<li><a href='#L268' title='Defined at 268.'>dictNext</a>
+<li><a href='#L288' title='Defined at 288.'>dictReleaseIterator</a>
+<li><a href='#L295' title='Defined at 295.'>_dictExpandIfNeeded</a>
+<li><a href='#L306' title='Defined at 306.'>_dictNextPower</a>
+<li><a href='#L320' title='Defined at 320.'>_dictKeyIndex</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* Hash table implementation.</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * This file implements in memory hash tables with insert/del/replace/find/</font></i>
+<a name='L4'><i><font color='green'> * get-random-element operations. Hash tables will auto resize if needed</font></i>
+<a name='L5'><i><font color='green'> * tables of power of two in size are used, collisions are handled by</font></i>
+<a name='L6'><i><font color='green'> * chaining. See the source code for more information... :)</font></i>
+<a name='L7'><i><font color='green'> *</font></i>
+<a name='L8'><i><font color='green'> * Copyright (c) 2006-2010, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L9'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L10'><i><font color='green'> *</font></i>
+<a name='L11'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L12'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L13'><i><font color='green'> *</font></i>
+<a name='L14'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L15'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L16'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L17'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L18'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L19'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L20'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L21'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L22'><i><font color='green'> *</font></i>
+<a name='L23'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L24'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L25'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L26'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L27'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L28'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L29'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L30'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L31'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L32'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L33'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L34'><i><font color='green'> */</font></i>
+<a name='L35'>
+<a name='L36'><font color='darkred'>#include</font> "<a href='../I/12.html'>fmacros.h</a>"
+<a name='L37'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L38'><font color='darkred'>#include</font> &lt;assert.h&gt;
+<a name='L39'><font color='darkred'>#include</font> &lt;limits.h&gt;
+<a name='L40'><font color='darkred'>#include</font> "<a href='../I/7.html'>dict.h</a>"
+<a name='L41'>
+<a name='L42'><i><font color='green'>/* -------------------------- private prototypes ---------------------------- */</font></i>
+<a name='L43'>
+<a name='L44'><b>static</b> <b>int</b> <a href='../D/1420.html' title='Multiple defined in 2 places.'>_dictExpandIfNeeded</a>(dict *ht);
+<a name='L45'><b>static</b> <b>unsigned</b> <b>long</b> <a href='../D/1423.html' title='Multiple defined in 2 places.'>_dictNextPower</a>(<b>unsigned</b> <b>long</b> size);
+<a name='L46'><b>static</b> <b>int</b> <a href='../D/1422.html' title='Multiple defined in 2 places.'>_dictKeyIndex</a>(dict *ht, <b>const</b> <b>void</b> *key);
+<a name='L47'><b>static</b> <b>int</b> <a href='../D/1421.html' title='Multiple defined in 2 places.'>_dictInit</a>(dict *ht, dictType *type, <b>void</b> *privDataPtr);
+<a name='L48'>
+<a name='L49'><i><font color='green'>/* -------------------------- hash functions -------------------------------- */</font></i>
+<a name='L50'>
+<a name='L51'><i><font color='green'>/* Generic hash function (a popular one from Bernstein).</font></i>
+<a name='L52'><i><font color='green'> * I tested a few and this was the best. */</font></i>
+<a name='L53'><b>static</b> <b>unsigned</b> <b>int</b> <a href='../R/1807.html' title='Multiple refered from 9 places.'>dictGenHashFunction</a>(<b>const</b> <b>unsigned</b> <b>char</b> *buf, <b>int</b> len) <font color='red'>{</font>
+<a name='L54'>    <b>unsigned</b> <b>int</b> <a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a> = 5381;
+<a name='L55'>
+<a name='L56'>    <b>while</b> (len--)
+<a name='L57'>        <a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a> = ((<a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a> &lt;&lt; 5) + <a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a>) + (*buf++); <i><font color='green'>/* hash * 33 + c */</font></i>
+<a name='L58'>    <b>return</b> <a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a>;
+<a name='L59'><font color='red'>}</font>
+<a name='L60'>
+<a name='L61'><i><font color='green'>/* ----------------------------- API implementation ------------------------- */</font></i>
+<a name='L62'>
+<a name='L63'><i><font color='green'>/* Reset an hashtable already initialized with ht_init().</font></i>
+<a name='L64'><i><font color='green'> * NOTE: This function should only called by ht_destroy(). */</font></i>
+<a name='L65'><b>static</b> <b>void</b> <a href='../R/1166.html' title='Multiple refered from 6 places.'>_dictReset</a>(dict *ht) <font color='red'>{</font>
+<a name='L66'>    ht-&gt;table = NULL;
+<a name='L67'>    ht-&gt;size = 0;
+<a name='L68'>    ht-&gt;sizemask = 0;
+<a name='L69'>    ht-&gt;used = 0;
+<a name='L70'><font color='red'>}</font>
+<a name='L71'>
+<a name='L72'><i><font color='green'>/* Create a new hash table */</font></i>
+<a name='L73'><b>static</b> <a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a> *<a href='../R/1790.html' title='Multiple refered from 26 places.'>dictCreate</a>(dictType *type, <b>void</b> *privDataPtr) <font color='red'>{</font>
+<a name='L74'>    <a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a> *ht = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(*ht));
+<a name='L75'>    <a href='../D/1421.html' title='Multiple defined in 2 places.'>_dictInit</a>(ht,type,privDataPtr);
+<a name='L76'>    <b>return</b> ht;
+<a name='L77'><font color='red'>}</font>
+<a name='L78'>
+<a name='L79'><i><font color='green'>/* Initialize the hash table */</font></i>
+<a name='L80'><b>static</b> <b>int</b> <a href='../R/1161.html' title='Multiple refered from 5 places.'>_dictInit</a>(dict *ht, dictType *type, <b>void</b> *privDataPtr) <font color='red'>{</font>
+<a name='L81'>    <a href='../D/1426.html' title='Multiple defined in 2 places.'>_dictReset</a>(ht);
+<a name='L82'>    ht-&gt;type = type;
+<a name='L83'>    ht-&gt;privdata = privDataPtr;
+<a name='L84'>    <b>return</b> <a href='../D/124.html' title='Multiple defined in 2 places.'>DICT_OK</a>;
+<a name='L85'><font color='red'>}</font>
+<a name='L86'>
+<a name='L87'><i><font color='green'>/* Expand or create the hashtable */</font></i>
+<a name='L88'><b>static</b> <b>int</b> <a href='../R/1799.html' title='Multiple refered from 10 places.'>dictExpand</a>(dict *ht, <b>unsigned</b> <b>long</b> size) <font color='red'>{</font>
+<a name='L89'>    <a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a> n; <i><font color='green'>/* the new hashtable */</font></i>
+<a name='L90'>    <b>unsigned</b> <b>long</b> realsize = <a href='../D/1423.html' title='Multiple defined in 2 places.'>_dictNextPower</a>(size), i;
+<a name='L91'>
+<a name='L92'>    <i><font color='green'>/* the size is invalid if it is smaller than the number of</font></i>
+<a name='L93'><i><font color='green'>     * elements already inside the hashtable */</font></i>
+<a name='L94'>    <b>if</b> (ht-&gt;used &gt; size)
+<a name='L95'>        <b>return</b> <a href='../D/121.html' title='Multiple defined in 2 places.'>DICT_ERR</a>;
+<a name='L96'>
+<a name='L97'>    <a href='../D/1421.html' title='Multiple defined in 2 places.'>_dictInit</a>(&amp;n, ht-&gt;type, ht-&gt;privdata);
+<a name='L98'>    n.size = realsize;
+<a name='L99'>    n.sizemask = realsize-1;
+<a name='L100'>    n.table = <a href='../D/1797.html' title='Multiple defined in 2 places.'>calloc</a>(realsize,<b>sizeof</b>(<a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a>*));
+<a name='L101'>
+<a name='L102'>    <i><font color='green'>/* Copy all the elements from the old to the new table:</font></i>
+<a name='L103'><i><font color='green'>     * note that if the old hash table is empty ht-&gt;size is zero,</font></i>
+<a name='L104'><i><font color='green'>     * so dictExpand just creates an hash table. */</font></i>
+<a name='L105'>    n.used = ht-&gt;used;
+<a name='L106'>    <b>for</b> (i = 0; i &lt; ht-&gt;size &amp;&amp; ht-&gt;used &gt; 0; i++) <font color='red'>{</font>
+<a name='L107'>        <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *he, *nextHe;
+<a name='L108'>
+<a name='L109'>        <b>if</b> (ht-&gt;table[i] == NULL) <b>continue</b>;
+<a name='L110'>
+<a name='L111'>        <i><font color='green'>/* For each hash entry on this slot... */</font></i>
+<a name='L112'>        he = ht-&gt;table[i];
+<a name='L113'>        <b>while</b>(he) <font color='red'>{</font>
+<a name='L114'>            <b>unsigned</b> <b>int</b> h;
+<a name='L115'>
+<a name='L116'>            nextHe = he-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L117'>            <i><font color='green'>/* Get the new element index */</font></i>
+<a name='L118'>            h = <a href='../D/2094.html' title='Multiple defined in 2 places.'>dictHashKey</a>(ht, he-&gt;key) &amp; n.sizemask;
+<a name='L119'>            he-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = n.table[h];
+<a name='L120'>            n.table[h] = he;
+<a name='L121'>            ht-&gt;used--;
+<a name='L122'>            <i><font color='green'>/* Pass to the next element */</font></i>
+<a name='L123'>            he = nextHe;
+<a name='L124'>        <font color='red'>}</font>
+<a name='L125'>    <font color='red'>}</font>
+<a name='L126'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ht-&gt;used == 0);
+<a name='L127'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(ht-&gt;table);
+<a name='L128'>
+<a name='L129'>    <i><font color='green'>/* Remap the new hashtable in the old */</font></i>
+<a name='L130'>    *ht = n;
+<a name='L131'>    <b>return</b> <a href='../D/124.html' title='Multiple defined in 2 places.'>DICT_OK</a>;
+<a name='L132'><font color='red'>}</font>
+<a name='L133'>
+<a name='L134'><i><font color='green'>/* Add an element to the target hash table */</font></i>
+<a name='L135'><b>static</b> <b>int</b> <a href='../R/1786.html' title='Multiple refered from 31 places.'>dictAdd</a>(dict *ht, <b>void</b> *key, <b>void</b> *val) <font color='red'>{</font>
+<a name='L136'>    <b>int</b> index;
+<a name='L137'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>;
+<a name='L138'>
+<a name='L139'>    <i><font color='green'>/* Get the index of the new element, or -1 if</font></i>
+<a name='L140'><i><font color='green'>     * the element already exists. */</font></i>
+<a name='L141'>    <b>if</b> ((index = <a href='../D/1422.html' title='Multiple defined in 2 places.'>_dictKeyIndex</a>(ht, key)) == -1)
+<a name='L142'>        <b>return</b> <a href='../D/121.html' title='Multiple defined in 2 places.'>DICT_ERR</a>;
+<a name='L143'>
+<a name='L144'>    <i><font color='green'>/* Allocates the memory and stores key */</font></i>
+<a name='L145'>    <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a> = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(*<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>));
+<a name='L146'>    <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = ht-&gt;table[index];
+<a name='L147'>    ht-&gt;table[index] = <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>;
+<a name='L148'>
+<a name='L149'>    <i><font color='green'>/* Set the hash entry fields. */</font></i>
+<a name='L150'>    <a href='../S/123.html#L94' title='Defined at 94 in deps/hiredis/dict.h.'>dictSetHashKey</a>(ht, <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>, key);
+<a name='L151'>    <a href='../S/123.html#L83' title='Defined at 83 in deps/hiredis/dict.h.'>dictSetHashVal</a>(ht, <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>, val);
+<a name='L152'>    ht-&gt;used++;
+<a name='L153'>    <b>return</b> <a href='../D/124.html' title='Multiple defined in 2 places.'>DICT_OK</a>;
+<a name='L154'><font color='red'>}</font>
+<a name='L155'>
+<a name='L156'><i><font color='green'>/* Add an element, discarding the old if the key already exists.</font></i>
+<a name='L157'><i><font color='green'> * Return 1 if the key was added from scratch, 0 if there was already an</font></i>
+<a name='L158'><i><font color='green'> * element with such key and dictReplace() just performed a value update</font></i>
+<a name='L159'><i><font color='green'> * operation. */</font></i>
+<a name='L160'><b>static</b> <b>int</b> <a href='../R/1832.html' title='Multiple refered from 6 places.'>dictReplace</a>(dict *ht, <b>void</b> *key, <b>void</b> *val) <font color='red'>{</font>
+<a name='L161'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>, auxentry;
+<a name='L162'>
+<a name='L163'>    <i><font color='green'>/* Try to add the element. If the key</font></i>
+<a name='L164'><i><font color='green'>     * does not exists dictAdd will suceed. */</font></i>
+<a name='L165'>    <b>if</b> (<a href='../D/2061.html' title='Multiple defined in 2 places.'>dictAdd</a>(ht, key, val) == <a href='../D/124.html' title='Multiple defined in 2 places.'>DICT_OK</a>)
+<a name='L166'>        <b>return</b> 1;
+<a name='L167'>    <i><font color='green'>/* It already exists, get the entry */</font></i>
+<a name='L168'>    <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a> = <a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(ht, key);
+<a name='L169'>    <i><font color='green'>/* Free the old value and set the new one */</font></i>
+<a name='L170'>    <i><font color='green'>/* Set the new value and free the old one. Note that it is important</font></i>
+<a name='L171'><i><font color='green'>     * to do that in this order, as the value may just be exactly the same</font></i>
+<a name='L172'><i><font color='green'>     * as the previous one. In this context, think to reference counting,</font></i>
+<a name='L173'><i><font color='green'>     * you want to increment (set), and then decrement (free), and not the</font></i>
+<a name='L174'><i><font color='green'>     * reverse. */</font></i>
+<a name='L175'>    auxentry = *<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>;
+<a name='L176'>    <a href='../S/123.html#L83' title='Defined at 83 in deps/hiredis/dict.h.'>dictSetHashVal</a>(ht, <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>, val);
+<a name='L177'>    <a href='../S/123.html#L79' title='Defined at 79 in deps/hiredis/dict.h.'>dictFreeEntryVal</a>(ht, &amp;auxentry);
+<a name='L178'>    <b>return</b> 0;
+<a name='L179'><font color='red'>}</font>
+<a name='L180'>
+<a name='L181'><i><font color='green'>/* Search and remove an element */</font></i>
+<a name='L182'><b>static</b> <b>int</b> <a href='../R/1791.html' title='Multiple refered from 20 places.'>dictDelete</a>(dict *ht, <b>const</b> <b>void</b> *key) <font color='red'>{</font>
+<a name='L183'>    <b>unsigned</b> <b>int</b> h;
+<a name='L184'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *de, *prevde;
+<a name='L185'>
+<a name='L186'>    <b>if</b> (ht-&gt;size == 0)
+<a name='L187'>        <b>return</b> <a href='../D/121.html' title='Multiple defined in 2 places.'>DICT_ERR</a>;
+<a name='L188'>    h = <a href='../D/2094.html' title='Multiple defined in 2 places.'>dictHashKey</a>(ht, key) &amp; ht-&gt;sizemask;
+<a name='L189'>    de = ht-&gt;table[h];
+<a name='L190'>
+<a name='L191'>    prevde = NULL;
+<a name='L192'>    <b>while</b>(de) <font color='red'>{</font>
+<a name='L193'>        <b>if</b> (<a href='../S/123.html#L101' title='Defined at 101 in deps/hiredis/dict.h.'>dictCompareHashKeys</a>(ht,key,de-&gt;key)) <font color='red'>{</font>
+<a name='L194'>            <i><font color='green'>/* Unlink the element from the list */</font></i>
+<a name='L195'>            <b>if</b> (prevde)
+<a name='L196'>                prevde-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = de-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L197'>            <b>else</b>
+<a name='L198'>                ht-&gt;table[h] = de-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L199'>
+<a name='L200'>            <a href='../S/123.html#L90' title='Defined at 90 in deps/hiredis/dict.h.'>dictFreeEntryKey</a>(ht,de);
+<a name='L201'>            <a href='../S/123.html#L79' title='Defined at 79 in deps/hiredis/dict.h.'>dictFreeEntryVal</a>(ht,de);
+<a name='L202'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(de);
+<a name='L203'>            ht-&gt;used--;
+<a name='L204'>            <b>return</b> <a href='../D/124.html' title='Multiple defined in 2 places.'>DICT_OK</a>;
+<a name='L205'>        <font color='red'>}</font>
+<a name='L206'>        prevde = de;
+<a name='L207'>        de = de-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L208'>    <font color='red'>}</font>
+<a name='L209'>    <b>return</b> <a href='../D/121.html' title='Multiple defined in 2 places.'>DICT_ERR</a>; <i><font color='green'>/* not found */</font></i>
+<a name='L210'><font color='red'>}</font>
+<a name='L211'>
+<a name='L212'><i><font color='green'>/* Destroy an entire hash table */</font></i>
+<a name='L213'><b>static</b> <b>int</b> <a href='../R/1159.html' title='Multiple refered from 5 places.'>_dictClear</a>(dict *ht) <font color='red'>{</font>
+<a name='L214'>    <b>unsigned</b> <b>long</b> i;
+<a name='L215'>
+<a name='L216'>    <i><font color='green'>/* Free all the elements */</font></i>
+<a name='L217'>    <b>for</b> (i = 0; i &lt; ht-&gt;size &amp;&amp; ht-&gt;used &gt; 0; i++) <font color='red'>{</font>
+<a name='L218'>        <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *he, *nextHe;
+<a name='L219'>
+<a name='L220'>        <b>if</b> ((he = ht-&gt;table[i]) == NULL) <b>continue</b>;
+<a name='L221'>        <b>while</b>(he) <font color='red'>{</font>
+<a name='L222'>            nextHe = he-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L223'>            <a href='../S/123.html#L90' title='Defined at 90 in deps/hiredis/dict.h.'>dictFreeEntryKey</a>(ht, he);
+<a name='L224'>            <a href='../S/123.html#L79' title='Defined at 79 in deps/hiredis/dict.h.'>dictFreeEntryVal</a>(ht, he);
+<a name='L225'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(he);
+<a name='L226'>            ht-&gt;used--;
+<a name='L227'>            he = nextHe;
+<a name='L228'>        <font color='red'>}</font>
+<a name='L229'>    <font color='red'>}</font>
+<a name='L230'>    <i><font color='green'>/* Free the table and the allocated cache structure */</font></i>
+<a name='L231'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(ht-&gt;table);
+<a name='L232'>    <i><font color='green'>/* Re-initialize the table */</font></i>
+<a name='L233'>    <a href='../D/1426.html' title='Multiple defined in 2 places.'>_dictReset</a>(ht);
+<a name='L234'>    <b>return</b> <a href='../D/124.html' title='Multiple defined in 2 places.'>DICT_OK</a>; <i><font color='green'>/* never fails */</font></i>
+<a name='L235'><font color='red'>}</font>
+<a name='L236'>
+<a name='L237'><i><font color='green'>/* Clear &amp; Release the hash table */</font></i>
+<a name='L238'><b>static</b> <b>void</b> <a href='../R/1830.html' title='Multiple refered from 17 places.'>dictRelease</a>(dict *ht) <font color='red'>{</font>
+<a name='L239'>    <a href='../D/1419.html' title='Multiple defined in 2 places.'>_dictClear</a>(ht);
+<a name='L240'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(ht);
+<a name='L241'><font color='red'>}</font>
+<a name='L242'>
+<a name='L243'><b>static</b> <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *<a href='../R/1801.html' title='Multiple refered from 42 places.'>dictFind</a>(dict *ht, <b>const</b> <b>void</b> *key) <font color='red'>{</font>
+<a name='L244'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *he;
+<a name='L245'>    <b>unsigned</b> <b>int</b> h;
+<a name='L246'>
+<a name='L247'>    <b>if</b> (ht-&gt;size == 0) <b>return</b> NULL;
+<a name='L248'>    h = <a href='../D/2094.html' title='Multiple defined in 2 places.'>dictHashKey</a>(ht, key) &amp; ht-&gt;sizemask;
+<a name='L249'>    he = ht-&gt;table[h];
+<a name='L250'>    <b>while</b>(he) <font color='red'>{</font>
+<a name='L251'>        <b>if</b> (<a href='../S/123.html#L101' title='Defined at 101 in deps/hiredis/dict.h.'>dictCompareHashKeys</a>(ht, key, he-&gt;key))
+<a name='L252'>            <b>return</b> he;
+<a name='L253'>        he = he-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L254'>    <font color='red'>}</font>
+<a name='L255'>    <b>return</b> NULL;
+<a name='L256'><font color='red'>}</font>
+<a name='L257'>
+<a name='L258'><b>static</b> <a href='../D/2099.html' title='Multiple defined in 4 places.'>dictIterator</a> *<a href='../R/1811.html' title='Multiple refered from 36 places.'>dictGetIterator</a>(dict *ht) <font color='red'>{</font>
+<a name='L259'>    <a href='../D/2099.html' title='Multiple defined in 4 places.'>dictIterator</a> *iter = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(*iter));
+<a name='L260'>
+<a name='L261'>    iter-&gt;ht = ht;
+<a name='L262'>    iter-&gt;index = -1;
+<a name='L263'>    iter-&gt;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a> = NULL;
+<a name='L264'>    iter-&gt;nextEntry = NULL;
+<a name='L265'>    <b>return</b> iter;
+<a name='L266'><font color='red'>}</font>
+<a name='L267'>
+<a name='L268'><b>static</b> <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *<a href='../R/1823.html' title='Multiple refered from 41 places.'>dictNext</a>(dictIterator *iter) <font color='red'>{</font>
+<a name='L269'>    <b>while</b> (1) <font color='red'>{</font>
+<a name='L270'>        <b>if</b> (iter-&gt;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a> == NULL) <font color='red'>{</font>
+<a name='L271'>            iter-&gt;index++;
+<a name='L272'>            <b>if</b> (iter-&gt;index &gt;=
+<a name='L273'>                    (<b>signed</b>)iter-&gt;ht-&gt;size) <b>break</b>;
+<a name='L274'>            iter-&gt;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a> = iter-&gt;ht-&gt;table[iter-&gt;index];
+<a name='L275'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L276'>            iter-&gt;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a> = iter-&gt;nextEntry;
+<a name='L277'>        <font color='red'>}</font>
+<a name='L278'>        <b>if</b> (iter-&gt;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>) <font color='red'>{</font>
+<a name='L279'>            <i><font color='green'>/* We need to save the 'next' here, the iterator user</font></i>
+<a name='L280'><i><font color='green'>             * may delete the entry we are returning. */</font></i>
+<a name='L281'>            iter-&gt;nextEntry = iter-&gt;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L282'>            <b>return</b> iter-&gt;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>;
+<a name='L283'>        <font color='red'>}</font>
+<a name='L284'>    <font color='red'>}</font>
+<a name='L285'>    <b>return</b> NULL;
+<a name='L286'><font color='red'>}</font>
+<a name='L287'>
+<a name='L288'><b>static</b> <b>void</b> <a href='../R/1831.html' title='Multiple refered from 42 places.'>dictReleaseIterator</a>(dictIterator *iter) <font color='red'>{</font>
+<a name='L289'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(iter);
+<a name='L290'><font color='red'>}</font>
+<a name='L291'>
+<a name='L292'><i><font color='green'>/* ------------------------- private functions ------------------------------ */</font></i>
+<a name='L293'>
+<a name='L294'><i><font color='green'>/* Expand the hash table if needed */</font></i>
+<a name='L295'><b>static</b> <b>int</b> <a href='../R/1160.html' title='Multiple refered from 4 places.'>_dictExpandIfNeeded</a>(dict *ht) <font color='red'>{</font>
+<a name='L296'>    <i><font color='green'>/* If the hash table is empty expand it to the intial size,</font></i>
+<a name='L297'><i><font color='green'>     * if the table is "full" dobule its size. */</font></i>
+<a name='L298'>    <b>if</b> (ht-&gt;size == 0)
+<a name='L299'>        <b>return</b> <a href='../D/2074.html' title='Multiple defined in 2 places.'>dictExpand</a>(ht, <a href='../D/122.html' title='Multiple defined in 2 places.'>DICT_HT_INITIAL_SIZE</a>);
+<a name='L300'>    <b>if</b> (ht-&gt;used == ht-&gt;size)
+<a name='L301'>        <b>return</b> <a href='../D/2074.html' title='Multiple defined in 2 places.'>dictExpand</a>(ht, ht-&gt;size*2);
+<a name='L302'>    <b>return</b> <a href='../D/124.html' title='Multiple defined in 2 places.'>DICT_OK</a>;
+<a name='L303'><font color='red'>}</font>
+<a name='L304'>
+<a name='L305'><i><font color='green'>/* Our hash table capability is a power of two */</font></i>
+<a name='L306'><b>static</b> <b>unsigned</b> <b>long</b> <a href='../R/1163.html' title='Multiple refered from 4 places.'>_dictNextPower</a>(<b>unsigned</b> <b>long</b> size) <font color='red'>{</font>
+<a name='L307'>    <b>unsigned</b> <b>long</b> i = <a href='../D/122.html' title='Multiple defined in 2 places.'>DICT_HT_INITIAL_SIZE</a>;
+<a name='L308'>
+<a name='L309'>    <b>if</b> (size &gt;= LONG_MAX) <b>return</b> LONG_MAX;
+<a name='L310'>    <b>while</b>(1) <font color='red'>{</font>
+<a name='L311'>        <b>if</b> (i &gt;= size)
+<a name='L312'>            <b>return</b> i;
+<a name='L313'>        i *= 2;
+<a name='L314'>    <font color='red'>}</font>
+<a name='L315'><font color='red'>}</font>
+<a name='L316'>
+<a name='L317'><i><font color='green'>/* Returns the index of a free slot that can be populated with</font></i>
+<a name='L318'><i><font color='green'> * an hash entry for the given 'key'.</font></i>
+<a name='L319'><i><font color='green'> * If the key already exists, -1 is returned. */</font></i>
+<a name='L320'><b>static</b> <b>int</b> <a href='../R/1162.html' title='Multiple refered from 4 places.'>_dictKeyIndex</a>(dict *ht, <b>const</b> <b>void</b> *key) <font color='red'>{</font>
+<a name='L321'>    <b>unsigned</b> <b>int</b> h;
+<a name='L322'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *he;
+<a name='L323'>
+<a name='L324'>    <i><font color='green'>/* Expand the hashtable if needed */</font></i>
+<a name='L325'>    <b>if</b> (<a href='../D/1420.html' title='Multiple defined in 2 places.'>_dictExpandIfNeeded</a>(ht) == <a href='../D/121.html' title='Multiple defined in 2 places.'>DICT_ERR</a>)
+<a name='L326'>        <b>return</b> -1;
+<a name='L327'>    <i><font color='green'>/* Compute the key hash value */</font></i>
+<a name='L328'>    h = <a href='../D/2094.html' title='Multiple defined in 2 places.'>dictHashKey</a>(ht, key) &amp; ht-&gt;sizemask;
+<a name='L329'>    <i><font color='green'>/* Search if this slot does not already contain the given key */</font></i>
+<a name='L330'>    he = ht-&gt;table[h];
+<a name='L331'>    <b>while</b>(he) <font color='red'>{</font>
+<a name='L332'>        <b>if</b> (<a href='../S/123.html#L101' title='Defined at 101 in deps/hiredis/dict.h.'>dictCompareHashKeys</a>(ht, key, he-&gt;key))
+<a name='L333'>            <b>return</b> -1;
+<a name='L334'>        he = he-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L335'>    <font color='red'>}</font>
+<a name='L336'>    <b>return</b> h;
+<a name='L337'><font color='red'>}</font>
+<a name='L338'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L53'>[^]</a><a href='#L320'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

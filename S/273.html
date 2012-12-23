@@ -1,0 +1,287 @@
+<html>
+<head>
+<title>deps/lua/src/lopcodes.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/lopcodes.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/119.html' title='Multiple included from 9 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: lopcodes.h,v 1.125.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Opcodes for Lua virtual machine</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'><font color='darkred'>#ifndef</font> <a href='../S/273.html#L8' title='Defined at 8 in deps/lua/src/lopcodes.h.'>lopcodes_h</a>
+<a name='L8'><font color='darkred'>#define</font> <a href='../S/273.html#L7' title='Refered from 7 in deps/lua/src/lopcodes.h.'>lopcodes_h</a>
+<a name='L9'>
+<a name='L10'><font color='darkred'>#include</font> "<a href='310.html'>llimits.h</a>"
+<a name='L11'>
+<a name='L12'>
+<a name='L13'><i><font color='green'>/*===========================================================================</font></i>
+<a name='L14'><i><font color='green'>  We assume that instructions are unsigned numbers.</font></i>
+<a name='L15'><i><font color='green'>  All instructions have an opcode in the first 6 bits.</font></i>
+<a name='L16'><i><font color='green'>  Instructions can have the following fields:</font></i>
+<a name='L17'><i><font color='green'>        `A' : 8 bits</font></i>
+<a name='L18'><i><font color='green'>        `B' : 9 bits</font></i>
+<a name='L19'><i><font color='green'>        `C' : 9 bits</font></i>
+<a name='L20'><i><font color='green'>        `Bx' : 18 bits (`B' and `C' together)</font></i>
+<a name='L21'><i><font color='green'>        `sBx' : signed Bx</font></i>
+<a name='L22'><i><font color='green'></font></i>
+<a name='L23'><i><font color='green'>  A signed argument is represented in excess K; that is, the number</font></i>
+<a name='L24'><i><font color='green'>  value is the unsigned value minus K. K is exactly the maximum value</font></i>
+<a name='L25'><i><font color='green'>  for that argument (so that -max is represented by 0, and +max is</font></i>
+<a name='L26'><i><font color='green'>  represented by 2*max), which is half the maximum for the corresponding</font></i>
+<a name='L27'><i><font color='green'>  unsigned argument.</font></i>
+<a name='L28'><i><font color='green'>===========================================================================*/</font></i>
+<a name='L29'>
+<a name='L30'>
+<a name='L31'><b>enum</b> <a href='../S/273.html#L254' title='Refered from 254 in deps/lua/src/lopcodes.h.'>OpMode</a> <font color='red'>{</font><a href='../R/2177.html' title='Multiple refered from 34 places.'>iABC</a>, <a href='../R/2178.html' title='Multiple refered from 7 places.'>iABx</a>, <a href='../R/2179.html' title='Multiple refered from 6 places.'>iAsBx</a><font color='red'>}</font>;  <i><font color='green'>/* basic instruction format */</font></i>
+<a name='L32'>
+<a name='L33'>
+<a name='L34'><i><font color='green'>/*</font></i>
+<a name='L35'><i><font color='green'>** size and position of opcode arguments.</font></i>
+<a name='L36'><i><font color='green'>*/</font></i>
+<a name='L37'><font color='darkred'>#define</font> <a href='../R/883.html' title='Multiple refered from 6 places.'>SIZE_C</a>          9
+<a name='L38'><font color='darkred'>#define</font> <a href='../R/881.html' title='Multiple refered from 6 places.'>SIZE_B</a>          9
+<a name='L39'><font color='darkred'>#define</font> <a href='../R/882.html' title='Multiple refered from 5 places.'>SIZE_Bx</a>         (<a href='../S/273.html#L37' title='Defined at 37 in deps/lua/src/lopcodes.h.'>SIZE_C</a> + <a href='../S/273.html#L38' title='Defined at 38 in deps/lua/src/lopcodes.h.'>SIZE_B</a>)
+<a name='L40'><font color='darkred'>#define</font> <a href='../R/880.html' title='Multiple refered from 5 places.'>SIZE_A</a>          8
+<a name='L41'>
+<a name='L42'><font color='darkred'>#define</font> <a href='../R/887.html' title='Multiple refered from 4 places.'>SIZE_OP</a>         6
+<a name='L43'>
+<a name='L44'><font color='darkred'>#define</font> <a href='../R/561.html' title='Multiple refered from 6 places.'>POS_OP</a>          0
+<a name='L45'><font color='darkred'>#define</font> <a href='../R/557.html' title='Multiple refered from 6 places.'>POS_A</a>           (<a href='../S/273.html#L44' title='Defined at 44 in deps/lua/src/lopcodes.h.'>POS_OP</a> + <a href='../S/273.html#L42' title='Defined at 42 in deps/lua/src/lopcodes.h.'>SIZE_OP</a>)
+<a name='L46'><font color='darkred'>#define</font> <a href='../R/560.html' title='Multiple refered from 6 places.'>POS_C</a>           (<a href='../S/273.html#L45' title='Defined at 45 in deps/lua/src/lopcodes.h.'>POS_A</a> + <a href='../S/273.html#L40' title='Defined at 40 in deps/lua/src/lopcodes.h.'>SIZE_A</a>)
+<a name='L47'><font color='darkred'>#define</font> <a href='../R/558.html' title='Multiple refered from 4 places.'>POS_B</a>           (<a href='../S/273.html#L46' title='Defined at 46 in deps/lua/src/lopcodes.h.'>POS_C</a> + <a href='../S/273.html#L37' title='Defined at 37 in deps/lua/src/lopcodes.h.'>SIZE_C</a>)
+<a name='L48'><font color='darkred'>#define</font> <a href='../R/559.html' title='Multiple refered from 4 places.'>POS_Bx</a>          <a href='../S/273.html#L46' title='Defined at 46 in deps/lua/src/lopcodes.h.'>POS_C</a>
+<a name='L49'>
+<a name='L50'>
+<a name='L51'><i><font color='green'>/*</font></i>
+<a name='L52'><i><font color='green'>** limits for opcode arguments.</font></i>
+<a name='L53'><i><font color='green'>** we use (signed) int to manipulate most arguments,</font></i>
+<a name='L54'><i><font color='green'>** so they must fit in LUAI_BITSINT-1 bits (-1 for sign)</font></i>
+<a name='L55'><i><font color='green'>*/</font></i>
+<a name='L56'><font color='darkred'>#if</font> <a href='../S/273.html#L39' title='Defined at 39 in deps/lua/src/lopcodes.h.'>SIZE_Bx</a> &lt; <a href='../D/313.html' title='Multiple defined in 2 places.'>LUAI_BITSINT</a>-1
+<a name='L57'><font color='darkred'>#define</font> <a href='../R/434.html' title='Multiple refered from 3 places.'>MAXARG_Bx</a>        ((1&lt;&lt;<a href='../S/273.html#L39' title='Defined at 39 in deps/lua/src/lopcodes.h.'>SIZE_Bx</a>)-1)
+<a name='L58'><font color='darkred'>#define</font> <a href='../R/436.html' title='Multiple refered from 4 places.'>MAXARG_sBx</a>        (<a href='../D/484.html' title='Multiple defined in 2 places.'>MAXARG_Bx</a>&gt;&gt;1)         <i><font color='green'>/* `sBx' is signed */</font></i>
+<a name='L59'><font color='darkred'>#else</font>
+<a name='L60'><font color='darkred'>#define</font> <a href='../R/434.html' title='Multiple refered from 3 places.'>MAXARG_Bx</a>        <a href='../S/310.html#L35' title='Defined at 35 in deps/lua/src/llimits.h.'>MAX_INT</a>
+<a name='L61'><font color='darkred'>#define</font> <a href='../R/436.html' title='Multiple refered from 4 places.'>MAXARG_sBx</a>        <a href='../S/310.html#L35' title='Defined at 35 in deps/lua/src/llimits.h.'>MAX_INT</a>
+<a name='L62'><font color='darkred'>#endif</font>
+<a name='L63'>
+<a name='L64'>
+<a name='L65'><font color='darkred'>#define</font> <a href='../S/273.html#L136' title='Refered from 136 in deps/lua/src/lopcodes.h.'>MAXARG_A</a>        ((1&lt;&lt;<a href='../S/273.html#L40' title='Defined at 40 in deps/lua/src/lopcodes.h.'>SIZE_A</a>)-1)
+<a name='L66'><font color='darkred'>#define</font> MAXARG_B        ((1&lt;&lt;<a href='../S/273.html#L38' title='Defined at 38 in deps/lua/src/lopcodes.h.'>SIZE_B</a>)-1)
+<a name='L67'><font color='darkred'>#define</font> <a href='../S/293.html#L831' title='Refered from 831 in deps/lua/src/lcode.c.'>MAXARG_C</a>        ((1&lt;&lt;<a href='../S/273.html#L37' title='Defined at 37 in deps/lua/src/lopcodes.h.'>SIZE_C</a>)-1)
+<a name='L68'>
+<a name='L69'>
+<a name='L70'><i><font color='green'>/* creates a mask with `n' 1 bits at position `p' */</font></i>
+<a name='L71'><font color='darkred'>#define</font> <a href='../R/431.html' title='Multiple refered from 11 places.'>MASK1</a>(n,p)      ((~((~(<a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a>)0)&lt;&lt;n))&lt;&lt;p)
+<a name='L72'>
+<a name='L73'><i><font color='green'>/* creates a mask with `n' 0 bits at position `p' */</font></i>
+<a name='L74'><font color='darkred'>#define</font> <a href='../R/430.html' title='Multiple refered from 5 places.'>MASK0</a>(n,p)      (~<a href='../S/273.html#L71' title='Defined at 71 in deps/lua/src/lopcodes.h.'>MASK1</a>(n,p))
+<a name='L75'>
+<a name='L76'><i><font color='green'>/*</font></i>
+<a name='L77'><i><font color='green'>** the following macros help to manipulate instructions</font></i>
+<a name='L78'><i><font color='green'>*/</font></i>
+<a name='L79'>
+<a name='L80'><font color='darkred'>#define</font> <a href='../R/173.html' title='Multiple refered from 30 places.'>GET_OPCODE</a>(i)   (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/273.html#L208' title='Defined at 208 in deps/lua/src/lopcodes.h.'>OpCode</a>, ((i)&gt;&gt;<a href='../S/273.html#L44' title='Defined at 44 in deps/lua/src/lopcodes.h.'>POS_OP</a>) &amp; <a href='../S/273.html#L71' title='Defined at 71 in deps/lua/src/lopcodes.h.'>MASK1</a>(<a href='../S/273.html#L42' title='Defined at 42 in deps/lua/src/lopcodes.h.'>SIZE_OP</a>,0)))
+<a name='L81'><font color='darkred'>#define</font> <a href='../S/304.html#L1251' title='Refered from 1251 in deps/lua/src/lparser.c.'>SET_OPCODE</a>(i,o) ((i) = (((i)&amp;<a href='../S/273.html#L74' title='Defined at 74 in deps/lua/src/lopcodes.h.'>MASK0</a>(<a href='../S/273.html#L42' title='Defined at 42 in deps/lua/src/lopcodes.h.'>SIZE_OP</a>,<a href='../S/273.html#L44' title='Defined at 44 in deps/lua/src/lopcodes.h.'>POS_OP</a>)) | \
+<a name='L82'>                ((<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a>, o)&lt;&lt;<a href='../S/273.html#L44' title='Defined at 44 in deps/lua/src/lopcodes.h.'>POS_OP</a>)&amp;<a href='../S/273.html#L71' title='Defined at 71 in deps/lua/src/lopcodes.h.'>MASK1</a>(<a href='../S/273.html#L42' title='Defined at 42 in deps/lua/src/lopcodes.h.'>SIZE_OP</a>,<a href='../S/273.html#L44' title='Defined at 44 in deps/lua/src/lopcodes.h.'>POS_OP</a>))))
+<a name='L83'>
+<a name='L84'><font color='darkred'>#define</font> <a href='../R/167.html' title='Multiple refered from 12 places.'>GETARG_A</a>(i)     (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>int</b>, ((i)&gt;&gt;<a href='../S/273.html#L45' title='Defined at 45 in deps/lua/src/lopcodes.h.'>POS_A</a>) &amp; <a href='../S/273.html#L71' title='Defined at 71 in deps/lua/src/lopcodes.h.'>MASK1</a>(<a href='../S/273.html#L40' title='Defined at 40 in deps/lua/src/lopcodes.h.'>SIZE_A</a>,0)))
+<a name='L85'><font color='darkred'>#define</font> <a href='../R/865.html' title='Multiple refered from 4 places.'>SETARG_A</a>(i,u)   ((i) = (((i)&amp;<a href='../S/273.html#L74' title='Defined at 74 in deps/lua/src/lopcodes.h.'>MASK0</a>(<a href='../S/273.html#L40' title='Defined at 40 in deps/lua/src/lopcodes.h.'>SIZE_A</a>,<a href='../S/273.html#L45' title='Defined at 45 in deps/lua/src/lopcodes.h.'>POS_A</a>)) | \
+<a name='L86'>                ((<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a>, u)&lt;&lt;<a href='../S/273.html#L45' title='Defined at 45 in deps/lua/src/lopcodes.h.'>POS_A</a>)&amp;<a href='../S/273.html#L71' title='Defined at 71 in deps/lua/src/lopcodes.h.'>MASK1</a>(<a href='../S/273.html#L40' title='Defined at 40 in deps/lua/src/lopcodes.h.'>SIZE_A</a>,<a href='../S/273.html#L45' title='Defined at 45 in deps/lua/src/lopcodes.h.'>POS_A</a>))))
+<a name='L87'>
+<a name='L88'><font color='darkred'>#define</font> <a href='../R/168.html' title='Multiple refered from 24 places.'>GETARG_B</a>(i)     (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>int</b>, ((i)&gt;&gt;<a href='../S/273.html#L47' title='Defined at 47 in deps/lua/src/lopcodes.h.'>POS_B</a>) &amp; <a href='../S/273.html#L71' title='Defined at 71 in deps/lua/src/lopcodes.h.'>MASK1</a>(<a href='../S/273.html#L38' title='Defined at 38 in deps/lua/src/lopcodes.h.'>SIZE_B</a>,0)))
+<a name='L89'><font color='darkred'>#define</font> <a href='../R/866.html' title='Multiple refered from 5 places.'>SETARG_B</a>(i,b)   ((i) = (((i)&amp;<a href='../S/273.html#L74' title='Defined at 74 in deps/lua/src/lopcodes.h.'>MASK0</a>(<a href='../S/273.html#L38' title='Defined at 38 in deps/lua/src/lopcodes.h.'>SIZE_B</a>,<a href='../S/273.html#L47' title='Defined at 47 in deps/lua/src/lopcodes.h.'>POS_B</a>)) | \
+<a name='L90'>                ((<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a>, b)&lt;&lt;<a href='../S/273.html#L47' title='Defined at 47 in deps/lua/src/lopcodes.h.'>POS_B</a>)&amp;<a href='../S/273.html#L71' title='Defined at 71 in deps/lua/src/lopcodes.h.'>MASK1</a>(<a href='../S/273.html#L38' title='Defined at 38 in deps/lua/src/lopcodes.h.'>SIZE_B</a>,<a href='../S/273.html#L47' title='Defined at 47 in deps/lua/src/lopcodes.h.'>POS_B</a>))))
+<a name='L91'>
+<a name='L92'><font color='darkred'>#define</font> <a href='../R/170.html' title='Multiple refered from 18 places.'>GETARG_C</a>(i)     (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>int</b>, ((i)&gt;&gt;<a href='../S/273.html#L46' title='Defined at 46 in deps/lua/src/lopcodes.h.'>POS_C</a>) &amp; <a href='../S/273.html#L71' title='Defined at 71 in deps/lua/src/lopcodes.h.'>MASK1</a>(<a href='../S/273.html#L37' title='Defined at 37 in deps/lua/src/lopcodes.h.'>SIZE_C</a>,0)))
+<a name='L93'><font color='darkred'>#define</font> <a href='../R/868.html' title='Multiple refered from 3 places.'>SETARG_C</a>(i,b)   ((i) = (((i)&amp;<a href='../S/273.html#L74' title='Defined at 74 in deps/lua/src/lopcodes.h.'>MASK0</a>(<a href='../S/273.html#L37' title='Defined at 37 in deps/lua/src/lopcodes.h.'>SIZE_C</a>,<a href='../S/273.html#L46' title='Defined at 46 in deps/lua/src/lopcodes.h.'>POS_C</a>)) | \
+<a name='L94'>                ((<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a>, b)&lt;&lt;<a href='../S/273.html#L46' title='Defined at 46 in deps/lua/src/lopcodes.h.'>POS_C</a>)&amp;<a href='../S/273.html#L71' title='Defined at 71 in deps/lua/src/lopcodes.h.'>MASK1</a>(<a href='../S/273.html#L37' title='Defined at 37 in deps/lua/src/lopcodes.h.'>SIZE_C</a>,<a href='../S/273.html#L46' title='Defined at 46 in deps/lua/src/lopcodes.h.'>POS_C</a>))))
+<a name='L95'>
+<a name='L96'><font color='darkred'>#define</font> <a href='../R/169.html' title='Multiple refered from 6 places.'>GETARG_Bx</a>(i)    (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>int</b>, ((i)&gt;&gt;<a href='../S/273.html#L48' title='Defined at 48 in deps/lua/src/lopcodes.h.'>POS_Bx</a>) &amp; <a href='../S/273.html#L71' title='Defined at 71 in deps/lua/src/lopcodes.h.'>MASK1</a>(<a href='../S/273.html#L39' title='Defined at 39 in deps/lua/src/lopcodes.h.'>SIZE_Bx</a>,0)))
+<a name='L97'><font color='darkred'>#define</font> <a href='../S/273.html#L101' title='Refered from 101 in deps/lua/src/lopcodes.h.'>SETARG_Bx</a>(i,b)  ((i) = (((i)&amp;<a href='../S/273.html#L74' title='Defined at 74 in deps/lua/src/lopcodes.h.'>MASK0</a>(<a href='../S/273.html#L39' title='Defined at 39 in deps/lua/src/lopcodes.h.'>SIZE_Bx</a>,<a href='../S/273.html#L48' title='Defined at 48 in deps/lua/src/lopcodes.h.'>POS_Bx</a>)) | \
+<a name='L98'>                ((<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a>, b)&lt;&lt;<a href='../S/273.html#L48' title='Defined at 48 in deps/lua/src/lopcodes.h.'>POS_Bx</a>)&amp;<a href='../S/273.html#L71' title='Defined at 71 in deps/lua/src/lopcodes.h.'>MASK1</a>(<a href='../S/273.html#L39' title='Defined at 39 in deps/lua/src/lopcodes.h.'>SIZE_Bx</a>,<a href='../S/273.html#L48' title='Defined at 48 in deps/lua/src/lopcodes.h.'>POS_Bx</a>))))
+<a name='L99'>
+<a name='L100'><font color='darkred'>#define</font> <a href='../R/171.html' title='Multiple refered from 12 places.'>GETARG_sBx</a>(i)   (<a href='../S/273.html#L96' title='Defined at 96 in deps/lua/src/lopcodes.h.'>GETARG_Bx</a>(i)-<a href='../D/486.html' title='Multiple defined in 2 places.'>MAXARG_sBx</a>)
+<a name='L101'><font color='darkred'>#define</font> <a href='../S/293.html#L86' title='Refered from 86 in deps/lua/src/lcode.c.'>SETARG_sBx</a>(i,b) <a href='../S/273.html#L97' title='Defined at 97 in deps/lua/src/lopcodes.h.'>SETARG_Bx</a>((i),<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>unsigned</b> <b>int</b>, (b)+<a href='../D/486.html' title='Multiple defined in 2 places.'>MAXARG_sBx</a>))
+<a name='L102'>
+<a name='L103'>
+<a name='L104'><font color='darkred'>#define</font> <a href='../R/90.html' title='Multiple refered from 4 places.'>CREATE_ABC</a>(o,a,b,c)     ((<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a>, o)&lt;&lt;<a href='../S/273.html#L44' title='Defined at 44 in deps/lua/src/lopcodes.h.'>POS_OP</a>) \
+<a name='L105'>                        | (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a>, a)&lt;&lt;<a href='../S/273.html#L45' title='Defined at 45 in deps/lua/src/lopcodes.h.'>POS_A</a>) \
+<a name='L106'>                        | (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a>, b)&lt;&lt;<a href='../S/273.html#L47' title='Defined at 47 in deps/lua/src/lopcodes.h.'>POS_B</a>) \
+<a name='L107'>                        | (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a>, c)&lt;&lt;<a href='../S/273.html#L46' title='Defined at 46 in deps/lua/src/lopcodes.h.'>POS_C</a>))
+<a name='L108'>
+<a name='L109'><font color='darkred'>#define</font> <a href='../R/91.html' title='Multiple refered from 2 places.'>CREATE_ABx</a>(o,a,bc)      ((<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a>, o)&lt;&lt;<a href='../S/273.html#L44' title='Defined at 44 in deps/lua/src/lopcodes.h.'>POS_OP</a>) \
+<a name='L110'>                        | (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a>, a)&lt;&lt;<a href='../S/273.html#L45' title='Defined at 45 in deps/lua/src/lopcodes.h.'>POS_A</a>) \
+<a name='L111'>                        | (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a>, bc)&lt;&lt;<a href='../S/273.html#L48' title='Defined at 48 in deps/lua/src/lopcodes.h.'>POS_Bx</a>))
+<a name='L112'>
+<a name='L113'>
+<a name='L114'><i><font color='green'>/*</font></i>
+<a name='L115'><i><font color='green'>** Macros to operate RK indices</font></i>
+<a name='L116'><i><font color='green'>*/</font></i>
+<a name='L117'>
+<a name='L118'><i><font color='green'>/* this bit 1 means constant (0 means register) */</font></i>
+<a name='L119'><font color='darkred'>#define</font> <a href='../R/46.html' title='Multiple refered from 4 places.'>BITRK</a>           (1 &lt;&lt; (<a href='../S/273.html#L38' title='Defined at 38 in deps/lua/src/lopcodes.h.'>SIZE_B</a> - 1))
+<a name='L120'>
+<a name='L121'><i><font color='green'>/* test whether value is a constant */</font></i>
+<a name='L122'><font color='darkred'>#define</font> <a href='../R/213.html' title='Multiple refered from 11 places.'>ISK</a>(x)          ((x) &amp; <a href='../S/273.html#L119' title='Defined at 119 in deps/lua/src/lopcodes.h.'>BITRK</a>)
+<a name='L123'>
+<a name='L124'><i><font color='green'>/* gets the index of the constant */</font></i>
+<a name='L125'><font color='darkred'>#define</font> <a href='../R/191.html' title='Multiple refered from 10 places.'>INDEXK</a>(r)       ((<b>int</b>)(r) &amp; ~<a href='../S/273.html#L119' title='Defined at 119 in deps/lua/src/lopcodes.h.'>BITRK</a>)
+<a name='L126'>
+<a name='L127'><font color='darkred'>#define</font> <a href='../R/439.html' title='Multiple refered from 2 places.'>MAXINDEXRK</a>      (<a href='../S/273.html#L119' title='Defined at 119 in deps/lua/src/lopcodes.h.'>BITRK</a> - 1)
+<a name='L128'>
+<a name='L129'><i><font color='green'>/* code a constant index as a RK value */</font></i>
+<a name='L130'><font color='darkred'>#define</font> <a href='../R/797.html' title='Multiple refered from 2 places.'>RKASK</a>(x)        ((x) | <a href='../S/273.html#L119' title='Defined at 119 in deps/lua/src/lopcodes.h.'>BITRK</a>)
+<a name='L131'>
+<a name='L132'>
+<a name='L133'><i><font color='green'>/*</font></i>
+<a name='L134'><i><font color='green'>** invalid register that fits in 8 bits</font></i>
+<a name='L135'><i><font color='green'>*/</font></i>
+<a name='L136'><font color='darkred'>#define</font> <a href='../R/468.html' title='Multiple refered from 9 places.'>NO_REG</a>          <a href='../S/273.html#L65' title='Defined at 65 in deps/lua/src/lopcodes.h.'>MAXARG_A</a>
+<a name='L137'>
+<a name='L138'>
+<a name='L139'><i><font color='green'>/*</font></i>
+<a name='L140'><i><font color='green'>** R(x) - register</font></i>
+<a name='L141'><i><font color='green'>** Kst(x) - constant (in constant table)</font></i>
+<a name='L142'><i><font color='green'>** RK(x) == if ISK(x) then Kst(INDEXK(x)) else R(x)</font></i>
+<a name='L143'><i><font color='green'>*/</font></i>
+<a name='L144'>
+<a name='L145'>
+<a name='L146'><i><font color='green'>/*</font></i>
+<a name='L147'><i><font color='green'>** grep "ORDER OP" if you change these enums</font></i>
+<a name='L148'><i><font color='green'>*/</font></i>
+<a name='L149'>
+<a name='L150'><b>typedef</b> <b>enum</b> <font color='red'>{</font>
+<a name='L151'><i><font color='green'>/*----------------------------------------------------------------------</font></i>
+<a name='L152'><i><font color='green'>name            args    description</font></i>
+<a name='L153'><i><font color='green'>------------------------------------------------------------------------*/</font></i>
+<a name='L154'><a href='../R/522.html' title='Multiple refered from 7 places.'>OP_MOVE</a>,<i><font color='green'>/*      A B     R(A) := R(B)                                    */</font></i>
+<a name='L155'><a href='../R/518.html' title='Multiple refered from 5 places.'>OP_LOADK</a>,<i><font color='green'>/*     A Bx    R(A) := Kst(Bx)                                 */</font></i>
+<a name='L156'><a href='../R/517.html' title='Multiple refered from 4 places.'>OP_LOADBOOL</a>,<i><font color='green'>/*  A B C   R(A) := (Bool)B; if (C) pc++                    */</font></i>
+<a name='L157'><a href='../R/519.html' title='Multiple refered from 4 places.'>OP_LOADNIL</a>,<i><font color='green'>/*   A B     R(A) := ... := R(B) := nil                      */</font></i>
+<a name='L158'><a href='../R/513.html' title='Multiple refered from 8 places.'>OP_GETUPVAL</a>,<i><font color='green'>/*  A B     R(A) := UpValue[B]                              */</font></i>
+<a name='L159'>
+<a name='L160'><a href='../R/511.html' title='Multiple refered from 5 places.'>OP_GETGLOBAL</a>,<i><font color='green'>/* A Bx    R(A) := Gbl[Kst(Bx)]                            */</font></i>
+<a name='L161'><a href='../R/512.html' title='Multiple refered from 4 places.'>OP_GETTABLE</a>,<i><font color='green'>/*  A B C   R(A) := R(B)[RK(C)]                             */</font></i>
+<a name='L162'>
+<a name='L163'><a href='../R/529.html' title='Multiple refered from 4 places.'>OP_SETGLOBAL</a>,<i><font color='green'>/* A Bx    Gbl[Kst(Bx)] := R(A)                            */</font></i>
+<a name='L164'><a href='../R/532.html' title='Multiple refered from 4 places.'>OP_SETUPVAL</a>,<i><font color='green'>/*  A B     UpValue[B] := R(A)                              */</font></i>
+<a name='L165'><a href='../R/531.html' title='Multiple refered from 4 places.'>OP_SETTABLE</a>,<i><font color='green'>/*  A B C   R(A)[RK(B)] := RK(C)                            */</font></i>
+<a name='L166'>
+<a name='L167'><a href='../R/524.html' title='Multiple refered from 2 places.'>OP_NEWTABLE</a>,<i><font color='green'>/*  A B C   R(A) := {} (size = B,C)                         */</font></i>
+<a name='L168'>
+<a name='L169'><a href='../R/528.html' title='Multiple refered from 5 places.'>OP_SELF</a>,<i><font color='green'>/*      A B C   R(A+1) := R(B); R(A) := R(B)[RK(C)]             */</font></i>
+<a name='L170'>
+<a name='L171'><a href='../R/502.html' title='Multiple refered from 4 places.'>OP_ADD</a>,<i><font color='green'>/*       A B C   R(A) := RK(B) + RK(C)                           */</font></i>
+<a name='L172'><a href='../R/533.html' title='Multiple refered from 4 places.'>OP_SUB</a>,<i><font color='green'>/*       A B C   R(A) := RK(B) - RK(C)                           */</font></i>
+<a name='L173'><a href='../R/523.html' title='Multiple refered from 4 places.'>OP_MUL</a>,<i><font color='green'>/*       A B C   R(A) := RK(B) * RK(C)                           */</font></i>
+<a name='L174'><a href='../R/507.html' title='Multiple refered from 4 places.'>OP_DIV</a>,<i><font color='green'>/*       A B C   R(A) := RK(B) / RK(C)                           */</font></i>
+<a name='L175'><a href='../R/521.html' title='Multiple refered from 3 places.'>OP_MOD</a>,<i><font color='green'>/*       A B C   R(A) := RK(B) % RK(C)                           */</font></i>
+<a name='L176'><a href='../R/526.html' title='Multiple refered from 4 places.'>OP_POW</a>,<i><font color='green'>/*       A B C   R(A) := RK(B) ^ RK(C)                           */</font></i>
+<a name='L177'><a href='../R/538.html' title='Multiple refered from 4 places.'>OP_UNM</a>,<i><font color='green'>/*       A B     R(A) := -R(B)                                   */</font></i>
+<a name='L178'><a href='../R/525.html' title='Multiple refered from 3 places.'>OP_NOT</a>,<i><font color='green'>/*       A B     R(A) := not R(B)                                */</font></i>
+<a name='L179'><a href='../R/516.html' title='Multiple refered from 4 places.'>OP_LEN</a>,<i><font color='green'>/*       A B     R(A) := length of R(B)                          */</font></i>
+<a name='L180'>
+<a name='L181'><a href='../R/506.html' title='Multiple refered from 4 places.'>OP_CONCAT</a>,<i><font color='green'>/*    A B C   R(A) := R(B).. ... ..R(C)                       */</font></i>
+<a name='L182'>
+<a name='L183'><a href='../R/514.html' title='Multiple refered from 6 places.'>OP_JMP</a>,<i><font color='green'>/*       sBx     pc+=sBx                                 */</font></i>
+<a name='L184'>
+<a name='L185'><a href='../R/508.html' title='Multiple refered from 5 places.'>OP_EQ</a>,<i><font color='green'>/*        A B C   if ((RK(B) == RK(C)) ~= A) then pc++            */</font></i>
+<a name='L186'><a href='../R/520.html' title='Multiple refered from 4 places.'>OP_LT</a>,<i><font color='green'>/*        A B C   if ((RK(B) &lt;  RK(C)) ~= A) then pc++            */</font></i>
+<a name='L187'><a href='../R/515.html' title='Multiple refered from 4 places.'>OP_LE</a>,<i><font color='green'>/*        A B C   if ((RK(B) &lt;= RK(C)) ~= A) then pc++            */</font></i>
+<a name='L188'>
+<a name='L189'><a href='../R/535.html' title='Multiple refered from 4 places.'>OP_TEST</a>,<i><font color='green'>/*      A C     if not (R(A) &lt;=&gt; C) then pc++                   */</font></i> 
+<a name='L190'><a href='../R/536.html' title='Multiple refered from 5 places.'>OP_TESTSET</a>,<i><font color='green'>/*   A B C   if (R(B) &lt;=&gt; C) then R(A) := R(B) else pc++     */</font></i> 
+<a name='L191'>
+<a name='L192'><a href='../R/503.html' title='Multiple refered from 8 places.'>OP_CALL</a>,<i><font color='green'>/*      A B C   R(A), ... ,R(A+C-2) := R(A)(R(A+1), ... ,R(A+B-1)) */</font></i>
+<a name='L193'><a href='../R/534.html' title='Multiple refered from 6 places.'>OP_TAILCALL</a>,<i><font color='green'>/*  A B C   return R(A)(R(A+1), ... ,R(A+B-1))              */</font></i>
+<a name='L194'><a href='../R/527.html' title='Multiple refered from 6 places.'>OP_RETURN</a>,<i><font color='green'>/*    A B     return R(A), ... ,R(A+B-2)      (see note)      */</font></i>
+<a name='L195'>
+<a name='L196'><a href='../R/509.html' title='Multiple refered from 4 places.'>OP_FORLOOP</a>,<i><font color='green'>/*   A sBx   R(A)+=R(A+2);</font></i>
+<a name='L197'><i><font color='green'>                        if R(A) &lt;?= R(A+1) then { pc+=sBx; R(A+3)=R(A) }*/</font></i>
+<a name='L198'><a href='../R/510.html' title='Multiple refered from 4 places.'>OP_FORPREP</a>,<i><font color='green'>/*   A sBx   R(A)-=R(A+2); pc+=sBx                           */</font></i>
+<a name='L199'>
+<a name='L200'><a href='../R/537.html' title='Multiple refered from 4 places.'>OP_TFORLOOP</a>,<i><font color='green'>/*  A C     R(A+3), ... ,R(A+2+C) := R(A)(R(A+1), R(A+2)); </font></i>
+<a name='L201'><i><font color='green'>                        if R(A+3) ~= nil then R(A+2)=R(A+3) else pc++   */</font></i> 
+<a name='L202'><a href='../R/530.html' title='Multiple refered from 8 places.'>OP_SETLIST</a>,<i><font color='green'>/*   A B C   R(A)[(C-1)*FPF+i] := R(A+i), 1 &lt;= i &lt;= B        */</font></i>
+<a name='L203'>
+<a name='L204'><a href='../R/504.html' title='Multiple refered from 3 places.'>OP_CLOSE</a>,<i><font color='green'>/*     A       close all variables in the stack up to (&gt;=) R(A)*/</font></i>
+<a name='L205'><a href='../R/505.html' title='Multiple refered from 5 places.'>OP_CLOSURE</a>,<i><font color='green'>/*   A Bx    R(A) := closure(KPROTO[Bx], R(A), ... ,R(A+n))  */</font></i>
+<a name='L206'>
+<a name='L207'><a href='../R/539.html' title='Multiple refered from 4 places.'>OP_VARARG</a><i><font color='green'>/*     A B     R(A), R(A+1), ..., R(A+B-1) = vararg            */</font></i>
+<a name='L208'><font color='red'>}</font> <a href='../R/549.html' title='Multiple refered from 5 places.'>OpCode</a>;
+<a name='L209'>
+<a name='L210'>
+<a name='L211'><font color='darkred'>#define</font> <a href='../R/470.html' title='Multiple refered from 5 places.'>NUM_OPCODES</a>     (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>int</b>, <a href='../S/273.html#L207' title='Defined at 207 in deps/lua/src/lopcodes.h.'>OP_VARARG</a>) + 1)
+<a name='L212'>
+<a name='L213'>
+<a name='L214'>
+<a name='L215'><i><font color='green'>/*===========================================================================</font></i>
+<a name='L216'><i><font color='green'>  Notes:</font></i>
+<a name='L217'><i><font color='green'>  (*) In OP_CALL, if (B == 0) then B = top. C is the number of returns - 1,</font></i>
+<a name='L218'><i><font color='green'>      and can be 0: OP_CALL then sets `top' to last_result+1, so</font></i>
+<a name='L219'><i><font color='green'>      next open instruction (OP_CALL, OP_RETURN, OP_SETLIST) may use `top'.</font></i>
+<a name='L220'><i><font color='green'></font></i>
+<a name='L221'><i><font color='green'>  (*) In OP_VARARG, if (B == 0) then use actual number of varargs and</font></i>
+<a name='L222'><i><font color='green'>      set top (like in OP_CALL with C == 0).</font></i>
+<a name='L223'><i><font color='green'></font></i>
+<a name='L224'><i><font color='green'>  (*) In OP_RETURN, if (B == 0) then return up to `top'</font></i>
+<a name='L225'><i><font color='green'></font></i>
+<a name='L226'><i><font color='green'>  (*) In OP_SETLIST, if (B == 0) then B = `top';</font></i>
+<a name='L227'><i><font color='green'>      if (C == 0) then next `instruction' is real C</font></i>
+<a name='L228'><i><font color='green'></font></i>
+<a name='L229'><i><font color='green'>  (*) For comparisons, A specifies what condition the test should accept</font></i>
+<a name='L230'><i><font color='green'>      (true or false).</font></i>
+<a name='L231'><i><font color='green'></font></i>
+<a name='L232'><i><font color='green'>  (*) All `skips' (pc++) assume that next instruction is a jump</font></i>
+<a name='L233'><i><font color='green'>===========================================================================*/</font></i>
+<a name='L234'>
+<a name='L235'>
+<a name='L236'><i><font color='green'>/*</font></i>
+<a name='L237'><i><font color='green'>** masks for instruction properties. The format is:</font></i>
+<a name='L238'><i><font color='green'>** bits 0-1: op mode</font></i>
+<a name='L239'><i><font color='green'>** bits 2-3: C arg mode</font></i>
+<a name='L240'><i><font color='green'>** bits 4-5: B arg mode</font></i>
+<a name='L241'><i><font color='green'>** bit 6: instruction set register A</font></i>
+<a name='L242'><i><font color='green'>** bit 7: operator is a test</font></i>
+<a name='L243'><i><font color='green'>*/</font></i>  
+<a name='L244'>
+<a name='L245'><b>enum</b> <a href='../R/545.html' title='Multiple refered from 2 places.'>OpArgMask</a> <font color='red'>{</font>
+<a name='L246'>  <a href='../R/546.html' title='Multiple refered from 24 places.'>OpArgN</a>,  <i><font color='green'>/* argument is not used */</font></i>
+<a name='L247'>  <a href='../R/548.html' title='Multiple refered from 14 places.'>OpArgU</a>,  <i><font color='green'>/* argument is used */</font></i>
+<a name='L248'>  <a href='../R/547.html' title='Multiple refered from 17 places.'>OpArgR</a>,  <i><font color='green'>/* argument is a register or a jump offset */</font></i>
+<a name='L249'>  <a href='../R/544.html' title='Multiple refered from 21 places.'>OpArgK</a>   <i><font color='green'>/* argument is a constant or register/constant */</font></i>
+<a name='L250'><font color='red'>}</font>;
+<a name='L251'>
+<a name='L252'><a href='../D/314.html' title='Multiple defined in 3 places.'>LUAI_DATA</a> <b>const</b> <a href='../S/310.html#L27' title='Defined at 27 in deps/lua/src/llimits.h.'>lu_byte</a> luaP_opmodes[<a href='../S/273.html#L211' title='Defined at 211 in deps/lua/src/lopcodes.h.'>NUM_OPCODES</a>];
+<a name='L253'>
+<a name='L254'><font color='darkred'>#define</font> <a href='../R/2062.html' title='Multiple refered from 4 places.'>getOpMode</a>(m)    (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>enum</b> <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>OpMode</a>, luaP_opmodes[m] &amp; 3))
+<a name='L255'><font color='darkred'>#define</font> <a href='../R/2035.html' title='Multiple refered from 9 places.'>getBMode</a>(m)     (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>enum</b> <a href='../S/273.html#L245' title='Defined at 245 in deps/lua/src/lopcodes.h.'>OpArgMask</a>, (luaP_opmodes[m] &gt;&gt; 4) &amp; 3))
+<a name='L256'><font color='darkred'>#define</font> <a href='../R/2037.html' title='Multiple refered from 6 places.'>getCMode</a>(m)     (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>enum</b> <a href='../S/273.html#L245' title='Defined at 245 in deps/lua/src/lopcodes.h.'>OpArgMask</a>, (luaP_opmodes[m] &gt;&gt; 2) &amp; 3))
+<a name='L257'><font color='darkred'>#define</font> <a href='../S/299.html#L366' title='Refered from 366 in deps/lua/src/ldebug.c.'>testAMode</a>(m)    (luaP_opmodes[m] &amp; (1 &lt;&lt; 6))
+<a name='L258'><font color='darkred'>#define</font> <a href='../R/3969.html' title='Multiple refered from 3 places.'>testTMode</a>(m)    (luaP_opmodes[m] &amp; (1 &lt;&lt; 7))
+<a name='L259'>
+<a name='L260'>
+<a name='L261'><a href='../D/314.html' title='Multiple defined in 3 places.'>LUAI_DATA</a> <b>const</b> <b>char</b> *<b>const</b> luaP_opnames[<a href='../S/273.html#L211' title='Defined at 211 in deps/lua/src/lopcodes.h.'>NUM_OPCODES</a>+1];  <i><font color='green'>/* opcode names */</font></i>
+<a name='L262'>
+<a name='L263'>
+<a name='L264'><i><font color='green'>/* number of list items to accumulate before a SETLIST instruction */</font></i>
+<a name='L265'><font color='darkred'>#define</font> <a href='../R/240.html' title='Multiple refered from 3 places.'>LFIELDS_PER_FLUSH</a>       50
+<a name='L266'>
+<a name='L267'>
+<a name='L268'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

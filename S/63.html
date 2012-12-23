@@ -1,0 +1,785 @@
+<html>
+<head>
+<title>src/sds.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/sds.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L39'>[^]</a><a href='#L625'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L39' title='Defined at 39.'>sdsnewlen</a>
+<li><a href='#L56' title='Defined at 56.'>sdsempty</a>
+<li><a href='#L60' title='Defined at 60.'>sdsnew</a>
+<li><a href='#L65' title='Defined at 65.'>sdsdup</a>
+<li><a href='#L69' title='Defined at 69.'>sdsfree</a>
+<li><a href='#L74' title='Defined at 74.'>sdsupdatelen</a>
+<li><a href='#L81' title='Defined at 81.'>sdsclear</a>
+<li><a href='#L94' title='Defined at 94.'>sdsMakeRoomFor</a>
+<li><a href='#L117' title='Defined at 117.'>sdsRemoveFreeSpace</a>
+<li><a href='#L126' title='Defined at 126.'>sdsAllocSize</a>
+<li><a href='#L153' title='Defined at 153.'>sdsIncrLen</a>
+<li><a href='#L165' title='Defined at 165.'>sdsgrowzero</a>
+<li><a href='#L182' title='Defined at 182.'>sdscatlen</a>
+<li><a href='#L196' title='Defined at 196.'>sdscat</a>
+<li><a href='#L200' title='Defined at 200.'>sdscatsds</a>
+<li><a href='#L204' title='Defined at 204.'>sdscpylen</a>
+<li><a href='#L221' title='Defined at 221.'>sdscpy</a>
+<li><a href='#L225' title='Defined at 225.'>sdscatvprintf</a>
+<li><a href='#L248' title='Defined at 248.'>sdscatprintf</a>
+<li><a href='#L257' title='Defined at 257.'>sdstrim</a>
+<li><a href='#L274' title='Defined at 274.'>sdsrange</a>
+<li><a href='#L305' title='Defined at 305.'>sdstolower</a>
+<li><a href='#L311' title='Defined at 311.'>sdstoupper</a>
+<li><a href='#L317' title='Defined at 317.'>sdscmp</a>
+<li><a href='#L345' title='Defined at 345.'>sdssplitlen</a>
+<li><a href='#L394' title='Defined at 394.'>sdsfreesplitres</a>
+<li><a href='#L401' title='Defined at 401.'>sdsfromlonglong</a>
+<li><a href='#L416' title='Defined at 416.'>sdscatrepr</a>
+<li><a href='#L443' title='Defined at 443.'>is_hex_digit</a>
+<li><a href='#L450' title='Defined at 450.'>hex_digit_to_int</a>
+<li><a href='#L484' title='Defined at 484.'>sdssplitargs</a>
+<li><a href='#L591' title='Defined at 591.'>sdssplitargs_free</a>
+<li><a href='#L607' title='Defined at 607.'>sdsmapchars</a>
+<li><a href='#L625' title='Defined at 625.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* SDSLib, A C dynamic strings library</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2006-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L32'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L33'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L34'><font color='darkred'>#include</font> &lt;ctype.h&gt;
+<a name='L35'><font color='darkred'>#include</font> &lt;assert.h&gt;
+<a name='L36'><font color='darkred'>#include</font> "<a href='../I/18.html'>sds.h</a>"
+<a name='L37'><font color='darkred'>#include</font> "<a href='28.html'>zmalloc.h</a>"
+<a name='L38'>
+<a name='L39'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../R/3644.html' title='Multiple refered from 31 places.'>sdsnewlen</a>(<b>const</b> <b>void</b> *init, size_t initlen) <font color='red'>{</font>
+<a name='L40'>    <b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a> *sh;
+<a name='L41'>
+<a name='L42'>    <b>if</b> (init) <font color='red'>{</font>
+<a name='L43'>        sh = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)+initlen+1);
+<a name='L44'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L45'>        sh = <a href='../S/39.html#L135' title='Defined at 135 in src/zmalloc.c.'>zcalloc</a>(<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)+initlen+1);
+<a name='L46'>    <font color='red'>}</font>
+<a name='L47'>    <b>if</b> (sh == NULL) <b>return</b> NULL;
+<a name='L48'>    sh-&gt;len = initlen;
+<a name='L49'>    sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> = 0;
+<a name='L50'>    <b>if</b> (initlen &amp;&amp; init)
+<a name='L51'>        memcpy(sh-&gt;buf, init, initlen);
+<a name='L52'>    sh-&gt;buf[initlen] = '\0';
+<a name='L53'>    <b>return</b> (<b>char</b>*)sh-&gt;buf;
+<a name='L54'><font color='red'>}</font>
+<a name='L55'>
+<a name='L56'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../R/3635.html' title='Multiple refered from 67 places.'>sdsempty</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L57'>    <b>return</b> <a href='../D/4014.html' title='Multiple defined in 2 places.'>sdsnewlen</a>("",0);
+<a name='L58'><font color='red'>}</font>
+<a name='L59'>
+<a name='L60'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../R/3643.html' title='Multiple refered from 91 places.'>sdsnew</a>(<b>const</b> <b>char</b> *init) <font color='red'>{</font>
+<a name='L61'>    size_t initlen = (init == NULL) ? 0 : strlen(init);
+<a name='L62'>    <b>return</b> <a href='../D/4014.html' title='Multiple defined in 2 places.'>sdsnewlen</a>(init, initlen);
+<a name='L63'><font color='red'>}</font>
+<a name='L64'>
+<a name='L65'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../R/3634.html' title='Multiple refered from 17 places.'>sdsdup</a>(<b>const</b> sds s) <font color='red'>{</font>
+<a name='L66'>    <b>return</b> <a href='../D/4014.html' title='Multiple defined in 2 places.'>sdsnewlen</a>(s, <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(s));
+<a name='L67'><font color='red'>}</font>
+<a name='L68'>
+<a name='L69'><b>void</b> <a href='../R/3636.html' title='Multiple refered from 146 places.'>sdsfree</a>(sds s) <font color='red'>{</font>
+<a name='L70'>    <b>if</b> (s == NULL) <b>return</b>;
+<a name='L71'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(s-<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>));
+<a name='L72'><font color='red'>}</font>
+<a name='L73'>
+<a name='L74'><b>void</b> <a href='../R/3652.html' title='Multiple refered from 2 places.'>sdsupdatelen</a>(sds s) <font color='red'>{</font>
+<a name='L75'>    <b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a> *sh = (<b>void</b>*) (s-(<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)));
+<a name='L76'>    <b>int</b> reallen = strlen(s);
+<a name='L77'>    sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> += (sh-&gt;len-reallen);
+<a name='L78'>    sh-&gt;len = reallen;
+<a name='L79'><font color='red'>}</font>
+<a name='L80'>
+<a name='L81'><b>void</b> <a href='../R/3630.html' title='Multiple refered from 2 places.'>sdsclear</a>(sds s) <font color='red'>{</font>
+<a name='L82'>    <b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a> *sh = (<b>void</b>*) (s-(<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)));
+<a name='L83'>    sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> += sh-&gt;len;
+<a name='L84'>    sh-&gt;len = 0;
+<a name='L85'>    sh-&gt;buf[0] = '\0';
+<a name='L86'><font color='red'>}</font>
+<a name='L87'>
+<a name='L88'><i><font color='green'>/* Enlarge the free space at the end of the sds string so that the caller</font></i>
+<a name='L89'><i><font color='green'> * is sure that after calling this function can overwrite up to addlen</font></i>
+<a name='L90'><i><font color='green'> * bytes after the end of the string, plus one more byte for nul term.</font></i>
+<a name='L91'><i><font color='green'> * </font></i>
+<a name='L92'><i><font color='green'> * Note: this does not change the *size* of the sds string as returned</font></i>
+<a name='L93'><i><font color='green'> * by sdslen(), but only the free buffer space we have. */</font></i>
+<a name='L94'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../R/3620.html' title='Multiple refered from 11 places.'>sdsMakeRoomFor</a>(sds s, size_t addlen) <font color='red'>{</font>
+<a name='L95'>    <b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a> *sh, *newsh;
+<a name='L96'>    size_t <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> = <a href='../D/3993.html' title='Multiple defined in 2 places.'>sdsavail</a>(s);
+<a name='L97'>    size_t len, newlen;
+<a name='L98'>
+<a name='L99'>    <b>if</b> (<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> &gt;= addlen) <b>return</b> s;
+<a name='L100'>    len = <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(s);
+<a name='L101'>    sh = (<b>void</b>*) (s-(<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)));
+<a name='L102'>    newlen = (len+addlen);
+<a name='L103'>    <b>if</b> (newlen &lt; <a href='../S/41.html#L34' title='Defined at 34 in src/sds.h.'>SDS_MAX_PREALLOC</a>)
+<a name='L104'>        newlen *= 2;
+<a name='L105'>    <b>else</b>
+<a name='L106'>        newlen += <a href='../S/41.html#L34' title='Defined at 34 in src/sds.h.'>SDS_MAX_PREALLOC</a>;
+<a name='L107'>    newsh = <a href='../S/39.html#L149' title='Defined at 149 in src/zmalloc.c.'>zrealloc</a>(sh, <b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)+newlen+1);
+<a name='L108'>    <b>if</b> (newsh == NULL) <b>return</b> NULL;
+<a name='L109'>
+<a name='L110'>    newsh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> = newlen - len;
+<a name='L111'>    <b>return</b> newsh-&gt;buf;
+<a name='L112'><font color='red'>}</font>
+<a name='L113'>
+<a name='L114'><i><font color='green'>/* Reallocate the sds string so that it has no free space at the end. The</font></i>
+<a name='L115'><i><font color='green'> * contained string remains not altered, but next concatenation operations</font></i>
+<a name='L116'><i><font color='green'> * will require a reallocation. */</font></i>
+<a name='L117'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../R/3622.html' title='Multiple refered from 2 places.'>sdsRemoveFreeSpace</a>(sds s) <font color='red'>{</font>
+<a name='L118'>    <b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a> *sh;
+<a name='L119'>
+<a name='L120'>    sh = (<b>void</b>*) (s-(<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)));
+<a name='L121'>    sh = <a href='../S/39.html#L149' title='Defined at 149 in src/zmalloc.c.'>zrealloc</a>(sh, <b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)+sh-&gt;len+1);
+<a name='L122'>    sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> = 0;
+<a name='L123'>    <b>return</b> sh-&gt;buf;
+<a name='L124'><font color='red'>}</font>
+<a name='L125'>
+<a name='L126'>size_t <a href='../R/3618.html' title='Multiple refered from 2 places.'>sdsAllocSize</a>(sds s) <font color='red'>{</font>
+<a name='L127'>    <b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a> *sh = (<b>void</b>*) (s-(<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)));
+<a name='L128'>
+<a name='L129'>    <b>return</b> <b>sizeof</b>(*sh)+sh-&gt;len+sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>+1;
+<a name='L130'><font color='red'>}</font>
+<a name='L131'>
+<a name='L132'><i><font color='green'>/* Increment the sds length and decrements the left free space at the</font></i>
+<a name='L133'><i><font color='green'> * end of the string accordingly to 'incr'. Also set the null term</font></i>
+<a name='L134'><i><font color='green'> * in the new end of the string.</font></i>
+<a name='L135'><i><font color='green'> *</font></i>
+<a name='L136'><i><font color='green'> * This function is used in order to fix the string length after the</font></i>
+<a name='L137'><i><font color='green'> * user calls sdsMakeRoomFor(), writes something after the end of</font></i>
+<a name='L138'><i><font color='green'> * the current string, and finally needs to set the new length.</font></i>
+<a name='L139'><i><font color='green'> *</font></i>
+<a name='L140'><i><font color='green'> * Note: it is possible to use a negative increment in order to</font></i>
+<a name='L141'><i><font color='green'> * right-trim the string.</font></i>
+<a name='L142'><i><font color='green'> *</font></i>
+<a name='L143'><i><font color='green'> * Using sdsIncrLen() and sdsMakeRoomFor() it is possible to mount the</font></i>
+<a name='L144'><i><font color='green'> * following schema to cat bytes coming from the kerenl to the end of an</font></i>
+<a name='L145'><i><font color='green'> * sds string new things without copying into an intermediate buffer:</font></i>
+<a name='L146'><i><font color='green'> *</font></i>
+<a name='L147'><i><font color='green'> * oldlen = sdslen(s);</font></i>
+<a name='L148'><i><font color='green'> * s = sdsMakeRoomFor(s, BUFFER_SIZE);</font></i>
+<a name='L149'><i><font color='green'> * nread = read(fd, s+oldlen, BUFFER_SIZE);</font></i>
+<a name='L150'><i><font color='green'> * ... check for nread &lt;= 0 and handle it ...</font></i>
+<a name='L151'><i><font color='green'> * sdsIncrLen(s, nhread);</font></i>
+<a name='L152'><i><font color='green'> */</font></i>
+<a name='L153'><b>void</b> <a href='../R/3619.html' title='Multiple refered from 4 places.'>sdsIncrLen</a>(sds s, <b>int</b> incr) <font color='red'>{</font>
+<a name='L154'>    <b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a> *sh = (<b>void</b>*) (s-(<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)));
+<a name='L155'>
+<a name='L156'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> &gt;= incr);
+<a name='L157'>    sh-&gt;len += incr;
+<a name='L158'>    sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> -= incr;
+<a name='L159'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> &gt;= 0);
+<a name='L160'>    s[sh-&gt;len] = '\0';
+<a name='L161'><font color='red'>}</font>
+<a name='L162'>
+<a name='L163'><i><font color='green'>/* Grow the sds to have the specified length. Bytes that were not part of</font></i>
+<a name='L164'><i><font color='green'> * the original length of the sds will be set to zero. */</font></i>
+<a name='L165'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../R/3639.html' title='Multiple refered from 4 places.'>sdsgrowzero</a>(sds s, size_t len) <font color='red'>{</font>
+<a name='L166'>    <b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a> *sh = (<b>void</b>*)(s-(<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)));
+<a name='L167'>    size_t totlen, curlen = sh-&gt;len;
+<a name='L168'>
+<a name='L169'>    <b>if</b> (len &lt;= curlen) <b>return</b> s;
+<a name='L170'>    s = <a href='../D/3990.html' title='Multiple defined in 2 places.'>sdsMakeRoomFor</a>(s,len-curlen);
+<a name='L171'>    <b>if</b> (s == NULL) <b>return</b> NULL;
+<a name='L172'>
+<a name='L173'>    <i><font color='green'>/* Make sure added region doesn't contain garbage */</font></i>
+<a name='L174'>    sh = (<b>void</b>*)(s-(<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)));
+<a name='L175'>    memset(s+curlen,0,(len-curlen+1)); <i><font color='green'>/* also set trailing \0 byte */</font></i>
+<a name='L176'>    totlen = sh-&gt;len+sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>;
+<a name='L177'>    sh-&gt;len = len;
+<a name='L178'>    sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> = totlen-sh-&gt;len;
+<a name='L179'>    <b>return</b> s;
+<a name='L180'><font color='red'>}</font>
+<a name='L181'>
+<a name='L182'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../R/3625.html' title='Multiple refered from 74 places.'>sdscatlen</a>(sds s, <b>const</b> <b>void</b> *t, size_t len) <font color='red'>{</font>
+<a name='L183'>    <b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a> *sh;
+<a name='L184'>    size_t curlen = <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(s);
+<a name='L185'>
+<a name='L186'>    s = <a href='../D/3990.html' title='Multiple defined in 2 places.'>sdsMakeRoomFor</a>(s,len);
+<a name='L187'>    <b>if</b> (s == NULL) <b>return</b> NULL;
+<a name='L188'>    sh = (<b>void</b>*) (s-(<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)));
+<a name='L189'>    memcpy(s+curlen, t, len);
+<a name='L190'>    sh-&gt;len = curlen+len;
+<a name='L191'>    sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> = sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>-len;
+<a name='L192'>    s[curlen+len] = '\0';
+<a name='L193'>    <b>return</b> s;
+<a name='L194'><font color='red'>}</font>
+<a name='L195'>
+<a name='L196'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../R/3624.html' title='Multiple refered from 56 places.'>sdscat</a>(sds s, <b>const</b> <b>char</b> *t) <font color='red'>{</font>
+<a name='L197'>    <b>return</b> <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(s, t, strlen(t));
+<a name='L198'><font color='red'>}</font>
+<a name='L199'>
+<a name='L200'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../R/3628.html' title='Multiple refered from 2 places.'>sdscatsds</a>(sds s, <b>const</b> sds t) <font color='red'>{</font>
+<a name='L201'>    <b>return</b> <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(s, t, <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(t));
+<a name='L202'><font color='red'>}</font>
+<a name='L203'>
+<a name='L204'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../R/3633.html' title='Multiple refered from 4 places.'>sdscpylen</a>(sds s, <b>const</b> <b>char</b> *t, size_t len) <font color='red'>{</font>
+<a name='L205'>    <b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a> *sh = (<b>void</b>*) (s-(<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)));
+<a name='L206'>    size_t totlen = sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>+sh-&gt;len;
+<a name='L207'>
+<a name='L208'>    <b>if</b> (totlen &lt; len) <font color='red'>{</font>
+<a name='L209'>        s = <a href='../D/3990.html' title='Multiple defined in 2 places.'>sdsMakeRoomFor</a>(s,len-sh-&gt;len);
+<a name='L210'>        <b>if</b> (s == NULL) <b>return</b> NULL;
+<a name='L211'>        sh = (<b>void</b>*) (s-(<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)));
+<a name='L212'>        totlen = sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>+sh-&gt;len;
+<a name='L213'>    <font color='red'>}</font>
+<a name='L214'>    memcpy(s, t, len);
+<a name='L215'>    s[len] = '\0';
+<a name='L216'>    sh-&gt;len = len;
+<a name='L217'>    sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> = totlen-len;
+<a name='L218'>    <b>return</b> s;
+<a name='L219'><font color='red'>}</font>
+<a name='L220'>
+<a name='L221'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../R/3632.html' title='Multiple refered from 6 places.'>sdscpy</a>(sds s, <b>const</b> <b>char</b> *t) <font color='red'>{</font>
+<a name='L222'>    <b>return</b> <a href='../D/4003.html' title='Multiple defined in 2 places.'>sdscpylen</a>(s, t, strlen(t));
+<a name='L223'><font color='red'>}</font>
+<a name='L224'>
+<a name='L225'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../R/3629.html' title='Multiple refered from 7 places.'>sdscatvprintf</a>(sds s, <b>const</b> <b>char</b> *fmt, va_list ap) <font color='red'>{</font>
+<a name='L226'>    va_list cpy;
+<a name='L227'>    <b>char</b> *buf, *t;
+<a name='L228'>    size_t buflen = 16;
+<a name='L229'>
+<a name='L230'>    <b>while</b>(1) <font color='red'>{</font>
+<a name='L231'>        buf = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(buflen);
+<a name='L232'>        <b>if</b> (buf == NULL) <b>return</b> NULL;
+<a name='L233'>        buf[buflen-2] = '\0';
+<a name='L234'>        va_copy(cpy,ap);
+<a name='L235'>        vsnprintf(buf, buflen, fmt, cpy);
+<a name='L236'>        <b>if</b> (buf[buflen-2] != '\0') <font color='red'>{</font>
+<a name='L237'>            <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(buf);
+<a name='L238'>            buflen *= 2;
+<a name='L239'>            <b>continue</b>;
+<a name='L240'>        <font color='red'>}</font>
+<a name='L241'>        <b>break</b>;
+<a name='L242'>    <font color='red'>}</font>
+<a name='L243'>    t = <a href='../D/3994.html' title='Multiple defined in 2 places.'>sdscat</a>(s, buf);
+<a name='L244'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(buf);
+<a name='L245'>    <b>return</b> t;
+<a name='L246'><font color='red'>}</font>
+<a name='L247'>
+<a name='L248'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../R/3626.html' title='Multiple refered from 72 places.'>sdscatprintf</a>(sds s, <b>const</b> <b>char</b> *fmt, ...) <font color='red'>{</font>
+<a name='L249'>    va_list ap;
+<a name='L250'>    <b>char</b> *t;
+<a name='L251'>    va_start(ap, fmt);
+<a name='L252'>    t = <a href='../D/3999.html' title='Multiple defined in 2 places.'>sdscatvprintf</a>(s,fmt,ap);
+<a name='L253'>    va_end(ap);
+<a name='L254'>    <b>return</b> t;
+<a name='L255'><font color='red'>}</font>
+<a name='L256'>
+<a name='L257'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../R/3651.html' title='Multiple refered from 5 places.'>sdstrim</a>(sds s, <b>const</b> <b>char</b> *cset) <font color='red'>{</font>
+<a name='L258'>    <b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a> *sh = (<b>void</b>*) (s-(<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)));
+<a name='L259'>    <b>char</b> *start, *end, *sp, *ep;
+<a name='L260'>    size_t len;
+<a name='L261'>
+<a name='L262'>    sp = start = s;
+<a name='L263'>    ep = end = s+<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(s)-1;
+<a name='L264'>    <b>while</b>(sp &lt;= end &amp;&amp; strchr(cset, *sp)) sp++;
+<a name='L265'>    <b>while</b>(ep &gt; start &amp;&amp; strchr(cset, *ep)) ep--;
+<a name='L266'>    len = (sp &gt; ep) ? 0 : ((ep-sp)+1);
+<a name='L267'>    <b>if</b> (sh-&gt;buf != sp) memmove(sh-&gt;buf, sp, len);
+<a name='L268'>    sh-&gt;buf[len] = '\0';
+<a name='L269'>    sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> = sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>+(sh-&gt;len-len);
+<a name='L270'>    sh-&gt;len = len;
+<a name='L271'>    <b>return</b> s;
+<a name='L272'><font color='red'>}</font>
+<a name='L273'>
+<a name='L274'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../R/3645.html' title='Multiple refered from 22 places.'>sdsrange</a>(sds s, <b>int</b> start, <b>int</b> end) <font color='red'>{</font>
+<a name='L275'>    <b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a> *sh = (<b>void</b>*) (s-(<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)));
+<a name='L276'>    size_t newlen, len = <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(s);
+<a name='L277'>
+<a name='L278'>    <b>if</b> (len == 0) <b>return</b> s;
+<a name='L279'>    <b>if</b> (start &lt; 0) <font color='red'>{</font>
+<a name='L280'>        start = len+start;
+<a name='L281'>        <b>if</b> (start &lt; 0) start = 0;
+<a name='L282'>    <font color='red'>}</font>
+<a name='L283'>    <b>if</b> (end &lt; 0) <font color='red'>{</font>
+<a name='L284'>        end = len+end;
+<a name='L285'>        <b>if</b> (end &lt; 0) end = 0;
+<a name='L286'>    <font color='red'>}</font>
+<a name='L287'>    newlen = (start &gt; end) ? 0 : (end-start)+1;
+<a name='L288'>    <b>if</b> (newlen != 0) <font color='red'>{</font>
+<a name='L289'>        <b>if</b> (start &gt;= (<b>signed</b>)len) <font color='red'>{</font>
+<a name='L290'>            newlen = 0;
+<a name='L291'>        <font color='red'>}</font> <b>else</b> <b>if</b> (end &gt;= (<b>signed</b>)len) <font color='red'>{</font>
+<a name='L292'>            end = len-1;
+<a name='L293'>            newlen = (start &gt; end) ? 0 : (end-start)+1;
+<a name='L294'>        <font color='red'>}</font>
+<a name='L295'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L296'>        start = 0;
+<a name='L297'>    <font color='red'>}</font>
+<a name='L298'>    <b>if</b> (start &amp;&amp; newlen) memmove(sh-&gt;buf, sh-&gt;buf+start, newlen);
+<a name='L299'>    sh-&gt;buf[newlen] = 0;
+<a name='L300'>    sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> = sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>+(sh-&gt;len-newlen);
+<a name='L301'>    sh-&gt;len = newlen;
+<a name='L302'>    <b>return</b> s;
+<a name='L303'><font color='red'>}</font>
+<a name='L304'>
+<a name='L305'><b>void</b> <a href='../R/3649.html' title='Multiple refered from 4 places.'>sdstolower</a>(sds s) <font color='red'>{</font>
+<a name='L306'>    <b>int</b> len = <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(s), j;
+<a name='L307'>
+<a name='L308'>    <b>for</b> (j = 0; j &lt; len; j++) s[j] = tolower(s[j]);
+<a name='L309'><font color='red'>}</font>
+<a name='L310'>
+<a name='L311'><b>void</b> <a href='../R/3650.html' title='Multiple refered from 2 places.'>sdstoupper</a>(sds s) <font color='red'>{</font>
+<a name='L312'>    <b>int</b> len = <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(s), j;
+<a name='L313'>
+<a name='L314'>    <b>for</b> (j = 0; j &lt; len; j++) s[j] = toupper(s[j]);
+<a name='L315'><font color='red'>}</font>
+<a name='L316'>
+<a name='L317'><b>int</b> <a href='../R/3631.html' title='Multiple refered from 10 places.'>sdscmp</a>(<b>const</b> sds s1, <b>const</b> sds s2) <font color='red'>{</font>
+<a name='L318'>    size_t l1, l2, minlen;
+<a name='L319'>    <b>int</b> cmp;
+<a name='L320'>
+<a name='L321'>    l1 = <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(s1);
+<a name='L322'>    l2 = <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(s2);
+<a name='L323'>    minlen = (l1 &lt; l2) ? l1 : l2;
+<a name='L324'>    cmp = memcmp(s1,s2,minlen);
+<a name='L325'>    <b>if</b> (cmp == 0) <b>return</b> l1-l2;
+<a name='L326'>    <b>return</b> cmp;
+<a name='L327'><font color='red'>}</font>
+<a name='L328'>
+<a name='L329'><i><font color='green'>/* Split 's' with separator in 'sep'. An array</font></i>
+<a name='L330'><i><font color='green'> * of sds strings is returned. *count will be set</font></i>
+<a name='L331'><i><font color='green'> * by reference to the number of tokens returned.</font></i>
+<a name='L332'><i><font color='green'> *</font></i>
+<a name='L333'><i><font color='green'> * On out of memory, zero length string, zero length</font></i>
+<a name='L334'><i><font color='green'> * separator, NULL is returned.</font></i>
+<a name='L335'><i><font color='green'> *</font></i>
+<a name='L336'><i><font color='green'> * Note that 'sep' is able to split a string using</font></i>
+<a name='L337'><i><font color='green'> * a multi-character separator. For example</font></i>
+<a name='L338'><i><font color='green'> * sdssplit("foo_-_bar","_-_"); will return two</font></i>
+<a name='L339'><i><font color='green'> * elements "foo" and "bar".</font></i>
+<a name='L340'><i><font color='green'> *</font></i>
+<a name='L341'><i><font color='green'> * This version of the function is binary-safe but</font></i>
+<a name='L342'><i><font color='green'> * requires length arguments. sdssplit() is just the</font></i>
+<a name='L343'><i><font color='green'> * same function but for zero-terminated strings.</font></i>
+<a name='L344'><i><font color='green'> */</font></i>
+<a name='L345'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> *<a href='../R/3648.html' title='Multiple refered from 8 places.'>sdssplitlen</a>(<b>const</b> <b>char</b> *s, <b>int</b> len, <b>const</b> <b>char</b> *sep, <b>int</b> seplen, <b>int</b> *count) <font color='red'>{</font>
+<a name='L346'>    <b>int</b> elements = 0, slots = 5, start = 0, j;
+<a name='L347'>    <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> *tokens;
+<a name='L348'>
+<a name='L349'>    <b>if</b> (seplen &lt; 1 || len &lt; 0) <b>return</b> NULL;
+<a name='L350'>
+<a name='L351'>    tokens = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a>)*slots);
+<a name='L352'>    <b>if</b> (tokens == NULL) <b>return</b> NULL;
+<a name='L353'>
+<a name='L354'>    <b>if</b> (len == 0) <font color='red'>{</font>
+<a name='L355'>        *count = 0;
+<a name='L356'>        <b>return</b> tokens;
+<a name='L357'>    <font color='red'>}</font>
+<a name='L358'>    <b>for</b> (j = 0; j &lt; (len-(seplen-1)); j++) <font color='red'>{</font>
+<a name='L359'>        <i><font color='green'>/* make sure there is room for the next element and the final one */</font></i>
+<a name='L360'>        <b>if</b> (slots &lt; elements+2) <font color='red'>{</font>
+<a name='L361'>            <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> *newtokens;
+<a name='L362'>
+<a name='L363'>            slots *= 2;
+<a name='L364'>            newtokens = <a href='../S/39.html#L149' title='Defined at 149 in src/zmalloc.c.'>zrealloc</a>(tokens,<b>sizeof</b>(<a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a>)*slots);
+<a name='L365'>            <b>if</b> (newtokens == NULL) <b>goto</b> cleanup;
+<a name='L366'>            tokens = newtokens;
+<a name='L367'>        <font color='red'>}</font>
+<a name='L368'>        <i><font color='green'>/* search the separator */</font></i>
+<a name='L369'>        <b>if</b> ((seplen == 1 &amp;&amp; *(s+j) == sep[0]) || (memcmp(s+j,sep,seplen) == 0)) <font color='red'>{</font>
+<a name='L370'>            tokens[elements] = <a href='../D/4014.html' title='Multiple defined in 2 places.'>sdsnewlen</a>(s+start,j-start);
+<a name='L371'>            <b>if</b> (tokens[elements] == NULL) <b>goto</b> cleanup;
+<a name='L372'>            elements++;
+<a name='L373'>            start = j+seplen;
+<a name='L374'>            j = j+seplen-1; <i><font color='green'>/* skip the separator */</font></i>
+<a name='L375'>        <font color='red'>}</font>
+<a name='L376'>    <font color='red'>}</font>
+<a name='L377'>    <i><font color='green'>/* Add the final element. We are sure there is room in the tokens array. */</font></i>
+<a name='L378'>    tokens[elements] = <a href='../D/4014.html' title='Multiple defined in 2 places.'>sdsnewlen</a>(s+start,len-start);
+<a name='L379'>    <b>if</b> (tokens[elements] == NULL) <b>goto</b> cleanup;
+<a name='L380'>    elements++;
+<a name='L381'>    *count = elements;
+<a name='L382'>    <b>return</b> tokens;
+<a name='L383'>
+<a name='L384'>cleanup:
+<a name='L385'>    <font color='red'>{</font>
+<a name='L386'>        <b>int</b> i;
+<a name='L387'>        <b>for</b> (i = 0; i &lt; elements; i++) <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(tokens[i]);
+<a name='L388'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(tokens);
+<a name='L389'>        *count = 0;
+<a name='L390'>        <b>return</b> NULL;
+<a name='L391'>    <font color='red'>}</font>
+<a name='L392'><font color='red'>}</font>
+<a name='L393'>
+<a name='L394'><b>void</b> <a href='../R/3637.html' title='Multiple refered from 13 places.'>sdsfreesplitres</a>(sds *tokens, <b>int</b> count) <font color='red'>{</font>
+<a name='L395'>    <b>if</b> (!tokens) <b>return</b>;
+<a name='L396'>    <b>while</b>(count--)
+<a name='L397'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(tokens[count]);
+<a name='L398'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(tokens);
+<a name='L399'><font color='red'>}</font>
+<a name='L400'>
+<a name='L401'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../R/3638.html' title='Multiple refered from 5 places.'>sdsfromlonglong</a>(<b>long</b> <b>long</b> value) <font color='red'>{</font>
+<a name='L402'>    <b>char</b> buf[32], *p;
+<a name='L403'>    <b>unsigned</b> <b>long</b> <b>long</b> v;
+<a name='L404'>
+<a name='L405'>    v = (value &lt; 0) ? -value : value;
+<a name='L406'>    p = buf+31; <i><font color='green'>/* point to the last character */</font></i>
+<a name='L407'>    <b>do</b> <font color='red'>{</font>
+<a name='L408'>        *p-- = '0'+(v%10);
+<a name='L409'>        v /= 10;
+<a name='L410'>    <font color='red'>}</font> <b>while</b>(v);
+<a name='L411'>    <b>if</b> (value &lt; 0) *p-- = '-';
+<a name='L412'>    p++;
+<a name='L413'>    <b>return</b> <a href='../D/4014.html' title='Multiple defined in 2 places.'>sdsnewlen</a>(p,32-(p-buf));
+<a name='L414'><font color='red'>}</font>
+<a name='L415'>
+<a name='L416'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../R/3627.html' title='Multiple refered from 9 places.'>sdscatrepr</a>(sds s, <b>const</b> <b>char</b> *p, size_t len) <font color='red'>{</font>
+<a name='L417'>    s = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(s,"\"",1);
+<a name='L418'>    <b>while</b>(len--) <font color='red'>{</font>
+<a name='L419'>        <b>switch</b>(*p) <font color='red'>{</font>
+<a name='L420'>        <b>case</b> '\\':
+<a name='L421'>        <b>case</b> '"':
+<a name='L422'>            s = <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(s,"\\%c",*p);
+<a name='L423'>            <b>break</b>;
+<a name='L424'>        <b>case</b> '\n': s = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(s,"\\n",2); <b>break</b>;
+<a name='L425'>        <b>case</b> '\r': s = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(s,"\\r",2); <b>break</b>;
+<a name='L426'>        <b>case</b> '\t': s = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(s,"\\t",2); <b>break</b>;
+<a name='L427'>        <b>case</b> '\a': s = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(s,"\\a",2); <b>break</b>;
+<a name='L428'>        <b>case</b> '\b': s = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(s,"\\b",2); <b>break</b>;
+<a name='L429'>        <b>default</b>:
+<a name='L430'>            <b>if</b> (isprint(*p))
+<a name='L431'>                s = <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(s,"%c",*p);
+<a name='L432'>            <b>else</b>
+<a name='L433'>                s = <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(s,"\\x%02x",(<b>unsigned</b> <b>char</b>)*p);
+<a name='L434'>            <b>break</b>;
+<a name='L435'>        <font color='red'>}</font>
+<a name='L436'>        p++;
+<a name='L437'>    <font color='red'>}</font>
+<a name='L438'>    <b>return</b> <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(s,"\"",1);
+<a name='L439'><font color='red'>}</font>
+<a name='L440'>
+<a name='L441'><i><font color='green'>/* Helper function for sdssplitargs() that returns non zero if 'c'</font></i>
+<a name='L442'><i><font color='green'> * is a valid hex digit. */</font></i>
+<a name='L443'><b>int</b> <a href='../R/2264.html' title='Multiple refered from 2 places.'>is_hex_digit</a>(<b>char</b> c) <font color='red'>{</font>
+<a name='L444'>    <b>return</b> (c &gt;= '0' &amp;&amp; c &lt;= '9') || (c &gt;= 'a' &amp;&amp; c &lt;= 'f') ||
+<a name='L445'>           (c &gt;= 'A' &amp;&amp; c &lt;= 'F');
+<a name='L446'><font color='red'>}</font>
+<a name='L447'>
+<a name='L448'><i><font color='green'>/* Helper function for sdssplitargs() that converts an hex digit into an</font></i>
+<a name='L449'><i><font color='green'> * integer from 0 to 15 */</font></i>
+<a name='L450'><b>int</b> <a href='../R/2144.html' title='Multiple refered from 2 places.'>hex_digit_to_int</a>(<b>char</b> c) <font color='red'>{</font>
+<a name='L451'>    <b>switch</b>(c) <font color='red'>{</font>
+<a name='L452'>    <b>case</b> '0': <b>return</b> 0;
+<a name='L453'>    <b>case</b> '1': <b>return</b> 1;
+<a name='L454'>    <b>case</b> '2': <b>return</b> 2;
+<a name='L455'>    <b>case</b> '3': <b>return</b> 3;
+<a name='L456'>    <b>case</b> '4': <b>return</b> 4;
+<a name='L457'>    <b>case</b> '5': <b>return</b> 5;
+<a name='L458'>    <b>case</b> '6': <b>return</b> 6;
+<a name='L459'>    <b>case</b> '7': <b>return</b> 7;
+<a name='L460'>    <b>case</b> '8': <b>return</b> 8;
+<a name='L461'>    <b>case</b> '9': <b>return</b> 9;
+<a name='L462'>    <b>case</b> 'a': <b>case</b> 'A': <b>return</b> 10;
+<a name='L463'>    <b>case</b> 'b': <b>case</b> 'B': <b>return</b> 11;
+<a name='L464'>    <b>case</b> 'c': <b>case</b> 'C': <b>return</b> 12;
+<a name='L465'>    <b>case</b> 'd': <b>case</b> 'D': <b>return</b> 13;
+<a name='L466'>    <b>case</b> 'e': <b>case</b> 'E': <b>return</b> 14;
+<a name='L467'>    <b>case</b> 'f': <b>case</b> 'F': <b>return</b> 15;
+<a name='L468'>    <b>default</b>: <b>return</b> 0;
+<a name='L469'>    <font color='red'>}</font>
+<a name='L470'><font color='red'>}</font>
+<a name='L471'>
+<a name='L472'><i><font color='green'>/* Split a line into arguments, where every argument can be in the</font></i>
+<a name='L473'><i><font color='green'> * following programming-language REPL-alike form:</font></i>
+<a name='L474'><i><font color='green'> *</font></i>
+<a name='L475'><i><font color='green'> * foo bar "newline are supported\n" and "\xff\x00otherstuff"</font></i>
+<a name='L476'><i><font color='green'> *</font></i>
+<a name='L477'><i><font color='green'> * The number of arguments is stored into *argc, and an array</font></i>
+<a name='L478'><i><font color='green'> * of sds is returned. The caller should sdsfree() all the returned</font></i>
+<a name='L479'><i><font color='green'> * strings and finally zfree() the array itself.</font></i>
+<a name='L480'><i><font color='green'> *</font></i>
+<a name='L481'><i><font color='green'> * Note that sdscatrepr() is able to convert back a string into</font></i>
+<a name='L482'><i><font color='green'> * a quoted string in the same format sdssplitargs() is able to parse.</font></i>
+<a name='L483'><i><font color='green'> */</font></i>
+<a name='L484'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> *<a href='../R/3646.html' title='Multiple refered from 5 places.'>sdssplitargs</a>(<b>const</b> <b>char</b> *line, <b>int</b> *argc) <font color='red'>{</font>
+<a name='L485'>    <b>const</b> <b>char</b> *p = line;
+<a name='L486'>    <b>char</b> *current = NULL;
+<a name='L487'>    <b>char</b> **vector = NULL;
+<a name='L488'>
+<a name='L489'>    *argc = 0;
+<a name='L490'>    <b>while</b>(1) <font color='red'>{</font>
+<a name='L491'>        <i><font color='green'>/* skip blanks */</font></i>
+<a name='L492'>        <b>while</b>(*p &amp;&amp; isspace(*p)) p++;
+<a name='L493'>        <b>if</b> (*p) <font color='red'>{</font>
+<a name='L494'>            <i><font color='green'>/* get a token */</font></i>
+<a name='L495'>            <b>int</b> inq=0;  <i><font color='green'>/* set to 1 if we are in "quotes" */</font></i>
+<a name='L496'>            <b>int</b> insq=0; <i><font color='green'>/* set to 1 if we are in 'single quotes' */</font></i>
+<a name='L497'>            <b>int</b> done=0;
+<a name='L498'>
+<a name='L499'>            <b>if</b> (current == NULL) current = <a href='../D/4005.html' title='Multiple defined in 2 places.'>sdsempty</a>();
+<a name='L500'>            <b>while</b>(!done) <font color='red'>{</font>
+<a name='L501'>                <b>if</b> (inq) <font color='red'>{</font>
+<a name='L502'>                    <b>if</b> (*p == '\\' &amp;&amp; *(p+1) == 'x' &amp;&amp;
+<a name='L503'>                                             <a href='../S/63.html#L443' title='Defined at 443 in src/sds.c.'>is_hex_digit</a>(*(p+2)) &amp;&amp;
+<a name='L504'>                                             <a href='../S/63.html#L443' title='Defined at 443 in src/sds.c.'>is_hex_digit</a>(*(p+3)))
+<a name='L505'>                    <font color='red'>{</font>
+<a name='L506'>                        <b>unsigned</b> <b>char</b> byte;
+<a name='L507'>
+<a name='L508'>                        byte = (<a href='../S/63.html#L450' title='Defined at 450 in src/sds.c.'>hex_digit_to_int</a>(*(p+2))*16)+
+<a name='L509'>                                <a href='../S/63.html#L450' title='Defined at 450 in src/sds.c.'>hex_digit_to_int</a>(*(p+3));
+<a name='L510'>                        current = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(current,(<b>char</b>*)&amp;byte,1);
+<a name='L511'>                        p += 3;
+<a name='L512'>                    <font color='red'>}</font> <b>else</b> <b>if</b> (*p == '\\' &amp;&amp; *(p+1)) <font color='red'>{</font>
+<a name='L513'>                        <b>char</b> c;
+<a name='L514'>
+<a name='L515'>                        p++;
+<a name='L516'>                        <b>switch</b>(*p) <font color='red'>{</font>
+<a name='L517'>                        <b>case</b> 'n': c = '\n'; <b>break</b>;
+<a name='L518'>                        <b>case</b> 'r': c = '\r'; <b>break</b>;
+<a name='L519'>                        <b>case</b> 't': c = '\t'; <b>break</b>;
+<a name='L520'>                        <b>case</b> 'b': c = '\b'; <b>break</b>;
+<a name='L521'>                        <b>case</b> 'a': c = '\a'; <b>break</b>;
+<a name='L522'>                        <b>default</b>: c = *p; <b>break</b>;
+<a name='L523'>                        <font color='red'>}</font>
+<a name='L524'>                        current = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(current,&amp;c,1);
+<a name='L525'>                    <font color='red'>}</font> <b>else</b> <b>if</b> (*p == '"') <font color='red'>{</font>
+<a name='L526'>                        <i><font color='green'>/* closing quote must be followed by a space or</font></i>
+<a name='L527'><i><font color='green'>                         * nothing at all. */</font></i>
+<a name='L528'>                        <b>if</b> (*(p+1) &amp;&amp; !isspace(*(p+1))) <b>goto</b> err;
+<a name='L529'>                        done=1;
+<a name='L530'>                    <font color='red'>}</font> <b>else</b> <b>if</b> (!*p) <font color='red'>{</font>
+<a name='L531'>                        <i><font color='green'>/* unterminated quotes */</font></i>
+<a name='L532'>                        <b>goto</b> err;
+<a name='L533'>                    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L534'>                        current = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(current,p,1);
+<a name='L535'>                    <font color='red'>}</font>
+<a name='L536'>                <font color='red'>}</font> <b>else</b> <b>if</b> (insq) <font color='red'>{</font>
+<a name='L537'>                    <b>if</b> (*p == '\\' &amp;&amp; *(p+1) == '\'') <font color='red'>{</font>
+<a name='L538'>                        p++;
+<a name='L539'>                        current = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(current,"'",1);
+<a name='L540'>                    <font color='red'>}</font> <b>else</b> <b>if</b> (*p == '\'') <font color='red'>{</font>
+<a name='L541'>                        <i><font color='green'>/* closing quote must be followed by a space or</font></i>
+<a name='L542'><i><font color='green'>                         * nothing at all. */</font></i>
+<a name='L543'>                        <b>if</b> (*(p+1) &amp;&amp; !isspace(*(p+1))) <b>goto</b> err;
+<a name='L544'>                        done=1;
+<a name='L545'>                    <font color='red'>}</font> <b>else</b> <b>if</b> (!*p) <font color='red'>{</font>
+<a name='L546'>                        <i><font color='green'>/* unterminated quotes */</font></i>
+<a name='L547'>                        <b>goto</b> err;
+<a name='L548'>                    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L549'>                        current = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(current,p,1);
+<a name='L550'>                    <font color='red'>}</font>
+<a name='L551'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L552'>                    <b>switch</b>(*p) <font color='red'>{</font>
+<a name='L553'>                    <b>case</b> ' ':
+<a name='L554'>                    <b>case</b> '\n':
+<a name='L555'>                    <b>case</b> '\r':
+<a name='L556'>                    <b>case</b> '\t':
+<a name='L557'>                    <b>case</b> '\0':
+<a name='L558'>                        done=1;
+<a name='L559'>                        <b>break</b>;
+<a name='L560'>                    <b>case</b> '"':
+<a name='L561'>                        inq=1;
+<a name='L562'>                        <b>break</b>;
+<a name='L563'>                    <b>case</b> '\'':
+<a name='L564'>                        insq=1;
+<a name='L565'>                        <b>break</b>;
+<a name='L566'>                    <b>default</b>:
+<a name='L567'>                        current = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(current,p,1);
+<a name='L568'>                        <b>break</b>;
+<a name='L569'>                    <font color='red'>}</font>
+<a name='L570'>                <font color='red'>}</font>
+<a name='L571'>                <b>if</b> (*p) p++;
+<a name='L572'>            <font color='red'>}</font>
+<a name='L573'>            <i><font color='green'>/* add the token to the vector */</font></i>
+<a name='L574'>            vector = <a href='../S/39.html#L149' title='Defined at 149 in src/zmalloc.c.'>zrealloc</a>(vector,((*argc)+1)*<b>sizeof</b>(<b>char</b>*));
+<a name='L575'>            vector[*argc] = current;
+<a name='L576'>            (*argc)++;
+<a name='L577'>            current = NULL;
+<a name='L578'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L579'>            <b>return</b> vector;
+<a name='L580'>        <font color='red'>}</font>
+<a name='L581'>    <font color='red'>}</font>
+<a name='L582'>
+<a name='L583'>err:
+<a name='L584'>    <b>while</b>((*argc)--)
+<a name='L585'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(vector[*argc]);
+<a name='L586'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(vector);
+<a name='L587'>    <b>if</b> (current) <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(current);
+<a name='L588'>    <b>return</b> NULL;
+<a name='L589'><font color='red'>}</font>
+<a name='L590'>
+<a name='L591'><b>void</b> <a href='../S/41.html#L91' title='Refered from 91 in src/sds.h.'>sdssplitargs_free</a>(sds *argv, <b>int</b> argc) <font color='red'>{</font>
+<a name='L592'>    <b>int</b> j;
+<a name='L593'>
+<a name='L594'>    <b>for</b> (j = 0 ;j &lt; argc; j++) <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(argv[j]);
+<a name='L595'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(argv);
+<a name='L596'><font color='red'>}</font>
+<a name='L597'>
+<a name='L598'><i><font color='green'>/* Modify the string substituting all the occurrences of the set of</font></i>
+<a name='L599'><i><font color='green'> * characters specifed in the 'from' string to the corresponding character</font></i>
+<a name='L600'><i><font color='green'> * in the 'to' array.</font></i>
+<a name='L601'><i><font color='green'> *</font></i>
+<a name='L602'><i><font color='green'> * For instance: sdsmapchars(mystring, "ho", "01", 2)</font></i>
+<a name='L603'><i><font color='green'> * will have the effect of turning the string "hello" into "0ell1".</font></i>
+<a name='L604'><i><font color='green'> *</font></i>
+<a name='L605'><i><font color='green'> * The function returns the sds string pointer, that is always the same</font></i>
+<a name='L606'><i><font color='green'> * as the input pointer since no resize is needed. */</font></i>
+<a name='L607'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../R/3642.html' title='Multiple refered from 3 places.'>sdsmapchars</a>(sds s, <b>const</b> <b>char</b> *from, <b>const</b> <b>char</b> *to, size_t setlen) <font color='red'>{</font>
+<a name='L608'>    size_t j, i, l = <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(s);
+<a name='L609'>
+<a name='L610'>    <b>for</b> (j = 0; j &lt; l; j++) <font color='red'>{</font>
+<a name='L611'>        <b>for</b> (i = 0; i &lt; setlen; i++) <font color='red'>{</font>
+<a name='L612'>            <b>if</b> (s[j] == from[i]) <font color='red'>{</font>
+<a name='L613'>                s[j] = to[i];
+<a name='L614'>                <b>break</b>;
+<a name='L615'>            <font color='red'>}</font>
+<a name='L616'>        <font color='red'>}</font>
+<a name='L617'>    <font color='red'>}</font>
+<a name='L618'>    <b>return</b> s;
+<a name='L619'><font color='red'>}</font>
+<a name='L620'>
+<a name='L621'><font color='darkred'>#ifdef</font> SDS_TEST_MAIN
+<a name='L622'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L623'><font color='darkred'>#include</font> "<a href='23.html'>testhelp.h</a>"
+<a name='L624'>
+<a name='L625'><b>int</b> main(<b>void</b>) <font color='red'>{</font>
+<a name='L626'>    <font color='red'>{</font>
+<a name='L627'>        <b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a> *sh;
+<a name='L628'>        <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> x = <a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>("foo"), y;
+<a name='L629'>
+<a name='L630'>        <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("Create a string and obtain the length",
+<a name='L631'>            <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(x) == 3 &amp;&amp; memcmp(x,"foo\0",4) == 0)
+<a name='L632'>
+<a name='L633'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(x);
+<a name='L634'>        x = <a href='../D/4014.html' title='Multiple defined in 2 places.'>sdsnewlen</a>("foo",2);
+<a name='L635'>        <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("Create a string with specified length",
+<a name='L636'>            <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(x) == 2 &amp;&amp; memcmp(x,"fo\0",3) == 0)
+<a name='L637'>
+<a name='L638'>        x = <a href='../D/3994.html' title='Multiple defined in 2 places.'>sdscat</a>(x,"bar");
+<a name='L639'>        <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("Strings concatenation",
+<a name='L640'>            <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(x) == 5 &amp;&amp; memcmp(x,"fobar\0",6) == 0);
+<a name='L641'>
+<a name='L642'>        x = <a href='../D/4002.html' title='Multiple defined in 2 places.'>sdscpy</a>(x,"a");
+<a name='L643'>        <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("sdscpy() against an originally longer string",
+<a name='L644'>            <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(x) == 1 &amp;&amp; memcmp(x,"a\0",2) == 0)
+<a name='L645'>
+<a name='L646'>        x = <a href='../D/4002.html' title='Multiple defined in 2 places.'>sdscpy</a>(x,"xyzxxxxxxxxxxyyyyyyyyyykkkkkkkkkk");
+<a name='L647'>        <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("sdscpy() against an originally shorter string",
+<a name='L648'>            <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(x) == 33 &amp;&amp;
+<a name='L649'>            memcmp(x,"xyzxxxxxxxxxxyyyyyyyyyykkkkkkkkkk\0",33) == 0)
+<a name='L650'>
+<a name='L651'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(x);
+<a name='L652'>        x = <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(<a href='../D/4005.html' title='Multiple defined in 2 places.'>sdsempty</a>(),"%d",123);
+<a name='L653'>        <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("sdscatprintf() seems working in the base case",
+<a name='L654'>            <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(x) == 3 &amp;&amp; memcmp(x,"123\0",4) ==0)
+<a name='L655'>
+<a name='L656'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(x);
+<a name='L657'>        x = <a href='../D/4021.html' title='Multiple defined in 2 places.'>sdstrim</a>(<a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>("xxciaoyyy"),"xy");
+<a name='L658'>        <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("sdstrim() correctly trims characters",
+<a name='L659'>            <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(x) == 4 &amp;&amp; memcmp(x,"ciao\0",5) == 0)
+<a name='L660'>
+<a name='L661'>        y = <a href='../D/4015.html' title='Multiple defined in 2 places.'>sdsrange</a>(<a href='../D/4004.html' title='Multiple defined in 2 places.'>sdsdup</a>(x),1,1);
+<a name='L662'>        <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("sdsrange(...,1,1)",
+<a name='L663'>            <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(y) == 1 &amp;&amp; memcmp(y,"i\0",2) == 0)
+<a name='L664'>
+<a name='L665'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(y);
+<a name='L666'>        y = <a href='../D/4015.html' title='Multiple defined in 2 places.'>sdsrange</a>(<a href='../D/4004.html' title='Multiple defined in 2 places.'>sdsdup</a>(x),1,-1);
+<a name='L667'>        <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("sdsrange(...,1,-1)",
+<a name='L668'>            <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(y) == 3 &amp;&amp; memcmp(y,"iao\0",4) == 0)
+<a name='L669'>
+<a name='L670'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(y);
+<a name='L671'>        y = <a href='../D/4015.html' title='Multiple defined in 2 places.'>sdsrange</a>(<a href='../D/4004.html' title='Multiple defined in 2 places.'>sdsdup</a>(x),-2,-1);
+<a name='L672'>        <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("sdsrange(...,-2,-1)",
+<a name='L673'>            <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(y) == 2 &amp;&amp; memcmp(y,"ao\0",3) == 0)
+<a name='L674'>
+<a name='L675'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(y);
+<a name='L676'>        y = <a href='../D/4015.html' title='Multiple defined in 2 places.'>sdsrange</a>(<a href='../D/4004.html' title='Multiple defined in 2 places.'>sdsdup</a>(x),2,1);
+<a name='L677'>        <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("sdsrange(...,2,1)",
+<a name='L678'>            <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(y) == 0 &amp;&amp; memcmp(y,"\0",1) == 0)
+<a name='L679'>
+<a name='L680'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(y);
+<a name='L681'>        y = <a href='../D/4015.html' title='Multiple defined in 2 places.'>sdsrange</a>(<a href='../D/4004.html' title='Multiple defined in 2 places.'>sdsdup</a>(x),1,100);
+<a name='L682'>        <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("sdsrange(...,1,100)",
+<a name='L683'>            <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(y) == 3 &amp;&amp; memcmp(y,"iao\0",4) == 0)
+<a name='L684'>
+<a name='L685'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(y);
+<a name='L686'>        y = <a href='../D/4015.html' title='Multiple defined in 2 places.'>sdsrange</a>(<a href='../D/4004.html' title='Multiple defined in 2 places.'>sdsdup</a>(x),100,100);
+<a name='L687'>        <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("sdsrange(...,100,100)",
+<a name='L688'>            <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(y) == 0 &amp;&amp; memcmp(y,"\0",1) == 0)
+<a name='L689'>
+<a name='L690'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(y);
+<a name='L691'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(x);
+<a name='L692'>        x = <a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>("foo");
+<a name='L693'>        y = <a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>("foa");
+<a name='L694'>        <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("sdscmp(foo,foa)", <a href='../D/4001.html' title='Multiple defined in 2 places.'>sdscmp</a>(x,y) &gt; 0)
+<a name='L695'>
+<a name='L696'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(y);
+<a name='L697'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(x);
+<a name='L698'>        x = <a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>("bar");
+<a name='L699'>        y = <a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>("bar");
+<a name='L700'>        <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("sdscmp(bar,bar)", <a href='../D/4001.html' title='Multiple defined in 2 places.'>sdscmp</a>(x,y) == 0)
+<a name='L701'>
+<a name='L702'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(y);
+<a name='L703'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(x);
+<a name='L704'>        x = <a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>("aar");
+<a name='L705'>        y = <a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>("bar");
+<a name='L706'>        <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("sdscmp(bar,bar)", <a href='../D/4001.html' title='Multiple defined in 2 places.'>sdscmp</a>(x,y) &lt; 0)
+<a name='L707'>
+<a name='L708'>        <font color='red'>{</font>
+<a name='L709'>            <b>int</b> oldfree;
+<a name='L710'>
+<a name='L711'>            <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(x);
+<a name='L712'>            x = <a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>("0");
+<a name='L713'>            sh = (<b>void</b>*) (x-(<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)));
+<a name='L714'>            <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("sdsnew() free/len buffers", sh-&gt;len == 1 &amp;&amp; sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> == 0);
+<a name='L715'>            x = <a href='../D/3990.html' title='Multiple defined in 2 places.'>sdsMakeRoomFor</a>(x,1);
+<a name='L716'>            sh = (<b>void</b>*) (x-(<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)));
+<a name='L717'>            <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("sdsMakeRoomFor()", sh-&gt;len == 1 &amp;&amp; sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> &gt; 0);
+<a name='L718'>            oldfree = sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>;
+<a name='L719'>            x[1] = '1';
+<a name='L720'>            <a href='../S/63.html#L153' title='Defined at 153 in src/sds.c.'>sdsIncrLen</a>(x,1);
+<a name='L721'>            <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("sdsIncrLen() -- content", x[0] == '0' &amp;&amp; x[1] == '1');
+<a name='L722'>            <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("sdsIncrLen() -- len", sh-&gt;len == 2);
+<a name='L723'>            <a href='../D/4354.html' title='Multiple defined in 3 places.'>test_cond</a>("sdsIncrLen() -- free", sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> == oldfree-1);
+<a name='L724'>        <font color='red'>}</font>
+<a name='L725'>    <font color='red'>}</font>
+<a name='L726'>    <a href='../D/4359.html' title='Multiple defined in 2 places.'>test_report</a>()
+<a name='L727'>    <b>return</b> 0;
+<a name='L728'><font color='red'>}</font>
+<a name='L729'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L39'>[^]</a><a href='#L625'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

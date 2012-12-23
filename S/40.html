@@ -1,0 +1,247 @@
+<html>
+<head>
+<title>src/redis-check-aof.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/redis-check-aof.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L48'>[^]</a><a href='#L149'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L48' title='Defined at 48.'>consumeNewline</a>
+<li><a href='#L56' title='Defined at 56.'>readLong</a>
+<li><a href='#L70' title='Defined at 70.'>readBytes</a>
+<li><a href='#L81' title='Defined at 81.'>readString</a>
+<li><a href='#L101' title='Defined at 101.'>readArgc</a>
+<li><a href='#L105' title='Defined at 105.'>process</a>
+<li><a href='#L149' title='Defined at 149.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2009-2012, Pieter Noordhuis &lt;pcnoordhuis at gmail dot com&gt;</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'><font color='darkred'>#include</font> "<a href='../I/12.html'>fmacros.h</a>"
+<a name='L32'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L33'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L34'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L35'><font color='darkred'>#include</font> &lt;unistd.h&gt;
+<a name='L36'><font color='darkred'>#include</font> &lt;sys/stat.h&gt;
+<a name='L37'><font color='darkred'>#include</font> "<a href='53.html'>config.h</a>"
+<a name='L38'>
+<a name='L39'><font color='darkred'>#define</font> <a href='../R/144.html' title='Multiple refered from 13 places.'>ERROR</a>(...) <font color='red'>{</font> \
+<a name='L40'>    <b>char</b> __buf[1024]; \
+<a name='L41'>    sprintf(__buf, __VA_ARGS__); \
+<a name='L42'>    sprintf(<a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>, "0x%16llx: %s", (<b>long</b> <b>long</b>)epos, __buf); \
+<a name='L43'><font color='red'>}</font>
+<a name='L44'>
+<a name='L45'><b>static</b> <b>char</b> <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>[1024];
+<a name='L46'><b>static</b> off_t epos;
+<a name='L47'>
+<a name='L48'><b>int</b> <a href='../R/1682.html' title='Multiple refered from 2 places.'>consumeNewline</a>(<b>char</b> *buf) <font color='red'>{</font>
+<a name='L49'>    <b>if</b> (strncmp(buf,"\r\n",2) != 0) <font color='red'>{</font>
+<a name='L50'>        <a href='../D/147.html' title='Multiple defined in 2 places.'>ERROR</a>("Expected \\r\\n, got: %02x%02x",buf[0],buf[1]);
+<a name='L51'>        <b>return</b> 0;
+<a name='L52'>    <font color='red'>}</font>
+<a name='L53'>    <b>return</b> 1;
+<a name='L54'><font color='red'>}</font>
+<a name='L55'>
+<a name='L56'><b>int</b> <a href='../R/3375.html' title='Multiple refered from 2 places.'>readLong</a>(FILE *fp, <b>char</b> prefix, <b>long</b> *target) <font color='red'>{</font>
+<a name='L57'>    <b>char</b> buf[128], *eptr;
+<a name='L58'>    epos = ftello(fp);
+<a name='L59'>    <b>if</b> (fgets(buf,<b>sizeof</b>(buf),fp) == NULL) <font color='red'>{</font>
+<a name='L60'>        <b>return</b> 0;
+<a name='L61'>    <font color='red'>}</font>
+<a name='L62'>    <b>if</b> (buf[0] != prefix) <font color='red'>{</font>
+<a name='L63'>        <a href='../D/147.html' title='Multiple defined in 2 places.'>ERROR</a>("Expected prefix '%c', got: '%c'",buf[0],prefix);
+<a name='L64'>        <b>return</b> 0;
+<a name='L65'>    <font color='red'>}</font>
+<a name='L66'>    *target = strtol(buf+1,&amp;eptr,10);
+<a name='L67'>    <b>return</b> <a href='../S/40.html#L48' title='Defined at 48 in src/redis-check-aof.c.'>consumeNewline</a>(eptr);
+<a name='L68'><font color='red'>}</font>
+<a name='L69'>
+<a name='L70'><b>int</b> <a href='../R/3372.html' title='Multiple refered from 16 places.'>readBytes</a>(FILE *fp, <b>char</b> *target, <b>long</b> length) <font color='red'>{</font>
+<a name='L71'>    <b>long</b> real;
+<a name='L72'>    epos = ftello(fp);
+<a name='L73'>    real = fread(target,1,length,fp);
+<a name='L74'>    <b>if</b> (real != length) <font color='red'>{</font>
+<a name='L75'>        <a href='../D/147.html' title='Multiple defined in 2 places.'>ERROR</a>("Expected to read %ld bytes, got %ld bytes",length,real);
+<a name='L76'>        <b>return</b> 0;
+<a name='L77'>    <font color='red'>}</font>
+<a name='L78'>    <b>return</b> 1;
+<a name='L79'><font color='red'>}</font>
+<a name='L80'>
+<a name='L81'><b>int</b> <a href='../S/40.html#L116' title='Refered from 116 in src/redis-check-aof.c.'>readString</a>(FILE *fp, <b>char</b>** target) <font color='red'>{</font>
+<a name='L82'>    <b>long</b> len;
+<a name='L83'>    *target = NULL;
+<a name='L84'>    <b>if</b> (!<a href='../S/40.html#L56' title='Defined at 56 in src/redis-check-aof.c.'>readLong</a>(fp,'$',&amp;len)) <font color='red'>{</font>
+<a name='L85'>        <b>return</b> 0;
+<a name='L86'>    <font color='red'>}</font>
+<a name='L87'>
+<a name='L88'>    <i><font color='green'>/* Increase length to also consume \r\n */</font></i>
+<a name='L89'>    len += 2;
+<a name='L90'>    *target = (<b>char</b>*)<a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(len);
+<a name='L91'>    <b>if</b> (!<a href='../D/3731.html' title='Multiple defined in 3 places.'>readBytes</a>(fp,*target,len)) <font color='red'>{</font>
+<a name='L92'>        <b>return</b> 0;
+<a name='L93'>    <font color='red'>}</font>
+<a name='L94'>    <b>if</b> (!<a href='../S/40.html#L48' title='Defined at 48 in src/redis-check-aof.c.'>consumeNewline</a>(*target+len-2)) <font color='red'>{</font>
+<a name='L95'>        <b>return</b> 0;
+<a name='L96'>    <font color='red'>}</font>
+<a name='L97'>    (*target)[len-2] = '\0';
+<a name='L98'>    <b>return</b> 1;
+<a name='L99'><font color='red'>}</font>
+<a name='L100'>
+<a name='L101'><b>int</b> <a href='../S/40.html#L113' title='Refered from 113 in src/redis-check-aof.c.'>readArgc</a>(FILE *fp, <b>long</b> *target) <font color='red'>{</font>
+<a name='L102'>    <b>return</b> <a href='../S/40.html#L56' title='Defined at 56 in src/redis-check-aof.c.'>readLong</a>(fp,'*',target);
+<a name='L103'><font color='red'>}</font>
+<a name='L104'>
+<a name='L105'>off_t <a href='../R/3172.html' title='Multiple refered from 2 places.'>process</a>(FILE *fp) <font color='red'>{</font>
+<a name='L106'>    <b>long</b> argc;
+<a name='L107'>    off_t <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> = 0;
+<a name='L108'>    <b>int</b> i, multi = 0;
+<a name='L109'>    <b>char</b> *str;
+<a name='L110'>
+<a name='L111'>    <b>while</b>(1) <font color='red'>{</font>
+<a name='L112'>        <b>if</b> (!multi) <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> = ftello(fp);
+<a name='L113'>        <b>if</b> (!<a href='../S/40.html#L101' title='Defined at 101 in src/redis-check-aof.c.'>readArgc</a>(fp, &amp;argc)) <b>break</b>;
+<a name='L114'>
+<a name='L115'>        <b>for</b> (i = 0; i &lt; argc; i++) <font color='red'>{</font>
+<a name='L116'>            <b>if</b> (!<a href='../S/40.html#L81' title='Defined at 81 in src/redis-check-aof.c.'>readString</a>(fp,&amp;str)) <b>break</b>;
+<a name='L117'>            <b>if</b> (i == 0) <font color='red'>{</font>
+<a name='L118'>                <b>if</b> (strcasecmp(str, "multi") == 0) <font color='red'>{</font>
+<a name='L119'>                    <b>if</b> (multi++) <font color='red'>{</font>
+<a name='L120'>                        <a href='../D/147.html' title='Multiple defined in 2 places.'>ERROR</a>("Unexpected MULTI");
+<a name='L121'>                        <b>break</b>;
+<a name='L122'>                    <font color='red'>}</font>
+<a name='L123'>                <font color='red'>}</font> <b>else</b> <b>if</b> (strcasecmp(str, "exec") == 0) <font color='red'>{</font>
+<a name='L124'>                    <b>if</b> (--multi) <font color='red'>{</font>
+<a name='L125'>                        <a href='../D/147.html' title='Multiple defined in 2 places.'>ERROR</a>("Unexpected EXEC");
+<a name='L126'>                        <b>break</b>;
+<a name='L127'>                    <font color='red'>}</font>
+<a name='L128'>                <font color='red'>}</font>
+<a name='L129'>            <font color='red'>}</font>
+<a name='L130'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(str);
+<a name='L131'>        <font color='red'>}</font>
+<a name='L132'>
+<a name='L133'>        <i><font color='green'>/* Stop if the loop did not finish */</font></i>
+<a name='L134'>        <b>if</b> (i &lt; argc) <font color='red'>{</font>
+<a name='L135'>            <b>if</b> (str) <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(str);
+<a name='L136'>            <b>break</b>;
+<a name='L137'>        <font color='red'>}</font>
+<a name='L138'>    <font color='red'>}</font>
+<a name='L139'>
+<a name='L140'>    <b>if</b> (feof(fp) &amp;&amp; multi &amp;&amp; strlen(<a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>) == 0) <font color='red'>{</font>
+<a name='L141'>        <a href='../D/147.html' title='Multiple defined in 2 places.'>ERROR</a>("Reached EOF before reading EXEC for MULTI");
+<a name='L142'>    <font color='red'>}</font>
+<a name='L143'>    <b>if</b> (strlen(<a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>) &gt; 0) <font color='red'>{</font>
+<a name='L144'>        printf("%s\n", <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>);
+<a name='L145'>    <font color='red'>}</font>
+<a name='L146'>    <b>return</b> <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>;
+<a name='L147'><font color='red'>}</font>
+<a name='L148'>
+<a name='L149'><b>int</b> main(<b>int</b> argc, <b>char</b> **argv) <font color='red'>{</font>
+<a name='L150'>    <b>char</b> *filename;
+<a name='L151'>    <b>int</b> fix = 0;
+<a name='L152'>
+<a name='L153'>    <b>if</b> (argc &lt; 2) <font color='red'>{</font>
+<a name='L154'>        printf("Usage: %s [--fix] &lt;file.aof&gt;\n", argv[0]);
+<a name='L155'>        exit(1);
+<a name='L156'>    <font color='red'>}</font> <b>else</b> <b>if</b> (argc == 2) <font color='red'>{</font>
+<a name='L157'>        filename = argv[1];
+<a name='L158'>    <font color='red'>}</font> <b>else</b> <b>if</b> (argc == 3) <font color='red'>{</font>
+<a name='L159'>        <b>if</b> (strcmp(argv[1],"--fix") != 0) <font color='red'>{</font>
+<a name='L160'>            printf("Invalid argument: %s\n", argv[1]);
+<a name='L161'>            exit(1);
+<a name='L162'>        <font color='red'>}</font>
+<a name='L163'>        filename = argv[2];
+<a name='L164'>        fix = 1;
+<a name='L165'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L166'>        printf("Invalid arguments\n");
+<a name='L167'>        exit(1);
+<a name='L168'>    <font color='red'>}</font>
+<a name='L169'>
+<a name='L170'>    FILE *fp = fopen(filename,"r+");
+<a name='L171'>    <b>if</b> (fp == NULL) <font color='red'>{</font>
+<a name='L172'>        printf("Cannot open file: %s\n", filename);
+<a name='L173'>        exit(1);
+<a name='L174'>    <font color='red'>}</font>
+<a name='L175'>
+<a name='L176'>    <b>struct</b> <a href='../D/3875.html' title='Multiple defined in 2 places.'>redis_stat</a> sb;
+<a name='L177'>    <b>if</b> (<a href='../D/3872.html' title='Multiple defined in 2 places.'>redis_fstat</a>(fileno(fp),&amp;sb) == -1) <font color='red'>{</font>
+<a name='L178'>        printf("Cannot stat file: %s\n", filename);
+<a name='L179'>        exit(1);
+<a name='L180'>    <font color='red'>}</font>
+<a name='L181'>
+<a name='L182'>    off_t size = sb.st_size;
+<a name='L183'>    <b>if</b> (size == 0) <font color='red'>{</font>
+<a name='L184'>        printf("Empty file: %s\n", filename);
+<a name='L185'>        exit(1);
+<a name='L186'>    <font color='red'>}</font>
+<a name='L187'>
+<a name='L188'>    off_t <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> = <a href='../D/3520.html' title='Multiple defined in 2 places.'>process</a>(fp);
+<a name='L189'>    off_t diff = size-<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>;
+<a name='L190'>    printf("AOF analyzed: size=%lld, ok_up_to=%lld, diff=%lld\n",
+<a name='L191'>        (<b>long</b> <b>long</b>) size, (<b>long</b> <b>long</b>) <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>, (<b>long</b> <b>long</b>) diff);
+<a name='L192'>    <b>if</b> (diff &gt; 0) <font color='red'>{</font>
+<a name='L193'>        <b>if</b> (fix) <font color='red'>{</font>
+<a name='L194'>            <b>char</b> buf[2];
+<a name='L195'>            printf("This will shrink the AOF from %lld bytes, with %lld bytes, to %lld bytes\n",(<b>long</b> <b>long</b>)size,(<b>long</b> <b>long</b>)diff,(<b>long</b> <b>long</b>)<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>);
+<a name='L196'>            printf("Continue? [y/N]: ");
+<a name='L197'>            <b>if</b> (fgets(buf,<b>sizeof</b>(buf),stdin) == NULL ||
+<a name='L198'>                strncasecmp(buf,"y",1) != 0) <font color='red'>{</font>
+<a name='L199'>                    printf("Aborting...\n");
+<a name='L200'>                    exit(1);
+<a name='L201'>            <font color='red'>}</font>
+<a name='L202'>            <b>if</b> (ftruncate(fileno(fp), <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>) == -1) <font color='red'>{</font>
+<a name='L203'>                printf("Failed to truncate AOF\n");
+<a name='L204'>                exit(1);
+<a name='L205'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L206'>                printf("Successfully truncated AOF\n");
+<a name='L207'>            <font color='red'>}</font>
+<a name='L208'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L209'>            printf("AOF is not valid\n");
+<a name='L210'>            exit(1);
+<a name='L211'>        <font color='red'>}</font>
+<a name='L212'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L213'>        printf("AOF is valid\n");
+<a name='L214'>    <font color='red'>}</font>
+<a name='L215'>
+<a name='L216'>    fclose(fp);
+<a name='L217'>    <b>return</b> 0;
+<a name='L218'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L48'>[^]</a><a href='#L149'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

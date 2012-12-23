@@ -1,0 +1,185 @@
+<html>
+<head>
+<title>src/config.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/config.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/166.html' title='Multiple included from 5 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L3'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L4'><i><font color='green'> *</font></i>
+<a name='L5'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L6'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L7'><i><font color='green'> *</font></i>
+<a name='L8'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L9'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L10'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L11'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L12'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L13'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L14'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L15'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L16'><i><font color='green'> *</font></i>
+<a name='L17'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L18'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L19'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L20'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L21'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L22'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L23'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L24'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L25'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L26'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L27'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L28'><i><font color='green'> */</font></i>
+<a name='L29'>
+<a name='L30'><font color='darkred'>#ifndef</font> <a href='../S/53.html#L31' title='Defined at 31 in src/config.h.'>__CONFIG_H</a>
+<a name='L31'><font color='darkred'>#define</font> <a href='../S/53.html#L30' title='Refered from 30 in src/config.h.'>__CONFIG_H</a>
+<a name='L32'>
+<a name='L33'><font color='darkred'>#ifdef</font> __APPLE__
+<a name='L34'><font color='darkred'>#include</font> &lt;AvailabilityMacros.h&gt;
+<a name='L35'><font color='darkred'>#endif</font>
+<a name='L36'>
+<a name='L37'><i><font color='green'>/* Define redis_fstat to fstat or fstat64() */</font></i>
+<a name='L38'><font color='darkred'>#if</font> <b>defined</b>(__APPLE__) &amp;&amp; !<b>defined</b>(MAC_OS_X_VERSION_10_6)
+<a name='L39'><font color='darkred'>#define</font> <a href='../R/3502.html' title='Multiple refered from 4 places.'>redis_fstat</a> fstat64
+<a name='L40'><font color='darkred'>#define</font> <a href='../R/3505.html' title='Multiple refered from 4 places.'>redis_stat</a> stat64
+<a name='L41'><font color='darkred'>#else</font>
+<a name='L42'><font color='darkred'>#define</font> <a href='../R/3502.html' title='Multiple refered from 4 places.'>redis_fstat</a> fstat
+<a name='L43'><font color='darkred'>#define</font> <a href='../R/3505.html' title='Multiple refered from 4 places.'>redis_stat</a> stat
+<a name='L44'><font color='darkred'>#endif</font>
+<a name='L45'>
+<a name='L46'><i><font color='green'>/* Test for proc filesystem */</font></i>
+<a name='L47'><font color='darkred'>#ifdef</font> __linux__
+<a name='L48'><font color='darkred'>#define</font> <a href='../R/181.html' title='Multiple refered from 2 places.'>HAVE_PROCFS</a> 1
+<a name='L49'><font color='darkred'>#endif</font>
+<a name='L50'>
+<a name='L51'><i><font color='green'>/* Test for task_info() */</font></i>
+<a name='L52'><font color='darkred'>#if</font> <b>defined</b>(__APPLE__)
+<a name='L53'><font color='darkred'>#define</font> <a href='../S/39.html#L292' title='Refered from 292 in src/zmalloc.c.'>HAVE_TASKINFO</a> 1
+<a name='L54'><font color='darkred'>#endif</font>
+<a name='L55'>
+<a name='L56'><i><font color='green'>/* Test for backtrace() */</font></i>
+<a name='L57'><font color='darkred'>#if</font> <b>defined</b>(__APPLE__) || <b>defined</b>(__linux__) || <b>defined</b>(__sun)
+<a name='L58'><font color='darkred'>#define</font> <a href='../R/176.html' title='Multiple refered from 7 places.'>HAVE_BACKTRACE</a> 1
+<a name='L59'><font color='darkred'>#endif</font>
+<a name='L60'>
+<a name='L61'><i><font color='green'>/* Test for polling API */</font></i>
+<a name='L62'><font color='darkred'>#ifdef</font> __linux__
+<a name='L63'><font color='darkred'>#define</font> <a href='../S/36.html#L51' title='Refered from 51 in src/ae.c.'>HAVE_EPOLL</a> 1
+<a name='L64'><font color='darkred'>#endif</font>
+<a name='L65'>
+<a name='L66'><font color='darkred'>#if</font> (<b>defined</b>(__APPLE__) &amp;&amp; <b>defined</b>(MAC_OS_X_VERSION_10_6)) || <b>defined</b>(__FreeBSD__) || <b>defined</b>(__OpenBSD__) || <b>defined</b> (__NetBSD__)
+<a name='L67'><font color='darkred'>#define</font> <a href='../S/36.html#L54' title='Refered from 54 in src/ae.c.'>HAVE_KQUEUE</a> 1
+<a name='L68'><font color='darkred'>#endif</font>
+<a name='L69'>
+<a name='L70'><font color='darkred'>#ifdef</font> __sun
+<a name='L71'><font color='darkred'>#include</font> &lt;sys/feature_tests.h&gt;
+<a name='L72'><font color='darkred'>#ifdef</font> _DTRACE_VERSION
+<a name='L73'><font color='darkred'>#define</font> <a href='../S/36.html#L48' title='Refered from 48 in src/ae.c.'>HAVE_EVPORT</a> 1
+<a name='L74'><font color='darkred'>#endif</font>
+<a name='L75'><font color='darkred'>#endif</font>
+<a name='L76'>
+<a name='L77'><i><font color='green'>/* Define aof_fsync to fdatasync() in Linux and fsync() for all the rest */</font></i>
+<a name='L78'><font color='darkred'>#ifdef</font> __linux__
+<a name='L79'><font color='darkred'>#define</font> <a href='../R/1293.html' title='Multiple refered from 21 places.'>aof_fsync</a> fdatasync
+<a name='L80'><font color='darkred'>#else</font>
+<a name='L81'><font color='darkred'>#define</font> <a href='../R/1293.html' title='Multiple refered from 21 places.'>aof_fsync</a> fsync
+<a name='L82'><font color='darkred'>#endif</font>
+<a name='L83'>
+<a name='L84'><i><font color='green'>/* Define rdb_fsync_range to sync_file_range() on Linux, otherwise we use</font></i>
+<a name='L85'><i><font color='green'> * the plain fsync() call. */</font></i>
+<a name='L86'><font color='darkred'>#ifdef</font> __linux__
+<a name='L87'><font color='darkred'>#include</font> &lt;<a href='43.html'>linux/version.h</a>&gt;
+<a name='L88'><font color='darkred'>#include</font> &lt;features.h&gt;
+<a name='L89'><font color='darkred'>#if</font> <b>defined</b>(__GLIBC__) &amp;&amp; <b>defined</b>(__GLIBC_PREREQ)
+<a name='L90'><font color='darkred'>#if</font> (LINUX_VERSION_CODE &gt;= 0x020611 &amp;&amp; __GLIBC_PREREQ(2, 6))
+<a name='L91'><font color='darkred'>#define</font> <a href='../S/53.html#L100' title='Refered from 100 in src/config.h.'>HAVE_SYNC_FILE_RANGE</a> 1
+<a name='L92'><font color='darkred'>#endif</font>
+<a name='L93'><font color='darkred'>#else</font>
+<a name='L94'><font color='darkred'>#if</font> (LINUX_VERSION_CODE &gt;= 0x020611)
+<a name='L95'><font color='darkred'>#define</font> <a href='../S/53.html#L100' title='Refered from 100 in src/config.h.'>HAVE_SYNC_FILE_RANGE</a> 1
+<a name='L96'><font color='darkred'>#endif</font>
+<a name='L97'><font color='darkred'>#endif</font>
+<a name='L98'><font color='darkred'>#endif</font>
+<a name='L99'>
+<a name='L100'><font color='darkred'>#ifdef</font> <a href='../D/185.html' title='Multiple defined in 2 places.'>HAVE_SYNC_FILE_RANGE</a>
+<a name='L101'><font color='darkred'>#define</font> <a href='../S/14.html#L414' title='Refered from 414 in src/replication.c.'>rdb_fsync_range</a>(fd,off,size) sync_file_range(fd,off,size,SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE)
+<a name='L102'><font color='darkred'>#else</font>
+<a name='L103'><font color='darkred'>#define</font> <a href='../S/14.html#L414' title='Refered from 414 in src/replication.c.'>rdb_fsync_range</a>(fd,off,size) fsync(fd)
+<a name='L104'><font color='darkred'>#endif</font>
+<a name='L105'>
+<a name='L106'><i><font color='green'>/* Byte ordering detection */</font></i>
+<a name='L107'><font color='darkred'>#include</font> &lt;sys/types.h&gt; <i><font color='green'>/* This will likely define BYTE_ORDER */</font></i>
+<a name='L108'>
+<a name='L109'><font color='darkred'>#ifndef</font> <a href='../D/52.html' title='Multiple defined in 4 places.'>BYTE_ORDER</a>
+<a name='L110'><font color='darkred'>#if</font> (BSD &gt;= 199103)
+<a name='L111'><font color='darkred'># include</font> &lt;machine/endian.h&gt;
+<a name='L112'><font color='darkred'>#else</font>
+<a name='L113'><font color='darkred'>#if</font> <b>defined</b>(linux) || <b>defined</b>(__linux__)
+<a name='L114'><font color='darkred'># include</font> &lt;endian.h&gt;
+<a name='L115'><font color='darkred'>#else</font>
+<a name='L116'><font color='darkred'>#define</font> <a href='../R/260.html' title='Multiple refered from 5 places.'>LITTLE_ENDIAN</a>   1234    <i><font color='green'>/* least-significant byte first (vax, pc) */</font></i>
+<a name='L117'><font color='darkred'>#define</font> <a href='../R/37.html' title='Multiple refered from 4 places.'>BIG_ENDIAN</a>      4321    <i><font color='green'>/* most-significant byte first (IBM, net) */</font></i>
+<a name='L118'><font color='darkred'>#define</font> PDP_ENDIAN      3412    <i><font color='green'>/* LSB first in word, MSW first in long (pdp)*/</font></i>
+<a name='L119'>
+<a name='L120'><font color='darkred'>#if</font> <b>defined</b>(__i386__) || <b>defined</b>(__x86_64__) || <b>defined</b>(__amd64__) || \
+<a name='L121'>   <b>defined</b>(vax) || <b>defined</b>(ns32000) || <b>defined</b>(sun386) || \
+<a name='L122'>   <b>defined</b>(MIPSEL) || <b>defined</b>(_MIPSEL) || <b>defined</b>(BIT_ZERO_ON_RIGHT) || \
+<a name='L123'>   <b>defined</b>(__alpha__) || <b>defined</b>(__alpha)
+<a name='L124'><font color='darkred'>#define</font> <a href='../R/51.html' title='Multiple refered from 7 places.'>BYTE_ORDER</a>    <a href='../S/53.html#L116' title='Defined at 116 in src/config.h.'>LITTLE_ENDIAN</a>
+<a name='L125'><font color='darkred'>#endif</font>
+<a name='L126'>
+<a name='L127'><font color='darkred'>#if</font> <b>defined</b>(sel) || <b>defined</b>(pyr) || <b>defined</b>(mc68000) || <b>defined</b>(sparc) || \
+<a name='L128'>    <b>defined</b>(is68k) || <b>defined</b>(tahoe) || <b>defined</b>(ibm032) || <b>defined</b>(ibm370) || \
+<a name='L129'>    <b>defined</b>(MIPSEB) || <b>defined</b>(_MIPSEB) || <b>defined</b>(_IBMR2) || <b>defined</b>(DGUX) ||\
+<a name='L130'>    <b>defined</b>(apollo) || <b>defined</b>(__convex__) || <b>defined</b>(_CRAY) || \
+<a name='L131'>    <b>defined</b>(__hppa) || <b>defined</b>(__hp9000) || \
+<a name='L132'>    <b>defined</b>(__hp9000s300) || <b>defined</b>(__hp9000s700) || \
+<a name='L133'>    <b>defined</b> (BIT_ZERO_ON_LEFT) || <b>defined</b>(m68k) || <b>defined</b>(__sparc)
+<a name='L134'><font color='darkred'>#define</font> <a href='../R/51.html' title='Multiple refered from 7 places.'>BYTE_ORDER</a>      <a href='../S/53.html#L117' title='Defined at 117 in src/config.h.'>BIG_ENDIAN</a>
+<a name='L135'><font color='darkred'>#endif</font>
+<a name='L136'><font color='darkred'>#endif</font> <i><font color='green'>/* linux */</font></i>
+<a name='L137'><font color='darkred'>#endif</font> <i><font color='green'>/* BSD */</font></i>
+<a name='L138'><font color='darkred'>#endif</font> <i><font color='green'>/* BYTE_ORDER */</font></i>
+<a name='L139'>
+<a name='L140'><font color='darkred'>#if</font> <b>defined</b>(__BYTE_ORDER) &amp;&amp; !<b>defined</b>(<a href='../D/52.html' title='Multiple defined in 4 places.'>BYTE_ORDER</a>)
+<a name='L141'><font color='darkred'>#if</font> (__BYTE_ORDER == __LITTLE_ENDIAN)
+<a name='L142'><font color='darkred'>#define</font> <a href='../R/51.html' title='Multiple refered from 7 places.'>BYTE_ORDER</a> <a href='../S/53.html#L116' title='Defined at 116 in src/config.h.'>LITTLE_ENDIAN</a>
+<a name='L143'><font color='darkred'>#else</font>
+<a name='L144'><font color='darkred'>#define</font> <a href='../R/51.html' title='Multiple refered from 7 places.'>BYTE_ORDER</a> <a href='../S/53.html#L117' title='Defined at 117 in src/config.h.'>BIG_ENDIAN</a>
+<a name='L145'><font color='darkred'>#endif</font>
+<a name='L146'><font color='darkred'>#endif</font>
+<a name='L147'>
+<a name='L148'><font color='darkred'>#if</font> !<b>defined</b>(<a href='../D/52.html' title='Multiple defined in 4 places.'>BYTE_ORDER</a>) || \
+<a name='L149'>    (<a href='../D/52.html' title='Multiple defined in 4 places.'>BYTE_ORDER</a> != <a href='../S/53.html#L117' title='Defined at 117 in src/config.h.'>BIG_ENDIAN</a> &amp;&amp; <a href='../D/52.html' title='Multiple defined in 4 places.'>BYTE_ORDER</a> != <a href='../S/53.html#L116' title='Defined at 116 in src/config.h.'>LITTLE_ENDIAN</a>)
+<a name='L150'>        <i><font color='green'>/* you must determine what the correct bit order is for</font></i>
+<a name='L151'><i><font color='green'>         * your compiler - the next line is an intentional error</font></i>
+<a name='L152'><i><font color='green'>         * which will force your compiles to bomb until you fix</font></i>
+<a name='L153'><i><font color='green'>         * the above macros.</font></i>
+<a name='L154'><i><font color='green'>         */</font></i>
+<a name='L155'><font color='darkred'>#error</font> "Undefined or invalid BYTE_ORDER"
+<a name='L156'><font color='darkred'>#endif</font>
+<a name='L157'>
+<a name='L158'><font color='darkred'>#if</font> (__i386 || __amd64) &amp;&amp; __GNUC__
+<a name='L159'><font color='darkred'>#define</font> <a href='../S/53.html#L160' title='Refered from 160 in src/config.h.'>GNUC_VERSION</a> (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
+<a name='L160'><font color='darkred'>#if</font> <a href='../S/53.html#L159' title='Defined at 159 in src/config.h.'>GNUC_VERSION</a> &gt;= 40100
+<a name='L161'><font color='darkred'>#define</font> <a href='../R/175.html' title='Multiple refered from 2 places.'>HAVE_ATOMIC</a>
+<a name='L162'><font color='darkred'>#endif</font>
+<a name='L163'><font color='darkred'>#endif</font>
+<a name='L164'>
+<a name='L165'>
+<a name='L166'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

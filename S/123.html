@@ -1,0 +1,145 @@
+<html>
+<head>
+<title>deps/hiredis/dict.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/388.html'>hiredis</a>/dict.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/7.html' title='Multiple included from 3 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* Hash table implementation.</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * This file implements in memory hash tables with insert/del/replace/find/</font></i>
+<a name='L4'><i><font color='green'> * get-random-element operations. Hash tables will auto resize if needed</font></i>
+<a name='L5'><i><font color='green'> * tables of power of two in size are used, collisions are handled by</font></i>
+<a name='L6'><i><font color='green'> * chaining. See the source code for more information... :)</font></i>
+<a name='L7'><i><font color='green'> *</font></i>
+<a name='L8'><i><font color='green'> * Copyright (c) 2006-2010, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L9'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L10'><i><font color='green'> *</font></i>
+<a name='L11'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L12'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L13'><i><font color='green'> *</font></i>
+<a name='L14'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L15'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L16'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L17'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L18'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L19'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L20'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L21'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L22'><i><font color='green'> *</font></i>
+<a name='L23'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L24'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L25'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L26'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L27'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L28'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L29'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L30'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L31'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L32'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L33'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L34'><i><font color='green'> */</font></i>
+<a name='L35'>
+<a name='L36'><font color='darkred'>#ifndef</font> <a href='../D/1368.html' title='Multiple defined in 2 places.'>__DICT_H</a>
+<a name='L37'><font color='darkred'>#define</font> <a href='../R/1109.html' title='Multiple refered from 2 places.'>__DICT_H</a>
+<a name='L38'>
+<a name='L39'><font color='darkred'>#define</font> <a href='../R/121.html' title='Multiple refered from 38 places.'>DICT_OK</a> 0
+<a name='L40'><font color='darkred'>#define</font> <a href='../R/118.html' title='Multiple refered from 11 places.'>DICT_ERR</a> 1
+<a name='L41'>
+<a name='L42'><i><font color='green'>/* Unused arguments generate annoying warnings... */</font></i>
+<a name='L43'><font color='darkred'>#define</font> <a href='../R/120.html' title='Multiple refered from 9 places.'>DICT_NOTUSED</a>(V) ((<b>void</b>) V)
+<a name='L44'>
+<a name='L45'><b>typedef</b> <b>struct</b> <a href='../R/1798.html' title='Multiple refered from 103 places.'>dictEntry</a> <font color='red'>{</font>
+<a name='L46'>    <b>void</b> *key;
+<a name='L47'>    <b>void</b> *val;
+<a name='L48'>    <b>struct</b> <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L49'><font color='red'>}</font> <a href='../R/1798.html' title='Multiple refered from 103 places.'>dictEntry</a>;
+<a name='L50'>
+<a name='L51'><b>typedef</b> <b>struct</b> <a href='../R/1849.html' title='Multiple refered from 24 places.'>dictType</a> <font color='red'>{</font>
+<a name='L52'>    <b>unsigned</b> <b>int</b> (*hashFunction)(<b>const</b> <b>void</b> *key);
+<a name='L53'>    <b>void</b> *(*keyDup)(<b>void</b> *privdata, <b>const</b> <b>void</b> *key);
+<a name='L54'>    <b>void</b> *(*valDup)(<b>void</b> *privdata, <b>const</b> <b>void</b> *obj);
+<a name='L55'>    <b>int</b> (*keyCompare)(<b>void</b> *privdata, <b>const</b> <b>void</b> *key1, <b>const</b> <b>void</b> *key2);
+<a name='L56'>    <b>void</b> (*keyDestructor)(<b>void</b> *privdata, <b>void</b> *key);
+<a name='L57'>    <b>void</b> (*valDestructor)(<b>void</b> *privdata, <b>void</b> *obj);
+<a name='L58'><font color='red'>}</font> <a href='../R/1849.html' title='Multiple refered from 24 places.'>dictType</a>;
+<a name='L59'>
+<a name='L60'><b>typedef</b> <b>struct</b> <a href='../R/1785.html' title='Multiple refered from 127 places.'>dict</a> <font color='red'>{</font>
+<a name='L61'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> **table;
+<a name='L62'>    <a href='../D/2127.html' title='Multiple defined in 4 places.'>dictType</a> *type;
+<a name='L63'>    <b>unsigned</b> <b>long</b> size;
+<a name='L64'>    <b>unsigned</b> <b>long</b> sizemask;
+<a name='L65'>    <b>unsigned</b> <b>long</b> used;
+<a name='L66'>    <b>void</b> *privdata;
+<a name='L67'><font color='red'>}</font> <a href='../R/1785.html' title='Multiple refered from 127 places.'>dict</a>;
+<a name='L68'>
+<a name='L69'><b>typedef</b> <b>struct</b> <a href='../R/1821.html' title='Multiple refered from 44 places.'>dictIterator</a> <font color='red'>{</font>
+<a name='L70'>    <a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a> *ht;
+<a name='L71'>    <b>int</b> index;
+<a name='L72'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>, *nextEntry;
+<a name='L73'><font color='red'>}</font> <a href='../R/1821.html' title='Multiple refered from 44 places.'>dictIterator</a>;
+<a name='L74'>
+<a name='L75'><i><font color='green'>/* This is the initial size of every hash table */</font></i>
+<a name='L76'><font color='darkred'>#define</font> <a href='../R/119.html' title='Multiple refered from 9 places.'>DICT_HT_INITIAL_SIZE</a>     4
+<a name='L77'>
+<a name='L78'><i><font color='green'>/* ------------------------------- Macros ------------------------------------*/</font></i>
+<a name='L79'><font color='darkred'>#define</font> <a href='../R/1803.html' title='Multiple refered from 3 places.'>dictFreeEntryVal</a>(ht, entry) \
+<a name='L80'>    <b>if</b> ((ht)-&gt;type-&gt;valDestructor) \
+<a name='L81'>        (ht)-&gt;type-&gt;valDestructor((ht)-&gt;privdata, (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>)-&gt;val)
+<a name='L82'>
+<a name='L83'><font color='darkred'>#define</font> <a href='../R/1842.html' title='Multiple refered from 2 places.'>dictSetHashVal</a>(ht, entry, _val_) <b>do</b> <font color='red'>{</font> \
+<a name='L84'>    <b>if</b> ((ht)-&gt;type-&gt;valDup) \
+<a name='L85'>        <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;val = (ht)-&gt;type-&gt;valDup((ht)-&gt;privdata, _val_); \
+<a name='L86'>    <b>else</b> \
+<a name='L87'>        <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;val = (_val_); \
+<a name='L88'><font color='red'>}</font> <b>while</b>(0)
+<a name='L89'>
+<a name='L90'><font color='darkred'>#define</font> <a href='../R/1802.html' title='Multiple refered from 2 places.'>dictFreeEntryKey</a>(ht, entry) \
+<a name='L91'>    <b>if</b> ((ht)-&gt;type-&gt;keyDestructor) \
+<a name='L92'>        (ht)-&gt;type-&gt;keyDestructor((ht)-&gt;privdata, (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>)-&gt;key)
+<a name='L93'>
+<a name='L94'><font color='darkred'>#define</font> <a href='../S/107.html#L150' title='Refered from 150 in deps/hiredis/dict.c.'>dictSetHashKey</a>(ht, entry, _key_) <b>do</b> <font color='red'>{</font> \
+<a name='L95'>    <b>if</b> ((ht)-&gt;type-&gt;keyDup) \
+<a name='L96'>        <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;key = (ht)-&gt;type-&gt;keyDup((ht)-&gt;privdata, _key_); \
+<a name='L97'>    <b>else</b> \
+<a name='L98'>        <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;key = (_key_); \
+<a name='L99'><font color='red'>}</font> <b>while</b>(0)
+<a name='L100'>
+<a name='L101'><font color='darkred'>#define</font> <a href='../R/1788.html' title='Multiple refered from 3 places.'>dictCompareHashKeys</a>(ht, key1, key2) \
+<a name='L102'>    (((ht)-&gt;type-&gt;keyCompare) ? \
+<a name='L103'>        (ht)-&gt;type-&gt;keyCompare((ht)-&gt;privdata, key1, key2) : \
+<a name='L104'>        (key1) == (key2))
+<a name='L105'>
+<a name='L106'><font color='darkred'>#define</font> <a href='../R/1818.html' title='Multiple refered from 8 places.'>dictHashKey</a>(ht, key) (ht)-&gt;type-&gt;hashFunction(key)
+<a name='L107'>
+<a name='L108'><font color='darkred'>#define</font> dictGetEntryKey(he) ((he)-&gt;key)
+<a name='L109'><font color='darkred'>#define</font> <a href='../R/1809.html' title='Multiple refered from 3 places.'>dictGetEntryVal</a>(he) ((he)-&gt;val)
+<a name='L110'><font color='darkred'>#define</font> <a href='../R/1848.html' title='Multiple refered from 3 places.'>dictSlots</a>(ht) ((ht)-&gt;size)
+<a name='L111'><font color='darkred'>#define</font> <a href='../R/1847.html' title='Multiple refered from 47 places.'>dictSize</a>(ht) ((ht)-&gt;used)
+<a name='L112'>
+<a name='L113'><i><font color='green'>/* API */</font></i>
+<a name='L114'><b>static</b> <b>unsigned</b> <b>int</b> <a href='../D/2082.html' title='Multiple defined in 2 places.'>dictGenHashFunction</a>(<b>const</b> <b>unsigned</b> <b>char</b> *buf, <b>int</b> len);
+<a name='L115'><b>static</b> <a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a> *<a href='../D/2065.html' title='Multiple defined in 2 places.'>dictCreate</a>(dictType *type, <b>void</b> *privDataPtr);
+<a name='L116'><b>static</b> <b>int</b> <a href='../D/2074.html' title='Multiple defined in 2 places.'>dictExpand</a>(dict *ht, <b>unsigned</b> <b>long</b> size);
+<a name='L117'><b>static</b> <b>int</b> <a href='../D/2061.html' title='Multiple defined in 2 places.'>dictAdd</a>(dict *ht, <b>void</b> *key, <b>void</b> *val);
+<a name='L118'><b>static</b> <b>int</b> <a href='../D/2110.html' title='Multiple defined in 2 places.'>dictReplace</a>(dict *ht, <b>void</b> *key, <b>void</b> *val);
+<a name='L119'><b>static</b> <b>int</b> <a href='../D/2066.html' title='Multiple defined in 2 places.'>dictDelete</a>(dict *ht, <b>const</b> <b>void</b> *key);
+<a name='L120'><b>static</b> <b>void</b> <a href='../D/2108.html' title='Multiple defined in 2 places.'>dictRelease</a>(dict *ht);
+<a name='L121'><b>static</b> <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> * <a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(dict *ht, <b>const</b> <b>void</b> *key);
+<a name='L122'><b>static</b> <a href='../D/2099.html' title='Multiple defined in 4 places.'>dictIterator</a> *<a href='../D/2087.html' title='Multiple defined in 2 places.'>dictGetIterator</a>(dict *ht);
+<a name='L123'><b>static</b> <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *<a href='../D/2101.html' title='Multiple defined in 2 places.'>dictNext</a>(dictIterator *iter);
+<a name='L124'><b>static</b> <b>void</b> <a href='../D/2109.html' title='Multiple defined in 2 places.'>dictReleaseIterator</a>(dictIterator *iter);
+<a name='L125'>
+<a name='L126'><font color='darkred'>#endif</font> <i><font color='green'>/* __DICT_H */</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

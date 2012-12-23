@@ -1,0 +1,188 @@
+<html>
+<head>
+<title>deps/lua/src/lstate.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/lstate.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/124.html' title='Multiple included from 19 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: lstate.h,v 2.24.1.2 2008/01/03 15:20:39 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Global State</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'><font color='darkred'>#ifndef</font> <a href='../S/298.html#L8' title='Defined at 8 in deps/lua/src/lstate.h.'>lstate_h</a>
+<a name='L8'><font color='darkred'>#define</font> <a href='../S/298.html#L7' title='Refered from 7 in deps/lua/src/lstate.h.'>lstate_h</a>
+<a name='L9'>
+<a name='L10'><font color='darkred'>#include</font> "<a href='266.html'>lua.h</a>"
+<a name='L11'>
+<a name='L12'><font color='darkred'>#include</font> "<a href='282.html'>lobject.h</a>"
+<a name='L13'><font color='darkred'>#include</font> "<a href='307.html'>ltm.h</a>"
+<a name='L14'><font color='darkred'>#include</font> "<a href='312.html'>lzio.h</a>"
+<a name='L15'>
+<a name='L16'>
+<a name='L17'>
+<a name='L18'><b>struct</b> <a href='../S/297.html#L44' title='Defined at 44 in deps/lua/src/ldo.c.'>lua_longjmp</a>;  <i><font color='green'>/* defined in ldo.c */</font></i>
+<a name='L19'>
+<a name='L20'>
+<a name='L21'><i><font color='green'>/* table of globals */</font></i>
+<a name='L22'><font color='darkred'>#define</font> <a href='../R/2109.html' title='Multiple refered from 10 places.'>gt</a>(L)   (&amp;L-&gt;l_gt)
+<a name='L23'>
+<a name='L24'><i><font color='green'>/* registry */</font></i>
+<a name='L25'><font color='darkred'>#define</font> <a href='../R/3513.html' title='Multiple refered from 4 places.'>registry</a>(L)     (&amp;<a href='../S/298.html#L130' title='Defined at 130 in deps/lua/src/lstate.h.'>G</a>(L)-&gt;l_registry)
+<a name='L26'>
+<a name='L27'>
+<a name='L28'><i><font color='green'>/* extra stack space to handle TM calls and some other extras */</font></i>
+<a name='L29'><font color='darkred'>#define</font> <a href='../R/145.html' title='Multiple refered from 9 places.'>EXTRA_STACK</a>   5
+<a name='L30'>
+<a name='L31'>
+<a name='L32'><font color='darkred'>#define</font> <a href='../R/34.html' title='Multiple refered from 3 places.'>BASIC_CI_SIZE</a>           8
+<a name='L33'>
+<a name='L34'><font color='darkred'>#define</font> <a href='../R/35.html' title='Multiple refered from 3 places.'>BASIC_STACK_SIZE</a>        (2*<a href='../S/266.html#L87' title='Defined at 87 in deps/lua/src/lua.h.'>LUA_MINSTACK</a>)
+<a name='L35'>
+<a name='L36'>
+<a name='L37'>
+<a name='L38'><b>typedef</b> <b>struct</b> <a href='../R/3893.html' title='Multiple refered from 3 places.'>stringtable</a> <font color='red'>{</font>
+<a name='L39'>  <a href='../D/159.html' title='Multiple defined in 2 places.'>GCObject</a> **<a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a>;
+<a name='L40'>  <a href='../S/310.html#L18' title='Defined at 18 in deps/lua/src/llimits.h.'>lu_int32</a> nuse;  <i><font color='green'>/* number of elements */</font></i>
+<a name='L41'>  <b>int</b> size;
+<a name='L42'><font color='red'>}</font> <a href='../R/3893.html' title='Multiple refered from 3 places.'>stringtable</a>;
+<a name='L43'>
+<a name='L44'>
+<a name='L45'><i><font color='green'>/*</font></i>
+<a name='L46'><i><font color='green'>** informations about a call</font></i>
+<a name='L47'><i><font color='green'>*/</font></i>
+<a name='L48'><b>typedef</b> <b>struct</b> <a href='../R/104.html' title='Multiple refered from 23 places.'>CallInfo</a> <font color='red'>{</font>
+<a name='L49'>  <a href='../S/282.html#L193' title='Defined at 193 in deps/lua/src/lobject.h.'>StkId</a> base;  <i><font color='green'>/* base for this function */</font></i>
+<a name='L50'>  <a href='../S/282.html#L193' title='Defined at 193 in deps/lua/src/lobject.h.'>StkId</a> func;  <i><font color='green'>/* function index in the stack */</font></i>
+<a name='L51'>  <a href='../S/282.html#L193' title='Defined at 193 in deps/lua/src/lobject.h.'>StkId</a> top;  <i><font color='green'>/* top for this function */</font></i>
+<a name='L52'>  <b>const</b> <a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a> *savedpc;
+<a name='L53'>  <b>int</b> nresults;  <i><font color='green'>/* expected number of results from this function */</font></i>
+<a name='L54'>  <b>int</b> tailcalls;  <i><font color='green'>/* number of tail calls lost under this entry */</font></i>
+<a name='L55'><font color='red'>}</font> <a href='../R/104.html' title='Multiple refered from 23 places.'>CallInfo</a>;
+<a name='L56'>
+<a name='L57'>
+<a name='L58'>
+<a name='L59'><font color='darkred'>#define</font> <a href='../R/1750.html' title='Multiple refered from 6 places.'>curr_func</a>(L)    (<a href='../S/282.html#L98' title='Defined at 98 in deps/lua/src/lobject.h.'>clvalue</a>(L-&gt;ci-&gt;func))
+<a name='L60'><font color='darkred'>#define</font> <a href='../R/1592.html' title='Multiple refered from 7 places.'>ci_func</a>(ci)     (<a href='../S/282.html#L98' title='Defined at 98 in deps/lua/src/lobject.h.'>clvalue</a>((ci)-&gt;func))
+<a name='L61'><font color='darkred'>#define</font> <a href='../R/1959.html' title='Multiple refered from 4 places.'>f_isLua</a>(ci)     (!<a href='../S/298.html#L60' title='Defined at 60 in deps/lua/src/lstate.h.'>ci_func</a>(ci)-&gt;c.isC)
+<a name='L62'><font color='darkred'>#define</font> <a href='../R/2261.html' title='Multiple refered from 7 places.'>isLua</a>(ci)       (<a href='../S/282.html#L83' title='Defined at 83 in deps/lua/src/lobject.h.'>ttisfunction</a>((ci)-&gt;func) &amp;&amp; <a href='../S/298.html#L61' title='Defined at 61 in deps/lua/src/lstate.h.'>f_isLua</a>(ci))
+<a name='L63'>
+<a name='L64'>
+<a name='L65'><i><font color='green'>/*</font></i>
+<a name='L66'><i><font color='green'>** `global state', shared by all threads of this state</font></i>
+<a name='L67'><i><font color='green'>*/</font></i>
+<a name='L68'><b>typedef</b> <b>struct</b> <a href='../R/2102.html' title='Multiple refered from 23 places.'>global_State</a> <font color='red'>{</font>
+<a name='L69'>  <a href='../D/4265.html' title='Multiple defined in 2 places.'>stringtable</a> strt;  <i><font color='green'>/* hash table for strings */</font></i>
+<a name='L70'>  lua_Alloc frealloc;  <i><font color='green'>/* function to reallocate memory */</font></i>
+<a name='L71'>  <b>void</b> *ud;         <i><font color='green'>/* auxiliary data to `frealloc' */</font></i>
+<a name='L72'>  <a href='../S/310.html#L27' title='Defined at 27 in deps/lua/src/llimits.h.'>lu_byte</a> currentwhite;
+<a name='L73'>  <a href='../S/310.html#L27' title='Defined at 27 in deps/lua/src/llimits.h.'>lu_byte</a> gcstate;  <i><font color='green'>/* state of garbage collector */</font></i>
+<a name='L74'>  <b>int</b> sweepstrgc;  <i><font color='green'>/* position of sweep in `strt' */</font></i>
+<a name='L75'>  <a href='../D/159.html' title='Multiple defined in 2 places.'>GCObject</a> *rootgc;  <i><font color='green'>/* list of all collectable objects */</font></i>
+<a name='L76'>  <a href='../D/159.html' title='Multiple defined in 2 places.'>GCObject</a> **sweepgc;  <i><font color='green'>/* position of sweep in `rootgc' */</font></i>
+<a name='L77'>  <a href='../D/159.html' title='Multiple defined in 2 places.'>GCObject</a> *gray;  <i><font color='green'>/* list of gray objects */</font></i>
+<a name='L78'>  <a href='../D/159.html' title='Multiple defined in 2 places.'>GCObject</a> *grayagain;  <i><font color='green'>/* list of objects to be traversed atomically */</font></i>
+<a name='L79'>  <a href='../D/159.html' title='Multiple defined in 2 places.'>GCObject</a> *weak;  <i><font color='green'>/* list of weak tables (to be cleared) */</font></i>
+<a name='L80'>  <a href='../D/159.html' title='Multiple defined in 2 places.'>GCObject</a> *tmudata;  <i><font color='green'>/* last element of list of userdata to be GC */</font></i>
+<a name='L81'>  <a href='../D/512.html' title='Multiple defined in 2 places.'>Mbuffer</a> buff;  <i><font color='green'>/* temporary buffer for string concatentation */</font></i>
+<a name='L82'>  <a href='../S/310.html#L20' title='Defined at 20 in deps/lua/src/llimits.h.'>lu_mem</a> GCthreshold;
+<a name='L83'>  <a href='../S/310.html#L20' title='Defined at 20 in deps/lua/src/llimits.h.'>lu_mem</a> totalbytes;  <i><font color='green'>/* number of bytes currently allocated */</font></i>
+<a name='L84'>  <a href='../S/310.html#L20' title='Defined at 20 in deps/lua/src/llimits.h.'>lu_mem</a> estimate;  <i><font color='green'>/* an estimate of number of bytes actually in use */</font></i>
+<a name='L85'>  <a href='../S/310.html#L20' title='Defined at 20 in deps/lua/src/llimits.h.'>lu_mem</a> gcdept;  <i><font color='green'>/* how much GC is `behind schedule' */</font></i>
+<a name='L86'>  <b>int</b> gcpause;  <i><font color='green'>/* size of pause between successive GCs */</font></i>
+<a name='L87'>  <b>int</b> gcstepmul;  <i><font color='green'>/* GC `granularity' */</font></i>
+<a name='L88'>  lua_CFunction <a href='../S/260.html#L639' title='Defined at 639 in deps/lua/src/lauxlib.c.'>panic</a>;  <i><font color='green'>/* to be called in unprotected errors */</font></i>
+<a name='L89'>  <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> l_registry;
+<a name='L90'>  <b>struct</b> <a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *mainthread;
+<a name='L91'>  <a href='../D/1270.html' title='Multiple defined in 2 places.'>UpVal</a> uvhead;  <i><font color='green'>/* head of double-linked list of all open upvalues */</font></i>
+<a name='L92'>  <b>struct</b> <a href='../D/1237.html' title='Multiple defined in 2 places.'>Table</a> *mt[<a href='../S/282.html#L22' title='Defined at 22 in deps/lua/src/lobject.h.'>NUM_TAGS</a>];  <i><font color='green'>/* metatables for basic types */</font></i>
+<a name='L93'>  <a href='../D/1215.html' title='Multiple defined in 2 places.'>TString</a> *tmname[<a href='../S/307.html#L36' title='Defined at 36 in deps/lua/src/ltm.h.'>TM_N</a>];  <i><font color='green'>/* array with tag-method names */</font></i>
+<a name='L94'><font color='red'>}</font> <a href='../R/2102.html' title='Multiple refered from 23 places.'>global_State</a>;
+<a name='L95'>
+<a name='L96'>
+<a name='L97'><i><font color='green'>/*</font></i>
+<a name='L98'><i><font color='green'>** `per thread' state</font></i>
+<a name='L99'><i><font color='green'>*/</font></i>
+<a name='L100'><b>struct</b> <a href='../R/2754.html' title='Multiple refered from 154 places.'>lua_State</a> <font color='red'>{</font>
+<a name='L101'>  <a href='../S/282.html#L43' title='Defined at 43 in deps/lua/src/lobject.h.'>CommonHeader</a>;
+<a name='L102'>  <a href='../S/310.html#L27' title='Defined at 27 in deps/lua/src/llimits.h.'>lu_byte</a> status;
+<a name='L103'>  <a href='../S/282.html#L193' title='Defined at 193 in deps/lua/src/lobject.h.'>StkId</a> top;  <i><font color='green'>/* first free slot in the stack */</font></i>
+<a name='L104'>  <a href='../S/282.html#L193' title='Defined at 193 in deps/lua/src/lobject.h.'>StkId</a> base;  <i><font color='green'>/* base of current function */</font></i>
+<a name='L105'>  <a href='../D/2382.html' title='Multiple defined in 2 places.'>global_State</a> *l_G;
+<a name='L106'>  <a href='../D/107.html' title='Multiple defined in 2 places.'>CallInfo</a> *ci;  <i><font color='green'>/* call info for current function */</font></i>
+<a name='L107'>  <b>const</b> <a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a> *savedpc;  <i><font color='green'>/* `savedpc' of current function */</font></i>
+<a name='L108'>  <a href='../S/282.html#L193' title='Defined at 193 in deps/lua/src/lobject.h.'>StkId</a> stack_last;  <i><font color='green'>/* last free slot in the stack */</font></i>
+<a name='L109'>  <a href='../S/282.html#L193' title='Defined at 193 in deps/lua/src/lobject.h.'>StkId</a> stack;  <i><font color='green'>/* stack base */</font></i>
+<a name='L110'>  <a href='../D/107.html' title='Multiple defined in 2 places.'>CallInfo</a> *end_ci;  <i><font color='green'>/* points after end of ci array*/</font></i>
+<a name='L111'>  <a href='../D/107.html' title='Multiple defined in 2 places.'>CallInfo</a> *base_ci;  <i><font color='green'>/* array of CallInfo's */</font></i>
+<a name='L112'>  <b>int</b> stacksize;
+<a name='L113'>  <b>int</b> size_ci;  <i><font color='green'>/* size of array `base_ci' */</font></i>
+<a name='L114'>  <b>unsigned</b> <b>short</b> nCcalls;  <i><font color='green'>/* number of nested C calls */</font></i>
+<a name='L115'>  <b>unsigned</b> <b>short</b> baseCcalls;  <i><font color='green'>/* nested C calls when resuming coroutine */</font></i>
+<a name='L116'>  <a href='../S/310.html#L27' title='Defined at 27 in deps/lua/src/llimits.h.'>lu_byte</a> hookmask;
+<a name='L117'>  <a href='../S/310.html#L27' title='Defined at 27 in deps/lua/src/llimits.h.'>lu_byte</a> allowhook;
+<a name='L118'>  <b>int</b> basehookcount;
+<a name='L119'>  <b>int</b> hookcount;
+<a name='L120'>  lua_Hook hook;
+<a name='L121'>  <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> l_gt;  <i><font color='green'>/* table of globals */</font></i>
+<a name='L122'>  <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> env;  <i><font color='green'>/* temporary place for environments */</font></i>
+<a name='L123'>  <a href='../D/159.html' title='Multiple defined in 2 places.'>GCObject</a> *openupval;  <i><font color='green'>/* list of open upvalues in this stack */</font></i>
+<a name='L124'>  <a href='../D/159.html' title='Multiple defined in 2 places.'>GCObject</a> *gclist;
+<a name='L125'>  <b>struct</b> <a href='../S/297.html#L44' title='Defined at 44 in deps/lua/src/ldo.c.'>lua_longjmp</a> *errorJmp;  <i><font color='green'>/* current error recover point */</font></i>
+<a name='L126'>  ptrdiff_t errfunc;  <i><font color='green'>/* current error handling function (stack index) */</font></i>
+<a name='L127'><font color='red'>}</font>;
+<a name='L128'>
+<a name='L129'>
+<a name='L130'><font color='darkred'>#define</font> <a href='../R/154.html' title='Multiple refered from 64 places.'>G</a>(L)    (L-&gt;l_G)
+<a name='L131'>
+<a name='L132'>
+<a name='L133'><i><font color='green'>/*</font></i>
+<a name='L134'><i><font color='green'>** Union of all collectable objects</font></i>
+<a name='L135'><i><font color='green'>*/</font></i>
+<a name='L136'><b>union</b> <a href='../R/156.html' title='Multiple refered from 39 places.'>GCObject</a> <font color='red'>{</font>
+<a name='L137'>  <a href='../D/169.html' title='Multiple defined in 2 places.'>GCheader</a> gch;
+<a name='L138'>  <b>union</b> <a href='../D/1215.html' title='Multiple defined in 2 places.'>TString</a> ts;
+<a name='L139'>  <b>union</b> <a href='../D/1268.html' title='Multiple defined in 2 places.'>Udata</a> u;
+<a name='L140'>  <b>union</b> <a href='../D/109.html' title='Multiple defined in 2 places.'>Closure</a> cl;
+<a name='L141'>  <b>struct</b> <a href='../D/1237.html' title='Multiple defined in 2 places.'>Table</a> h;
+<a name='L142'>  <b>struct</b> <a href='../D/722.html' title='Multiple defined in 2 places.'>Proto</a> p;
+<a name='L143'>  <b>struct</b> <a href='../D/1270.html' title='Multiple defined in 2 places.'>UpVal</a> uv;
+<a name='L144'>  <b>struct</b> <a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> th;  <i><font color='green'>/* thread */</font></i>
+<a name='L145'><font color='red'>}</font>;
+<a name='L146'>
+<a name='L147'>
+<a name='L148'><i><font color='green'>/* macros to convert a GCObject into a specific value */</font></i>
+<a name='L149'><font color='darkred'>#define</font> <a href='../R/3315.html' title='Multiple refered from 2 places.'>rawgco2ts</a>(o)    <a href='../D/1822.html' title='Multiple defined in 2 places.'>check_exp</a>((o)-&gt;gch.tt == <a href='../S/266.html#L78' title='Defined at 78 in deps/lua/src/lua.h.'>LUA_TSTRING</a>, &amp;((o)-&gt;ts))
+<a name='L150'><font color='darkred'>#define</font> <a href='../R/2025.html' title='Multiple refered from 2 places.'>gco2ts</a>(o)       (&amp;<a href='../S/298.html#L149' title='Defined at 149 in deps/lua/src/lstate.h.'>rawgco2ts</a>(o)-&gt;tsv)
+<a name='L151'><font color='darkred'>#define</font> <a href='../R/3316.html' title='Multiple refered from 2 places.'>rawgco2u</a>(o)     <a href='../D/1822.html' title='Multiple defined in 2 places.'>check_exp</a>((o)-&gt;gch.tt == <a href='../S/266.html#L81' title='Defined at 81 in deps/lua/src/lua.h.'>LUA_TUSERDATA</a>, &amp;((o)-&gt;u))
+<a name='L152'><font color='darkred'>#define</font> <a href='../R/2026.html' title='Multiple refered from 8 places.'>gco2u</a>(o)        (&amp;<a href='../S/298.html#L151' title='Defined at 151 in deps/lua/src/lstate.h.'>rawgco2u</a>(o)-&gt;uv)
+<a name='L153'><font color='darkred'>#define</font> <a href='../R/2021.html' title='Multiple refered from 3 places.'>gco2cl</a>(o)       <a href='../D/1822.html' title='Multiple defined in 2 places.'>check_exp</a>((o)-&gt;gch.tt == <a href='../S/266.html#L80' title='Defined at 80 in deps/lua/src/lua.h.'>LUA_TFUNCTION</a>, &amp;((o)-&gt;cl))
+<a name='L154'><font color='darkred'>#define</font> <a href='../R/2022.html' title='Multiple refered from 4 places.'>gco2h</a>(o)        <a href='../D/1822.html' title='Multiple defined in 2 places.'>check_exp</a>((o)-&gt;gch.tt == <a href='../S/266.html#L79' title='Defined at 79 in deps/lua/src/lua.h.'>LUA_TTABLE</a>, &amp;((o)-&gt;h))
+<a name='L155'><font color='darkred'>#define</font> <a href='../R/2023.html' title='Multiple refered from 3 places.'>gco2p</a>(o)        <a href='../D/1822.html' title='Multiple defined in 2 places.'>check_exp</a>((o)-&gt;gch.tt == <a href='../S/282.html#L28' title='Defined at 28 in deps/lua/src/lobject.h.'>LUA_TPROTO</a>, &amp;((o)-&gt;p))
+<a name='L156'><font color='darkred'>#define</font> <a href='../R/2027.html' title='Multiple refered from 3 places.'>gco2uv</a>(o)       <a href='../D/1822.html' title='Multiple defined in 2 places.'>check_exp</a>((o)-&gt;gch.tt == <a href='../S/282.html#L29' title='Defined at 29 in deps/lua/src/lobject.h.'>LUA_TUPVAL</a>, &amp;((o)-&gt;uv))
+<a name='L157'><font color='darkred'>#define</font> <a href='../R/3073.html' title='Multiple refered from 2 places.'>ngcotouv</a>(o) \
+<a name='L158'>        <a href='../D/1822.html' title='Multiple defined in 2 places.'>check_exp</a>((o) == NULL || (o)-&gt;gch.tt == <a href='../S/282.html#L29' title='Defined at 29 in deps/lua/src/lobject.h.'>LUA_TUPVAL</a>, &amp;((o)-&gt;uv))
+<a name='L159'><font color='darkred'>#define</font> <a href='../R/2024.html' title='Multiple refered from 5 places.'>gco2th</a>(o)       <a href='../D/1822.html' title='Multiple defined in 2 places.'>check_exp</a>((o)-&gt;gch.tt == <a href='../S/266.html#L82' title='Defined at 82 in deps/lua/src/lua.h.'>LUA_TTHREAD</a>, &amp;((o)-&gt;th))
+<a name='L160'>
+<a name='L161'><i><font color='green'>/* macro to convert any Lua object into a GCObject */</font></i>
+<a name='L162'><font color='darkred'>#define</font> <a href='../R/3087.html' title='Multiple refered from 30 places.'>obj2gco</a>(v)      (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../D/159.html' title='Multiple defined in 2 places.'>GCObject</a> *, (v)))
+<a name='L163'>
+<a name='L164'>
+<a name='L165'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *<a href='../S/275.html#L119' title='Defined at 119 in deps/lua/src/lstate.c.'>luaE_newthread</a> (lua_State *L);
+<a name='L166'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/275.html#L134' title='Defined at 134 in deps/lua/src/lstate.c.'>luaE_freethread</a> (lua_State *L, lua_State *L1);
+<a name='L167'>
+<a name='L168'><font color='darkred'>#endif</font>
+<a name='L169'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

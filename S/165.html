@@ -1,0 +1,115 @@
+<html>
+<head>
+<title>deps/jemalloc/test/thread_tcache_enabled.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/396.html'>test</a>/thread_tcache_enabled.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L5'>[^]</a><a href='#L70'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L5' title='Defined at 5.'>je_thread_start</a>
+<li><a href='#L70' title='Defined at 70.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> JEMALLOC_MANGLE
+<a name='L2'><font color='darkred'>#include</font> "jemalloc_test.h"
+<a name='L3'>
+<a name='L4'><b>void</b> *
+<a name='L5'><a href='../R/2297.html' title='Multiple refered from 12 places.'>je_thread_start</a>(<b>void</b> *arg)
+<a name='L6'><font color='red'>{</font>
+<a name='L7'>        <b>int</b> err;
+<a name='L8'>        size_t sz;
+<a name='L9'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> e0, e1;
+<a name='L10'>
+<a name='L11'>        sz = <b>sizeof</b>(<a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>);
+<a name='L12'>        <b>if</b> ((err = mallctl("thread.tcache.enabled", &amp;e0, &amp;sz, NULL, 0))) <font color='red'>{</font>
+<a name='L13'>                <b>if</b> (err == ENOENT) <font color='red'>{</font>
+<a name='L14'><font color='darkred'>#ifdef</font> JEMALLOC_TCACHE
+<a name='L15'>                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L16'><font color='darkred'>#endif</font>
+<a name='L17'>                <font color='red'>}</font>
+<a name='L18'>                <b>goto</b> label_return;
+<a name='L19'>        <font color='red'>}</font>
+<a name='L20'>
+<a name='L21'>        <b>if</b> (e0) <font color='red'>{</font>
+<a name='L22'>                e1 = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L23'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(mallctl("thread.tcache.enabled", &amp;e0, &amp;sz, &amp;e1, sz)
+<a name='L24'>                    == 0);
+<a name='L25'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(e0);
+<a name='L26'>        <font color='red'>}</font>
+<a name='L27'>
+<a name='L28'>        e1 = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L29'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(mallctl("thread.tcache.enabled", &amp;e0, &amp;sz, &amp;e1, sz) == 0);
+<a name='L30'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(e0 == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L31'>
+<a name='L32'>        e1 = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L33'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(mallctl("thread.tcache.enabled", &amp;e0, &amp;sz, &amp;e1, sz) == 0);
+<a name='L34'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(e0);
+<a name='L35'>
+<a name='L36'>        e1 = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L37'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(mallctl("thread.tcache.enabled", &amp;e0, &amp;sz, &amp;e1, sz) == 0);
+<a name='L38'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(e0);
+<a name='L39'>
+<a name='L40'>        e1 = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L41'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(mallctl("thread.tcache.enabled", &amp;e0, &amp;sz, &amp;e1, sz) == 0);
+<a name='L42'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(e0 == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L43'>
+<a name='L44'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(<a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(1));
+<a name='L45'>        e1 = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L46'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(mallctl("thread.tcache.enabled", &amp;e0, &amp;sz, &amp;e1, sz) == 0);
+<a name='L47'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(e0 == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L48'>
+<a name='L49'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(<a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(1));
+<a name='L50'>        e1 = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L51'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(mallctl("thread.tcache.enabled", &amp;e0, &amp;sz, &amp;e1, sz) == 0);
+<a name='L52'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(e0);
+<a name='L53'>
+<a name='L54'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(<a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(1));
+<a name='L55'>        e1 = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L56'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(mallctl("thread.tcache.enabled", &amp;e0, &amp;sz, &amp;e1, sz) == 0);
+<a name='L57'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(e0);
+<a name='L58'>
+<a name='L59'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(<a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(1));
+<a name='L60'>        e1 = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L61'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(mallctl("thread.tcache.enabled", &amp;e0, &amp;sz, &amp;e1, sz) == 0);
+<a name='L62'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(e0 == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L63'>
+<a name='L64'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(<a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(1));
+<a name='L65'>label_return:
+<a name='L66'>        <b>return</b> (NULL);
+<a name='L67'><font color='red'>}</font>
+<a name='L68'>
+<a name='L69'><b>int</b>
+<a name='L70'>main(<b>void</b>)
+<a name='L71'><font color='red'>{</font>
+<a name='L72'>        <b>int</b> ret = 0;
+<a name='L73'>        je_thread_t thread;
+<a name='L74'>
+<a name='L75'>        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Test begin\n");
+<a name='L76'>
+<a name='L77'>        <a href='../D/2595.html' title='Multiple defined in 4 places.'>je_thread_start</a>(NULL);
+<a name='L78'>
+<a name='L79'>        je_thread_create(&amp;thread, <a href='../D/2595.html' title='Multiple defined in 4 places.'>je_thread_start</a>, NULL);
+<a name='L80'>        je_thread_join(thread, (<b>void</b> *)&amp;ret);
+<a name='L81'>
+<a name='L82'>        <a href='../D/2595.html' title='Multiple defined in 4 places.'>je_thread_start</a>(NULL);
+<a name='L83'>
+<a name='L84'>        je_thread_create(&amp;thread, <a href='../D/2595.html' title='Multiple defined in 4 places.'>je_thread_start</a>, NULL);
+<a name='L85'>        je_thread_join(thread, (<b>void</b> *)&amp;ret);
+<a name='L86'>
+<a name='L87'>        <a href='../D/2595.html' title='Multiple defined in 4 places.'>je_thread_start</a>(NULL);
+<a name='L88'>
+<a name='L89'>        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Test end\n");
+<a name='L90'>        <b>return</b> (ret);
+<a name='L91'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L5'>[^]</a><a href='#L70'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

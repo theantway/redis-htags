@@ -1,0 +1,91 @@
+<html>
+<head>
+<title>deps/hiredis/example.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/388.html'>hiredis</a>/example.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L7'>[^]</a>[v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L7' title='Defined at 7.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L2'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L3'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L4'>
+<a name='L5'><font color='darkred'>#include</font> "<a href='121.html'>hiredis.h</a>"
+<a name='L6'>
+<a name='L7'><b>int</b> main(<b>void</b>) <font color='red'>{</font>
+<a name='L8'>    <b>unsigned</b> <b>int</b> j;
+<a name='L9'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c;
+<a name='L10'>    <a href='../D/3855.html' title='Multiple defined in 2 places.'>redisReply</a> *reply;
+<a name='L11'>
+<a name='L12'>    <b>struct</b> timeval timeout = <font color='red'>{</font> 1, 500000 <font color='red'>}</font>; <i><font color='green'>// 1.5 seconds</font></i>
+<a name='L13'>    c = <a href='../S/120.html#L1023' title='Defined at 1023 in deps/hiredis/hiredis.c.'>redisConnectWithTimeout</a>((<b>char</b>*)"127.0.0.2", 6379, timeout);
+<a name='L14'>    <b>if</b> (c-&gt;err) <font color='red'>{</font>
+<a name='L15'>        printf("Connection error: %s\n", c-&gt;errstr);
+<a name='L16'>        exit(1);
+<a name='L17'>    <font color='red'>}</font>
+<a name='L18'>
+<a name='L19'>    <i><font color='green'>/* PING server */</font></i>
+<a name='L20'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"PING");
+<a name='L21'>    printf("PING: %s\n", reply-&gt;str);
+<a name='L22'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L23'>
+<a name='L24'>    <i><font color='green'>/* Set a key */</font></i>
+<a name='L25'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"SET %s %s", "foo", "hello world");
+<a name='L26'>    printf("SET: %s\n", reply-&gt;str);
+<a name='L27'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L28'>
+<a name='L29'>    <i><font color='green'>/* Set a key using binary safe API */</font></i>
+<a name='L30'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"SET %b %b", "bar", 3, "hello", 5);
+<a name='L31'>    printf("SET (binary API): %s\n", reply-&gt;str);
+<a name='L32'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L33'>
+<a name='L34'>    <i><font color='green'>/* Try a GET and two INCR */</font></i>
+<a name='L35'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"GET foo");
+<a name='L36'>    printf("GET foo: %s\n", reply-&gt;str);
+<a name='L37'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L38'>
+<a name='L39'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"INCR counter");
+<a name='L40'>    printf("INCR counter: %lld\n", reply-&gt;integer);
+<a name='L41'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L42'>    <i><font color='green'>/* again ... */</font></i>
+<a name='L43'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"INCR counter");
+<a name='L44'>    printf("INCR counter: %lld\n", reply-&gt;integer);
+<a name='L45'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L46'>
+<a name='L47'>    <i><font color='green'>/* Create a list of numbers, from 0 to 9 */</font></i>
+<a name='L48'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"DEL mylist");
+<a name='L49'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L50'>    <b>for</b> (j = 0; j &lt; 10; j++) <font color='red'>{</font>
+<a name='L51'>        <b>char</b> buf[64];
+<a name='L52'>
+<a name='L53'>        snprintf(buf,64,"%d",j);
+<a name='L54'>        reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"LPUSH mylist element-%s", buf);
+<a name='L55'>        <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L56'>    <font color='red'>}</font>
+<a name='L57'>
+<a name='L58'>    <i><font color='green'>/* Let's check what we have inside the list */</font></i>
+<a name='L59'>    reply = <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a>(c,"LRANGE mylist 0 -1");
+<a name='L60'>    <b>if</b> (reply-&gt;type == <a href='../S/121.html#L83' title='Defined at 83 in deps/hiredis/hiredis.h.'>REDIS_REPLY_ARRAY</a>) <font color='red'>{</font>
+<a name='L61'>        <b>for</b> (j = 0; j &lt; reply-&gt;elements; j++) <font color='red'>{</font>
+<a name='L62'>            printf("%u) %s\n", j, reply-&gt;element[j]-&gt;str);
+<a name='L63'>        <font color='red'>}</font>
+<a name='L64'>    <font color='red'>}</font>
+<a name='L65'>    <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L66'>
+<a name='L67'>    <b>return</b> 0;
+<a name='L68'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^]<a href='#L7'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

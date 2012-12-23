@@ -1,0 +1,197 @@
+<html>
+<head>
+<title>src/slowlog.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/slowlog.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L48'>[^]</a><a href='#L130'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L48' title='Defined at 48.'>slowlogCreateEntry</a>
+<li><a href='#L91' title='Defined at 91.'>slowlogFreeEntry</a>
+<li><a href='#L103' title='Defined at 103.'>slowlogInit</a>
+<li><a href='#L112' title='Defined at 112.'>slowlogPushEntryIfNeeded</a>
+<li><a href='#L123' title='Defined at 123.'>slowlogReset</a>
+<li><a href='#L130' title='Defined at 130.'>slowlogCommand</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* Slowlog implements a system that is able to remember the latest N</font></i>
+<a name='L2'><i><font color='green'> * queries that took more than M microseconds to execute.</font></i>
+<a name='L3'><i><font color='green'> *</font></i>
+<a name='L4'><i><font color='green'> * The execution time to reach to be logged in the slow log is set</font></i>
+<a name='L5'><i><font color='green'> * using the 'slowlog-log-slower-than' config directive, that is also</font></i>
+<a name='L6'><i><font color='green'> * readable and writable using the CONFIG SET/GET command.</font></i>
+<a name='L7'><i><font color='green'> *</font></i>
+<a name='L8'><i><font color='green'> * The slow queries log is actually not "logged" in the Redis log file</font></i>
+<a name='L9'><i><font color='green'> * but is accessible thanks to the SLOWLOG command.</font></i>
+<a name='L10'><i><font color='green'> *</font></i>
+<a name='L11'><i><font color='green'> * ----------------------------------------------------------------------------</font></i>
+<a name='L12'><i><font color='green'> *</font></i>
+<a name='L13'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L14'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L15'><i><font color='green'> *</font></i>
+<a name='L16'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L17'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L18'><i><font color='green'> *</font></i>
+<a name='L19'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L20'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L21'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L22'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L23'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L24'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L25'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L26'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L27'><i><font color='green'> *</font></i>
+<a name='L28'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L29'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L30'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L31'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L32'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L33'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L34'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L35'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L36'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L37'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L38'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L39'><i><font color='green'> */</font></i>
+<a name='L40'>
+<a name='L41'>
+<a name='L42'><font color='darkred'>#include</font> "<a href='32.html'>redis.h</a>"
+<a name='L43'><font color='darkred'>#include</font> "<a href='21.html'>slowlog.h</a>"
+<a name='L44'>
+<a name='L45'><i><font color='green'>/* Create a new slowlog entry.</font></i>
+<a name='L46'><i><font color='green'> * Incrementing the ref count of all the objects retained is up to</font></i>
+<a name='L47'><i><font color='green'> * this function. */</font></i>
+<a name='L48'><a href='../D/4187.html' title='Multiple defined in 2 places.'>slowlogEntry</a> *<a href='../S/70.html#L115' title='Refered from 115 in src/slowlog.c.'>slowlogCreateEntry</a>(robj **argv, <b>int</b> argc, <b>long</b> <b>long</b> duration) <font color='red'>{</font>
+<a name='L49'>    <a href='../D/4187.html' title='Multiple defined in 2 places.'>slowlogEntry</a> *se = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(*se));
+<a name='L50'>    <b>int</b> j, slargc = argc;
+<a name='L51'>
+<a name='L52'>    <b>if</b> (slargc &gt; <a href='../S/21.html#L30' title='Defined at 30 in src/slowlog.h.'>SLOWLOG_ENTRY_MAX_ARGC</a>) slargc = <a href='../S/21.html#L30' title='Defined at 30 in src/slowlog.h.'>SLOWLOG_ENTRY_MAX_ARGC</a>;
+<a name='L53'>    se-&gt;argc = slargc;
+<a name='L54'>    se-&gt;argv = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a>*)*slargc);
+<a name='L55'>    <b>for</b> (j = 0; j &lt; slargc; j++) <font color='red'>{</font>
+<a name='L56'>        <i><font color='green'>/* Logging too many arguments is a useless memory waste, so we stop</font></i>
+<a name='L57'><i><font color='green'>         * at SLOWLOG_ENTRY_MAX_ARGC, but use the last argument to specify</font></i>
+<a name='L58'><i><font color='green'>         * how many remaining arguments there were in the original command. */</font></i>
+<a name='L59'>        <b>if</b> (slargc != argc &amp;&amp; j == slargc-1) <font color='red'>{</font>
+<a name='L60'>            se-&gt;argv[j] = <a href='../S/71.html#L35' title='Defined at 35 in src/object.c.'>createObject</a>(<a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>,
+<a name='L61'>                <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(<a href='../D/4005.html' title='Multiple defined in 2 places.'>sdsempty</a>(),"... (%d more arguments)",
+<a name='L62'>                argc-slargc+1));
+<a name='L63'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L64'>            <i><font color='green'>/* Trim too long strings as well... */</font></i>
+<a name='L65'>            <b>if</b> (argv[j]-&gt;type == <a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a> &amp;&amp;
+<a name='L66'>                argv[j]-&gt;encoding == <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a> &amp;&amp;
+<a name='L67'>                <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(argv[j]-&gt;ptr) &gt; <a href='../S/21.html#L31' title='Defined at 31 in src/slowlog.h.'>SLOWLOG_ENTRY_MAX_STRING</a>)
+<a name='L68'>            <font color='red'>{</font>
+<a name='L69'>                <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> s = <a href='../D/4014.html' title='Multiple defined in 2 places.'>sdsnewlen</a>(argv[j]-&gt;ptr, <a href='../S/21.html#L31' title='Defined at 31 in src/slowlog.h.'>SLOWLOG_ENTRY_MAX_STRING</a>);
+<a name='L70'>
+<a name='L71'>                s = <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(s,"... (%lu more bytes)",
+<a name='L72'>                    (<b>unsigned</b> <b>long</b>)
+<a name='L73'>                    <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(argv[j]-&gt;ptr) - <a href='../S/21.html#L31' title='Defined at 31 in src/slowlog.h.'>SLOWLOG_ENTRY_MAX_STRING</a>);
+<a name='L74'>                se-&gt;argv[j] = <a href='../S/71.html#L35' title='Defined at 35 in src/object.c.'>createObject</a>(<a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>,s);
+<a name='L75'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L76'>                se-&gt;argv[j] = argv[j];
+<a name='L77'>                <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(argv[j]);
+<a name='L78'>            <font color='red'>}</font>
+<a name='L79'>        <font color='red'>}</font>
+<a name='L80'>    <font color='red'>}</font>
+<a name='L81'>    se-&gt;time = time(NULL);
+<a name='L82'>    se-&gt;duration = duration;
+<a name='L83'>    se-&gt;id = server.slowlog_entry_id++;
+<a name='L84'>    <b>return</b> se;
+<a name='L85'><font color='red'>}</font>
+<a name='L86'>
+<a name='L87'><i><font color='green'>/* Free a slow log entry. The argument is void so that the prototype of this</font></i>
+<a name='L88'><i><font color='green'> * function matches the one of the 'free' method of adlist.c.</font></i>
+<a name='L89'><i><font color='green'> *</font></i>
+<a name='L90'><i><font color='green'> * This function will take care to release all the retained object. */</font></i>
+<a name='L91'><b>void</b> <a href='../S/70.html#L106' title='Refered from 106 in src/slowlog.c.'>slowlogFreeEntry</a>(<b>void</b> *septr) <font color='red'>{</font>
+<a name='L92'>    <a href='../D/4187.html' title='Multiple defined in 2 places.'>slowlogEntry</a> *se = septr;
+<a name='L93'>    <b>int</b> j;
+<a name='L94'>
+<a name='L95'>    <b>for</b> (j = 0; j &lt; se-&gt;argc; j++)
+<a name='L96'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(se-&gt;argv[j]);
+<a name='L97'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(se-&gt;argv);
+<a name='L98'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(se);
+<a name='L99'><font color='red'>}</font>
+<a name='L100'>
+<a name='L101'><i><font color='green'>/* Initialize the slow log. This function should be called a single time</font></i>
+<a name='L102'><i><font color='green'> * at server startup. */</font></i>
+<a name='L103'><b>void</b> <a href='../R/3817.html' title='Multiple refered from 2 places.'>slowlogInit</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L104'>    server.slowlog = <a href='../S/54.html#L41' title='Defined at 41 in src/adlist.c.'>listCreate</a>();
+<a name='L105'>    server.slowlog_entry_id = 0;
+<a name='L106'>    <a href='../S/58.html#L65' title='Defined at 65 in src/adlist.h.'>listSetFreeMethod</a>(server.slowlog,<a href='../S/70.html#L91' title='Defined at 91 in src/slowlog.c.'>slowlogFreeEntry</a>);
+<a name='L107'><font color='red'>}</font>
+<a name='L108'>
+<a name='L109'><i><font color='green'>/* Push a new entry into the slow log.</font></i>
+<a name='L110'><i><font color='green'> * This function will make sure to trim the slow log accordingly to the</font></i>
+<a name='L111'><i><font color='green'> * configured max length. */</font></i>
+<a name='L112'><b>void</b> <a href='../R/3818.html' title='Multiple refered from 2 places.'>slowlogPushEntryIfNeeded</a>(robj **argv, <b>int</b> argc, <b>long</b> <b>long</b> duration) <font color='red'>{</font>
+<a name='L113'>    <b>if</b> (server.slowlog_log_slower_than &lt; 0) <b>return</b>; <i><font color='green'>/* Slowlog disabled */</font></i>
+<a name='L114'>    <b>if</b> (duration &gt;= server.slowlog_log_slower_than)
+<a name='L115'>        <a href='../S/54.html#L80' title='Defined at 80 in src/adlist.c.'>listAddNodeHead</a>(server.slowlog,<a href='../S/70.html#L48' title='Defined at 48 in src/slowlog.c.'>slowlogCreateEntry</a>(argv,argc,duration));
+<a name='L116'>
+<a name='L117'>    <i><font color='green'>/* Remove old entries if needed. */</font></i>
+<a name='L118'>    <b>while</b> (<a href='../S/58.html#L57' title='Defined at 57 in src/adlist.h.'>listLength</a>(server.slowlog) &gt; server.slowlog_max_len)
+<a name='L119'>        <a href='../S/54.html#L159' title='Defined at 159 in src/adlist.c.'>listDelNode</a>(server.slowlog,<a href='../S/58.html#L59' title='Defined at 59 in src/adlist.h.'>listLast</a>(server.slowlog));
+<a name='L120'><font color='red'>}</font>
+<a name='L121'>
+<a name='L122'><i><font color='green'>/* Remove all the entries from the current slow log. */</font></i>
+<a name='L123'><b>void</b> <a href='../S/70.html#L132' title='Refered from 132 in src/slowlog.c.'>slowlogReset</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L124'>    <b>while</b> (<a href='../S/58.html#L57' title='Defined at 57 in src/adlist.h.'>listLength</a>(server.slowlog) &gt; 0)
+<a name='L125'>        <a href='../S/54.html#L159' title='Defined at 159 in src/adlist.c.'>listDelNode</a>(server.slowlog,<a href='../S/58.html#L59' title='Defined at 59 in src/adlist.h.'>listLast</a>(server.slowlog));
+<a name='L126'><font color='red'>}</font>
+<a name='L127'>
+<a name='L128'><i><font color='green'>/* The SLOWLOG command. Implements all the subcommands needed to handle the</font></i>
+<a name='L129'><i><font color='green'> * Redis slow log. */</font></i>
+<a name='L130'><b>void</b> <a href='../R/3813.html' title='Multiple refered from 2 places.'>slowlogCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L131'>    <b>if</b> (c-&gt;argc == 2 &amp;&amp; !strcasecmp(c-&gt;argv[1]-&gt;ptr,"reset")) <font color='red'>{</font>
+<a name='L132'>        <a href='../S/70.html#L123' title='Defined at 123 in src/slowlog.c.'>slowlogReset</a>();
+<a name='L133'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L134'>    <font color='red'>}</font> <b>else</b> <b>if</b> (c-&gt;argc == 2 &amp;&amp; !strcasecmp(c-&gt;argv[1]-&gt;ptr,"len")) <font color='red'>{</font>
+<a name='L135'>        <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,<a href='../S/58.html#L57' title='Defined at 57 in src/adlist.h.'>listLength</a>(server.slowlog));
+<a name='L136'>    <font color='red'>}</font> <b>else</b> <b>if</b> ((c-&gt;argc == 2 || c-&gt;argc == 3) &amp;&amp;
+<a name='L137'>               !strcasecmp(c-&gt;argv[1]-&gt;ptr,"get"))
+<a name='L138'>    <font color='red'>{</font>
+<a name='L139'>        <b>long</b> count = 10, sent = 0;
+<a name='L140'>        <a href='../D/2703.html' title='Multiple defined in 2 places.'>listIter</a> li;
+<a name='L141'>        <b>void</b> *totentries;
+<a name='L142'>        <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln;
+<a name='L143'>        <a href='../D/4187.html' title='Multiple defined in 2 places.'>slowlogEntry</a> *se;
+<a name='L144'>
+<a name='L145'>        <b>if</b> (c-&gt;argc == 3 &amp;&amp;
+<a name='L146'>            <a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c,c-&gt;argv[2],&amp;count,NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L147'>            <b>return</b>;
+<a name='L148'>
+<a name='L149'>        <a href='../S/54.html#L197' title='Defined at 197 in src/adlist.c.'>listRewind</a>(server.slowlog,&amp;li);
+<a name='L150'>        totentries = <a href='../S/86.html#L371' title='Defined at 371 in src/networking.c.'>addDeferredMultiBulkLength</a>(c);
+<a name='L151'>        <b>while</b>(count-- &amp;&amp; (ln = <a href='../S/54.html#L221' title='Defined at 221 in src/adlist.c.'>listNext</a>(&amp;li))) <font color='red'>{</font>
+<a name='L152'>            <b>int</b> j;
+<a name='L153'>
+<a name='L154'>            se = ln-&gt;value;
+<a name='L155'>            <a href='../S/86.html#L448' title='Defined at 448 in src/networking.c.'>addReplyMultiBulkLen</a>(c,4);
+<a name='L156'>            <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,se-&gt;id);
+<a name='L157'>            <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,se-&gt;time);
+<a name='L158'>            <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,se-&gt;duration);
+<a name='L159'>            <a href='../S/86.html#L448' title='Defined at 448 in src/networking.c.'>addReplyMultiBulkLen</a>(c,se-&gt;argc);
+<a name='L160'>            <b>for</b> (j = 0; j &lt; se-&gt;argc; j++)
+<a name='L161'>                <a href='../S/86.html#L475' title='Defined at 475 in src/networking.c.'>addReplyBulk</a>(c,se-&gt;argv[j]);
+<a name='L162'>            sent++;
+<a name='L163'>        <font color='red'>}</font>
+<a name='L164'>        <a href='../S/86.html#L381' title='Defined at 381 in src/networking.c.'>setDeferredMultiBulkLength</a>(c,totentries,sent);
+<a name='L165'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L166'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,
+<a name='L167'>            "Unknown SLOWLOG subcommand or wrong # of args. Try GET, RESET, LEN.");
+<a name='L168'>    <font color='red'>}</font>
+<a name='L169'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L48'>[^]</a><a href='#L130'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

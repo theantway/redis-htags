@@ -1,0 +1,80 @@
+<html>
+<head>
+<title>deps/jemalloc/include/jemalloc/internal/chunk.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/391.html'>include</a>/<a href='../files/392.html'>jemalloc</a>/<a href='../files/393.html'>internal</a>/chunk.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L2'><font color='darkred'>#ifdef</font> JEMALLOC_H_TYPES
+<a name='L3'>
+<a name='L4'><i><font color='green'>/*</font></i>
+<a name='L5'><i><font color='green'> * Size and alignment of memory chunks that are allocated by the OS's virtual</font></i>
+<a name='L6'><i><font color='green'> * memory system.</font></i>
+<a name='L7'><i><font color='green'> */</font></i>
+<a name='L8'><font color='darkred'>#define</font> <a href='../S/201.html#L8' title='Refered from 8 in deps/jemalloc/src/chunk.c.'>LG_CHUNK_DEFAULT</a>        22
+<a name='L9'>
+<a name='L10'><i><font color='green'>/* Return the chunk address for allocation address a. */</font></i>
+<a name='L11'><font color='darkred'>#define</font> <a href='../R/63.html' title='Multiple refered from 35 places.'>CHUNK_ADDR2BASE</a>(a)                                              \
+<a name='L12'>        ((<b>void</b> *)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)(a) &amp; ~<a href='../S/138.html#L117' title='Defined at 117 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize_mask</a>))
+<a name='L13'>
+<a name='L14'><i><font color='green'>/* Return the chunk offset of address a. */</font></i>
+<a name='L15'><font color='darkred'>#define</font> <a href='../S/218.html#L101' title='Refered from 101 in deps/jemalloc/src/chunk_dss.c.'>CHUNK_ADDR2OFFSET</a>(a)                                            \
+<a name='L16'>        ((size_t)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)(a) &amp; <a href='../S/138.html#L117' title='Defined at 117 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize_mask</a>))
+<a name='L17'>
+<a name='L18'><i><font color='green'>/* Return the smallest chunk multiple that is &gt;= s. */</font></i>
+<a name='L19'><font color='darkred'>#define</font> <a href='../R/65.html' title='Multiple refered from 9 places.'>CHUNK_CEILING</a>(s)                                                \
+<a name='L20'>        (((s) + <a href='../S/138.html#L117' title='Defined at 117 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize_mask</a>) &amp; ~<a href='../S/138.html#L117' title='Defined at 117 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize_mask</a>)
+<a name='L21'>
+<a name='L22'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_TYPES */</font></i>
+<a name='L23'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L24'><font color='darkred'>#ifdef</font> JEMALLOC_H_STRUCTS
+<a name='L25'>
+<a name='L26'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_STRUCTS */</font></i>
+<a name='L27'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L28'><font color='darkred'>#ifdef</font> JEMALLOC_H_EXTERNS
+<a name='L29'>
+<a name='L30'><b>extern</b> size_t           <a href='../S/138.html#L240' title='Defined at 240 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_lg_chunk</a>;
+<a name='L31'><b>extern</b> <b>const</b> <b>char</b>       *opt_dss;
+<a name='L32'>
+<a name='L33'><i><font color='green'>/* Protects stats_chunks; currently not used for any other purpose. */</font></i>
+<a name='L34'><b>extern</b> <a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a>   <a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>;
+<a name='L35'><i><font color='green'>/* Chunk statistics. */</font></i>
+<a name='L36'><b>extern</b> <a href='../S/137.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/stats.h.'>chunk_stats_t</a>    <a href='../S/138.html#L316' title='Defined at 316 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_chunks</a>;
+<a name='L37'>
+<a name='L38'><b>extern</b> <a href='../S/132.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/rtree.h.'>rtree_t</a>          *<a href='../S/138.html#L115' title='Defined at 115 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_rtree</a>;
+<a name='L39'>
+<a name='L40'><b>extern</b> size_t           <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a>;
+<a name='L41'><b>extern</b> size_t           <a href='../S/138.html#L117' title='Defined at 117 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize_mask</a>; <i><font color='green'>/* (chunksize - 1). */</font></i>
+<a name='L42'><b>extern</b> size_t           <a href='../S/138.html#L109' title='Defined at 109 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunk_npages</a>;
+<a name='L43'><b>extern</b> size_t           <a href='../S/138.html#L230' title='Defined at 230 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>map_bias</a>; <i><font color='green'>/* Number of arena chunk header pages. */</font></i>
+<a name='L44'><b>extern</b> size_t           <a href='../S/138.html#L37' title='Defined at 37 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arena_maxclass</a>; <i><font color='green'>/* Max size class for arenas. */</font></i>
+<a name='L45'>
+<a name='L46'><b>void</b>    *<a href='../D/1839.html' title='Multiple defined in 2 places.'>chunk_alloc</a>(size_t size, size_t alignment, bool base, bool *zero,
+<a name='L47'>    <a href='../S/130.html#L10' title='Defined at 10 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>dss_prec_t</a> dss_prec);
+<a name='L48'><b>void</b>    <a href='../D/1861.html' title='Multiple defined in 2 places.'>chunk_unmap</a>(<b>void</b> *chunk, size_t size);
+<a name='L49'><b>void</b>    <a href='../D/1844.html' title='Multiple defined in 2 places.'>chunk_dealloc</a>(<b>void</b> *chunk, size_t size, bool unmap);
+<a name='L50'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>    <a href='../D/1843.html' title='Multiple defined in 2 places.'>chunk_boot</a>(<b>void</b>);
+<a name='L51'><b>void</b>    <a href='../D/1856.html' title='Multiple defined in 2 places.'>chunk_prefork</a>(<b>void</b>);
+<a name='L52'><b>void</b>    <a href='../D/1855.html' title='Multiple defined in 2 places.'>chunk_postfork_parent</a>(<b>void</b>);
+<a name='L53'><b>void</b>    <a href='../D/1854.html' title='Multiple defined in 2 places.'>chunk_postfork_child</a>(<b>void</b>);
+<a name='L54'>
+<a name='L55'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_EXTERNS */</font></i>
+<a name='L56'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L57'><font color='darkred'>#ifdef</font> JEMALLOC_H_INLINES
+<a name='L58'>
+<a name='L59'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_INLINES */</font></i>
+<a name='L60'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L61'>
+<a name='L62'><font color='darkred'>#include</font> "<a href='130.html'>jemalloc/internal/chunk_dss.h</a>"
+<a name='L63'><font color='darkred'>#include</font> "<a href='155.html'>jemalloc/internal/chunk_mmap.h</a>"
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<html>
+<head>
+<title>deps/lua/src/lualib.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/lualib.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/140.html' title='Multiple included from 12 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: lualib.h,v 1.36.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Lua standard libraries</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'>
+<a name='L8'><font color='darkred'>#ifndef</font> <a href='../S/267.html#L9' title='Defined at 9 in deps/lua/src/lualib.h.'>lualib_h</a>
+<a name='L9'><font color='darkred'>#define</font> <a href='../S/267.html#L8' title='Refered from 8 in deps/lua/src/lualib.h.'>lualib_h</a>
+<a name='L10'>
+<a name='L11'><font color='darkred'>#include</font> "<a href='266.html'>lua.h</a>"
+<a name='L12'>
+<a name='L13'>
+<a name='L14'><i><font color='green'>/* Key to file-handle type */</font></i>
+<a name='L15'><font color='darkred'>#define</font> <a href='../R/318.html' title='Multiple refered from 4 places.'>LUA_FILEHANDLE</a>          "FILE*"
+<a name='L16'>
+<a name='L17'>
+<a name='L18'><font color='darkred'>#define</font> <a href='../S/277.html#L650' title='Refered from 650 in deps/lua/src/lbaselib.c.'>LUA_COLIBNAME</a>   "coroutine"
+<a name='L19'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> (<a href='../S/277.html#L648' title='Defined at 648 in deps/lua/src/lbaselib.c.'>luaopen_base</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L);
+<a name='L20'>
+<a name='L21'><font color='darkred'>#define</font> <a href='../R/375.html' title='Multiple refered from 3 places.'>LUA_TABLIBNAME</a>  "table"
+<a name='L22'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> (<a href='../S/295.html#L283' title='Defined at 283 in deps/lua/src/ltablib.c.'>luaopen_table</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L);
+<a name='L23'>
+<a name='L24'><font color='darkred'>#define</font> <a href='../R/339.html' title='Multiple refered from 2 places.'>LUA_IOLIBNAME</a>   "io"
+<a name='L25'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> (<a href='../S/315.html#L534' title='Defined at 534 in deps/lua/src/liolib.c.'>luaopen_io</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L);
+<a name='L26'>
+<a name='L27'><font color='darkred'>#define</font> <a href='../R/358.html' title='Multiple refered from 3 places.'>LUA_OSLIBNAME</a>   "os"
+<a name='L28'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> (<a href='../S/294.html#L239' title='Defined at 239 in deps/lua/src/loslib.c.'>luaopen_os</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L);
+<a name='L29'>
+<a name='L30'><font color='darkred'>#define</font> <a href='../R/374.html' title='Multiple refered from 3 places.'>LUA_STRLIBNAME</a>  "string"
+<a name='L31'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> (<a href='../S/270.html#L860' title='Defined at 860 in deps/lua/src/lstrlib.c.'>luaopen_string</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L);
+<a name='L32'>
+<a name='L33'><font color='darkred'>#define</font> <a href='../R/347.html' title='Multiple refered from 3 places.'>LUA_MATHLIBNAME</a> "math"
+<a name='L34'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> (<a href='../S/276.html#L251' title='Defined at 251 in deps/lua/src/lmathlib.c.'>luaopen_math</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L);
+<a name='L35'>
+<a name='L36'><font color='darkred'>#define</font> <a href='../R/306.html' title='Multiple refered from 3 places.'>LUA_DBLIBNAME</a>   "debug"
+<a name='L37'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> (<a href='../S/269.html#L393' title='Defined at 393 in deps/lua/src/ldblib.c.'>luaopen_debug</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L);
+<a name='L38'>
+<a name='L39'><font color='darkred'>#define</font> <a href='../R/342.html' title='Multiple refered from 3 places.'>LUA_LOADLIBNAME</a> "package"
+<a name='L40'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> (<a href='../S/279.html#L627' title='Defined at 627 in deps/lua/src/loadlib.c.'>luaopen_package</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L);
+<a name='L41'>
+<a name='L42'>
+<a name='L43'><i><font color='green'>/* open all previous libraries */</font></i>
+<a name='L44'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>void</b> (<a href='../S/263.html#L30' title='Defined at 30 in deps/lua/src/linit.c.'>luaL_openlibs</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L); 
+<a name='L45'>
+<a name='L46'>
+<a name='L47'>
+<a name='L48'><font color='darkred'>#ifndef</font> <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>
+<a name='L49'><font color='darkred'>#define</font> <a href='../R/2756.html' title='Multiple refered from 131 places.'>lua_assert</a>(x)   ((<b>void</b>)0)
+<a name='L50'><font color='darkred'>#endif</font>
+<a name='L51'>
+<a name='L52'>
+<a name='L53'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

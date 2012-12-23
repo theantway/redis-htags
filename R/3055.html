@@ -1,0 +1,48 @@
+<html>
+<head>
+<title>mstime_t</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/82.html#L140'>mstime_t</a>          140 src/sentinel.c     mstime_t cc_conn_time; /* cc connection time. */
+<a href='../S/82.html#L141'>mstime_t</a>          141 src/sentinel.c     mstime_t pc_conn_time; /* pc connection time. */
+<a href='../S/82.html#L142'>mstime_t</a>          142 src/sentinel.c     mstime_t pc_last_activity; /* Last time we received any message. */
+<a href='../S/82.html#L143'>mstime_t</a>          143 src/sentinel.c     mstime_t last_avail_time; /* Last time the instance replied to ping with
+<a href='../S/82.html#L145'>mstime_t</a>          145 src/sentinel.c     mstime_t last_pong_time;  /* Last time the instance replied to ping,
+<a href='../S/82.html#L148'>mstime_t</a>          148 src/sentinel.c     mstime_t last_pub_time;   /* Last time we sent hello via Pub/Sub. */
+<a href='../S/82.html#L149'>mstime_t</a>          149 src/sentinel.c     mstime_t last_hello_time; /* Only used if SRI_SENTINEL is set. Last time
+<a href='../S/82.html#L152'>mstime_t</a>          152 src/sentinel.c     mstime_t last_master_down_reply_time; /* Time of last reply to
+<a href='../S/82.html#L154'>mstime_t</a>          154 src/sentinel.c     mstime_t s_down_since_time; /* Subjectively down since time. */
+<a href='../S/82.html#L155'>mstime_t</a>          155 src/sentinel.c     mstime_t o_down_since_time; /* Objectively down since time. */
+<a href='../S/82.html#L156'>mstime_t</a>          156 src/sentinel.c     mstime_t down_after_period; /* Consider it down after that period. */
+<a href='../S/82.html#L157'>mstime_t</a>          157 src/sentinel.c     mstime_t info_refresh;  /* Time at which we received INFO output from it. */
+<a href='../S/82.html#L167'>mstime_t</a>          167 src/sentinel.c     mstime_t master_link_down_time; /* Slave replication link down time. */
+<a href='../S/82.html#L169'>mstime_t</a>          169 src/sentinel.c     mstime_t slave_reconf_sent_time; /* Time at which we sent SLAVE OF &lt;new&gt; */
+<a href='../S/82.html#L182'>mstime_t</a>          182 src/sentinel.c     mstime_t failover_state_change_time;
+<a href='../S/82.html#L183'>mstime_t</a>          183 src/sentinel.c     mstime_t failover_start_time;   /* When to start to failover if leader. */
+<a href='../S/82.html#L184'>mstime_t</a>          184 src/sentinel.c     mstime_t failover_timeout;      /* Max time to refresh failover state. */
+<a href='../S/82.html#L199'>mstime_t</a>          199 src/sentinel.c     mstime_t tilt_start_time;   /* When TITL started. */
+<a href='../S/82.html#L200'>mstime_t</a>          200 src/sentinel.c     mstime_t previous_time;     /* Time last time we ran the time handler. */
+<a href='../S/82.html#L209'>mstime_t</a>          209 src/sentinel.c     mstime_t start_time;    /* Script execution time if the script is running,
+<a href='../S/82.html#L605'>mstime_t</a>          605 src/sentinel.c     mstime_t now = mstime();
+<a href='../S/82.html#L655'>mstime_t</a>          655 src/sentinel.c mstime_t sentinelScriptRetryDelay(int retry_num) {
+<a href='../S/82.html#L656'>mstime_t</a>          656 src/sentinel.c     mstime_t delay = SENTINEL_SCRIPT_RETRY_DELAY;
+<a href='../S/82.html#L716'>mstime_t</a>          716 src/sentinel.c     mstime_t now = mstime();
+<a href='../S/82.html#L762'>mstime_t</a>          762 src/sentinel.c             mstime_t delay = sj-&gt;start_time ? (sj-&gt;start_time-mstime()) : 0;
+<a href='../S/82.html#L1717'>mstime_t</a>         1717 src/sentinel.c     mstime_t now = mstime();
+<a href='../S/82.html#L1718'>mstime_t</a>         1718 src/sentinel.c     mstime_t info_period;
+<a href='../S/82.html#L2141'>mstime_t</a>         2141 src/sentinel.c     mstime_t elapsed = mstime() - ri-&gt;last_avail_time;
+<a href='../S/82.html#L2260'>mstime_t</a>         2260 src/sentinel.c         mstime_t elapsed = mstime() - ri-&gt;last_master_down_reply_time;
+<a href='../S/82.html#L2330'>mstime_t</a>         2330 src/sentinel.c         mstime_t lag = mstime() - ri-&gt;last_avail_time;
+<a href='../S/82.html#L2498'>mstime_t</a>         2498 src/sentinel.c             mstime_t elapsed = mstime() - master-&gt;failover_state_change_time;
+<a href='../S/82.html#L2575'>mstime_t</a>         2575 src/sentinel.c     mstime_t max_master_down_time = 0;
+<a href='../S/82.html#L2584'>mstime_t</a>         2584 src/sentinel.c         mstime_t info_validity_time = mstime()-SENTINEL_INFO_VALIDITY_TIME;
+<a href='../S/82.html#L2675'>mstime_t</a>         2675 src/sentinel.c     mstime_t elapsed = mstime() - ri-&gt;failover_state_change_time;
+<a href='../S/82.html#L2692'>mstime_t</a>         2692 src/sentinel.c     mstime_t elapsed = mstime() - master-&gt;failover_state_change_time;
+<a href='../S/82.html#L3039'>mstime_t</a>         3039 src/sentinel.c     mstime_t now = mstime();
+<a href='../S/82.html#L3040'>mstime_t</a>         3040 src/sentinel.c     mstime_t delta = now - sentinel.previous_time;
+</pre>
+</body>
+</html>

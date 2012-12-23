@@ -1,0 +1,917 @@
+<html>
+<head>
+<title>deps/lua/src/lcode.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/lcode.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L30'>[^]</a><a href='#L827'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L30' title='Defined at 30.'>isnumeral</a>
+<li><a href='#L35' title='Defined at 35.'>luaK_nil</a>
+<li><a href='#L59' title='Defined at 59.'>luaK_jump</a>
+<li><a href='#L69' title='Defined at 69.'>luaK_ret</a>
+<li><a href='#L74' title='Defined at 74.'>condjump</a>
+<li><a href='#L80' title='Defined at 80.'>fixjump</a>
+<li><a href='#L94' title='Defined at 94.'>luaK_getlabel</a>
+<li><a href='#L100' title='Defined at 100.'>getjump</a>
+<li><a href='#L109' title='Defined at 109.'>getjumpcontrol</a>
+<li><a href='#L122' title='Defined at 122.'>need_value</a>
+<li><a href='#L131' title='Defined at 131.'>patchtestreg</a>
+<li><a href='#L144' title='Defined at 144.'>removevalues</a>
+<li><a href='#L150' title='Defined at 150.'>patchlistaux</a>
+<li><a href='#L163' title='Defined at 163.'>dischargejpc</a>
+<li><a href='#L169' title='Defined at 169.'>luaK_patchlist</a>
+<li><a href='#L179' title='Defined at 179.'>luaK_patchtohere</a>
+<li><a href='#L185' title='Defined at 185.'>luaK_concat</a>
+<li><a href='#L199' title='Defined at 199.'>luaK_checkstack</a>
+<li><a href='#L209' title='Defined at 209.'>luaK_reserveregs</a>
+<li><a href='#L215' title='Defined at 215.'>freereg</a>
+<li><a href='#L223' title='Defined at 223.'>freeexp</a>
+<li><a href='#L229' title='Defined at 229.'>addk</a>
+<li><a href='#L250' title='Defined at 250.'>luaK_stringK</a>
+<li><a href='#L257' title='Defined at 257.'>luaK_numberK</a>
+<li><a href='#L264' title='Defined at 264.'>boolK</a>
+<li><a href='#L271' title='Defined at 271.'>nilK</a>
+<li><a href='#L280' title='Defined at 280.'>luaK_setreturns</a>
+<li><a href='#L292' title='Defined at 292.'>luaK_setoneret</a>
+<li><a href='#L304' title='Defined at 304.'>luaK_dischargevars</a>
+<li><a href='#L337' title='Defined at 337.'>code_label</a>
+<li><a href='#L343' title='Defined at 343.'>discharge2reg</a>
+<li><a href='#L382' title='Defined at 382.'>discharge2anyreg</a>
+<li><a href='#L390' title='Defined at 390.'>exp2reg</a>
+<li><a href='#L414' title='Defined at 414.'>luaK_exp2nextreg</a>
+<li><a href='#L422' title='Defined at 422.'>luaK_exp2anyreg</a>
+<li><a href='#L436' title='Defined at 436.'>luaK_exp2val</a>
+<li><a href='#L444' title='Defined at 444.'>luaK_exp2RK</a>
+<li><a href='#L472' title='Defined at 472.'>luaK_storevar</a>
+<li><a href='#L503' title='Defined at 503.'>luaK_self</a>
+<li><a href='#L516' title='Defined at 516.'>invertjump</a>
+<li><a href='#L524' title='Defined at 524.'>jumponcond</a>
+<li><a href='#L539' title='Defined at 539.'>luaK_goiftrue</a>
+<li><a href='#L567' title='Defined at 567.'>luaK_goiffalse</a>
+<li><a href='#L594' title='Defined at 594.'>codenot</a>
+<li><a href='#L629' title='Defined at 629.'>luaK_indexed</a>
+<li><a href='#L635' title='Defined at 635.'>constfolding</a>
+<li><a href='#L661' title='Defined at 661.'>codearith</a>
+<li><a href='#L681' title='Defined at 681.'>codecomp</a>
+<li><a href='#L697' title='Defined at 697.'>luaK_prefix</a>
+<li><a href='#L718' title='Defined at 718.'>luaK_infix</a>
+<li><a href='#L745' title='Defined at 745.'>luaK_posfix</a>
+<li><a href='#L792' title='Defined at 792.'>luaK_fixline</a>
+<li><a href='#L797' title='Defined at 797.'>luaK_code</a>
+<li><a href='#L812' title='Defined at 812.'>luaK_codeABC</a>
+<li><a href='#L820' title='Defined at 820.'>luaK_codeABx</a>
+<li><a href='#L827' title='Defined at 827.'>luaK_setlist</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: lcode.c,v 2.25.1.3 2007/12/28 15:32:23 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Code generator for Lua</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'>
+<a name='L8'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L9'>
+<a name='L10'><font color='darkred'>#define</font> lcode_c
+<a name='L11'><font color='darkred'>#define</font> <a href='../R/303.html' title='Multiple refered from 2 places.'>LUA_CORE</a>
+<a name='L12'>
+<a name='L13'><font color='darkred'>#include</font> "<a href='266.html'>lua.h</a>"
+<a name='L14'>
+<a name='L15'><font color='darkred'>#include</font> "<a href='314.html'>lcode.h</a>"
+<a name='L16'><font color='darkred'>#include</font> "<a href='264.html'>ldebug.h</a>"
+<a name='L17'><font color='darkred'>#include</font> "<a href='296.html'>ldo.h</a>"
+<a name='L18'><font color='darkred'>#include</font> "<a href='261.html'>lgc.h</a>"
+<a name='L19'><font color='darkred'>#include</font> "<a href='292.html'>llex.h</a>"
+<a name='L20'><font color='darkred'>#include</font> "<a href='278.html'>lmem.h</a>"
+<a name='L21'><font color='darkred'>#include</font> "<a href='282.html'>lobject.h</a>"
+<a name='L22'><font color='darkred'>#include</font> "<a href='273.html'>lopcodes.h</a>"
+<a name='L23'><font color='darkred'>#include</font> "<a href='286.html'>lparser.h</a>"
+<a name='L24'><font color='darkred'>#include</font> "<a href='281.html'>ltable.h</a>"
+<a name='L25'>
+<a name='L26'>
+<a name='L27'><font color='darkred'>#define</font> <a href='../R/2140.html' title='Multiple refered from 3 places.'>hasjumps</a>(e)     ((e)-&gt;t != (e)-&gt;f)
+<a name='L28'>
+<a name='L29'>
+<a name='L30'><b>static</b> <b>int</b> <a href='../R/2279.html' title='Multiple refered from 3 places.'>isnumeral</a>(expdesc *e) <font color='red'>{</font>
+<a name='L31'>  <b>return</b> (e-&gt;k == <a href='../S/286.html#L25' title='Defined at 25 in deps/lua/src/lparser.h.'>VKNUM</a> &amp;&amp; e-&gt;t == <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a> &amp;&amp; e-&gt;f == <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>);
+<a name='L32'><font color='red'>}</font>
+<a name='L33'>
+<a name='L34'>
+<a name='L35'><b>void</b> <a href='../R/2607.html' title='Multiple refered from 3 places.'>luaK_nil</a> (FuncState *fs, <b>int</b> from, <b>int</b> n) <font color='red'>{</font>
+<a name='L36'>  <a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a> *previous;
+<a name='L37'>  <b>if</b> (fs-&gt;pc &gt; fs-&gt;lasttarget) <font color='red'>{</font>  <i><font color='green'>/* no jumps to current position? */</font></i>
+<a name='L38'>    <b>if</b> (fs-&gt;pc == 0) <font color='red'>{</font>  <i><font color='green'>/* function start? */</font></i>
+<a name='L39'>      <b>if</b> (from &gt;= fs-&gt;nactvar)
+<a name='L40'>        <b>return</b>;  <i><font color='green'>/* positions are already clean */</font></i>
+<a name='L41'>    <font color='red'>}</font>
+<a name='L42'>    <b>else</b> <font color='red'>{</font>
+<a name='L43'>      previous = &amp;fs-&gt;f-&gt;code[fs-&gt;pc-1];
+<a name='L44'>      <b>if</b> (<a href='../S/273.html#L80' title='Defined at 80 in deps/lua/src/lopcodes.h.'>GET_OPCODE</a>(*previous) == <a href='../S/273.html#L157' title='Defined at 157 in deps/lua/src/lopcodes.h.'>OP_LOADNIL</a>) <font color='red'>{</font>
+<a name='L45'>        <b>int</b> pfrom = <a href='../S/273.html#L84' title='Defined at 84 in deps/lua/src/lopcodes.h.'>GETARG_A</a>(*previous);
+<a name='L46'>        <b>int</b> pto = <a href='../S/273.html#L88' title='Defined at 88 in deps/lua/src/lopcodes.h.'>GETARG_B</a>(*previous);
+<a name='L47'>        <b>if</b> (pfrom &lt;= from &amp;&amp; from &lt;= pto+1) <font color='red'>{</font>  <i><font color='green'>/* can connect both? */</font></i>
+<a name='L48'>          <b>if</b> (from+n-1 &gt; pto)
+<a name='L49'>            <a href='../S/273.html#L89' title='Defined at 89 in deps/lua/src/lopcodes.h.'>SETARG_B</a>(*previous, from+n-1);
+<a name='L50'>          <b>return</b>;
+<a name='L51'>        <font color='red'>}</font>
+<a name='L52'>      <font color='red'>}</font>
+<a name='L53'>    <font color='red'>}</font>
+<a name='L54'>  <font color='red'>}</font>
+<a name='L55'>  <a href='../S/293.html#L812' title='Defined at 812 in deps/lua/src/lcode.c.'>luaK_codeABC</a>(fs, <a href='../S/273.html#L157' title='Defined at 157 in deps/lua/src/lopcodes.h.'>OP_LOADNIL</a>, from, from+n-1, 0);  <i><font color='green'>/* else no optimization */</font></i>
+<a name='L56'><font color='red'>}</font>
+<a name='L57'>
+<a name='L58'>
+<a name='L59'><b>int</b> <a href='../R/2606.html' title='Multiple refered from 12 places.'>luaK_jump</a> (FuncState *fs) <font color='red'>{</font>
+<a name='L60'>  <b>int</b> jpc = fs-&gt;jpc;  <i><font color='green'>/* save list of jumps to here */</font></i>
+<a name='L61'>  <b>int</b> j;
+<a name='L62'>  fs-&gt;jpc = <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>;
+<a name='L63'>  j = <a href='../S/314.html#L41' title='Defined at 41 in deps/lua/src/lcode.h.'>luaK_codeAsBx</a>(fs, <a href='../S/273.html#L183' title='Defined at 183 in deps/lua/src/lopcodes.h.'>OP_JMP</a>, 0, <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>);
+<a name='L64'>  <a href='../S/293.html#L185' title='Defined at 185 in deps/lua/src/lcode.c.'>luaK_concat</a>(fs, &amp;j, jpc);  <i><font color='green'>/* keep them on hold */</font></i>
+<a name='L65'>  <b>return</b> j;
+<a name='L66'><font color='red'>}</font>
+<a name='L67'>
+<a name='L68'>
+<a name='L69'><b>void</b> <a href='../R/2614.html' title='Multiple refered from 3 places.'>luaK_ret</a> (FuncState *fs, <b>int</b> first, <b>int</b> nret) <font color='red'>{</font>
+<a name='L70'>  <a href='../S/293.html#L812' title='Defined at 812 in deps/lua/src/lcode.c.'>luaK_codeABC</a>(fs, <a href='../S/273.html#L194' title='Defined at 194 in deps/lua/src/lopcodes.h.'>OP_RETURN</a>, first, nret+1, 0);
+<a name='L71'><font color='red'>}</font>
+<a name='L72'>
+<a name='L73'>
+<a name='L74'><b>static</b> <b>int</b> <a href='../R/1668.html' title='Multiple refered from 3 places.'>condjump</a> (FuncState *fs, OpCode op, <b>int</b> A, <b>int</b> B, <b>int</b> <a href='../S/22.html#L60' title='Defined at 60 in src/rand.c.'>C</a>) <font color='red'>{</font>
+<a name='L75'>  <a href='../S/293.html#L812' title='Defined at 812 in deps/lua/src/lcode.c.'>luaK_codeABC</a>(fs, op, A, B, <a href='../S/22.html#L60' title='Defined at 60 in src/rand.c.'>C</a>);
+<a name='L76'>  <b>return</b> <a href='../S/293.html#L59' title='Defined at 59 in deps/lua/src/lcode.c.'>luaK_jump</a>(fs);
+<a name='L77'><font color='red'>}</font>
+<a name='L78'>
+<a name='L79'>
+<a name='L80'><b>static</b> <b>void</b> <a href='../R/1979.html' title='Multiple refered from 3 places.'>fixjump</a> (FuncState *fs, <b>int</b> pc, <b>int</b> dest) <font color='red'>{</font>
+<a name='L81'>  <a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a> *jmp = &amp;fs-&gt;f-&gt;code[pc];
+<a name='L82'>  <b>int</b> offset = dest-(pc+1);
+<a name='L83'>  <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(dest != <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>);
+<a name='L84'>  <b>if</b> (abs(offset) &gt; <a href='../D/486.html' title='Multiple defined in 2 places.'>MAXARG_sBx</a>)
+<a name='L85'>    <a href='../S/305.html#L112' title='Defined at 112 in deps/lua/src/llex.c.'>luaX_syntaxerror</a>(fs-&gt;ls, "control structure too long");
+<a name='L86'>  <a href='../S/273.html#L101' title='Defined at 101 in deps/lua/src/lopcodes.h.'>SETARG_sBx</a>(*jmp, offset);
+<a name='L87'><font color='red'>}</font>
+<a name='L88'>
+<a name='L89'>
+<a name='L90'><i><font color='green'>/*</font></i>
+<a name='L91'><i><font color='green'>** returns current `pc' and marks it as a jump target (to avoid wrong</font></i>
+<a name='L92'><i><font color='green'>** optimizations with consecutive instructions not in the same basic block).</font></i>
+<a name='L93'><i><font color='green'>*/</font></i>
+<a name='L94'><b>int</b> <a href='../R/2601.html' title='Multiple refered from 6 places.'>luaK_getlabel</a> (FuncState *fs) <font color='red'>{</font>
+<a name='L95'>  fs-&gt;lasttarget = fs-&gt;pc;
+<a name='L96'>  <b>return</b> fs-&gt;pc;
+<a name='L97'><font color='red'>}</font>
+<a name='L98'>
+<a name='L99'>
+<a name='L100'><b>static</b> <b>int</b> <a href='../R/2084.html' title='Multiple refered from 4 places.'>getjump</a> (FuncState *fs, <b>int</b> pc) <font color='red'>{</font>
+<a name='L101'>  <b>int</b> offset = <a href='../S/273.html#L100' title='Defined at 100 in deps/lua/src/lopcodes.h.'>GETARG_sBx</a>(fs-&gt;f-&gt;code[pc]);
+<a name='L102'>  <b>if</b> (offset == <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>)  <i><font color='green'>/* point to itself represents end of list */</font></i>
+<a name='L103'>    <b>return</b> <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>;  <i><font color='green'>/* end of list */</font></i>
+<a name='L104'>  <b>else</b>
+<a name='L105'>    <b>return</b> (pc+1)+offset;  <i><font color='green'>/* turn offset into absolute position */</font></i>
+<a name='L106'><font color='red'>}</font>
+<a name='L107'>
+<a name='L108'>
+<a name='L109'><b>static</b> <a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a> *<a href='../R/2085.html' title='Multiple refered from 3 places.'>getjumpcontrol</a> (FuncState *fs, <b>int</b> pc) <font color='red'>{</font>
+<a name='L110'>  <a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a> *pi = &amp;fs-&gt;f-&gt;code[pc];
+<a name='L111'>  <b>if</b> (pc &gt;= 1 &amp;&amp; <a href='../S/273.html#L258' title='Defined at 258 in deps/lua/src/lopcodes.h.'>testTMode</a>(<a href='../S/273.html#L80' title='Defined at 80 in deps/lua/src/lopcodes.h.'>GET_OPCODE</a>(*(pi-1))))
+<a name='L112'>    <b>return</b> pi-1;
+<a name='L113'>  <b>else</b>
+<a name='L114'>    <b>return</b> pi;
+<a name='L115'><font color='red'>}</font>
+<a name='L116'>
+<a name='L117'>
+<a name='L118'><i><font color='green'>/*</font></i>
+<a name='L119'><i><font color='green'>** check whether list has any jump that do not produce a value</font></i>
+<a name='L120'><i><font color='green'>** (or produce an inverted value)</font></i>
+<a name='L121'><i><font color='green'>*/</font></i>
+<a name='L122'><b>static</b> <b>int</b> <a href='../S/293.html#L398' title='Refered from 398 in deps/lua/src/lcode.c.'>need_value</a> (FuncState *fs, <b>int</b> list) <font color='red'>{</font>
+<a name='L123'>  <b>for</b> (; <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> != <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>; <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> = <a href='../S/293.html#L100' title='Defined at 100 in deps/lua/src/lcode.c.'>getjump</a>(fs, <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>)) <font color='red'>{</font>
+<a name='L124'>    <a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a> i = *<a href='../S/293.html#L109' title='Defined at 109 in deps/lua/src/lcode.c.'>getjumpcontrol</a>(fs, <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>);
+<a name='L125'>    <b>if</b> (<a href='../S/273.html#L80' title='Defined at 80 in deps/lua/src/lopcodes.h.'>GET_OPCODE</a>(i) != <a href='../S/273.html#L190' title='Defined at 190 in deps/lua/src/lopcodes.h.'>OP_TESTSET</a>) <b>return</b> 1;
+<a name='L126'>  <font color='red'>}</font>
+<a name='L127'>  <b>return</b> 0;  <i><font color='green'>/* not found */</font></i>
+<a name='L128'><font color='red'>}</font>
+<a name='L129'>
+<a name='L130'>
+<a name='L131'><b>static</b> <b>int</b> <a href='../R/3140.html' title='Multiple refered from 2 places.'>patchtestreg</a> (FuncState *fs, <b>int</b> node, <b>int</b> reg) <font color='red'>{</font>
+<a name='L132'>  <a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a> *i = <a href='../S/293.html#L109' title='Defined at 109 in deps/lua/src/lcode.c.'>getjumpcontrol</a>(fs, node);
+<a name='L133'>  <b>if</b> (<a href='../S/273.html#L80' title='Defined at 80 in deps/lua/src/lopcodes.h.'>GET_OPCODE</a>(*i) != <a href='../S/273.html#L190' title='Defined at 190 in deps/lua/src/lopcodes.h.'>OP_TESTSET</a>)
+<a name='L134'>    <b>return</b> 0;  <i><font color='green'>/* cannot patch other instructions */</font></i>
+<a name='L135'>  <b>if</b> (reg != <a href='../S/273.html#L136' title='Defined at 136 in deps/lua/src/lopcodes.h.'>NO_REG</a> &amp;&amp; reg != <a href='../S/273.html#L88' title='Defined at 88 in deps/lua/src/lopcodes.h.'>GETARG_B</a>(*i))
+<a name='L136'>    <a href='../S/273.html#L85' title='Defined at 85 in deps/lua/src/lopcodes.h.'>SETARG_A</a>(*i, reg);
+<a name='L137'>  <b>else</b>  <i><font color='green'>/* no register to put value or register already has the value */</font></i>
+<a name='L138'>    *i = <a href='../S/273.html#L104' title='Defined at 104 in deps/lua/src/lopcodes.h.'>CREATE_ABC</a>(<a href='../S/273.html#L189' title='Defined at 189 in deps/lua/src/lopcodes.h.'>OP_TEST</a>, <a href='../S/273.html#L88' title='Defined at 88 in deps/lua/src/lopcodes.h.'>GETARG_B</a>(*i), 0, <a href='../S/273.html#L92' title='Defined at 92 in deps/lua/src/lopcodes.h.'>GETARG_C</a>(*i));
+<a name='L139'>
+<a name='L140'>  <b>return</b> 1;
+<a name='L141'><font color='red'>}</font>
+<a name='L142'>
+<a name='L143'>
+<a name='L144'><b>static</b> <b>void</b> <a href='../R/3521.html' title='Multiple refered from 2 places.'>removevalues</a> (FuncState *fs, <b>int</b> list) <font color='red'>{</font>
+<a name='L145'>  <b>for</b> (; <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> != <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>; <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> = <a href='../S/293.html#L100' title='Defined at 100 in deps/lua/src/lcode.c.'>getjump</a>(fs, <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>))
+<a name='L146'>      <a href='../S/293.html#L131' title='Defined at 131 in deps/lua/src/lcode.c.'>patchtestreg</a>(fs, <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>, <a href='../S/273.html#L136' title='Defined at 136 in deps/lua/src/lopcodes.h.'>NO_REG</a>);
+<a name='L147'><font color='red'>}</font>
+<a name='L148'>
+<a name='L149'>
+<a name='L150'><b>static</b> <b>void</b> <a href='../R/3139.html' title='Multiple refered from 4 places.'>patchlistaux</a> (FuncState *fs, <b>int</b> list, <b>int</b> vtarget, <b>int</b> reg,
+<a name='L151'>                          <b>int</b> dtarget) <font color='red'>{</font>
+<a name='L152'>  <b>while</b> (<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> != <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>) <font color='red'>{</font>
+<a name='L153'>    <b>int</b> <a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = <a href='../S/293.html#L100' title='Defined at 100 in deps/lua/src/lcode.c.'>getjump</a>(fs, <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>);
+<a name='L154'>    <b>if</b> (<a href='../S/293.html#L131' title='Defined at 131 in deps/lua/src/lcode.c.'>patchtestreg</a>(fs, <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>, reg))
+<a name='L155'>      <a href='../S/293.html#L80' title='Defined at 80 in deps/lua/src/lcode.c.'>fixjump</a>(fs, <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>, vtarget);
+<a name='L156'>    <b>else</b>
+<a name='L157'>      <a href='../S/293.html#L80' title='Defined at 80 in deps/lua/src/lcode.c.'>fixjump</a>(fs, <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>, dtarget);  <i><font color='green'>/* jump to default target */</font></i>
+<a name='L158'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> = <a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L159'>  <font color='red'>}</font>
+<a name='L160'><font color='red'>}</font>
+<a name='L161'>
+<a name='L162'>
+<a name='L163'><b>static</b> <b>void</b> <a href='../S/293.html#L799' title='Refered from 799 in deps/lua/src/lcode.c.'>dischargejpc</a> (FuncState *fs) <font color='red'>{</font>
+<a name='L164'>  <a href='../S/293.html#L150' title='Defined at 150 in deps/lua/src/lcode.c.'>patchlistaux</a>(fs, fs-&gt;jpc, fs-&gt;pc, <a href='../S/273.html#L136' title='Defined at 136 in deps/lua/src/lopcodes.h.'>NO_REG</a>, fs-&gt;pc);
+<a name='L165'>  fs-&gt;jpc = <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>;
+<a name='L166'><font color='red'>}</font>
+<a name='L167'>
+<a name='L168'>
+<a name='L169'><b>void</b> <a href='../R/2609.html' title='Multiple refered from 5 places.'>luaK_patchlist</a> (FuncState *fs, <b>int</b> list, <b>int</b> target) <font color='red'>{</font>
+<a name='L170'>  <b>if</b> (target == fs-&gt;pc)
+<a name='L171'>    <a href='../S/293.html#L179' title='Defined at 179 in deps/lua/src/lcode.c.'>luaK_patchtohere</a>(fs, <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>);
+<a name='L172'>  <b>else</b> <font color='red'>{</font>
+<a name='L173'>    <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(target &lt; fs-&gt;pc);
+<a name='L174'>    <a href='../S/293.html#L150' title='Defined at 150 in deps/lua/src/lcode.c.'>patchlistaux</a>(fs, <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>, target, <a href='../S/273.html#L136' title='Defined at 136 in deps/lua/src/lopcodes.h.'>NO_REG</a>, target);
+<a name='L175'>  <font color='red'>}</font>
+<a name='L176'><font color='red'>}</font>
+<a name='L177'>
+<a name='L178'>
+<a name='L179'><b>void</b> <a href='../R/2610.html' title='Multiple refered from 12 places.'>luaK_patchtohere</a> (FuncState *fs, <b>int</b> list) <font color='red'>{</font>
+<a name='L180'>  <a href='../S/293.html#L94' title='Defined at 94 in deps/lua/src/lcode.c.'>luaK_getlabel</a>(fs);
+<a name='L181'>  <a href='../S/293.html#L185' title='Defined at 185 in deps/lua/src/lcode.c.'>luaK_concat</a>(fs, &amp;fs-&gt;jpc, <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>);
+<a name='L182'><font color='red'>}</font>
+<a name='L183'>
+<a name='L184'>
+<a name='L185'><b>void</b> <a href='../R/2594.html' title='Multiple refered from 12 places.'>luaK_concat</a> (FuncState *fs, <b>int</b> *l1, <b>int</b> l2) <font color='red'>{</font>
+<a name='L186'>  <b>if</b> (l2 == <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>) <b>return</b>;
+<a name='L187'>  <b>else</b> <b>if</b> (*l1 == <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>)
+<a name='L188'>    *l1 = l2;
+<a name='L189'>  <b>else</b> <font color='red'>{</font>
+<a name='L190'>    <b>int</b> <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> = *l1;
+<a name='L191'>    <b>int</b> <a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L192'>    <b>while</b> ((<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = <a href='../S/293.html#L100' title='Defined at 100 in deps/lua/src/lcode.c.'>getjump</a>(fs, <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>)) != <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>)  <i><font color='green'>/* find last element */</font></i>
+<a name='L193'>      <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> = <a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L194'>    <a href='../S/293.html#L80' title='Defined at 80 in deps/lua/src/lcode.c.'>fixjump</a>(fs, <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>, l2);
+<a name='L195'>  <font color='red'>}</font>
+<a name='L196'><font color='red'>}</font>
+<a name='L197'>
+<a name='L198'>
+<a name='L199'><b>void</b> <a href='../R/2589.html' title='Multiple refered from 3 places.'>luaK_checkstack</a> (FuncState *fs, <b>int</b> n) <font color='red'>{</font>
+<a name='L200'>  <b>int</b> newstack = fs-&gt;<a href='../S/293.html#L215' title='Defined at 215 in deps/lua/src/lcode.c.'>freereg</a> + n;
+<a name='L201'>  <b>if</b> (newstack &gt; fs-&gt;f-&gt;maxstacksize) <font color='red'>{</font>
+<a name='L202'>    <b>if</b> (newstack &gt;= <a href='../S/310.html#L93' title='Defined at 93 in deps/lua/src/llimits.h.'>MAXSTACK</a>)
+<a name='L203'>      <a href='../S/305.html#L112' title='Defined at 112 in deps/lua/src/llex.c.'>luaX_syntaxerror</a>(fs-&gt;ls, "function or expression too complex");
+<a name='L204'>    fs-&gt;f-&gt;maxstacksize = <a href='../S/310.html#L78' title='Defined at 78 in deps/lua/src/llimits.h.'>cast_byte</a>(newstack);
+<a name='L205'>  <font color='red'>}</font>
+<a name='L206'><font color='red'>}</font>
+<a name='L207'>
+<a name='L208'>
+<a name='L209'><b>void</b> <a href='../R/2613.html' title='Multiple refered from 12 places.'>luaK_reserveregs</a> (FuncState *fs, <b>int</b> n) <font color='red'>{</font>
+<a name='L210'>  <a href='../S/293.html#L199' title='Defined at 199 in deps/lua/src/lcode.c.'>luaK_checkstack</a>(fs, n);
+<a name='L211'>  fs-&gt;<a href='../S/293.html#L215' title='Defined at 215 in deps/lua/src/lcode.c.'>freereg</a> += n;
+<a name='L212'><font color='red'>}</font>
+<a name='L213'>
+<a name='L214'>
+<a name='L215'><b>static</b> <b>void</b> <a href='../R/2011.html' title='Multiple refered from 33 places.'>freereg</a> (FuncState *fs, <b>int</b> reg) <font color='red'>{</font>
+<a name='L216'>  <b>if</b> (!<a href='../S/273.html#L122' title='Defined at 122 in deps/lua/src/lopcodes.h.'>ISK</a>(reg) &amp;&amp; reg &gt;= fs-&gt;nactvar) <font color='red'>{</font>
+<a name='L217'>    fs-&gt;<a href='../S/293.html#L215' title='Defined at 215 in deps/lua/src/lcode.c.'>freereg</a>--;
+<a name='L218'>    <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(reg == fs-&gt;<a href='../S/293.html#L215' title='Defined at 215 in deps/lua/src/lcode.c.'>freereg</a>);
+<a name='L219'>  <font color='red'>}</font>
+<a name='L220'><font color='red'>}</font>
+<a name='L221'>
+<a name='L222'>
+<a name='L223'><b>static</b> <b>void</b> <a href='../R/2009.html' title='Multiple refered from 14 places.'>freeexp</a> (FuncState *fs, expdesc *e) <font color='red'>{</font>
+<a name='L224'>  <b>if</b> (e-&gt;k == <a href='../S/286.html#L32' title='Defined at 32 in deps/lua/src/lparser.h.'>VNONRELOC</a>)
+<a name='L225'>    <a href='../S/293.html#L215' title='Defined at 215 in deps/lua/src/lcode.c.'>freereg</a>(fs, e-&gt;u.s.info);
+<a name='L226'><font color='red'>}</font>
+<a name='L227'>
+<a name='L228'>
+<a name='L229'><b>static</b> <b>int</b> <a href='../R/1222.html' title='Multiple refered from 4 places.'>addk</a> (FuncState *fs, TValue *k, TValue *v) <font color='red'>{</font>
+<a name='L230'>  <a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L = fs-&gt;L;
+<a name='L231'>  <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *idx = <a href='../S/259.html#L494' title='Defined at 494 in deps/lua/src/ltable.c.'>luaH_set</a>(L, fs-&gt;h, k);
+<a name='L232'>  <a href='../D/722.html' title='Multiple defined in 2 places.'>Proto</a> *f = fs-&gt;f;
+<a name='L233'>  <b>int</b> oldsize = f-&gt;sizek;
+<a name='L234'>  <b>if</b> (<a href='../S/282.html#L80' title='Defined at 80 in deps/lua/src/lobject.h.'>ttisnumber</a>(idx)) <font color='red'>{</font>
+<a name='L235'>    <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(<a href='../S/311.html#L72' title='Defined at 72 in deps/lua/src/lobject.c.'>luaO_rawequalObj</a>(&amp;fs-&gt;f-&gt;k[<a href='../S/310.html#L80' title='Defined at 80 in deps/lua/src/llimits.h.'>cast_int</a>(<a href='../S/282.html#L93' title='Defined at 93 in deps/lua/src/lobject.h.'>nvalue</a>(idx))], v));
+<a name='L236'>    <b>return</b> <a href='../S/310.html#L80' title='Defined at 80 in deps/lua/src/llimits.h.'>cast_int</a>(<a href='../S/282.html#L93' title='Defined at 93 in deps/lua/src/lobject.h.'>nvalue</a>(idx));
+<a name='L237'>  <font color='red'>}</font>
+<a name='L238'>  <b>else</b> <font color='red'>{</font>  <i><font color='green'>/* constant not found; create a new entry */</font></i>
+<a name='L239'>    <a href='../S/282.html#L119' title='Defined at 119 in deps/lua/src/lobject.h.'>setnvalue</a>(idx, <a href='../S/310.html#L79' title='Defined at 79 in deps/lua/src/llimits.h.'>cast_num</a>(fs-&gt;nk));
+<a name='L240'>    <a href='../S/278.html#L33' title='Defined at 33 in deps/lua/src/lmem.h.'>luaM_growvector</a>(L, f-&gt;k, fs-&gt;nk, f-&gt;sizek, <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a>,
+<a name='L241'>                    <a href='../D/484.html' title='Multiple defined in 2 places.'>MAXARG_Bx</a>, "constant table overflow");
+<a name='L242'>    <b>while</b> (oldsize &lt; f-&gt;sizek) <a href='../S/282.html#L117' title='Defined at 117 in deps/lua/src/lobject.h.'>setnilvalue</a>(&amp;f-&gt;k[oldsize++]);
+<a name='L243'>    <a href='../S/282.html#L161' title='Defined at 161 in deps/lua/src/lobject.h.'>setobj</a>(L, &amp;f-&gt;k[fs-&gt;nk], v);
+<a name='L244'>    <a href='../S/261.html#L86' title='Defined at 86 in deps/lua/src/lgc.h.'>luaC_barrier</a>(L, f, v);
+<a name='L245'>    <b>return</b> fs-&gt;nk++;
+<a name='L246'>  <font color='red'>}</font>
+<a name='L247'><font color='red'>}</font>
+<a name='L248'>
+<a name='L249'>
+<a name='L250'><b>int</b> <a href='../R/2621.html' title='Multiple refered from 3 places.'>luaK_stringK</a> (FuncState *fs, TString *s) <font color='red'>{</font>
+<a name='L251'>  <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> o;
+<a name='L252'>  <a href='../S/282.html#L128' title='Defined at 128 in deps/lua/src/lobject.h.'>setsvalue</a>(fs-&gt;L, &amp;o, s);
+<a name='L253'>  <b>return</b> <a href='../S/293.html#L229' title='Defined at 229 in deps/lua/src/lcode.c.'>addk</a>(fs, &amp;o, &amp;o);
+<a name='L254'><font color='red'>}</font>
+<a name='L255'>
+<a name='L256'>
+<a name='L257'><b>int</b> <a href='../R/2608.html' title='Multiple refered from 4 places.'>luaK_numberK</a> (FuncState *fs, lua_Number r) <font color='red'>{</font>
+<a name='L258'>  <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> o;
+<a name='L259'>  <a href='../S/282.html#L119' title='Defined at 119 in deps/lua/src/lobject.h.'>setnvalue</a>(&amp;o, r);
+<a name='L260'>  <b>return</b> <a href='../S/293.html#L229' title='Defined at 229 in deps/lua/src/lcode.c.'>addk</a>(fs, &amp;o, &amp;o);
+<a name='L261'><font color='red'>}</font>
+<a name='L262'>
+<a name='L263'>
+<a name='L264'><b>static</b> <b>int</b> <a href='../S/293.html#L454' title='Refered from 454 in deps/lua/src/lcode.c.'>boolK</a> (FuncState *fs, <b>int</b> b) <font color='red'>{</font>
+<a name='L265'>  <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> o;
+<a name='L266'>  <a href='../S/282.html#L125' title='Defined at 125 in deps/lua/src/lobject.h.'>setbvalue</a>(&amp;o, b);
+<a name='L267'>  <b>return</b> <a href='../S/293.html#L229' title='Defined at 229 in deps/lua/src/lcode.c.'>addk</a>(fs, &amp;o, &amp;o);
+<a name='L268'><font color='red'>}</font>
+<a name='L269'>
+<a name='L270'>
+<a name='L271'><b>static</b> <b>int</b> <a href='../S/293.html#L452' title='Refered from 452 in deps/lua/src/lcode.c.'>nilK</a> (FuncState *fs) <font color='red'>{</font>
+<a name='L272'>  <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> k, v;
+<a name='L273'>  <a href='../S/282.html#L117' title='Defined at 117 in deps/lua/src/lobject.h.'>setnilvalue</a>(&amp;v);
+<a name='L274'>  <i><font color='green'>/* cannot use nil as key; instead use table itself to represent nil */</font></i>
+<a name='L275'>  <a href='../S/282.html#L148' title='Defined at 148 in deps/lua/src/lobject.h.'>sethvalue</a>(fs-&gt;L, &amp;k, fs-&gt;h);
+<a name='L276'>  <b>return</b> <a href='../S/293.html#L229' title='Defined at 229 in deps/lua/src/lcode.c.'>addk</a>(fs, &amp;k, &amp;v);
+<a name='L277'><font color='red'>}</font>
+<a name='L278'>
+<a name='L279'>
+<a name='L280'><b>void</b> <a href='../R/2619.html' title='Multiple refered from 3 places.'>luaK_setreturns</a> (FuncState *fs, expdesc *e, <b>int</b> nresults) <font color='red'>{</font>
+<a name='L281'>  <b>if</b> (e-&gt;k == <a href='../S/286.html#L33' title='Defined at 33 in deps/lua/src/lparser.h.'>VCALL</a>) <font color='red'>{</font>  <i><font color='green'>/* expression is an open function call? */</font></i>
+<a name='L282'>    <a href='../S/273.html#L93' title='Defined at 93 in deps/lua/src/lopcodes.h.'>SETARG_C</a>(<a href='../S/314.html#L39' title='Defined at 39 in deps/lua/src/lcode.h.'>getcode</a>(fs, e), nresults+1);
+<a name='L283'>  <font color='red'>}</font>
+<a name='L284'>  <b>else</b> <b>if</b> (e-&gt;k == <a href='../S/286.html#L34' title='Defined at 34 in deps/lua/src/lparser.h.'>VVARARG</a>) <font color='red'>{</font>
+<a name='L285'>    <a href='../S/273.html#L89' title='Defined at 89 in deps/lua/src/lopcodes.h.'>SETARG_B</a>(<a href='../S/314.html#L39' title='Defined at 39 in deps/lua/src/lcode.h.'>getcode</a>(fs, e), nresults+1);
+<a name='L286'>    <a href='../S/273.html#L85' title='Defined at 85 in deps/lua/src/lopcodes.h.'>SETARG_A</a>(<a href='../S/314.html#L39' title='Defined at 39 in deps/lua/src/lcode.h.'>getcode</a>(fs, e), fs-&gt;<a href='../S/293.html#L215' title='Defined at 215 in deps/lua/src/lcode.c.'>freereg</a>);
+<a name='L287'>    <a href='../S/293.html#L209' title='Defined at 209 in deps/lua/src/lcode.c.'>luaK_reserveregs</a>(fs, 1);
+<a name='L288'>  <font color='red'>}</font>
+<a name='L289'><font color='red'>}</font>
+<a name='L290'>
+<a name='L291'>
+<a name='L292'><b>void</b> <a href='../R/2618.html' title='Multiple refered from 3 places.'>luaK_setoneret</a> (FuncState *fs, expdesc *e) <font color='red'>{</font>
+<a name='L293'>  <b>if</b> (e-&gt;k == <a href='../S/286.html#L33' title='Defined at 33 in deps/lua/src/lparser.h.'>VCALL</a>) <font color='red'>{</font>  <i><font color='green'>/* expression is an open function call? */</font></i>
+<a name='L294'>    e-&gt;k = <a href='../S/286.html#L32' title='Defined at 32 in deps/lua/src/lparser.h.'>VNONRELOC</a>;
+<a name='L295'>    e-&gt;u.s.info = <a href='../S/273.html#L84' title='Defined at 84 in deps/lua/src/lopcodes.h.'>GETARG_A</a>(<a href='../S/314.html#L39' title='Defined at 39 in deps/lua/src/lcode.h.'>getcode</a>(fs, e));
+<a name='L296'>  <font color='red'>}</font>
+<a name='L297'>  <b>else</b> <b>if</b> (e-&gt;k == <a href='../S/286.html#L34' title='Defined at 34 in deps/lua/src/lparser.h.'>VVARARG</a>) <font color='red'>{</font>
+<a name='L298'>    <a href='../S/273.html#L89' title='Defined at 89 in deps/lua/src/lopcodes.h.'>SETARG_B</a>(<a href='../S/314.html#L39' title='Defined at 39 in deps/lua/src/lcode.h.'>getcode</a>(fs, e), 2);
+<a name='L299'>    e-&gt;k = <a href='../S/286.html#L31' title='Defined at 31 in deps/lua/src/lparser.h.'>VRELOCABLE</a>;  <i><font color='green'>/* can relocate its simple result */</font></i>
+<a name='L300'>  <font color='red'>}</font>
+<a name='L301'><font color='red'>}</font>
+<a name='L302'>
+<a name='L303'>
+<a name='L304'><b>void</b> <a href='../R/2595.html' title='Multiple refered from 11 places.'>luaK_dischargevars</a> (FuncState *fs, expdesc *e) <font color='red'>{</font>
+<a name='L305'>  <b>switch</b> (e-&gt;k) <font color='red'>{</font>
+<a name='L306'>    <b>case</b> <a href='../S/286.html#L26' title='Defined at 26 in deps/lua/src/lparser.h.'>VLOCAL</a>: <font color='red'>{</font>
+<a name='L307'>      e-&gt;k = <a href='../S/286.html#L32' title='Defined at 32 in deps/lua/src/lparser.h.'>VNONRELOC</a>;
+<a name='L308'>      <b>break</b>;
+<a name='L309'>    <font color='red'>}</font>
+<a name='L310'>    <b>case</b> <a href='../S/286.html#L27' title='Defined at 27 in deps/lua/src/lparser.h.'>VUPVAL</a>: <font color='red'>{</font>
+<a name='L311'>      e-&gt;u.s.info = <a href='../S/293.html#L812' title='Defined at 812 in deps/lua/src/lcode.c.'>luaK_codeABC</a>(fs, <a href='../S/273.html#L158' title='Defined at 158 in deps/lua/src/lopcodes.h.'>OP_GETUPVAL</a>, 0, e-&gt;u.s.info, 0);
+<a name='L312'>      e-&gt;k = <a href='../S/286.html#L31' title='Defined at 31 in deps/lua/src/lparser.h.'>VRELOCABLE</a>;
+<a name='L313'>      <b>break</b>;
+<a name='L314'>    <font color='red'>}</font>
+<a name='L315'>    <b>case</b> <a href='../S/286.html#L28' title='Defined at 28 in deps/lua/src/lparser.h.'>VGLOBAL</a>: <font color='red'>{</font>
+<a name='L316'>      e-&gt;u.s.info = <a href='../S/293.html#L820' title='Defined at 820 in deps/lua/src/lcode.c.'>luaK_codeABx</a>(fs, <a href='../S/273.html#L160' title='Defined at 160 in deps/lua/src/lopcodes.h.'>OP_GETGLOBAL</a>, 0, e-&gt;u.s.info);
+<a name='L317'>      e-&gt;k = <a href='../S/286.html#L31' title='Defined at 31 in deps/lua/src/lparser.h.'>VRELOCABLE</a>;
+<a name='L318'>      <b>break</b>;
+<a name='L319'>    <font color='red'>}</font>
+<a name='L320'>    <b>case</b> <a href='../S/286.html#L29' title='Defined at 29 in deps/lua/src/lparser.h.'>VINDEXED</a>: <font color='red'>{</font>
+<a name='L321'>      <a href='../S/293.html#L215' title='Defined at 215 in deps/lua/src/lcode.c.'>freereg</a>(fs, e-&gt;u.s.aux);
+<a name='L322'>      <a href='../S/293.html#L215' title='Defined at 215 in deps/lua/src/lcode.c.'>freereg</a>(fs, e-&gt;u.s.info);
+<a name='L323'>      e-&gt;u.s.info = <a href='../S/293.html#L812' title='Defined at 812 in deps/lua/src/lcode.c.'>luaK_codeABC</a>(fs, <a href='../S/273.html#L161' title='Defined at 161 in deps/lua/src/lopcodes.h.'>OP_GETTABLE</a>, 0, e-&gt;u.s.info, e-&gt;u.s.aux);
+<a name='L324'>      e-&gt;k = <a href='../S/286.html#L31' title='Defined at 31 in deps/lua/src/lparser.h.'>VRELOCABLE</a>;
+<a name='L325'>      <b>break</b>;
+<a name='L326'>    <font color='red'>}</font>
+<a name='L327'>    <b>case</b> <a href='../S/286.html#L34' title='Defined at 34 in deps/lua/src/lparser.h.'>VVARARG</a>:
+<a name='L328'>    <b>case</b> <a href='../S/286.html#L33' title='Defined at 33 in deps/lua/src/lparser.h.'>VCALL</a>: <font color='red'>{</font>
+<a name='L329'>      <a href='../S/293.html#L292' title='Defined at 292 in deps/lua/src/lcode.c.'>luaK_setoneret</a>(fs, e);
+<a name='L330'>      <b>break</b>;
+<a name='L331'>    <font color='red'>}</font>
+<a name='L332'>    <b>default</b>: <b>break</b>;  <i><font color='green'>/* there is one value available (somewhere) */</font></i>
+<a name='L333'>  <font color='red'>}</font>
+<a name='L334'><font color='red'>}</font>
+<a name='L335'>
+<a name='L336'>
+<a name='L337'><b>static</b> <b>int</b> <a href='../R/1646.html' title='Multiple refered from 2 places.'>code_label</a> (FuncState *fs, <b>int</b> A, <b>int</b> b, <b>int</b> jump) <font color='red'>{</font>
+<a name='L338'>  <a href='../S/293.html#L94' title='Defined at 94 in deps/lua/src/lcode.c.'>luaK_getlabel</a>(fs);  <i><font color='green'>/* those instructions may be jump targets */</font></i>
+<a name='L339'>  <b>return</b> <a href='../S/293.html#L812' title='Defined at 812 in deps/lua/src/lcode.c.'>luaK_codeABC</a>(fs, <a href='../S/273.html#L156' title='Defined at 156 in deps/lua/src/lopcodes.h.'>OP_LOADBOOL</a>, A, b, jump);
+<a name='L340'><font color='red'>}</font>
+<a name='L341'>
+<a name='L342'>
+<a name='L343'><b>static</b> <b>void</b> <a href='../R/1857.html' title='Multiple refered from 2 places.'>discharge2reg</a> (FuncState *fs, expdesc *e, <b>int</b> reg) <font color='red'>{</font>
+<a name='L344'>  <a href='../S/293.html#L304' title='Defined at 304 in deps/lua/src/lcode.c.'>luaK_dischargevars</a>(fs, e);
+<a name='L345'>  <b>switch</b> (e-&gt;k) <font color='red'>{</font>
+<a name='L346'>    <b>case</b> <a href='../S/286.html#L21' title='Defined at 21 in deps/lua/src/lparser.h.'>VNIL</a>: <font color='red'>{</font>
+<a name='L347'>      <a href='../S/293.html#L35' title='Defined at 35 in deps/lua/src/lcode.c.'>luaK_nil</a>(fs, reg, 1);
+<a name='L348'>      <b>break</b>;
+<a name='L349'>    <font color='red'>}</font>
+<a name='L350'>    <b>case</b> <a href='../S/286.html#L23' title='Defined at 23 in deps/lua/src/lparser.h.'>VFALSE</a>:  <b>case</b> <a href='../S/286.html#L22' title='Defined at 22 in deps/lua/src/lparser.h.'>VTRUE</a>: <font color='red'>{</font>
+<a name='L351'>      <a href='../S/293.html#L812' title='Defined at 812 in deps/lua/src/lcode.c.'>luaK_codeABC</a>(fs, <a href='../S/273.html#L156' title='Defined at 156 in deps/lua/src/lopcodes.h.'>OP_LOADBOOL</a>, reg, e-&gt;k == <a href='../S/286.html#L22' title='Defined at 22 in deps/lua/src/lparser.h.'>VTRUE</a>, 0);
+<a name='L352'>      <b>break</b>;
+<a name='L353'>    <font color='red'>}</font>
+<a name='L354'>    <b>case</b> <a href='../S/286.html#L24' title='Defined at 24 in deps/lua/src/lparser.h.'>VK</a>: <font color='red'>{</font>
+<a name='L355'>      <a href='../S/293.html#L820' title='Defined at 820 in deps/lua/src/lcode.c.'>luaK_codeABx</a>(fs, <a href='../S/273.html#L155' title='Defined at 155 in deps/lua/src/lopcodes.h.'>OP_LOADK</a>, reg, e-&gt;u.s.info);
+<a name='L356'>      <b>break</b>;
+<a name='L357'>    <font color='red'>}</font>
+<a name='L358'>    <b>case</b> <a href='../S/286.html#L25' title='Defined at 25 in deps/lua/src/lparser.h.'>VKNUM</a>: <font color='red'>{</font>
+<a name='L359'>      <a href='../S/293.html#L820' title='Defined at 820 in deps/lua/src/lcode.c.'>luaK_codeABx</a>(fs, <a href='../S/273.html#L155' title='Defined at 155 in deps/lua/src/lopcodes.h.'>OP_LOADK</a>, reg, <a href='../S/293.html#L257' title='Defined at 257 in deps/lua/src/lcode.c.'>luaK_numberK</a>(fs, e-&gt;u.nval));
+<a name='L360'>      <b>break</b>;
+<a name='L361'>    <font color='red'>}</font>
+<a name='L362'>    <b>case</b> <a href='../S/286.html#L31' title='Defined at 31 in deps/lua/src/lparser.h.'>VRELOCABLE</a>: <font color='red'>{</font>
+<a name='L363'>      <a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a> *pc = &amp;<a href='../S/314.html#L39' title='Defined at 39 in deps/lua/src/lcode.h.'>getcode</a>(fs, e);
+<a name='L364'>      <a href='../S/273.html#L85' title='Defined at 85 in deps/lua/src/lopcodes.h.'>SETARG_A</a>(*pc, reg);
+<a name='L365'>      <b>break</b>;
+<a name='L366'>    <font color='red'>}</font>
+<a name='L367'>    <b>case</b> <a href='../S/286.html#L32' title='Defined at 32 in deps/lua/src/lparser.h.'>VNONRELOC</a>: <font color='red'>{</font>
+<a name='L368'>      <b>if</b> (reg != e-&gt;u.s.info)
+<a name='L369'>        <a href='../S/293.html#L812' title='Defined at 812 in deps/lua/src/lcode.c.'>luaK_codeABC</a>(fs, <a href='../S/273.html#L154' title='Defined at 154 in deps/lua/src/lopcodes.h.'>OP_MOVE</a>, reg, e-&gt;u.s.info, 0);
+<a name='L370'>      <b>break</b>;
+<a name='L371'>    <font color='red'>}</font>
+<a name='L372'>    <b>default</b>: <font color='red'>{</font>
+<a name='L373'>      <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(e-&gt;k == <a href='../S/286.html#L20' title='Defined at 20 in deps/lua/src/lparser.h.'>VVOID</a> || e-&gt;k == <a href='../S/286.html#L30' title='Defined at 30 in deps/lua/src/lparser.h.'>VJMP</a>);
+<a name='L374'>      <b>return</b>;  <i><font color='green'>/* nothing to do... */</font></i>
+<a name='L375'>    <font color='red'>}</font>
+<a name='L376'>  <font color='red'>}</font>
+<a name='L377'>  e-&gt;u.s.info = reg;
+<a name='L378'>  e-&gt;k = <a href='../S/286.html#L32' title='Defined at 32 in deps/lua/src/lparser.h.'>VNONRELOC</a>;
+<a name='L379'><font color='red'>}</font>
+<a name='L380'>
+<a name='L381'>
+<a name='L382'><b>static</b> <b>void</b> <a href='../R/1856.html' title='Multiple refered from 2 places.'>discharge2anyreg</a> (FuncState *fs, expdesc *e) <font color='red'>{</font>
+<a name='L383'>  <b>if</b> (e-&gt;k != <a href='../S/286.html#L32' title='Defined at 32 in deps/lua/src/lparser.h.'>VNONRELOC</a>) <font color='red'>{</font>
+<a name='L384'>    <a href='../S/293.html#L209' title='Defined at 209 in deps/lua/src/lcode.c.'>luaK_reserveregs</a>(fs, 1);
+<a name='L385'>    <a href='../S/293.html#L343' title='Defined at 343 in deps/lua/src/lcode.c.'>discharge2reg</a>(fs, e, fs-&gt;<a href='../S/293.html#L215' title='Defined at 215 in deps/lua/src/lcode.c.'>freereg</a>-1);
+<a name='L386'>  <font color='red'>}</font>
+<a name='L387'><font color='red'>}</font>
+<a name='L388'>
+<a name='L389'>
+<a name='L390'><b>static</b> <b>void</b> <a href='../R/1908.html' title='Multiple refered from 3 places.'>exp2reg</a> (FuncState *fs, expdesc *e, <b>int</b> reg) <font color='red'>{</font>
+<a name='L391'>  <a href='../S/293.html#L343' title='Defined at 343 in deps/lua/src/lcode.c.'>discharge2reg</a>(fs, e, reg);
+<a name='L392'>  <b>if</b> (e-&gt;k == <a href='../S/286.html#L30' title='Defined at 30 in deps/lua/src/lparser.h.'>VJMP</a>)
+<a name='L393'>    <a href='../S/293.html#L185' title='Defined at 185 in deps/lua/src/lcode.c.'>luaK_concat</a>(fs, &amp;e-&gt;t, e-&gt;u.s.info);  <i><font color='green'>/* put this jump in `t' list */</font></i>
+<a name='L394'>  <b>if</b> (<a href='../S/293.html#L27' title='Defined at 27 in deps/lua/src/lcode.c.'>hasjumps</a>(e)) <font color='red'>{</font>
+<a name='L395'>    <b>int</b> final;  <i><font color='green'>/* position after whole expression */</font></i>
+<a name='L396'>    <b>int</b> p_f = <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>;  <i><font color='green'>/* position of an eventual LOAD false */</font></i>
+<a name='L397'>    <b>int</b> p_t = <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>;  <i><font color='green'>/* position of an eventual LOAD true */</font></i>
+<a name='L398'>    <b>if</b> (<a href='../S/293.html#L122' title='Defined at 122 in deps/lua/src/lcode.c.'>need_value</a>(fs, e-&gt;t) || <a href='../S/293.html#L122' title='Defined at 122 in deps/lua/src/lcode.c.'>need_value</a>(fs, e-&gt;f)) <font color='red'>{</font>
+<a name='L399'>      <b>int</b> fj = (e-&gt;k == <a href='../S/286.html#L30' title='Defined at 30 in deps/lua/src/lparser.h.'>VJMP</a>) ? <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a> : <a href='../S/293.html#L59' title='Defined at 59 in deps/lua/src/lcode.c.'>luaK_jump</a>(fs);
+<a name='L400'>      p_f = <a href='../S/293.html#L337' title='Defined at 337 in deps/lua/src/lcode.c.'>code_label</a>(fs, reg, 0, 1);
+<a name='L401'>      p_t = <a href='../S/293.html#L337' title='Defined at 337 in deps/lua/src/lcode.c.'>code_label</a>(fs, reg, 1, 0);
+<a name='L402'>      <a href='../S/293.html#L179' title='Defined at 179 in deps/lua/src/lcode.c.'>luaK_patchtohere</a>(fs, fj);
+<a name='L403'>    <font color='red'>}</font>
+<a name='L404'>    final = <a href='../S/293.html#L94' title='Defined at 94 in deps/lua/src/lcode.c.'>luaK_getlabel</a>(fs);
+<a name='L405'>    <a href='../S/293.html#L150' title='Defined at 150 in deps/lua/src/lcode.c.'>patchlistaux</a>(fs, e-&gt;f, final, reg, p_f);
+<a name='L406'>    <a href='../S/293.html#L150' title='Defined at 150 in deps/lua/src/lcode.c.'>patchlistaux</a>(fs, e-&gt;t, final, reg, p_t);
+<a name='L407'>  <font color='red'>}</font>
+<a name='L408'>  e-&gt;f = e-&gt;t = <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>;
+<a name='L409'>  e-&gt;u.s.info = reg;
+<a name='L410'>  e-&gt;k = <a href='../S/286.html#L32' title='Defined at 32 in deps/lua/src/lparser.h.'>VNONRELOC</a>;
+<a name='L411'><font color='red'>}</font>
+<a name='L412'>
+<a name='L413'>
+<a name='L414'><b>void</b> <a href='../R/2598.html' title='Multiple refered from 13 places.'>luaK_exp2nextreg</a> (FuncState *fs, expdesc *e) <font color='red'>{</font>
+<a name='L415'>  <a href='../S/293.html#L304' title='Defined at 304 in deps/lua/src/lcode.c.'>luaK_dischargevars</a>(fs, e);
+<a name='L416'>  <a href='../S/293.html#L223' title='Defined at 223 in deps/lua/src/lcode.c.'>freeexp</a>(fs, e);
+<a name='L417'>  <a href='../S/293.html#L209' title='Defined at 209 in deps/lua/src/lcode.c.'>luaK_reserveregs</a>(fs, 1);
+<a name='L418'>  <a href='../S/293.html#L390' title='Defined at 390 in deps/lua/src/lcode.c.'>exp2reg</a>(fs, e, fs-&gt;<a href='../S/293.html#L215' title='Defined at 215 in deps/lua/src/lcode.c.'>freereg</a> - 1);
+<a name='L419'><font color='red'>}</font>
+<a name='L420'>
+<a name='L421'>
+<a name='L422'><b>int</b> <a href='../R/2597.html' title='Multiple refered from 11 places.'>luaK_exp2anyreg</a> (FuncState *fs, expdesc *e) <font color='red'>{</font>
+<a name='L423'>  <a href='../S/293.html#L304' title='Defined at 304 in deps/lua/src/lcode.c.'>luaK_dischargevars</a>(fs, e);
+<a name='L424'>  <b>if</b> (e-&gt;k == <a href='../S/286.html#L32' title='Defined at 32 in deps/lua/src/lparser.h.'>VNONRELOC</a>) <font color='red'>{</font>
+<a name='L425'>    <b>if</b> (!<a href='../S/293.html#L27' title='Defined at 27 in deps/lua/src/lcode.c.'>hasjumps</a>(e)) <b>return</b> e-&gt;u.s.info;  <i><font color='green'>/* exp is already in a register */</font></i>
+<a name='L426'>    <b>if</b> (e-&gt;u.s.info &gt;= fs-&gt;nactvar) <font color='red'>{</font>  <i><font color='green'>/* reg. is not a local? */</font></i>
+<a name='L427'>      <a href='../S/293.html#L390' title='Defined at 390 in deps/lua/src/lcode.c.'>exp2reg</a>(fs, e, e-&gt;u.s.info);  <i><font color='green'>/* put value on it */</font></i>
+<a name='L428'>      <b>return</b> e-&gt;u.s.info;
+<a name='L429'>    <font color='red'>}</font>
+<a name='L430'>  <font color='red'>}</font>
+<a name='L431'>  <a href='../S/293.html#L414' title='Defined at 414 in deps/lua/src/lcode.c.'>luaK_exp2nextreg</a>(fs, e);  <i><font color='green'>/* default */</font></i>
+<a name='L432'>  <b>return</b> e-&gt;u.s.info;
+<a name='L433'><font color='red'>}</font>
+<a name='L434'>
+<a name='L435'>
+<a name='L436'><b>void</b> <a href='../R/2599.html' title='Multiple refered from 4 places.'>luaK_exp2val</a> (FuncState *fs, expdesc *e) <font color='red'>{</font>
+<a name='L437'>  <b>if</b> (<a href='../S/293.html#L27' title='Defined at 27 in deps/lua/src/lcode.c.'>hasjumps</a>(e))
+<a name='L438'>    <a href='../S/293.html#L422' title='Defined at 422 in deps/lua/src/lcode.c.'>luaK_exp2anyreg</a>(fs, e);
+<a name='L439'>  <b>else</b>
+<a name='L440'>    <a href='../S/293.html#L304' title='Defined at 304 in deps/lua/src/lcode.c.'>luaK_dischargevars</a>(fs, e);
+<a name='L441'><font color='red'>}</font>
+<a name='L442'>
+<a name='L443'>
+<a name='L444'><b>int</b> <a href='../R/2596.html' title='Multiple refered from 12 places.'>luaK_exp2RK</a> (FuncState *fs, expdesc *e) <font color='red'>{</font>
+<a name='L445'>  <a href='../S/293.html#L436' title='Defined at 436 in deps/lua/src/lcode.c.'>luaK_exp2val</a>(fs, e);
+<a name='L446'>  <b>switch</b> (e-&gt;k) <font color='red'>{</font>
+<a name='L447'>    <b>case</b> <a href='../S/286.html#L25' title='Defined at 25 in deps/lua/src/lparser.h.'>VKNUM</a>:
+<a name='L448'>    <b>case</b> <a href='../S/286.html#L22' title='Defined at 22 in deps/lua/src/lparser.h.'>VTRUE</a>:
+<a name='L449'>    <b>case</b> <a href='../S/286.html#L23' title='Defined at 23 in deps/lua/src/lparser.h.'>VFALSE</a>:
+<a name='L450'>    <b>case</b> <a href='../S/286.html#L21' title='Defined at 21 in deps/lua/src/lparser.h.'>VNIL</a>: <font color='red'>{</font>
+<a name='L451'>      <b>if</b> (fs-&gt;nk &lt;= <a href='../S/273.html#L127' title='Defined at 127 in deps/lua/src/lopcodes.h.'>MAXINDEXRK</a>) <font color='red'>{</font>  <i><font color='green'>/* constant fit in RK operand? */</font></i>
+<a name='L452'>        e-&gt;u.s.info = (e-&gt;k == <a href='../S/286.html#L21' title='Defined at 21 in deps/lua/src/lparser.h.'>VNIL</a>)  ? <a href='../S/293.html#L271' title='Defined at 271 in deps/lua/src/lcode.c.'>nilK</a>(fs) :
+<a name='L453'>                      (e-&gt;k == <a href='../S/286.html#L25' title='Defined at 25 in deps/lua/src/lparser.h.'>VKNUM</a>) ? <a href='../S/293.html#L257' title='Defined at 257 in deps/lua/src/lcode.c.'>luaK_numberK</a>(fs, e-&gt;u.nval) :
+<a name='L454'>                                        <a href='../S/293.html#L264' title='Defined at 264 in deps/lua/src/lcode.c.'>boolK</a>(fs, (e-&gt;k == <a href='../S/286.html#L22' title='Defined at 22 in deps/lua/src/lparser.h.'>VTRUE</a>));
+<a name='L455'>        e-&gt;k = <a href='../S/286.html#L24' title='Defined at 24 in deps/lua/src/lparser.h.'>VK</a>;
+<a name='L456'>        <b>return</b> <a href='../S/273.html#L130' title='Defined at 130 in deps/lua/src/lopcodes.h.'>RKASK</a>(e-&gt;u.s.info);
+<a name='L457'>      <font color='red'>}</font>
+<a name='L458'>      <b>else</b> <b>break</b>;
+<a name='L459'>    <font color='red'>}</font>
+<a name='L460'>    <b>case</b> <a href='../S/286.html#L24' title='Defined at 24 in deps/lua/src/lparser.h.'>VK</a>: <font color='red'>{</font>
+<a name='L461'>      <b>if</b> (e-&gt;u.s.info &lt;= <a href='../S/273.html#L127' title='Defined at 127 in deps/lua/src/lopcodes.h.'>MAXINDEXRK</a>)  <i><font color='green'>/* constant fit in argC? */</font></i>
+<a name='L462'>        <b>return</b> <a href='../S/273.html#L130' title='Defined at 130 in deps/lua/src/lopcodes.h.'>RKASK</a>(e-&gt;u.s.info);
+<a name='L463'>      <b>else</b> <b>break</b>;
+<a name='L464'>    <font color='red'>}</font>
+<a name='L465'>    <b>default</b>: <b>break</b>;
+<a name='L466'>  <font color='red'>}</font>
+<a name='L467'>  <i><font color='green'>/* not a constant in the right range: put it in a register */</font></i>
+<a name='L468'>  <b>return</b> <a href='../S/293.html#L422' title='Defined at 422 in deps/lua/src/lcode.c.'>luaK_exp2anyreg</a>(fs, e);
+<a name='L469'><font color='red'>}</font>
+<a name='L470'>
+<a name='L471'>
+<a name='L472'><b>void</b> <a href='../R/2620.html' title='Multiple refered from 5 places.'>luaK_storevar</a> (FuncState *fs, expdesc *var, expdesc *ex) <font color='red'>{</font>
+<a name='L473'>  <b>switch</b> (var-&gt;k) <font color='red'>{</font>
+<a name='L474'>    <b>case</b> <a href='../S/286.html#L26' title='Defined at 26 in deps/lua/src/lparser.h.'>VLOCAL</a>: <font color='red'>{</font>
+<a name='L475'>      <a href='../S/293.html#L223' title='Defined at 223 in deps/lua/src/lcode.c.'>freeexp</a>(fs, ex);
+<a name='L476'>      <a href='../S/293.html#L390' title='Defined at 390 in deps/lua/src/lcode.c.'>exp2reg</a>(fs, ex, var-&gt;u.s.info);
+<a name='L477'>      <b>return</b>;
+<a name='L478'>    <font color='red'>}</font>
+<a name='L479'>    <b>case</b> <a href='../S/286.html#L27' title='Defined at 27 in deps/lua/src/lparser.h.'>VUPVAL</a>: <font color='red'>{</font>
+<a name='L480'>      <b>int</b> e = <a href='../S/293.html#L422' title='Defined at 422 in deps/lua/src/lcode.c.'>luaK_exp2anyreg</a>(fs, ex);
+<a name='L481'>      <a href='../S/293.html#L812' title='Defined at 812 in deps/lua/src/lcode.c.'>luaK_codeABC</a>(fs, <a href='../S/273.html#L164' title='Defined at 164 in deps/lua/src/lopcodes.h.'>OP_SETUPVAL</a>, e, var-&gt;u.s.info, 0);
+<a name='L482'>      <b>break</b>;
+<a name='L483'>    <font color='red'>}</font>
+<a name='L484'>    <b>case</b> <a href='../S/286.html#L28' title='Defined at 28 in deps/lua/src/lparser.h.'>VGLOBAL</a>: <font color='red'>{</font>
+<a name='L485'>      <b>int</b> e = <a href='../S/293.html#L422' title='Defined at 422 in deps/lua/src/lcode.c.'>luaK_exp2anyreg</a>(fs, ex);
+<a name='L486'>      <a href='../S/293.html#L820' title='Defined at 820 in deps/lua/src/lcode.c.'>luaK_codeABx</a>(fs, <a href='../S/273.html#L163' title='Defined at 163 in deps/lua/src/lopcodes.h.'>OP_SETGLOBAL</a>, e, var-&gt;u.s.info);
+<a name='L487'>      <b>break</b>;
+<a name='L488'>    <font color='red'>}</font>
+<a name='L489'>    <b>case</b> <a href='../S/286.html#L29' title='Defined at 29 in deps/lua/src/lparser.h.'>VINDEXED</a>: <font color='red'>{</font>
+<a name='L490'>      <b>int</b> e = <a href='../S/293.html#L444' title='Defined at 444 in deps/lua/src/lcode.c.'>luaK_exp2RK</a>(fs, ex);
+<a name='L491'>      <a href='../S/293.html#L812' title='Defined at 812 in deps/lua/src/lcode.c.'>luaK_codeABC</a>(fs, <a href='../S/273.html#L165' title='Defined at 165 in deps/lua/src/lopcodes.h.'>OP_SETTABLE</a>, var-&gt;u.s.info, var-&gt;u.s.aux, e);
+<a name='L492'>      <b>break</b>;
+<a name='L493'>    <font color='red'>}</font>
+<a name='L494'>    <b>default</b>: <font color='red'>{</font>
+<a name='L495'>      <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(0);  <i><font color='green'>/* invalid var kind to store */</font></i>
+<a name='L496'>      <b>break</b>;
+<a name='L497'>    <font color='red'>}</font>
+<a name='L498'>  <font color='red'>}</font>
+<a name='L499'>  <a href='../S/293.html#L223' title='Defined at 223 in deps/lua/src/lcode.c.'>freeexp</a>(fs, ex);
+<a name='L500'><font color='red'>}</font>
+<a name='L501'>
+<a name='L502'>
+<a name='L503'><b>void</b> <a href='../R/2615.html' title='Multiple refered from 2 places.'>luaK_self</a> (FuncState *fs, expdesc *e, expdesc *key) <font color='red'>{</font>
+<a name='L504'>  <b>int</b> func;
+<a name='L505'>  <a href='../S/293.html#L422' title='Defined at 422 in deps/lua/src/lcode.c.'>luaK_exp2anyreg</a>(fs, e);
+<a name='L506'>  <a href='../S/293.html#L223' title='Defined at 223 in deps/lua/src/lcode.c.'>freeexp</a>(fs, e);
+<a name='L507'>  func = fs-&gt;<a href='../S/293.html#L215' title='Defined at 215 in deps/lua/src/lcode.c.'>freereg</a>;
+<a name='L508'>  <a href='../S/293.html#L209' title='Defined at 209 in deps/lua/src/lcode.c.'>luaK_reserveregs</a>(fs, 2);
+<a name='L509'>  <a href='../S/293.html#L812' title='Defined at 812 in deps/lua/src/lcode.c.'>luaK_codeABC</a>(fs, <a href='../S/273.html#L169' title='Defined at 169 in deps/lua/src/lopcodes.h.'>OP_SELF</a>, func, e-&gt;u.s.info, <a href='../S/293.html#L444' title='Defined at 444 in deps/lua/src/lcode.c.'>luaK_exp2RK</a>(fs, key));
+<a name='L510'>  <a href='../S/293.html#L223' title='Defined at 223 in deps/lua/src/lcode.c.'>freeexp</a>(fs, key);
+<a name='L511'>  e-&gt;u.s.info = func;
+<a name='L512'>  e-&gt;k = <a href='../S/286.html#L32' title='Defined at 32 in deps/lua/src/lparser.h.'>VNONRELOC</a>;
+<a name='L513'><font color='red'>}</font>
+<a name='L514'>
+<a name='L515'>
+<a name='L516'><b>static</b> <b>void</b> <a href='../R/2235.html' title='Multiple refered from 2 places.'>invertjump</a> (FuncState *fs, expdesc *e) <font color='red'>{</font>
+<a name='L517'>  <a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a> *pc = <a href='../S/293.html#L109' title='Defined at 109 in deps/lua/src/lcode.c.'>getjumpcontrol</a>(fs, e-&gt;u.s.info);
+<a name='L518'>  <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(<a href='../S/273.html#L258' title='Defined at 258 in deps/lua/src/lopcodes.h.'>testTMode</a>(<a href='../S/273.html#L80' title='Defined at 80 in deps/lua/src/lopcodes.h.'>GET_OPCODE</a>(*pc)) &amp;&amp; <a href='../S/273.html#L80' title='Defined at 80 in deps/lua/src/lopcodes.h.'>GET_OPCODE</a>(*pc) != <a href='../S/273.html#L190' title='Defined at 190 in deps/lua/src/lopcodes.h.'>OP_TESTSET</a> &amp;&amp;
+<a name='L519'>                                           <a href='../S/273.html#L80' title='Defined at 80 in deps/lua/src/lopcodes.h.'>GET_OPCODE</a>(*pc) != <a href='../S/273.html#L189' title='Defined at 189 in deps/lua/src/lopcodes.h.'>OP_TEST</a>);
+<a name='L520'>  <a href='../S/273.html#L85' title='Defined at 85 in deps/lua/src/lopcodes.h.'>SETARG_A</a>(*pc, !(<a href='../S/273.html#L84' title='Defined at 84 in deps/lua/src/lopcodes.h.'>GETARG_A</a>(*pc)));
+<a name='L521'><font color='red'>}</font>
+<a name='L522'>
+<a name='L523'>
+<a name='L524'><b>static</b> <b>int</b> <a href='../R/2336.html' title='Multiple refered from 2 places.'>jumponcond</a> (FuncState *fs, expdesc *e, <b>int</b> cond) <font color='red'>{</font>
+<a name='L525'>  <b>if</b> (e-&gt;k == <a href='../S/286.html#L31' title='Defined at 31 in deps/lua/src/lparser.h.'>VRELOCABLE</a>) <font color='red'>{</font>
+<a name='L526'>    <a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a> ie = <a href='../S/314.html#L39' title='Defined at 39 in deps/lua/src/lcode.h.'>getcode</a>(fs, e);
+<a name='L527'>    <b>if</b> (<a href='../S/273.html#L80' title='Defined at 80 in deps/lua/src/lopcodes.h.'>GET_OPCODE</a>(ie) == <a href='../S/273.html#L178' title='Defined at 178 in deps/lua/src/lopcodes.h.'>OP_NOT</a>) <font color='red'>{</font>
+<a name='L528'>      fs-&gt;pc--;  <i><font color='green'>/* remove previous OP_NOT */</font></i>
+<a name='L529'>      <b>return</b> <a href='../S/293.html#L74' title='Defined at 74 in deps/lua/src/lcode.c.'>condjump</a>(fs, <a href='../S/273.html#L189' title='Defined at 189 in deps/lua/src/lopcodes.h.'>OP_TEST</a>, <a href='../S/273.html#L88' title='Defined at 88 in deps/lua/src/lopcodes.h.'>GETARG_B</a>(ie), 0, !<a href='../S/304.html#L965' title='Defined at 965 in deps/lua/src/lparser.c.'>cond</a>);
+<a name='L530'>    <font color='red'>}</font>
+<a name='L531'>    <i><font color='green'>/* else go through */</font></i>
+<a name='L532'>  <font color='red'>}</font>
+<a name='L533'>  <a href='../S/293.html#L382' title='Defined at 382 in deps/lua/src/lcode.c.'>discharge2anyreg</a>(fs, e);
+<a name='L534'>  <a href='../S/293.html#L223' title='Defined at 223 in deps/lua/src/lcode.c.'>freeexp</a>(fs, e);
+<a name='L535'>  <b>return</b> <a href='../S/293.html#L74' title='Defined at 74 in deps/lua/src/lcode.c.'>condjump</a>(fs, <a href='../S/273.html#L190' title='Defined at 190 in deps/lua/src/lopcodes.h.'>OP_TESTSET</a>, <a href='../S/273.html#L136' title='Defined at 136 in deps/lua/src/lopcodes.h.'>NO_REG</a>, e-&gt;u.s.info, <a href='../S/304.html#L965' title='Defined at 965 in deps/lua/src/lparser.c.'>cond</a>);
+<a name='L536'><font color='red'>}</font>
+<a name='L537'>
+<a name='L538'>
+<a name='L539'><b>void</b> <a href='../R/2603.html' title='Multiple refered from 3 places.'>luaK_goiftrue</a> (FuncState *fs, expdesc *e) <font color='red'>{</font>
+<a name='L540'>  <b>int</b> pc;  <i><font color='green'>/* pc of last jump */</font></i>
+<a name='L541'>  <a href='../S/293.html#L304' title='Defined at 304 in deps/lua/src/lcode.c.'>luaK_dischargevars</a>(fs, e);
+<a name='L542'>  <b>switch</b> (e-&gt;k) <font color='red'>{</font>
+<a name='L543'>    <b>case</b> <a href='../S/286.html#L24' title='Defined at 24 in deps/lua/src/lparser.h.'>VK</a>: <b>case</b> <a href='../S/286.html#L25' title='Defined at 25 in deps/lua/src/lparser.h.'>VKNUM</a>: <b>case</b> <a href='../S/286.html#L22' title='Defined at 22 in deps/lua/src/lparser.h.'>VTRUE</a>: <font color='red'>{</font>
+<a name='L544'>      pc = <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>;  <i><font color='green'>/* always true; do nothing */</font></i>
+<a name='L545'>      <b>break</b>;
+<a name='L546'>    <font color='red'>}</font>
+<a name='L547'>    <b>case</b> <a href='../S/286.html#L23' title='Defined at 23 in deps/lua/src/lparser.h.'>VFALSE</a>: <font color='red'>{</font>
+<a name='L548'>      pc = <a href='../S/293.html#L59' title='Defined at 59 in deps/lua/src/lcode.c.'>luaK_jump</a>(fs);  <i><font color='green'>/* always jump */</font></i>
+<a name='L549'>      <b>break</b>;
+<a name='L550'>    <font color='red'>}</font>
+<a name='L551'>    <b>case</b> <a href='../S/286.html#L30' title='Defined at 30 in deps/lua/src/lparser.h.'>VJMP</a>: <font color='red'>{</font>
+<a name='L552'>      <a href='../S/293.html#L516' title='Defined at 516 in deps/lua/src/lcode.c.'>invertjump</a>(fs, e);
+<a name='L553'>      pc = e-&gt;u.s.info;
+<a name='L554'>      <b>break</b>;
+<a name='L555'>    <font color='red'>}</font>
+<a name='L556'>    <b>default</b>: <font color='red'>{</font>
+<a name='L557'>      pc = <a href='../S/293.html#L524' title='Defined at 524 in deps/lua/src/lcode.c.'>jumponcond</a>(fs, e, 0);
+<a name='L558'>      <b>break</b>;
+<a name='L559'>    <font color='red'>}</font>
+<a name='L560'>  <font color='red'>}</font>
+<a name='L561'>  <a href='../S/293.html#L185' title='Defined at 185 in deps/lua/src/lcode.c.'>luaK_concat</a>(fs, &amp;e-&gt;f, pc);  <i><font color='green'>/* insert last jump in `f' list */</font></i>
+<a name='L562'>  <a href='../S/293.html#L179' title='Defined at 179 in deps/lua/src/lcode.c.'>luaK_patchtohere</a>(fs, e-&gt;t);
+<a name='L563'>  e-&gt;t = <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>;
+<a name='L564'><font color='red'>}</font>
+<a name='L565'>
+<a name='L566'>
+<a name='L567'><b>static</b> <b>void</b> <a href='../S/293.html#L725' title='Refered from 725 in deps/lua/src/lcode.c.'>luaK_goiffalse</a> (FuncState *fs, expdesc *e) <font color='red'>{</font>
+<a name='L568'>  <b>int</b> pc;  <i><font color='green'>/* pc of last jump */</font></i>
+<a name='L569'>  <a href='../S/293.html#L304' title='Defined at 304 in deps/lua/src/lcode.c.'>luaK_dischargevars</a>(fs, e);
+<a name='L570'>  <b>switch</b> (e-&gt;k) <font color='red'>{</font>
+<a name='L571'>    <b>case</b> <a href='../S/286.html#L21' title='Defined at 21 in deps/lua/src/lparser.h.'>VNIL</a>: <b>case</b> <a href='../S/286.html#L23' title='Defined at 23 in deps/lua/src/lparser.h.'>VFALSE</a>: <font color='red'>{</font>
+<a name='L572'>      pc = <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>;  <i><font color='green'>/* always false; do nothing */</font></i>
+<a name='L573'>      <b>break</b>;
+<a name='L574'>    <font color='red'>}</font>
+<a name='L575'>    <b>case</b> <a href='../S/286.html#L22' title='Defined at 22 in deps/lua/src/lparser.h.'>VTRUE</a>: <font color='red'>{</font>
+<a name='L576'>      pc = <a href='../S/293.html#L59' title='Defined at 59 in deps/lua/src/lcode.c.'>luaK_jump</a>(fs);  <i><font color='green'>/* always jump */</font></i>
+<a name='L577'>      <b>break</b>;
+<a name='L578'>    <font color='red'>}</font>
+<a name='L579'>    <b>case</b> <a href='../S/286.html#L30' title='Defined at 30 in deps/lua/src/lparser.h.'>VJMP</a>: <font color='red'>{</font>
+<a name='L580'>      pc = e-&gt;u.s.info;
+<a name='L581'>      <b>break</b>;
+<a name='L582'>    <font color='red'>}</font>
+<a name='L583'>    <b>default</b>: <font color='red'>{</font>
+<a name='L584'>      pc = <a href='../S/293.html#L524' title='Defined at 524 in deps/lua/src/lcode.c.'>jumponcond</a>(fs, e, 1);
+<a name='L585'>      <b>break</b>;
+<a name='L586'>    <font color='red'>}</font>
+<a name='L587'>  <font color='red'>}</font>
+<a name='L588'>  <a href='../S/293.html#L185' title='Defined at 185 in deps/lua/src/lcode.c.'>luaK_concat</a>(fs, &amp;e-&gt;t, pc);  <i><font color='green'>/* insert last jump in `t' list */</font></i>
+<a name='L589'>  <a href='../S/293.html#L179' title='Defined at 179 in deps/lua/src/lcode.c.'>luaK_patchtohere</a>(fs, e-&gt;f);
+<a name='L590'>  e-&gt;f = <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>;
+<a name='L591'><font color='red'>}</font>
+<a name='L592'>
+<a name='L593'>
+<a name='L594'><b>static</b> <b>void</b> <a href='../S/293.html#L707' title='Refered from 707 in deps/lua/src/lcode.c.'>codenot</a> (FuncState *fs, expdesc *e) <font color='red'>{</font>
+<a name='L595'>  <a href='../S/293.html#L304' title='Defined at 304 in deps/lua/src/lcode.c.'>luaK_dischargevars</a>(fs, e);
+<a name='L596'>  <b>switch</b> (e-&gt;k) <font color='red'>{</font>
+<a name='L597'>    <b>case</b> <a href='../S/286.html#L21' title='Defined at 21 in deps/lua/src/lparser.h.'>VNIL</a>: <b>case</b> <a href='../S/286.html#L23' title='Defined at 23 in deps/lua/src/lparser.h.'>VFALSE</a>: <font color='red'>{</font>
+<a name='L598'>      e-&gt;k = <a href='../S/286.html#L22' title='Defined at 22 in deps/lua/src/lparser.h.'>VTRUE</a>;
+<a name='L599'>      <b>break</b>;
+<a name='L600'>    <font color='red'>}</font>
+<a name='L601'>    <b>case</b> <a href='../S/286.html#L24' title='Defined at 24 in deps/lua/src/lparser.h.'>VK</a>: <b>case</b> <a href='../S/286.html#L25' title='Defined at 25 in deps/lua/src/lparser.h.'>VKNUM</a>: <b>case</b> <a href='../S/286.html#L22' title='Defined at 22 in deps/lua/src/lparser.h.'>VTRUE</a>: <font color='red'>{</font>
+<a name='L602'>      e-&gt;k = <a href='../S/286.html#L23' title='Defined at 23 in deps/lua/src/lparser.h.'>VFALSE</a>;
+<a name='L603'>      <b>break</b>;
+<a name='L604'>    <font color='red'>}</font>
+<a name='L605'>    <b>case</b> <a href='../S/286.html#L30' title='Defined at 30 in deps/lua/src/lparser.h.'>VJMP</a>: <font color='red'>{</font>
+<a name='L606'>      <a href='../S/293.html#L516' title='Defined at 516 in deps/lua/src/lcode.c.'>invertjump</a>(fs, e);
+<a name='L607'>      <b>break</b>;
+<a name='L608'>    <font color='red'>}</font>
+<a name='L609'>    <b>case</b> <a href='../S/286.html#L31' title='Defined at 31 in deps/lua/src/lparser.h.'>VRELOCABLE</a>:
+<a name='L610'>    <b>case</b> <a href='../S/286.html#L32' title='Defined at 32 in deps/lua/src/lparser.h.'>VNONRELOC</a>: <font color='red'>{</font>
+<a name='L611'>      <a href='../S/293.html#L382' title='Defined at 382 in deps/lua/src/lcode.c.'>discharge2anyreg</a>(fs, e);
+<a name='L612'>      <a href='../S/293.html#L223' title='Defined at 223 in deps/lua/src/lcode.c.'>freeexp</a>(fs, e);
+<a name='L613'>      e-&gt;u.s.info = <a href='../S/293.html#L812' title='Defined at 812 in deps/lua/src/lcode.c.'>luaK_codeABC</a>(fs, <a href='../S/273.html#L178' title='Defined at 178 in deps/lua/src/lopcodes.h.'>OP_NOT</a>, 0, e-&gt;u.s.info, 0);
+<a name='L614'>      e-&gt;k = <a href='../S/286.html#L31' title='Defined at 31 in deps/lua/src/lparser.h.'>VRELOCABLE</a>;
+<a name='L615'>      <b>break</b>;
+<a name='L616'>    <font color='red'>}</font>
+<a name='L617'>    <b>default</b>: <font color='red'>{</font>
+<a name='L618'>      <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(0);  <i><font color='green'>/* cannot happen */</font></i>
+<a name='L619'>      <b>break</b>;
+<a name='L620'>    <font color='red'>}</font>
+<a name='L621'>  <font color='red'>}</font>
+<a name='L622'>  <i><font color='green'>/* interchange true and false lists */</font></i>
+<a name='L623'>  <font color='red'>{</font> <b>int</b> temp = e-&gt;f; e-&gt;f = e-&gt;t; e-&gt;t = temp; <font color='red'>}</font>
+<a name='L624'>  <a href='../S/293.html#L144' title='Defined at 144 in deps/lua/src/lcode.c.'>removevalues</a>(fs, e-&gt;f);
+<a name='L625'>  <a href='../S/293.html#L144' title='Defined at 144 in deps/lua/src/lcode.c.'>removevalues</a>(fs, e-&gt;t);
+<a name='L626'><font color='red'>}</font>
+<a name='L627'>
+<a name='L628'>
+<a name='L629'><b>void</b> <a href='../R/2604.html' title='Multiple refered from 3 places.'>luaK_indexed</a> (FuncState *fs, expdesc *t, expdesc *k) <font color='red'>{</font>
+<a name='L630'>  t-&gt;u.s.aux = <a href='../S/293.html#L444' title='Defined at 444 in deps/lua/src/lcode.c.'>luaK_exp2RK</a>(fs, k);
+<a name='L631'>  t-&gt;k = <a href='../S/286.html#L29' title='Defined at 29 in deps/lua/src/lparser.h.'>VINDEXED</a>;
+<a name='L632'><font color='red'>}</font>
+<a name='L633'>
+<a name='L634'>
+<a name='L635'><b>static</b> <b>int</b> <a href='../S/293.html#L662' title='Refered from 662 in deps/lua/src/lcode.c.'>constfolding</a> (OpCode op, expdesc *e1, expdesc *e2) <font color='red'>{</font>
+<a name='L636'>  <a href='../S/266.html#L99' title='Defined at 99 in deps/lua/src/lua.h.'>lua_Number</a> v1, v2, r;
+<a name='L637'>  <b>if</b> (!<a href='../S/293.html#L30' title='Defined at 30 in deps/lua/src/lcode.c.'>isnumeral</a>(e1) || !<a href='../S/293.html#L30' title='Defined at 30 in deps/lua/src/lcode.c.'>isnumeral</a>(e2)) <b>return</b> 0;
+<a name='L638'>  v1 = e1-&gt;u.nval;
+<a name='L639'>  v2 = e2-&gt;u.nval;
+<a name='L640'>  <b>switch</b> (op) <font color='red'>{</font>
+<a name='L641'>    <b>case</b> <a href='../S/273.html#L171' title='Defined at 171 in deps/lua/src/lopcodes.h.'>OP_ADD</a>: r = <a href='../S/317.html#L533' title='Defined at 533 in deps/lua/src/luaconf.h.'>luai_numadd</a>(v1, v2); <b>break</b>;
+<a name='L642'>    <b>case</b> <a href='../S/273.html#L172' title='Defined at 172 in deps/lua/src/lopcodes.h.'>OP_SUB</a>: r = <a href='../S/317.html#L534' title='Defined at 534 in deps/lua/src/luaconf.h.'>luai_numsub</a>(v1, v2); <b>break</b>;
+<a name='L643'>    <b>case</b> <a href='../S/273.html#L173' title='Defined at 173 in deps/lua/src/lopcodes.h.'>OP_MUL</a>: r = <a href='../S/317.html#L535' title='Defined at 535 in deps/lua/src/luaconf.h.'>luai_nummul</a>(v1, v2); <b>break</b>;
+<a name='L644'>    <b>case</b> <a href='../S/273.html#L174' title='Defined at 174 in deps/lua/src/lopcodes.h.'>OP_DIV</a>:
+<a name='L645'>      <b>if</b> (v2 == 0) <b>return</b> 0;  <i><font color='green'>/* do not attempt to divide by 0 */</font></i>
+<a name='L646'>      r = <a href='../S/317.html#L536' title='Defined at 536 in deps/lua/src/luaconf.h.'>luai_numdiv</a>(v1, v2); <b>break</b>;
+<a name='L647'>    <b>case</b> <a href='../S/273.html#L175' title='Defined at 175 in deps/lua/src/lopcodes.h.'>OP_MOD</a>:
+<a name='L648'>      <b>if</b> (v2 == 0) <b>return</b> 0;  <i><font color='green'>/* do not attempt to divide by 0 */</font></i>
+<a name='L649'>      r = <a href='../S/317.html#L537' title='Defined at 537 in deps/lua/src/luaconf.h.'>luai_nummod</a>(v1, v2); <b>break</b>;
+<a name='L650'>    <b>case</b> <a href='../S/273.html#L176' title='Defined at 176 in deps/lua/src/lopcodes.h.'>OP_POW</a>: r = <a href='../S/317.html#L538' title='Defined at 538 in deps/lua/src/luaconf.h.'>luai_numpow</a>(v1, v2); <b>break</b>;
+<a name='L651'>    <b>case</b> <a href='../S/273.html#L177' title='Defined at 177 in deps/lua/src/lopcodes.h.'>OP_UNM</a>: r = <a href='../S/317.html#L539' title='Defined at 539 in deps/lua/src/luaconf.h.'>luai_numunm</a>(v1); <b>break</b>;
+<a name='L652'>    <b>case</b> <a href='../S/273.html#L179' title='Defined at 179 in deps/lua/src/lopcodes.h.'>OP_LEN</a>: <b>return</b> 0;  <i><font color='green'>/* no constant folding for 'len' */</font></i>
+<a name='L653'>    <b>default</b>: <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(0); r = 0; <b>break</b>;
+<a name='L654'>  <font color='red'>}</font>
+<a name='L655'>  <b>if</b> (<a href='../S/317.html#L543' title='Defined at 543 in deps/lua/src/luaconf.h.'>luai_numisnan</a>(r)) <b>return</b> 0;  <i><font color='green'>/* do not attempt to produce NaN */</font></i>
+<a name='L656'>  e1-&gt;u.nval = r;
+<a name='L657'>  <b>return</b> 1;
+<a name='L658'><font color='red'>}</font>
+<a name='L659'>
+<a name='L660'>
+<a name='L661'><b>static</b> <b>void</b> <a href='../R/1647.html' title='Multiple refered from 9 places.'>codearith</a> (FuncState *fs, OpCode op, expdesc *e1, expdesc *e2) <font color='red'>{</font>
+<a name='L662'>  <b>if</b> (<a href='../S/293.html#L635' title='Defined at 635 in deps/lua/src/lcode.c.'>constfolding</a>(op, e1, e2))
+<a name='L663'>    <b>return</b>;
+<a name='L664'>  <b>else</b> <font color='red'>{</font>
+<a name='L665'>    <b>int</b> o2 = (op != <a href='../S/273.html#L177' title='Defined at 177 in deps/lua/src/lopcodes.h.'>OP_UNM</a> &amp;&amp; op != <a href='../S/273.html#L179' title='Defined at 179 in deps/lua/src/lopcodes.h.'>OP_LEN</a>) ? <a href='../S/293.html#L444' title='Defined at 444 in deps/lua/src/lcode.c.'>luaK_exp2RK</a>(fs, e2) : 0;
+<a name='L666'>    <b>int</b> o1 = <a href='../S/293.html#L444' title='Defined at 444 in deps/lua/src/lcode.c.'>luaK_exp2RK</a>(fs, e1);
+<a name='L667'>    <b>if</b> (o1 &gt; o2) <font color='red'>{</font>
+<a name='L668'>      <a href='../S/293.html#L223' title='Defined at 223 in deps/lua/src/lcode.c.'>freeexp</a>(fs, e1);
+<a name='L669'>      <a href='../S/293.html#L223' title='Defined at 223 in deps/lua/src/lcode.c.'>freeexp</a>(fs, e2);
+<a name='L670'>    <font color='red'>}</font>
+<a name='L671'>    <b>else</b> <font color='red'>{</font>
+<a name='L672'>      <a href='../S/293.html#L223' title='Defined at 223 in deps/lua/src/lcode.c.'>freeexp</a>(fs, e2);
+<a name='L673'>      <a href='../S/293.html#L223' title='Defined at 223 in deps/lua/src/lcode.c.'>freeexp</a>(fs, e1);
+<a name='L674'>    <font color='red'>}</font>
+<a name='L675'>    e1-&gt;u.s.info = <a href='../S/293.html#L812' title='Defined at 812 in deps/lua/src/lcode.c.'>luaK_codeABC</a>(fs, op, 0, o1, o2);
+<a name='L676'>    e1-&gt;k = <a href='../S/286.html#L31' title='Defined at 31 in deps/lua/src/lparser.h.'>VRELOCABLE</a>;
+<a name='L677'>  <font color='red'>}</font>
+<a name='L678'><font color='red'>}</font>
+<a name='L679'>
+<a name='L680'>
+<a name='L681'><b>static</b> <b>void</b> <a href='../R/1648.html' title='Multiple refered from 6 places.'>codecomp</a> (FuncState *fs, OpCode op, <b>int</b> cond, expdesc *e1,
+<a name='L682'>                                                          expdesc *e2) <font color='red'>{</font>
+<a name='L683'>  <b>int</b> o1 = <a href='../S/293.html#L444' title='Defined at 444 in deps/lua/src/lcode.c.'>luaK_exp2RK</a>(fs, e1);
+<a name='L684'>  <b>int</b> o2 = <a href='../S/293.html#L444' title='Defined at 444 in deps/lua/src/lcode.c.'>luaK_exp2RK</a>(fs, e2);
+<a name='L685'>  <a href='../S/293.html#L223' title='Defined at 223 in deps/lua/src/lcode.c.'>freeexp</a>(fs, e2);
+<a name='L686'>  <a href='../S/293.html#L223' title='Defined at 223 in deps/lua/src/lcode.c.'>freeexp</a>(fs, e1);
+<a name='L687'>  <b>if</b> (<a href='../S/304.html#L965' title='Defined at 965 in deps/lua/src/lparser.c.'>cond</a> == 0 &amp;&amp; op != <a href='../S/273.html#L185' title='Defined at 185 in deps/lua/src/lopcodes.h.'>OP_EQ</a>) <font color='red'>{</font>
+<a name='L688'>    <b>int</b> temp;  <i><font color='green'>/* exchange args to replace by `&lt;' or `&lt;=' */</font></i>
+<a name='L689'>    temp = o1; o1 = o2; o2 = temp;  <i><font color='green'>/* o1 &lt;==&gt; o2 */</font></i>
+<a name='L690'>    <a href='../S/304.html#L965' title='Defined at 965 in deps/lua/src/lparser.c.'>cond</a> = 1;
+<a name='L691'>  <font color='red'>}</font>
+<a name='L692'>  e1-&gt;u.s.info = <a href='../S/293.html#L74' title='Defined at 74 in deps/lua/src/lcode.c.'>condjump</a>(fs, op, <a href='../S/304.html#L965' title='Defined at 965 in deps/lua/src/lparser.c.'>cond</a>, o1, o2);
+<a name='L693'>  e1-&gt;k = <a href='../S/286.html#L30' title='Defined at 30 in deps/lua/src/lparser.h.'>VJMP</a>;
+<a name='L694'><font color='red'>}</font>
+<a name='L695'>
+<a name='L696'>
+<a name='L697'><b>void</b> <a href='../R/2612.html' title='Multiple refered from 2 places.'>luaK_prefix</a> (FuncState *fs, UnOpr op, expdesc *e) <font color='red'>{</font>
+<a name='L698'>  <a href='../D/2188.html' title='Multiple defined in 2 places.'>expdesc</a> e2;
+<a name='L699'>  e2.t = e2.f = <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>; e2.k = <a href='../S/286.html#L25' title='Defined at 25 in deps/lua/src/lparser.h.'>VKNUM</a>; e2.u.nval = 0;
+<a name='L700'>  <b>switch</b> (op) <font color='red'>{</font>
+<a name='L701'>    <b>case</b> <a href='../S/314.html#L36' title='Defined at 36 in deps/lua/src/lcode.h.'>OPR_MINUS</a>: <font color='red'>{</font>
+<a name='L702'>      <b>if</b> (!<a href='../S/293.html#L30' title='Defined at 30 in deps/lua/src/lcode.c.'>isnumeral</a>(e))
+<a name='L703'>        <a href='../S/293.html#L422' title='Defined at 422 in deps/lua/src/lcode.c.'>luaK_exp2anyreg</a>(fs, e);  <i><font color='green'>/* cannot operate on non-numeric constants */</font></i>
+<a name='L704'>      <a href='../S/293.html#L661' title='Defined at 661 in deps/lua/src/lcode.c.'>codearith</a>(fs, <a href='../S/273.html#L177' title='Defined at 177 in deps/lua/src/lopcodes.h.'>OP_UNM</a>, e, &amp;e2);
+<a name='L705'>      <b>break</b>;
+<a name='L706'>    <font color='red'>}</font>
+<a name='L707'>    <b>case</b> <a href='../S/314.html#L36' title='Defined at 36 in deps/lua/src/lcode.h.'>OPR_NOT</a>: <a href='../S/293.html#L594' title='Defined at 594 in deps/lua/src/lcode.c.'>codenot</a>(fs, e); <b>break</b>;
+<a name='L708'>    <b>case</b> <a href='../S/314.html#L36' title='Defined at 36 in deps/lua/src/lcode.h.'>OPR_LEN</a>: <font color='red'>{</font>
+<a name='L709'>      <a href='../S/293.html#L422' title='Defined at 422 in deps/lua/src/lcode.c.'>luaK_exp2anyreg</a>(fs, e);  <i><font color='green'>/* cannot operate on constants */</font></i>
+<a name='L710'>      <a href='../S/293.html#L661' title='Defined at 661 in deps/lua/src/lcode.c.'>codearith</a>(fs, <a href='../S/273.html#L179' title='Defined at 179 in deps/lua/src/lopcodes.h.'>OP_LEN</a>, e, &amp;e2);
+<a name='L711'>      <b>break</b>;
+<a name='L712'>    <font color='red'>}</font>
+<a name='L713'>    <b>default</b>: <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(0);
+<a name='L714'>  <font color='red'>}</font>
+<a name='L715'><font color='red'>}</font>
+<a name='L716'>
+<a name='L717'>
+<a name='L718'><b>void</b> <a href='../R/2605.html' title='Multiple refered from 2 places.'>luaK_infix</a> (FuncState *fs, BinOpr op, expdesc *v) <font color='red'>{</font>
+<a name='L719'>  <b>switch</b> (op) <font color='red'>{</font>
+<a name='L720'>    <b>case</b> <a href='../S/314.html#L31' title='Defined at 31 in deps/lua/src/lcode.h.'>OPR_AND</a>: <font color='red'>{</font>
+<a name='L721'>      <a href='../S/293.html#L539' title='Defined at 539 in deps/lua/src/lcode.c.'>luaK_goiftrue</a>(fs, v);
+<a name='L722'>      <b>break</b>;
+<a name='L723'>    <font color='red'>}</font>
+<a name='L724'>    <b>case</b> <a href='../S/314.html#L31' title='Defined at 31 in deps/lua/src/lcode.h.'>OPR_OR</a>: <font color='red'>{</font>
+<a name='L725'>      <a href='../S/293.html#L567' title='Defined at 567 in deps/lua/src/lcode.c.'>luaK_goiffalse</a>(fs, v);
+<a name='L726'>      <b>break</b>;
+<a name='L727'>    <font color='red'>}</font>
+<a name='L728'>    <b>case</b> <a href='../S/314.html#L28' title='Defined at 28 in deps/lua/src/lcode.h.'>OPR_CONCAT</a>: <font color='red'>{</font>
+<a name='L729'>      <a href='../S/293.html#L414' title='Defined at 414 in deps/lua/src/lcode.c.'>luaK_exp2nextreg</a>(fs, v);  <i><font color='green'>/* operand must be on the `stack' */</font></i>
+<a name='L730'>      <b>break</b>;
+<a name='L731'>    <font color='red'>}</font>
+<a name='L732'>    <b>case</b> <a href='../S/314.html#L27' title='Defined at 27 in deps/lua/src/lcode.h.'>OPR_ADD</a>: <b>case</b> <a href='../S/314.html#L27' title='Defined at 27 in deps/lua/src/lcode.h.'>OPR_SUB</a>: <b>case</b> <a href='../S/314.html#L27' title='Defined at 27 in deps/lua/src/lcode.h.'>OPR_MUL</a>: <b>case</b> <a href='../S/314.html#L27' title='Defined at 27 in deps/lua/src/lcode.h.'>OPR_DIV</a>:
+<a name='L733'>    <b>case</b> <a href='../S/314.html#L27' title='Defined at 27 in deps/lua/src/lcode.h.'>OPR_MOD</a>: <b>case</b> <a href='../S/314.html#L27' title='Defined at 27 in deps/lua/src/lcode.h.'>OPR_POW</a>: <font color='red'>{</font>
+<a name='L734'>      <b>if</b> (!<a href='../S/293.html#L30' title='Defined at 30 in deps/lua/src/lcode.c.'>isnumeral</a>(v)) <a href='../S/293.html#L444' title='Defined at 444 in deps/lua/src/lcode.c.'>luaK_exp2RK</a>(fs, v);
+<a name='L735'>      <b>break</b>;
+<a name='L736'>    <font color='red'>}</font>
+<a name='L737'>    <b>default</b>: <font color='red'>{</font>
+<a name='L738'>      <a href='../S/293.html#L444' title='Defined at 444 in deps/lua/src/lcode.c.'>luaK_exp2RK</a>(fs, v);
+<a name='L739'>      <b>break</b>;
+<a name='L740'>    <font color='red'>}</font>
+<a name='L741'>  <font color='red'>}</font>
+<a name='L742'><font color='red'>}</font>
+<a name='L743'>
+<a name='L744'>
+<a name='L745'><b>void</b> <a href='../R/2611.html' title='Multiple refered from 2 places.'>luaK_posfix</a> (FuncState *fs, BinOpr op, expdesc *e1, expdesc *e2) <font color='red'>{</font>
+<a name='L746'>  <b>switch</b> (op) <font color='red'>{</font>
+<a name='L747'>    <b>case</b> <a href='../S/314.html#L31' title='Defined at 31 in deps/lua/src/lcode.h.'>OPR_AND</a>: <font color='red'>{</font>
+<a name='L748'>      <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(e1-&gt;t == <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>);  <i><font color='green'>/* list must be closed */</font></i>
+<a name='L749'>      <a href='../S/293.html#L304' title='Defined at 304 in deps/lua/src/lcode.c.'>luaK_dischargevars</a>(fs, e2);
+<a name='L750'>      <a href='../S/293.html#L185' title='Defined at 185 in deps/lua/src/lcode.c.'>luaK_concat</a>(fs, &amp;e2-&gt;f, e1-&gt;f);
+<a name='L751'>      *e1 = *e2;
+<a name='L752'>      <b>break</b>;
+<a name='L753'>    <font color='red'>}</font>
+<a name='L754'>    <b>case</b> <a href='../S/314.html#L31' title='Defined at 31 in deps/lua/src/lcode.h.'>OPR_OR</a>: <font color='red'>{</font>
+<a name='L755'>      <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(e1-&gt;f == <a href='../S/314.html#L20' title='Defined at 20 in deps/lua/src/lcode.h.'>NO_JUMP</a>);  <i><font color='green'>/* list must be closed */</font></i>
+<a name='L756'>      <a href='../S/293.html#L304' title='Defined at 304 in deps/lua/src/lcode.c.'>luaK_dischargevars</a>(fs, e2);
+<a name='L757'>      <a href='../S/293.html#L185' title='Defined at 185 in deps/lua/src/lcode.c.'>luaK_concat</a>(fs, &amp;e2-&gt;t, e1-&gt;t);
+<a name='L758'>      *e1 = *e2;
+<a name='L759'>      <b>break</b>;
+<a name='L760'>    <font color='red'>}</font>
+<a name='L761'>    <b>case</b> <a href='../S/314.html#L28' title='Defined at 28 in deps/lua/src/lcode.h.'>OPR_CONCAT</a>: <font color='red'>{</font>
+<a name='L762'>      <a href='../S/293.html#L436' title='Defined at 436 in deps/lua/src/lcode.c.'>luaK_exp2val</a>(fs, e2);
+<a name='L763'>      <b>if</b> (e2-&gt;k == <a href='../S/286.html#L31' title='Defined at 31 in deps/lua/src/lparser.h.'>VRELOCABLE</a> &amp;&amp; <a href='../S/273.html#L80' title='Defined at 80 in deps/lua/src/lopcodes.h.'>GET_OPCODE</a>(<a href='../S/314.html#L39' title='Defined at 39 in deps/lua/src/lcode.h.'>getcode</a>(fs, e2)) == <a href='../S/273.html#L181' title='Defined at 181 in deps/lua/src/lopcodes.h.'>OP_CONCAT</a>) <font color='red'>{</font>
+<a name='L764'>        <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(e1-&gt;u.s.info == <a href='../S/273.html#L88' title='Defined at 88 in deps/lua/src/lopcodes.h.'>GETARG_B</a>(<a href='../S/314.html#L39' title='Defined at 39 in deps/lua/src/lcode.h.'>getcode</a>(fs, e2))-1);
+<a name='L765'>        <a href='../S/293.html#L223' title='Defined at 223 in deps/lua/src/lcode.c.'>freeexp</a>(fs, e1);
+<a name='L766'>        <a href='../S/273.html#L89' title='Defined at 89 in deps/lua/src/lopcodes.h.'>SETARG_B</a>(<a href='../S/314.html#L39' title='Defined at 39 in deps/lua/src/lcode.h.'>getcode</a>(fs, e2), e1-&gt;u.s.info);
+<a name='L767'>        e1-&gt;k = <a href='../S/286.html#L31' title='Defined at 31 in deps/lua/src/lparser.h.'>VRELOCABLE</a>; e1-&gt;u.s.info = e2-&gt;u.s.info;
+<a name='L768'>      <font color='red'>}</font>
+<a name='L769'>      <b>else</b> <font color='red'>{</font>
+<a name='L770'>        <a href='../S/293.html#L414' title='Defined at 414 in deps/lua/src/lcode.c.'>luaK_exp2nextreg</a>(fs, e2);  <i><font color='green'>/* operand must be on the 'stack' */</font></i>
+<a name='L771'>        <a href='../S/293.html#L661' title='Defined at 661 in deps/lua/src/lcode.c.'>codearith</a>(fs, <a href='../S/273.html#L181' title='Defined at 181 in deps/lua/src/lopcodes.h.'>OP_CONCAT</a>, e1, e2);
+<a name='L772'>      <font color='red'>}</font>
+<a name='L773'>      <b>break</b>;
+<a name='L774'>    <font color='red'>}</font>
+<a name='L775'>    <b>case</b> <a href='../S/314.html#L27' title='Defined at 27 in deps/lua/src/lcode.h.'>OPR_ADD</a>: <a href='../S/293.html#L661' title='Defined at 661 in deps/lua/src/lcode.c.'>codearith</a>(fs, <a href='../S/273.html#L171' title='Defined at 171 in deps/lua/src/lopcodes.h.'>OP_ADD</a>, e1, e2); <b>break</b>;
+<a name='L776'>    <b>case</b> <a href='../S/314.html#L27' title='Defined at 27 in deps/lua/src/lcode.h.'>OPR_SUB</a>: <a href='../S/293.html#L661' title='Defined at 661 in deps/lua/src/lcode.c.'>codearith</a>(fs, <a href='../S/273.html#L172' title='Defined at 172 in deps/lua/src/lopcodes.h.'>OP_SUB</a>, e1, e2); <b>break</b>;
+<a name='L777'>    <b>case</b> <a href='../S/314.html#L27' title='Defined at 27 in deps/lua/src/lcode.h.'>OPR_MUL</a>: <a href='../S/293.html#L661' title='Defined at 661 in deps/lua/src/lcode.c.'>codearith</a>(fs, <a href='../S/273.html#L173' title='Defined at 173 in deps/lua/src/lopcodes.h.'>OP_MUL</a>, e1, e2); <b>break</b>;
+<a name='L778'>    <b>case</b> <a href='../S/314.html#L27' title='Defined at 27 in deps/lua/src/lcode.h.'>OPR_DIV</a>: <a href='../S/293.html#L661' title='Defined at 661 in deps/lua/src/lcode.c.'>codearith</a>(fs, <a href='../S/273.html#L174' title='Defined at 174 in deps/lua/src/lopcodes.h.'>OP_DIV</a>, e1, e2); <b>break</b>;
+<a name='L779'>    <b>case</b> <a href='../S/314.html#L27' title='Defined at 27 in deps/lua/src/lcode.h.'>OPR_MOD</a>: <a href='../S/293.html#L661' title='Defined at 661 in deps/lua/src/lcode.c.'>codearith</a>(fs, <a href='../S/273.html#L175' title='Defined at 175 in deps/lua/src/lopcodes.h.'>OP_MOD</a>, e1, e2); <b>break</b>;
+<a name='L780'>    <b>case</b> <a href='../S/314.html#L27' title='Defined at 27 in deps/lua/src/lcode.h.'>OPR_POW</a>: <a href='../S/293.html#L661' title='Defined at 661 in deps/lua/src/lcode.c.'>codearith</a>(fs, <a href='../S/273.html#L176' title='Defined at 176 in deps/lua/src/lopcodes.h.'>OP_POW</a>, e1, e2); <b>break</b>;
+<a name='L781'>    <b>case</b> <a href='../S/314.html#L29' title='Defined at 29 in deps/lua/src/lcode.h.'>OPR_EQ</a>: <a href='../S/293.html#L681' title='Defined at 681 in deps/lua/src/lcode.c.'>codecomp</a>(fs, <a href='../S/273.html#L185' title='Defined at 185 in deps/lua/src/lopcodes.h.'>OP_EQ</a>, 1, e1, e2); <b>break</b>;
+<a name='L782'>    <b>case</b> <a href='../S/314.html#L29' title='Defined at 29 in deps/lua/src/lcode.h.'>OPR_NE</a>: <a href='../S/293.html#L681' title='Defined at 681 in deps/lua/src/lcode.c.'>codecomp</a>(fs, <a href='../S/273.html#L185' title='Defined at 185 in deps/lua/src/lopcodes.h.'>OP_EQ</a>, 0, e1, e2); <b>break</b>;
+<a name='L783'>    <b>case</b> <a href='../S/314.html#L30' title='Defined at 30 in deps/lua/src/lcode.h.'>OPR_LT</a>: <a href='../S/293.html#L681' title='Defined at 681 in deps/lua/src/lcode.c.'>codecomp</a>(fs, <a href='../S/273.html#L186' title='Defined at 186 in deps/lua/src/lopcodes.h.'>OP_LT</a>, 1, e1, e2); <b>break</b>;
+<a name='L784'>    <b>case</b> <a href='../S/314.html#L30' title='Defined at 30 in deps/lua/src/lcode.h.'>OPR_LE</a>: <a href='../S/293.html#L681' title='Defined at 681 in deps/lua/src/lcode.c.'>codecomp</a>(fs, <a href='../S/273.html#L187' title='Defined at 187 in deps/lua/src/lopcodes.h.'>OP_LE</a>, 1, e1, e2); <b>break</b>;
+<a name='L785'>    <b>case</b> <a href='../S/314.html#L30' title='Defined at 30 in deps/lua/src/lcode.h.'>OPR_GT</a>: <a href='../S/293.html#L681' title='Defined at 681 in deps/lua/src/lcode.c.'>codecomp</a>(fs, <a href='../S/273.html#L186' title='Defined at 186 in deps/lua/src/lopcodes.h.'>OP_LT</a>, 0, e1, e2); <b>break</b>;
+<a name='L786'>    <b>case</b> <a href='../S/314.html#L30' title='Defined at 30 in deps/lua/src/lcode.h.'>OPR_GE</a>: <a href='../S/293.html#L681' title='Defined at 681 in deps/lua/src/lcode.c.'>codecomp</a>(fs, <a href='../S/273.html#L187' title='Defined at 187 in deps/lua/src/lopcodes.h.'>OP_LE</a>, 0, e1, e2); <b>break</b>;
+<a name='L787'>    <b>default</b>: <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(0);
+<a name='L788'>  <font color='red'>}</font>
+<a name='L789'><font color='red'>}</font>
+<a name='L790'>
+<a name='L791'>
+<a name='L792'><b>void</b> <a href='../R/2600.html' title='Multiple refered from 4 places.'>luaK_fixline</a> (FuncState *fs, <b>int</b> line) <font color='red'>{</font>
+<a name='L793'>  fs-&gt;f-&gt;lineinfo[fs-&gt;pc - 1] = line;
+<a name='L794'><font color='red'>}</font>
+<a name='L795'>
+<a name='L796'>
+<a name='L797'><b>static</b> <b>int</b> <a href='../R/2590.html' title='Multiple refered from 3 places.'>luaK_code</a> (FuncState *fs, Instruction i, <b>int</b> line) <font color='red'>{</font>
+<a name='L798'>  <a href='../D/722.html' title='Multiple defined in 2 places.'>Proto</a> *f = fs-&gt;f;
+<a name='L799'>  <a href='../S/293.html#L163' title='Defined at 163 in deps/lua/src/lcode.c.'>dischargejpc</a>(fs);  <i><font color='green'>/* `pc' will change */</font></i>
+<a name='L800'>  <i><font color='green'>/* put new instruction in code array */</font></i>
+<a name='L801'>  <a href='../S/278.html#L33' title='Defined at 33 in deps/lua/src/lmem.h.'>luaM_growvector</a>(fs-&gt;L, f-&gt;code, fs-&gt;pc, f-&gt;sizecode, <a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a>,
+<a name='L802'>                  <a href='../S/310.html#L35' title='Defined at 35 in deps/lua/src/llimits.h.'>MAX_INT</a>, "code size overflow");
+<a name='L803'>  f-&gt;code[fs-&gt;pc] = i;
+<a name='L804'>  <i><font color='green'>/* save corresponding line information */</font></i>
+<a name='L805'>  <a href='../S/278.html#L33' title='Defined at 33 in deps/lua/src/lmem.h.'>luaM_growvector</a>(fs-&gt;L, f-&gt;lineinfo, fs-&gt;pc, f-&gt;sizelineinfo, <b>int</b>,
+<a name='L806'>                  <a href='../S/310.html#L35' title='Defined at 35 in deps/lua/src/llimits.h.'>MAX_INT</a>, "code size overflow");
+<a name='L807'>  f-&gt;lineinfo[fs-&gt;pc] = line;
+<a name='L808'>  <b>return</b> fs-&gt;pc++;
+<a name='L809'><font color='red'>}</font>
+<a name='L810'>
+<a name='L811'>
+<a name='L812'><b>int</b> <a href='../R/2591.html' title='Multiple refered from 25 places.'>luaK_codeABC</a> (FuncState *fs, OpCode o, <b>int</b> a, <b>int</b> b, <b>int</b> c) <font color='red'>{</font>
+<a name='L813'>  <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(<a href='../S/273.html#L254' title='Defined at 254 in deps/lua/src/lopcodes.h.'>getOpMode</a>(o) == <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>);
+<a name='L814'>  <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(<a href='../S/273.html#L255' title='Defined at 255 in deps/lua/src/lopcodes.h.'>getBMode</a>(o) != <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a> || b == 0);
+<a name='L815'>  <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(<a href='../S/273.html#L256' title='Defined at 256 in deps/lua/src/lopcodes.h.'>getCMode</a>(o) != <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a> || c == 0);
+<a name='L816'>  <b>return</b> <a href='../S/293.html#L797' title='Defined at 797 in deps/lua/src/lcode.c.'>luaK_code</a>(fs, <a href='../S/273.html#L104' title='Defined at 104 in deps/lua/src/lopcodes.h.'>CREATE_ABC</a>(o, a, b, c), fs-&gt;ls-&gt;lastline);
+<a name='L817'><font color='red'>}</font>
+<a name='L818'>
+<a name='L819'>
+<a name='L820'><b>int</b> <a href='../R/2592.html' title='Multiple refered from 8 places.'>luaK_codeABx</a> (FuncState *fs, OpCode o, <b>int</b> a, <b>unsigned</b> <b>int</b> bc) <font color='red'>{</font>
+<a name='L821'>  <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(<a href='../S/273.html#L254' title='Defined at 254 in deps/lua/src/lopcodes.h.'>getOpMode</a>(o) == <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABx</a> || <a href='../S/273.html#L254' title='Defined at 254 in deps/lua/src/lopcodes.h.'>getOpMode</a>(o) == <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iAsBx</a>);
+<a name='L822'>  <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(<a href='../S/273.html#L256' title='Defined at 256 in deps/lua/src/lopcodes.h.'>getCMode</a>(o) == <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>);
+<a name='L823'>  <b>return</b> <a href='../S/293.html#L797' title='Defined at 797 in deps/lua/src/lcode.c.'>luaK_code</a>(fs, <a href='../S/273.html#L109' title='Defined at 109 in deps/lua/src/lopcodes.h.'>CREATE_ABx</a>(o, a, bc), fs-&gt;ls-&gt;lastline);
+<a name='L824'><font color='red'>}</font>
+<a name='L825'>
+<a name='L826'>
+<a name='L827'><b>void</b> <a href='../R/2616.html' title='Multiple refered from 4 places.'>luaK_setlist</a> (FuncState *fs, <b>int</b> base, <b>int</b> nelems, <b>int</b> tostore) <font color='red'>{</font>
+<a name='L828'>  <b>int</b> c =  (nelems - 1)/<a href='../S/273.html#L265' title='Defined at 265 in deps/lua/src/lopcodes.h.'>LFIELDS_PER_FLUSH</a> + 1;
+<a name='L829'>  <b>int</b> b = (tostore == <a href='../S/266.html#L30' title='Defined at 30 in deps/lua/src/lua.h.'>LUA_MULTRET</a>) ? 0 : tostore;
+<a name='L830'>  <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(tostore != 0);
+<a name='L831'>  <b>if</b> (c &lt;= <a href='../S/273.html#L67' title='Defined at 67 in deps/lua/src/lopcodes.h.'>MAXARG_C</a>)
+<a name='L832'>    <a href='../S/293.html#L812' title='Defined at 812 in deps/lua/src/lcode.c.'>luaK_codeABC</a>(fs, <a href='../S/273.html#L202' title='Defined at 202 in deps/lua/src/lopcodes.h.'>OP_SETLIST</a>, base, b, c);
+<a name='L833'>  <b>else</b> <font color='red'>{</font>
+<a name='L834'>    <a href='../S/293.html#L812' title='Defined at 812 in deps/lua/src/lcode.c.'>luaK_codeABC</a>(fs, <a href='../S/273.html#L202' title='Defined at 202 in deps/lua/src/lopcodes.h.'>OP_SETLIST</a>, base, b, 0);
+<a name='L835'>    <a href='../S/293.html#L797' title='Defined at 797 in deps/lua/src/lcode.c.'>luaK_code</a>(fs, <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a>, c), fs-&gt;ls-&gt;lastline);
+<a name='L836'>  <font color='red'>}</font>
+<a name='L837'>  fs-&gt;<a href='../S/293.html#L215' title='Defined at 215 in deps/lua/src/lcode.c.'>freereg</a> = base + 1;  <i><font color='green'>/* free registers with list values */</font></i>
+<a name='L838'><font color='red'>}</font>
+<a name='L839'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L30'>[^]</a><a href='#L827'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

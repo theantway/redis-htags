@@ -1,0 +1,347 @@
+<html>
+<head>
+<title>deps/jemalloc/src/huge.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/395.html'>src</a>/huge.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L19'>[^]</a><a href='#L309'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L19' title='Defined at 19.'>huge_malloc</a>
+<li><a href='#L26' title='Defined at 26.'>huge_palloc</a>
+<li><a href='#L82' title='Defined at 82.'>huge_ralloc_no_move</a>
+<li><a href='#L104' title='Defined at 104.'>huge_ralloc</a>
+<li><a href='#L190' title='Defined at 190.'>huge_dalloc</a>
+<li><a href='#L220' title='Defined at 220.'>huge_salloc</a>
+<li><a href='#L240' title='Defined at 240.'>huge_prof_ctx_get</a>
+<li><a href='#L260' title='Defined at 260.'>huge_prof_ctx_set</a>
+<li><a href='#L277' title='Defined at 277.'>huge_boot</a>
+<li><a href='#L295' title='Defined at 295.'>huge_prefork</a>
+<li><a href='#L302' title='Defined at 302.'>huge_postfork_parent</a>
+<li><a href='#L309' title='Defined at 309.'>huge_postfork_child</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> JEMALLOC_HUGE_C_
+<a name='L2'><font color='darkred'>#include</font> "jemalloc/internal/jemalloc_internal.h"
+<a name='L3'>
+<a name='L4'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L5'><i><font color='green'>/* Data. */</font></i>
+<a name='L6'>
+<a name='L7'><a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        <a href='../S/138.html#L183' title='Defined at 183 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_nmalloc</a>;
+<a name='L8'><a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        <a href='../S/138.html#L182' title='Defined at 182 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_ndalloc</a>;
+<a name='L9'>size_t          <a href='../S/138.html#L177' title='Defined at 177 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_allocated</a>;
+<a name='L10'>
+<a name='L11'><a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a>  <a href='../S/138.html#L181' title='Defined at 181 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_mtx</a>;
+<a name='L12'>
+<a name='L13'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L14'>
+<a name='L15'><i><font color='green'>/* Tree of chunks that are stand-alone huge allocations. */</font></i>
+<a name='L16'><b>static</b> <a href='../S/147.html#L30' title='Defined at 30 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_tree_t</a>    huge;
+<a name='L17'>
+<a name='L18'><b>void</b> *
+<a name='L19'><a href='../R/2162.html' title='Multiple refered from 5 places.'>huge_malloc</a>(size_t size, bool zero)
+<a name='L20'><font color='red'>{</font>
+<a name='L21'>
+<a name='L22'>        <b>return</b> (<a href='../D/2446.html' title='Multiple defined in 2 places.'>huge_palloc</a>(size, <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a>, zero));
+<a name='L23'><font color='red'>}</font>
+<a name='L24'>
+<a name='L25'><b>void</b> *
+<a name='L26'><a href='../R/2166.html' title='Multiple refered from 5 places.'>huge_palloc</a>(size_t size, size_t alignment, bool zero)
+<a name='L27'><font color='red'>{</font>
+<a name='L28'>        <b>void</b> *ret;
+<a name='L29'>        size_t csize;
+<a name='L30'>        <a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a> *node;
+<a name='L31'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> is_zeroed;
+<a name='L32'>
+<a name='L33'>        <i><font color='green'>/* Allocate one or more contiguous chunks for this request. */</font></i>
+<a name='L34'>
+<a name='L35'>        csize = <a href='../S/142.html#L19' title='Defined at 19 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_CEILING</a>(size);
+<a name='L36'>        <b>if</b> (csize == 0) <font color='red'>{</font>
+<a name='L37'>                <i><font color='green'>/* size is large enough to cause size_t wrap-around. */</font></i>
+<a name='L38'>                <b>return</b> (NULL);
+<a name='L39'>        <font color='red'>}</font>
+<a name='L40'>
+<a name='L41'>        <i><font color='green'>/* Allocate an extent node with which to track the chunk. */</font></i>
+<a name='L42'>        node = <a href='../D/1718.html' title='Multiple defined in 2 places.'>base_node_alloc</a>();
+<a name='L43'>        <b>if</b> (node == NULL)
+<a name='L44'>                <b>return</b> (NULL);
+<a name='L45'>
+<a name='L46'>        <i><font color='green'>/*</font></i>
+<a name='L47'><i><font color='green'>         * Copy zero into is_zeroed and pass the copy to chunk_alloc(), so that</font></i>
+<a name='L48'><i><font color='green'>         * it is possible to make correct junk/zero fill decisions below.</font></i>
+<a name='L49'><i><font color='green'>         */</font></i>
+<a name='L50'>        is_zeroed = zero;
+<a name='L51'>        ret = <a href='../D/1839.html' title='Multiple defined in 2 places.'>chunk_alloc</a>(csize, alignment, <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>, &amp;is_zeroed,
+<a name='L52'>            <a href='../D/1849.html' title='Multiple defined in 2 places.'>chunk_dss_prec_get</a>());
+<a name='L53'>        <b>if</b> (ret == NULL) <font color='red'>{</font>
+<a name='L54'>                <a href='../D/1719.html' title='Multiple defined in 2 places.'>base_node_dealloc</a>(node);
+<a name='L55'>                <b>return</b> (NULL);
+<a name='L56'>        <font color='red'>}</font>
+<a name='L57'>
+<a name='L58'>        <i><font color='green'>/* Insert node into huge. */</font></i>
+<a name='L59'>        node-&gt;addr = ret;
+<a name='L60'>        node-&gt;size = csize;
+<a name='L61'>
+<a name='L62'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;<a href='../S/138.html#L181' title='Defined at 181 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_mtx</a>);
+<a name='L63'>        <a href='../S/138.html#L144' title='Defined at 144 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_ad_insert</a>(&amp;huge, node);
+<a name='L64'>        <b>if</b> (config_stats) <font color='red'>{</font>
+<a name='L65'>                <a href='../D/4211.html' title='Multiple defined in 2 places.'>stats_cactive_add</a>(csize);
+<a name='L66'>                <a href='../S/138.html#L183' title='Defined at 183 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_nmalloc</a>++;
+<a name='L67'>                <a href='../S/138.html#L177' title='Defined at 177 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_allocated</a> += csize;
+<a name='L68'>        <font color='red'>}</font>
+<a name='L69'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;<a href='../S/138.html#L181' title='Defined at 181 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_mtx</a>);
+<a name='L70'>
+<a name='L71'>        <b>if</b> (config_fill &amp;&amp; zero == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>) <font color='red'>{</font>
+<a name='L72'>                <b>if</b> (<a href='../S/138.html#L239' title='Defined at 239 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_junk</a>)
+<a name='L73'>                        memset(ret, 0xa5, csize);
+<a name='L74'>                <b>else</b> <b>if</b> (<a href='../S/138.html#L260' title='Defined at 260 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_zero</a> &amp;&amp; is_zeroed == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)
+<a name='L75'>                        memset(ret, 0, csize);
+<a name='L76'>        <font color='red'>}</font>
+<a name='L77'>
+<a name='L78'>        <b>return</b> (ret);
+<a name='L79'><font color='red'>}</font>
+<a name='L80'>
+<a name='L81'><b>void</b> *
+<a name='L82'><a href='../R/2173.html' title='Multiple refered from 3 places.'>huge_ralloc_no_move</a>(<b>void</b> *ptr, size_t oldsize, size_t size, size_t extra)
+<a name='L83'><font color='red'>{</font>
+<a name='L84'>
+<a name='L85'>        <i><font color='green'>/*</font></i>
+<a name='L86'><i><font color='green'>         * Avoid moving the allocation if the size class can be left the same.</font></i>
+<a name='L87'><i><font color='green'>         */</font></i>
+<a name='L88'>        <b>if</b> (oldsize &gt; <a href='../S/138.html#L37' title='Defined at 37 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arena_maxclass</a>
+<a name='L89'>            &amp;&amp; <a href='../S/142.html#L19' title='Defined at 19 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_CEILING</a>(oldsize) &gt;= <a href='../S/142.html#L19' title='Defined at 19 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_CEILING</a>(size)
+<a name='L90'>            &amp;&amp; <a href='../S/142.html#L19' title='Defined at 19 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_CEILING</a>(oldsize) &lt;= <a href='../S/142.html#L19' title='Defined at 19 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_CEILING</a>(size+extra)) <font color='red'>{</font>
+<a name='L91'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/142.html#L19' title='Defined at 19 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_CEILING</a>(oldsize) == oldsize);
+<a name='L92'>                <b>if</b> (config_fill &amp;&amp; <a href='../S/138.html#L239' title='Defined at 239 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_junk</a> &amp;&amp; size &lt; oldsize) <font color='red'>{</font>
+<a name='L93'>                        memset((<b>void</b> *)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ptr + size), 0x5a,
+<a name='L94'>                            oldsize - size);
+<a name='L95'>                <font color='red'>}</font>
+<a name='L96'>                <b>return</b> (ptr);
+<a name='L97'>        <font color='red'>}</font>
+<a name='L98'>
+<a name='L99'>        <i><font color='green'>/* Reallocation would require a move. */</font></i>
+<a name='L100'>        <b>return</b> (NULL);
+<a name='L101'><font color='red'>}</font>
+<a name='L102'>
+<a name='L103'><b>void</b> *
+<a name='L104'><a href='../R/2172.html' title='Multiple refered from 2 places.'>huge_ralloc</a>(<b>void</b> *ptr, size_t oldsize, size_t size, size_t extra,
+<a name='L105'>    size_t alignment, bool zero, bool try_tcache_dalloc)
+<a name='L106'><font color='red'>{</font>
+<a name='L107'>        <b>void</b> *ret;
+<a name='L108'>        size_t copysize;
+<a name='L109'>
+<a name='L110'>        <i><font color='green'>/* Try to avoid moving the allocation. */</font></i>
+<a name='L111'>        ret = <a href='../D/2453.html' title='Multiple defined in 2 places.'>huge_ralloc_no_move</a>(ptr, oldsize, size, extra);
+<a name='L112'>        <b>if</b> (ret != NULL)
+<a name='L113'>                <b>return</b> (ret);
+<a name='L114'>
+<a name='L115'>        <i><font color='green'>/*</font></i>
+<a name='L116'><i><font color='green'>         * size and oldsize are different enough that we need to use a</font></i>
+<a name='L117'><i><font color='green'>         * different size class.  In that case, fall back to allocating new</font></i>
+<a name='L118'><i><font color='green'>         * space and copying.</font></i>
+<a name='L119'><i><font color='green'>         */</font></i>
+<a name='L120'>        <b>if</b> (alignment &gt; <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a>)
+<a name='L121'>                ret = <a href='../D/2446.html' title='Multiple defined in 2 places.'>huge_palloc</a>(size + extra, alignment, zero);
+<a name='L122'>        <b>else</b>
+<a name='L123'>                ret = <a href='../D/2442.html' title='Multiple defined in 2 places.'>huge_malloc</a>(size + extra, zero);
+<a name='L124'>
+<a name='L125'>        <b>if</b> (ret == NULL) <font color='red'>{</font>
+<a name='L126'>                <b>if</b> (extra == 0)
+<a name='L127'>                        <b>return</b> (NULL);
+<a name='L128'>                <i><font color='green'>/* Try again, this time without extra. */</font></i>
+<a name='L129'>                <b>if</b> (alignment &gt; <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a>)
+<a name='L130'>                        ret = <a href='../D/2446.html' title='Multiple defined in 2 places.'>huge_palloc</a>(size, alignment, zero);
+<a name='L131'>                <b>else</b>
+<a name='L132'>                        ret = <a href='../D/2442.html' title='Multiple defined in 2 places.'>huge_malloc</a>(size, zero);
+<a name='L133'>
+<a name='L134'>                <b>if</b> (ret == NULL)
+<a name='L135'>                        <b>return</b> (NULL);
+<a name='L136'>        <font color='red'>}</font>
+<a name='L137'>
+<a name='L138'>        <i><font color='green'>/*</font></i>
+<a name='L139'><i><font color='green'>         * Copy at most size bytes (not size+extra), since the caller has no</font></i>
+<a name='L140'><i><font color='green'>         * expectation that the extra bytes will be reliably preserved.</font></i>
+<a name='L141'><i><font color='green'>         */</font></i>
+<a name='L142'>        copysize = (size &lt; oldsize) ? size : oldsize;
+<a name='L143'>
+<a name='L144'><font color='darkred'>#ifdef</font> JEMALLOC_MREMAP
+<a name='L145'>        <i><font color='green'>/*</font></i>
+<a name='L146'><i><font color='green'>         * Use mremap(2) if this is a huge--&gt;huge reallocation, and neither the</font></i>
+<a name='L147'><i><font color='green'>         * source nor the destination are in dss.</font></i>
+<a name='L148'><i><font color='green'>         */</font></i>
+<a name='L149'>        <b>if</b> (oldsize &gt;= <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a> &amp;&amp; (config_dss == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a> || (<a href='../D/1852.html' title='Multiple defined in 2 places.'>chunk_in_dss</a>(ptr)
+<a name='L150'>            == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a> &amp;&amp; <a href='../D/1852.html' title='Multiple defined in 2 places.'>chunk_in_dss</a>(ret) == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>))) <font color='red'>{</font>
+<a name='L151'>                size_t newsize = <a href='../D/2454.html' title='Multiple defined in 2 places.'>huge_salloc</a>(ret);
+<a name='L152'>
+<a name='L153'>                <i><font color='green'>/*</font></i>
+<a name='L154'><i><font color='green'>                 * Remove ptr from the tree of huge allocations before</font></i>
+<a name='L155'><i><font color='green'>                 * performing the remap operation, in order to avoid the</font></i>
+<a name='L156'><i><font color='green'>                 * possibility of another thread acquiring that mapping before</font></i>
+<a name='L157'><i><font color='green'>                 * this one removes it from the tree.</font></i>
+<a name='L158'><i><font color='green'>                 */</font></i>
+<a name='L159'>                <a href='../D/2441.html' title='Multiple defined in 2 places.'>huge_dalloc</a>(ptr, <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L160'>                <b>if</b> (mremap(ptr, oldsize, newsize, MREMAP_MAYMOVE|MREMAP_FIXED,
+<a name='L161'>                    ret) == MAP_FAILED) <font color='red'>{</font>
+<a name='L162'>                        <i><font color='green'>/*</font></i>
+<a name='L163'><i><font color='green'>                         * Assuming no chunk management bugs in the allocator,</font></i>
+<a name='L164'><i><font color='green'>                         * the only documented way an error can occur here is</font></i>
+<a name='L165'><i><font color='green'>                         * if the application changed the map type for a</font></i>
+<a name='L166'><i><font color='green'>                         * portion of the old allocation.  This is firmly in</font></i>
+<a name='L167'><i><font color='green'>                         * undefined behavior territory, so write a diagnostic</font></i>
+<a name='L168'><i><font color='green'>                         * message, and optionally abort.</font></i>
+<a name='L169'><i><font color='green'>                         */</font></i>
+<a name='L170'>                        <b>char</b> buf[<a href='../S/149.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/util.h.'>BUFERROR_BUF</a>];
+<a name='L171'>
+<a name='L172'>                        <a href='../D/1776.html' title='Multiple defined in 2 places.'>buferror</a>(buf, <b>sizeof</b>(buf));
+<a name='L173'>                        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("&lt;jemalloc&gt;: Error in mremap(): %s\n",
+<a name='L174'>                            buf);
+<a name='L175'>                        <b>if</b> (<a href='../S/138.html#L238' title='Defined at 238 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_abort</a>)
+<a name='L176'>                                abort();
+<a name='L177'>                        memcpy(ret, ptr, copysize);
+<a name='L178'>                        <a href='../D/1845.html' title='Multiple defined in 2 places.'>chunk_dealloc_mmap</a>(ptr, oldsize);
+<a name='L179'>                <font color='red'>}</font>
+<a name='L180'>        <font color='red'>}</font> <b>else</b>
+<a name='L181'><font color='darkred'>#endif</font>
+<a name='L182'>        <font color='red'>{</font>
+<a name='L183'>                memcpy(ret, ptr, copysize);
+<a name='L184'>                <a href='../S/138.html#L203' title='Defined at 203 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>iqallocx</a>(ptr, try_tcache_dalloc);
+<a name='L185'>        <font color='red'>}</font>
+<a name='L186'>        <b>return</b> (ret);
+<a name='L187'><font color='red'>}</font>
+<a name='L188'>
+<a name='L189'><b>void</b>
+<a name='L190'><a href='../R/2161.html' title='Multiple refered from 4 places.'>huge_dalloc</a>(<b>void</b> *ptr, bool unmap)
+<a name='L191'><font color='red'>{</font>
+<a name='L192'>        <a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a> *node, key;
+<a name='L193'>
+<a name='L194'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;<a href='../S/138.html#L181' title='Defined at 181 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_mtx</a>);
+<a name='L195'>
+<a name='L196'>        <i><font color='green'>/* Extract from tree of huge allocations. */</font></i>
+<a name='L197'>        key.addr = ptr;
+<a name='L198'>        node = <a href='../S/138.html#L158' title='Defined at 158 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_ad_search</a>(&amp;huge, &amp;key);
+<a name='L199'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(node != NULL);
+<a name='L200'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(node-&gt;addr == ptr);
+<a name='L201'>        <a href='../S/138.html#L154' title='Defined at 154 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_ad_remove</a>(&amp;huge, node);
+<a name='L202'>
+<a name='L203'>        <b>if</b> (config_stats) <font color='red'>{</font>
+<a name='L204'>                <a href='../D/4213.html' title='Multiple defined in 2 places.'>stats_cactive_sub</a>(node-&gt;size);
+<a name='L205'>                <a href='../S/138.html#L182' title='Defined at 182 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_ndalloc</a>++;
+<a name='L206'>                <a href='../S/138.html#L177' title='Defined at 177 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_allocated</a> -= node-&gt;size;
+<a name='L207'>        <font color='red'>}</font>
+<a name='L208'>
+<a name='L209'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;<a href='../S/138.html#L181' title='Defined at 181 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_mtx</a>);
+<a name='L210'>
+<a name='L211'>        <b>if</b> (unmap &amp;&amp; config_fill &amp;&amp; config_dss &amp;&amp; <a href='../S/138.html#L239' title='Defined at 239 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_junk</a>)
+<a name='L212'>                memset(node-&gt;addr, 0x5a, node-&gt;size);
+<a name='L213'>
+<a name='L214'>        <a href='../D/1844.html' title='Multiple defined in 2 places.'>chunk_dealloc</a>(node-&gt;addr, node-&gt;size, unmap);
+<a name='L215'>
+<a name='L216'>        <a href='../D/1719.html' title='Multiple defined in 2 places.'>base_node_dealloc</a>(node);
+<a name='L217'><font color='red'>}</font>
+<a name='L218'>
+<a name='L219'>size_t
+<a name='L220'><a href='../R/2174.html' title='Multiple refered from 3 places.'>huge_salloc</a>(<b>const</b> <b>void</b> *ptr)
+<a name='L221'><font color='red'>{</font>
+<a name='L222'>        size_t ret;
+<a name='L223'>        <a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a> *node, key;
+<a name='L224'>
+<a name='L225'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;<a href='../S/138.html#L181' title='Defined at 181 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_mtx</a>);
+<a name='L226'>
+<a name='L227'>        <i><font color='green'>/* Extract from tree of huge allocations. */</font></i>
+<a name='L228'>        key.addr = __DECONST(<b>void</b> *, ptr);
+<a name='L229'>        node = <a href='../S/138.html#L158' title='Defined at 158 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_ad_search</a>(&amp;huge, &amp;key);
+<a name='L230'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(node != NULL);
+<a name='L231'>
+<a name='L232'>        ret = node-&gt;size;
+<a name='L233'>
+<a name='L234'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;<a href='../S/138.html#L181' title='Defined at 181 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_mtx</a>);
+<a name='L235'>
+<a name='L236'>        <b>return</b> (ret);
+<a name='L237'><font color='red'>}</font>
+<a name='L238'>
+<a name='L239'><a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> *
+<a name='L240'><a href='../R/2170.html' title='Multiple refered from 3 places.'>huge_prof_ctx_get</a>(<b>const</b> <b>void</b> *ptr)
+<a name='L241'><font color='red'>{</font>
+<a name='L242'>        <a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> *ret;
+<a name='L243'>        <a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a> *node, key;
+<a name='L244'>
+<a name='L245'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;<a href='../S/138.html#L181' title='Defined at 181 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_mtx</a>);
+<a name='L246'>
+<a name='L247'>        <i><font color='green'>/* Extract from tree of huge allocations. */</font></i>
+<a name='L248'>        key.addr = __DECONST(<b>void</b> *, ptr);
+<a name='L249'>        node = <a href='../S/138.html#L158' title='Defined at 158 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_ad_search</a>(&amp;huge, &amp;key);
+<a name='L250'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(node != NULL);
+<a name='L251'>
+<a name='L252'>        ret = node-&gt;prof_ctx;
+<a name='L253'>
+<a name='L254'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;<a href='../S/138.html#L181' title='Defined at 181 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_mtx</a>);
+<a name='L255'>
+<a name='L256'>        <b>return</b> (ret);
+<a name='L257'><font color='red'>}</font>
+<a name='L258'>
+<a name='L259'><b>void</b>
+<a name='L260'><a href='../R/2171.html' title='Multiple refered from 3 places.'>huge_prof_ctx_set</a>(<b>const</b> <b>void</b> *ptr, <a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> *ctx)
+<a name='L261'><font color='red'>{</font>
+<a name='L262'>        <a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a> *node, key;
+<a name='L263'>
+<a name='L264'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;<a href='../S/138.html#L181' title='Defined at 181 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_mtx</a>);
+<a name='L265'>
+<a name='L266'>        <i><font color='green'>/* Extract from tree of huge allocations. */</font></i>
+<a name='L267'>        key.addr = __DECONST(<b>void</b> *, ptr);
+<a name='L268'>        node = <a href='../S/138.html#L158' title='Defined at 158 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_ad_search</a>(&amp;huge, &amp;key);
+<a name='L269'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(node != NULL);
+<a name='L270'>
+<a name='L271'>        node-&gt;prof_ctx = ctx;
+<a name='L272'>
+<a name='L273'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;<a href='../S/138.html#L181' title='Defined at 181 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_mtx</a>);
+<a name='L274'><font color='red'>}</font>
+<a name='L275'>
+<a name='L276'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L277'><a href='../R/2160.html' title='Multiple refered from 3 places.'>huge_boot</a>(<b>void</b>)
+<a name='L278'><font color='red'>{</font>
+<a name='L279'>
+<a name='L280'>        <i><font color='green'>/* Initialize chunks data. */</font></i>
+<a name='L281'>        <b>if</b> (<a href='../D/3272.html' title='Multiple defined in 2 places.'>malloc_mutex_init</a>(&amp;<a href='../S/138.html#L181' title='Defined at 181 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_mtx</a>))
+<a name='L282'>                <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L283'>        <a href='../S/138.html#L149' title='Defined at 149 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_ad_new</a>(&amp;huge);
+<a name='L284'>
+<a name='L285'>        <b>if</b> (config_stats) <font color='red'>{</font>
+<a name='L286'>                <a href='../S/138.html#L183' title='Defined at 183 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_nmalloc</a> = 0;
+<a name='L287'>                <a href='../S/138.html#L182' title='Defined at 182 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_ndalloc</a> = 0;
+<a name='L288'>                <a href='../S/138.html#L177' title='Defined at 177 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_allocated</a> = 0;
+<a name='L289'>        <font color='red'>}</font>
+<a name='L290'>
+<a name='L291'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L292'><font color='red'>}</font>
+<a name='L293'>
+<a name='L294'><b>void</b>
+<a name='L295'><a href='../R/2169.html' title='Multiple refered from 3 places.'>huge_prefork</a>(<b>void</b>)
+<a name='L296'><font color='red'>{</font>
+<a name='L297'>
+<a name='L298'>        <a href='../D/3276.html' title='Multiple defined in 2 places.'>malloc_mutex_prefork</a>(&amp;<a href='../S/138.html#L181' title='Defined at 181 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_mtx</a>);
+<a name='L299'><font color='red'>}</font>
+<a name='L300'>
+<a name='L301'><b>void</b>
+<a name='L302'><a href='../R/2168.html' title='Multiple refered from 3 places.'>huge_postfork_parent</a>(<b>void</b>)
+<a name='L303'><font color='red'>{</font>
+<a name='L304'>
+<a name='L305'>        <a href='../D/3275.html' title='Multiple defined in 2 places.'>malloc_mutex_postfork_parent</a>(&amp;<a href='../S/138.html#L181' title='Defined at 181 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_mtx</a>);
+<a name='L306'><font color='red'>}</font>
+<a name='L307'>
+<a name='L308'><b>void</b>
+<a name='L309'><a href='../R/2167.html' title='Multiple refered from 3 places.'>huge_postfork_child</a>(<b>void</b>)
+<a name='L310'><font color='red'>{</font>
+<a name='L311'>
+<a name='L312'>        <a href='../D/3274.html' title='Multiple defined in 2 places.'>malloc_mutex_postfork_child</a>(&amp;<a href='../S/138.html#L181' title='Defined at 181 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_mtx</a>);
+<a name='L313'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L19'>[^]</a><a href='#L309'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

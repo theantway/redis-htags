@@ -1,0 +1,119 @@
+<html>
+<head>
+<title>src/lzf.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/lzf.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/178.html' title='Multiple included from 3 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2000-2008 Marc Alexander Lehmann &lt;schmorp@schmorp.de&gt;</font></i>
+<a name='L3'><i><font color='green'> * </font></i>
+<a name='L4'><i><font color='green'> * Redistribution and use in source and binary forms, with or without modifica-</font></i>
+<a name='L5'><i><font color='green'> * tion, are permitted provided that the following conditions are met:</font></i>
+<a name='L6'><i><font color='green'> * </font></i>
+<a name='L7'><i><font color='green'> *   1.  Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L8'><i><font color='green'> *       this list of conditions and the following disclaimer.</font></i>
+<a name='L9'><i><font color='green'> * </font></i>
+<a name='L10'><i><font color='green'> *   2.  Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L11'><i><font color='green'> *       notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L12'><i><font color='green'> *       documentation and/or other materials provided with the distribution.</font></i>
+<a name='L13'><i><font color='green'> * </font></i>
+<a name='L14'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED</font></i>
+<a name='L15'><i><font color='green'> * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MER-</font></i>
+<a name='L16'><i><font color='green'> * CHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO</font></i>
+<a name='L17'><i><font color='green'> * EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPE-</font></i>
+<a name='L18'><i><font color='green'> * CIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,</font></i>
+<a name='L19'><i><font color='green'> * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;</font></i>
+<a name='L20'><i><font color='green'> * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,</font></i>
+<a name='L21'><i><font color='green'> * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTH-</font></i>
+<a name='L22'><i><font color='green'> * ERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED</font></i>
+<a name='L23'><i><font color='green'> * OF THE POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L24'><i><font color='green'> *</font></i>
+<a name='L25'><i><font color='green'> * Alternatively, the contents of this file may be used under the terms of</font></i>
+<a name='L26'><i><font color='green'> * the GNU General Public License ("GPL") version 2 or any later version,</font></i>
+<a name='L27'><i><font color='green'> * in which case the provisions of the GPL are applicable instead of</font></i>
+<a name='L28'><i><font color='green'> * the above. If you wish to allow the use of your version of this file</font></i>
+<a name='L29'><i><font color='green'> * only under the terms of the GPL and not to allow others to use your</font></i>
+<a name='L30'><i><font color='green'> * version of this file under the BSD license, indicate your decision</font></i>
+<a name='L31'><i><font color='green'> * by deleting the provisions above and replace them with the notice</font></i>
+<a name='L32'><i><font color='green'> * and other provisions required by the GPL. If you do not delete the</font></i>
+<a name='L33'><i><font color='green'> * provisions above, a recipient may use your version of this file under</font></i>
+<a name='L34'><i><font color='green'> * either the BSD or the GPL.</font></i>
+<a name='L35'><i><font color='green'> */</font></i>
+<a name='L36'>
+<a name='L37'><font color='darkred'>#ifndef</font> <a href='../S/15.html#L38' title='Defined at 38 in src/lzf.h.'>LZF_H</a>
+<a name='L38'><font color='darkred'>#define</font> <a href='../S/15.html#L37' title='Refered from 37 in src/lzf.h.'>LZF_H</a>
+<a name='L39'>
+<a name='L40'><i><font color='green'>/***********************************************************************</font></i>
+<a name='L41'><i><font color='green'>**</font></i>
+<a name='L42'><i><font color='green'>**      lzf -- an extremely fast/free compression/decompression-method</font></i>
+<a name='L43'><i><font color='green'>**      http://liblzf.plan9.de/</font></i>
+<a name='L44'><i><font color='green'>**</font></i>
+<a name='L45'><i><font color='green'>**      This algorithm is believed to be patent-free.</font></i>
+<a name='L46'><i><font color='green'>**</font></i>
+<a name='L47'><i><font color='green'>***********************************************************************/</font></i>
+<a name='L48'>
+<a name='L49'><font color='darkred'>#define</font> LZF_VERSION 0x0105 <i><font color='green'>/* 1.5, API version */</font></i>
+<a name='L50'>
+<a name='L51'><i><font color='green'>/*</font></i>
+<a name='L52'><i><font color='green'> * Compress in_len bytes stored at the memory block starting at</font></i>
+<a name='L53'><i><font color='green'> * in_data and write the result to out_data, up to a maximum length</font></i>
+<a name='L54'><i><font color='green'> * of out_len bytes.</font></i>
+<a name='L55'><i><font color='green'> *</font></i>
+<a name='L56'><i><font color='green'> * If the output buffer is not large enough or any error occurs return 0,</font></i>
+<a name='L57'><i><font color='green'> * otherwise return the number of bytes used, which might be considerably</font></i>
+<a name='L58'><i><font color='green'> * more than in_len (but less than 104% of the original size), so it</font></i>
+<a name='L59'><i><font color='green'> * makes sense to always use out_len == in_len - 1), to ensure _some_</font></i>
+<a name='L60'><i><font color='green'> * compression, and store the data uncompressed otherwise (with a flag, of</font></i>
+<a name='L61'><i><font color='green'> * course.</font></i>
+<a name='L62'><i><font color='green'> *</font></i>
+<a name='L63'><i><font color='green'> * lzf_compress might use different algorithms on different systems and</font></i>
+<a name='L64'><i><font color='green'> * even different runs, thus might result in different compressed strings</font></i>
+<a name='L65'><i><font color='green'> * depending on the phase of the moon or similar factors. However, all</font></i>
+<a name='L66'><i><font color='green'> * these strings are architecture-independent and will result in the</font></i>
+<a name='L67'><i><font color='green'> * original data when decompressed using lzf_decompress.</font></i>
+<a name='L68'><i><font color='green'> *</font></i>
+<a name='L69'><i><font color='green'> * The buffers must not be overlapping.</font></i>
+<a name='L70'><i><font color='green'> *</font></i>
+<a name='L71'><i><font color='green'> * If the option LZF_STATE_ARG is enabled, an extra argument must be</font></i>
+<a name='L72'><i><font color='green'> * supplied which is not reflected in this header file. Refer to lzfP.h</font></i>
+<a name='L73'><i><font color='green'> * and lzf_c.c.</font></i>
+<a name='L74'><i><font color='green'> *</font></i>
+<a name='L75'><i><font color='green'> */</font></i>
+<a name='L76'><b>unsigned</b> <b>int</b> 
+<a name='L77'><a href='../S/47.html#L99' title='Defined at 99 in src/lzf_c.c.'>lzf_compress</a> (<b>const</b> <b>void</b> *<b>const</b> in_data,  <b>unsigned</b> <b>int</b> in_len,
+<a name='L78'>              <b>void</b>             *out_data, <b>unsigned</b> <b>int</b> out_len);
+<a name='L79'>
+<a name='L80'><i><font color='green'>/*</font></i>
+<a name='L81'><i><font color='green'> * Decompress data compressed with some version of the lzf_compress</font></i>
+<a name='L82'><i><font color='green'> * function and stored at location in_data and length in_len. The result</font></i>
+<a name='L83'><i><font color='green'> * will be stored at out_data up to a maximum of out_len characters.</font></i>
+<a name='L84'><i><font color='green'> *</font></i>
+<a name='L85'><i><font color='green'> * If the output buffer is not large enough to hold the decompressed</font></i>
+<a name='L86'><i><font color='green'> * data, a 0 is returned and errno is set to E2BIG. Otherwise the number</font></i>
+<a name='L87'><i><font color='green'> * of decompressed bytes (i.e. the original length of the data) is</font></i>
+<a name='L88'><i><font color='green'> * returned.</font></i>
+<a name='L89'><i><font color='green'> *</font></i>
+<a name='L90'><i><font color='green'> * If an error in the compressed data is detected, a zero is returned and</font></i>
+<a name='L91'><i><font color='green'> * errno is set to EINVAL.</font></i>
+<a name='L92'><i><font color='green'> *</font></i>
+<a name='L93'><i><font color='green'> * This function is very fast, about as fast as a copying loop.</font></i>
+<a name='L94'><i><font color='green'> */</font></i>
+<a name='L95'><b>unsigned</b> <b>int</b> 
+<a name='L96'><a href='../S/52.html#L56' title='Defined at 56 in src/lzf_d.c.'>lzf_decompress</a> (<b>const</b> <b>void</b> *<b>const</b> in_data,  <b>unsigned</b> <b>int</b> in_len,
+<a name='L97'>                <b>void</b>             *out_data, <b>unsigned</b> <b>int</b> out_len);
+<a name='L98'>
+<a name='L99'><font color='darkred'>#endif</font>
+<a name='L100'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

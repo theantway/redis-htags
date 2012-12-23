@@ -1,0 +1,110 @@
+<html>
+<head>
+<title>deps/hiredis/adapters/libevent.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/388.html'>hiredis</a>/<a href='../files/389.html'>adapters</a>/libevent.h</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L12'>[^]</a><a href='#L51'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='114.html#L7' title='Included from 7 in deps/hiredis/example-libevent.c.'>INCLUDED FROM</a></h2>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L12' title='Defined at 12.'>redisLibeventReadEvent</a>
+<li><a href='#L18' title='Defined at 18.'>redisLibeventWriteEvent</a>
+<li><a href='#L24' title='Defined at 24.'>redisLibeventAddRead</a>
+<li><a href='#L29' title='Defined at 29.'>redisLibeventDelRead</a>
+<li><a href='#L34' title='Defined at 34.'>redisLibeventAddWrite</a>
+<li><a href='#L39' title='Defined at 39.'>redisLibeventDelWrite</a>
+<li><a href='#L44' title='Defined at 44.'>redisLibeventCleanup</a>
+<li><a href='#L51' title='Defined at 51.'>redisLibeventAttach</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#ifndef</font> <a href='../S/108.html#L2' title='Defined at 2 in deps/hiredis/adapters/libevent.h.'>__HIREDIS_LIBEVENT_H__</a>
+<a name='L2'><font color='darkred'>#define</font> <a href='../S/108.html#L1' title='Refered from 1 in deps/hiredis/adapters/libevent.h.'>__HIREDIS_LIBEVENT_H__</a>
+<a name='L3'><font color='darkred'>#include</font> &lt;event.h&gt;
+<a name='L4'><font color='darkred'>#include</font> "<a href='121.html'>../hiredis.h</a>"
+<a name='L5'><font color='darkred'>#include</font> "<a href='124.html'>../async.h</a>"
+<a name='L6'>
+<a name='L7'><b>typedef</b> <b>struct</b> <a href='../R/3463.html' title='Multiple refered from 9 places.'>redisLibeventEvents</a> <font color='red'>{</font>
+<a name='L8'>    <a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *context;
+<a name='L9'>    <b>struct</b> event rev, wev;
+<a name='L10'><font color='red'>}</font> <a href='../R/3463.html' title='Multiple refered from 9 places.'>redisLibeventEvents</a>;
+<a name='L11'>
+<a name='L12'><b>static</b> <b>void</b> <a href='../S/108.html#L72' title='Refered from 72 in deps/hiredis/adapters/libevent.h.'>redisLibeventReadEvent</a>(<b>int</b> fd, <b>short</b> event, <b>void</b> *arg) <font color='red'>{</font>
+<a name='L13'>    ((<b>void</b>)fd); ((<b>void</b>)event);
+<a name='L14'>    <a href='../D/3825.html' title='Multiple defined in 2 places.'>redisLibeventEvents</a> *e = (<a href='../D/3825.html' title='Multiple defined in 2 places.'>redisLibeventEvents</a>*)arg;
+<a name='L15'>    <a href='../S/104.html#L464' title='Defined at 464 in deps/hiredis/async.c.'>redisAsyncHandleRead</a>(e-&gt;context);
+<a name='L16'><font color='red'>}</font>
+<a name='L17'>
+<a name='L18'><b>static</b> <b>void</b> <a href='../S/108.html#L73' title='Refered from 73 in deps/hiredis/adapters/libevent.h.'>redisLibeventWriteEvent</a>(<b>int</b> fd, <b>short</b> event, <b>void</b> *arg) <font color='red'>{</font>
+<a name='L19'>    ((<b>void</b>)fd); ((<b>void</b>)event);
+<a name='L20'>    <a href='../D/3825.html' title='Multiple defined in 2 places.'>redisLibeventEvents</a> *e = (<a href='../D/3825.html' title='Multiple defined in 2 places.'>redisLibeventEvents</a>*)arg;
+<a name='L21'>    <a href='../S/104.html#L485' title='Defined at 485 in deps/hiredis/async.c.'>redisAsyncHandleWrite</a>(e-&gt;context);
+<a name='L22'><font color='red'>}</font>
+<a name='L23'>
+<a name='L24'><b>static</b> <b>void</b> <a href='../S/108.html#L64' title='Refered from 64 in deps/hiredis/adapters/libevent.h.'>redisLibeventAddRead</a>(<b>void</b> *privdata) <font color='red'>{</font>
+<a name='L25'>    <a href='../D/3825.html' title='Multiple defined in 2 places.'>redisLibeventEvents</a> *e = (<a href='../D/3825.html' title='Multiple defined in 2 places.'>redisLibeventEvents</a>*)privdata;
+<a name='L26'>    event_add(&amp;e-&gt;rev,NULL);
+<a name='L27'><font color='red'>}</font>
+<a name='L28'>
+<a name='L29'><b>static</b> <b>void</b> <a href='../S/108.html#L65' title='Refered from 65 in deps/hiredis/adapters/libevent.h.'>redisLibeventDelRead</a>(<b>void</b> *privdata) <font color='red'>{</font>
+<a name='L30'>    <a href='../D/3825.html' title='Multiple defined in 2 places.'>redisLibeventEvents</a> *e = (<a href='../D/3825.html' title='Multiple defined in 2 places.'>redisLibeventEvents</a>*)privdata;
+<a name='L31'>    event_del(&amp;e-&gt;rev);
+<a name='L32'><font color='red'>}</font>
+<a name='L33'>
+<a name='L34'><b>static</b> <b>void</b> <a href='../S/108.html#L66' title='Refered from 66 in deps/hiredis/adapters/libevent.h.'>redisLibeventAddWrite</a>(<b>void</b> *privdata) <font color='red'>{</font>
+<a name='L35'>    <a href='../D/3825.html' title='Multiple defined in 2 places.'>redisLibeventEvents</a> *e = (<a href='../D/3825.html' title='Multiple defined in 2 places.'>redisLibeventEvents</a>*)privdata;
+<a name='L36'>    event_add(&amp;e-&gt;wev,NULL);
+<a name='L37'><font color='red'>}</font>
+<a name='L38'>
+<a name='L39'><b>static</b> <b>void</b> <a href='../S/108.html#L67' title='Refered from 67 in deps/hiredis/adapters/libevent.h.'>redisLibeventDelWrite</a>(<b>void</b> *privdata) <font color='red'>{</font>
+<a name='L40'>    <a href='../D/3825.html' title='Multiple defined in 2 places.'>redisLibeventEvents</a> *e = (<a href='../D/3825.html' title='Multiple defined in 2 places.'>redisLibeventEvents</a>*)privdata;
+<a name='L41'>    event_del(&amp;e-&gt;wev);
+<a name='L42'><font color='red'>}</font>
+<a name='L43'>
+<a name='L44'><b>static</b> <b>void</b> <a href='../S/108.html#L68' title='Refered from 68 in deps/hiredis/adapters/libevent.h.'>redisLibeventCleanup</a>(<b>void</b> *privdata) <font color='red'>{</font>
+<a name='L45'>    <a href='../D/3825.html' title='Multiple defined in 2 places.'>redisLibeventEvents</a> *e = (<a href='../D/3825.html' title='Multiple defined in 2 places.'>redisLibeventEvents</a>*)privdata;
+<a name='L46'>    event_del(&amp;e-&gt;rev);
+<a name='L47'>    event_del(&amp;e-&gt;wev);
+<a name='L48'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(e);
+<a name='L49'><font color='red'>}</font>
+<a name='L50'>
+<a name='L51'><b>static</b> <b>int</b> <a href='../S/114.html#L45' title='Refered from 45 in deps/hiredis/example-libevent.c.'>redisLibeventAttach</a>(redisAsyncContext *ac, <b>struct</b> event_base *base) <font color='red'>{</font>
+<a name='L52'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c = &amp;(ac-&gt;c);
+<a name='L53'>    <a href='../D/3825.html' title='Multiple defined in 2 places.'>redisLibeventEvents</a> *e;
+<a name='L54'>
+<a name='L55'>    <i><font color='green'>/* Nothing should be attached when something is already attached */</font></i>
+<a name='L56'>    <b>if</b> (ac-&gt;ev.data != NULL)
+<a name='L57'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L58'>
+<a name='L59'>    <i><font color='green'>/* Create container for context and r/w events */</font></i>
+<a name='L60'>    e = (<a href='../D/3825.html' title='Multiple defined in 2 places.'>redisLibeventEvents</a>*)<a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(*e));
+<a name='L61'>    e-&gt;context = ac;
+<a name='L62'>
+<a name='L63'>    <i><font color='green'>/* Register functions to start/stop listening for events */</font></i>
+<a name='L64'>    ac-&gt;ev.addRead = <a href='../S/108.html#L24' title='Defined at 24 in deps/hiredis/adapters/libevent.h.'>redisLibeventAddRead</a>;
+<a name='L65'>    ac-&gt;ev.delRead = <a href='../S/108.html#L29' title='Defined at 29 in deps/hiredis/adapters/libevent.h.'>redisLibeventDelRead</a>;
+<a name='L66'>    ac-&gt;ev.addWrite = <a href='../S/108.html#L34' title='Defined at 34 in deps/hiredis/adapters/libevent.h.'>redisLibeventAddWrite</a>;
+<a name='L67'>    ac-&gt;ev.delWrite = <a href='../S/108.html#L39' title='Defined at 39 in deps/hiredis/adapters/libevent.h.'>redisLibeventDelWrite</a>;
+<a name='L68'>    ac-&gt;ev.cleanup = <a href='../S/108.html#L44' title='Defined at 44 in deps/hiredis/adapters/libevent.h.'>redisLibeventCleanup</a>;
+<a name='L69'>    ac-&gt;ev.data = e;
+<a name='L70'>
+<a name='L71'>    <i><font color='green'>/* Initialize and install read/write events */</font></i>
+<a name='L72'>    event_set(&amp;e-&gt;rev,c-&gt;fd,EV_READ,<a href='../S/108.html#L12' title='Defined at 12 in deps/hiredis/adapters/libevent.h.'>redisLibeventReadEvent</a>,e);
+<a name='L73'>    event_set(&amp;e-&gt;wev,c-&gt;fd,EV_WRITE,<a href='../S/108.html#L18' title='Defined at 18 in deps/hiredis/adapters/libevent.h.'>redisLibeventWriteEvent</a>,e);
+<a name='L74'>    event_base_set(base,&amp;e-&gt;rev);
+<a name='L75'>    event_base_set(base,&amp;e-&gt;wev);
+<a name='L76'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L77'><font color='red'>}</font>
+<a name='L78'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L12'>[^]</a><a href='#L51'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

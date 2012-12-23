@@ -1,0 +1,38 @@
+<html>
+<head>
+<title>redisAsyncContext</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/110.html#L9'>redisAsyncContext</a>    9 deps/hiredis/adapters/ae.h     redisAsyncContext *context;
+<a href='../S/109.html#L10'>redisAsyncContext</a>   10 deps/hiredis/adapters/libev.h     redisAsyncContext *context;
+<a href='../S/108.html#L8'>redisAsyncContext</a>    8 deps/hiredis/adapters/libevent.h     redisAsyncContext *context;
+<a href='../S/104.html#L104'>redisAsyncContext</a>  104 deps/hiredis/async.c static redisAsyncContext *redisAsyncInitialize(redisContext *c) {
+<a href='../S/104.html#L105'>redisAsyncContext</a>  105 deps/hiredis/async.c     redisAsyncContext *ac = realloc(c,sizeof(redisAsyncContext));
+<a href='../S/104.html#L144'>redisAsyncContext</a>  144 deps/hiredis/async.c redisAsyncContext *redisAsyncConnect(const char *ip, int port) {
+<a href='../S/104.html#L146'>redisAsyncContext</a>  146 deps/hiredis/async.c     redisAsyncContext *ac = redisAsyncInitialize(c);
+<a href='../S/104.html#L151'>redisAsyncContext</a>  151 deps/hiredis/async.c redisAsyncContext *redisAsyncConnectUnix(const char *path) {
+<a href='../S/104.html#L153'>redisAsyncContext</a>  153 deps/hiredis/async.c     redisAsyncContext *ac = redisAsyncInitialize(c);
+<a href='../S/124.html#L40'>redisAsyncContext</a>   40 deps/hiredis/async.h struct redisAsyncContext; /* need forward declaration of redisAsyncContext */
+<a href='../S/124.html#L104'>redisAsyncContext</a>  104 deps/hiredis/async.h redisAsyncContext *redisAsyncConnect(const char *ip, int port);
+<a href='../S/124.html#L105'>redisAsyncContext</a>  105 deps/hiredis/async.h redisAsyncContext *redisAsyncConnectUnix(const char *path);
+<a href='../S/124.html#L106'>redisAsyncContext</a>  106 deps/hiredis/async.h int redisAsyncSetConnectCallback(redisAsyncContext *ac, redisConnectCallback *fn);
+<a href='../S/124.html#L107'>redisAsyncContext</a>  107 deps/hiredis/async.h int redisAsyncSetDisconnectCallback(redisAsyncContext *ac, redisDisconnectCallback *fn);
+<a href='../S/124.html#L108'>redisAsyncContext</a>  108 deps/hiredis/async.h void redisAsyncDisconnect(redisAsyncContext *ac);
+<a href='../S/124.html#L109'>redisAsyncContext</a>  109 deps/hiredis/async.h void redisAsyncFree(redisAsyncContext *ac);
+<a href='../S/124.html#L112'>redisAsyncContext</a>  112 deps/hiredis/async.h void redisAsyncHandleRead(redisAsyncContext *ac);
+<a href='../S/124.html#L113'>redisAsyncContext</a>  113 deps/hiredis/async.h void redisAsyncHandleWrite(redisAsyncContext *ac);
+<a href='../S/124.html#L117'>redisAsyncContext</a>  117 deps/hiredis/async.h int redisvAsyncCommand(redisAsyncContext *ac, redisCallbackFn *fn, void *privdata, const char *format, va_list ap);
+<a href='../S/124.html#L118'>redisAsyncContext</a>  118 deps/hiredis/async.h int redisAsyncCommand(redisAsyncContext *ac, redisCallbackFn *fn, void *privdata, const char *format, ...);
+<a href='../S/124.html#L119'>redisAsyncContext</a>  119 deps/hiredis/async.h int redisAsyncCommandArgv(redisAsyncContext *ac, redisCallbackFn *fn, void *privdata, int argc, const char **argv, const size_t *argvlen);
+<a href='../S/105.html#L40'>redisAsyncContext</a>   40 deps/hiredis/example-ae.c     redisAsyncContext *c = redisAsyncConnect("127.0.0.1", 6379);
+<a href='../S/111.html#L37'>redisAsyncContext</a>   37 deps/hiredis/example-libev.c     redisAsyncContext *c = redisAsyncConnect("127.0.0.1", 6379);
+<a href='../S/114.html#L38'>redisAsyncContext</a>   38 deps/hiredis/example-libevent.c     redisAsyncContext *c = redisAsyncConnect("127.0.0.1", 6379);
+<a href='../S/82.html#L137'>redisAsyncContext</a>  137 src/sentinel.c     redisAsyncContext *cc; /* Hiredis context for commands. */
+<a href='../S/82.html#L138'>redisAsyncContext</a>  138 src/sentinel.c     redisAsyncContext *pc; /* Hiredis context for Pub / Sub. */
+<a href='../S/82.html#L223'>redisAsyncContext</a>  223 src/sentinel.c     redisAsyncContext *context;
+</pre>
+</body>
+</html>

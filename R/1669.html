@@ -1,0 +1,250 @@
+<html>
+<head>
+<title>config</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/122.html#L83'>config</a>             83 deps/hiredis/test.c     if (config.type == CONN_TCP) {
+<a href='../S/122.html#L84'>config</a>             84 deps/hiredis/test.c         c = redisConnect(config.tcp.host, config.tcp.port);
+<a href='../S/122.html#L85'>config</a>             85 deps/hiredis/test.c     } else if (config.type == CONN_UNIX) {
+<a href='../S/122.html#L86'>config</a>             86 deps/hiredis/test.c         c = redisConnectUnix(config.unix.path);
+<a href='../S/122.html#L306'>config</a>            306 deps/hiredis/test.c     c = connect(config);
+<a href='../S/122.html#L387'>config</a>            387 deps/hiredis/test.c     c = connect(config);
+<a href='../S/122.html#L422'>config</a>            422 deps/hiredis/test.c     c = connect(config);
+<a href='../S/122.html#L432'>config</a>            432 deps/hiredis/test.c     redisContext *c = connect(config);
+<a href='../S/122.html#L596'>config</a>            596 deps/hiredis/test.c     struct config cfg = {
+<a href='../S/206.html#L411'>config</a>            411 deps/jemalloc/src/ctl.c 	{NAME("config"),	CHILD(named, config)},
+<a href='../S/96.html#L62'>config</a>             62 src/config.c       lines = sdssplitlen(config,strlen(config),"\n",1,&amp;totlines);
+<a href='../S/96.html#L418'>config</a>            418 src/config.c       sds config = sdsempty();
+<a href='../S/96.html#L435'>config</a>            435 src/config.c               config = sdscat(config,buf);
+<a href='../S/96.html#L440'>config</a>            440 src/config.c           config = sdscat(config,"\n");
+<a href='../S/96.html#L441'>config</a>            441 src/config.c           config = sdscat(config,options);
+<a href='../S/96.html#L443'>config</a>            443 src/config.c       loadServerConfigFromString(config);
+<a href='../S/96.html#L444'>config</a>            444 src/config.c       sdsfree(config);
+<a href='../S/94.html#L76'>config</a>             76 src/redis-benchmark.c } config;
+<a href='../S/94.html#L116'>config</a>            116 src/redis-benchmark.c     aeDeleteFileEvent(config.el,c-&gt;context-&gt;fd,AE_WRITABLE);
+<a href='../S/94.html#L117'>config</a>            117 src/redis-benchmark.c     aeDeleteFileEvent(config.el,c-&gt;context-&gt;fd,AE_READABLE);
+<a href='../S/94.html#L121'>config</a>            121 src/redis-benchmark.c     config.liveclients--;
+<a href='../S/94.html#L122'>config</a>            122 src/redis-benchmark.c     ln = listSearchKey(config.clients,c);
+<a href='../S/94.html#L124'>config</a>            124 src/redis-benchmark.c     listDelNode(config.clients,ln);
+<a href='../S/94.html#L128'>config</a>            128 src/redis-benchmark.c     listNode *ln = config.clients-&gt;head, *next;
+<a href='../S/94.html#L138'>config</a>            138 src/redis-benchmark.c     aeDeleteFileEvent(config.el,c-&gt;context-&gt;fd,AE_WRITABLE);
+<a href='../S/94.html#L139'>config</a>            139 src/redis-benchmark.c     aeDeleteFileEvent(config.el,c-&gt;context-&gt;fd,AE_READABLE);
+<a href='../S/94.html#L140'>config</a>            140 src/redis-benchmark.c     aeCreateFileEvent(config.el,c-&gt;context-&gt;fd,AE_WRITABLE,writeHandler,c);
+<a href='../S/94.html#L142'>config</a>            142 src/redis-benchmark.c     c-&gt;pending = config.pipeline;
+<a href='../S/94.html#L150'>config</a>            150 src/redis-benchmark.c         r = random() % config.randomkeys_keyspacelen;
+<a href='../S/94.html#L157'>config</a>            157 src/redis-benchmark.c     if (config.requests_finished == config.requests) {
+<a href='../S/94.html#L159'>config</a>            159 src/redis-benchmark.c         aeStop(config.el);
+<a href='../S/94.html#L162'>config</a>            162 src/redis-benchmark.c     if (config.keepalive) {
+<a href='../S/94.html#L165'>config</a>            165 src/redis-benchmark.c         config.liveclients--;
+<a href='../S/94.html#L167'>config</a>            167 src/redis-benchmark.c         config.liveclients++;
+<a href='../S/94.html#L201'>config</a>            201 src/redis-benchmark.c                 if (config.requests_finished &lt; config.requests)
+<a href='../S/94.html#L202'>config</a>            202 src/redis-benchmark.c                     config.latency[config.requests_finished++] = c-&gt;latency;
+<a href='../S/94.html#L224'>config</a>            224 src/redis-benchmark.c         if (config.requests_issued++ &gt;= config.requests) {
+<a href='../S/94.html#L230'>config</a>            230 src/redis-benchmark.c         if (config.randomkeys) randomizeClientKey(c);
+<a href='../S/94.html#L246'>config</a>            246 src/redis-benchmark.c             aeDeleteFileEvent(config.el,c-&gt;context-&gt;fd,AE_WRITABLE);
+<a href='../S/94.html#L247'>config</a>            247 src/redis-benchmark.c             aeCreateFileEvent(config.el,c-&gt;context-&gt;fd,AE_READABLE,readHandler,c);
+<a href='../S/94.html#L256'>config</a>            256 src/redis-benchmark.c     if (config.hostsocket == NULL) {
+<a href='../S/94.html#L257'>config</a>            257 src/redis-benchmark.c         c-&gt;context = redisConnectNonBlock(config.hostip,config.hostport);
+<a href='../S/94.html#L259'>config</a>            259 src/redis-benchmark.c         c-&gt;context = redisConnectUnixNonBlock(config.hostsocket);
+<a href='../S/94.html#L263'>config</a>            263 src/redis-benchmark.c         if (config.hostsocket == NULL)
+<a href='../S/94.html#L264'>config</a>            264 src/redis-benchmark.c             fprintf(stderr,"%s:%d: %s\n",config.hostip,config.hostport,c-&gt;context-&gt;errstr);
+<a href='../S/94.html#L266'>config</a>            266 src/redis-benchmark.c             fprintf(stderr,"%s: %s\n",config.hostsocket,c-&gt;context-&gt;errstr);
+<a href='../S/94.html#L273'>config</a>            273 src/redis-benchmark.c     for (j = 0; j &lt; config.pipeline; j++)
+<a href='../S/94.html#L277'>config</a>            277 src/redis-benchmark.c     c-&gt;pending = config.pipeline;
+<a href='../S/94.html#L280'>config</a>            280 src/redis-benchmark.c     if (config.randomkeys) {
+<a href='../S/94.html#L290'>config</a>            290 src/redis-benchmark.c     aeCreateFileEvent(config.el,c-&gt;context-&gt;fd,AE_WRITABLE,writeHandler,c);
+<a href='../S/94.html#L291'>config</a>            291 src/redis-benchmark.c     listAddNodeTail(config.clients,c);
+<a href='../S/94.html#L292'>config</a>            292 src/redis-benchmark.c     config.liveclients++;
+<a href='../S/94.html#L299'>config</a>            299 src/redis-benchmark.c     while(config.liveclients &lt; config.numclients) {
+<a href='../S/94.html#L300'>config</a>            300 src/redis-benchmark.c         createClient(c-&gt;obuf,sdslen(c-&gt;obuf)/config.pipeline);
+<a href='../S/94.html#L318'>config</a>            318 src/redis-benchmark.c     reqpersec = (float)config.requests_finished/((float)config.totlatency/1000);
+<a href='../S/94.html#L319'>config</a>            319 src/redis-benchmark.c     if (!config.quiet &amp;&amp; !config.csv) {
+<a href='../S/94.html#L320'>config</a>            320 src/redis-benchmark.c         printf("====== %s ======\n", config.title);
+<a href='../S/94.html#L321'>config</a>            321 src/redis-benchmark.c         printf("  %d requests completed in %.2f seconds\n", config.requests_finished,
+<a href='../S/94.html#L322'>config</a>            322 src/redis-benchmark.c             (float)config.totlatency/1000);
+<a href='../S/94.html#L323'>config</a>            323 src/redis-benchmark.c         printf("  %d parallel clients\n", config.numclients);
+<a href='../S/94.html#L324'>config</a>            324 src/redis-benchmark.c         printf("  %d bytes payload\n", config.datasize);
+<a href='../S/94.html#L325'>config</a>            325 src/redis-benchmark.c         printf("  keep alive: %d\n", config.keepalive);
+<a href='../S/94.html#L328'>config</a>            328 src/redis-benchmark.c         qsort(config.latency,config.requests,sizeof(long long),compareLatency);
+<a href='../S/94.html#L329'>config</a>            329 src/redis-benchmark.c         for (i = 0; i &lt; config.requests; i++) {
+<a href='../S/94.html#L330'>config</a>            330 src/redis-benchmark.c             if (config.latency[i]/1000 != curlat || i == (config.requests-1)) {
+<a href='../S/94.html#L331'>config</a>            331 src/redis-benchmark.c                 curlat = config.latency[i]/1000;
+<a href='../S/94.html#L332'>config</a>            332 src/redis-benchmark.c                 perc = ((float)(i+1)*100)/config.requests;
+<a href='../S/94.html#L337'>config</a>            337 src/redis-benchmark.c     } else if (config.csv) {
+<a href='../S/94.html#L338'>config</a>            338 src/redis-benchmark.c         printf("\"%s\",\"%.2f\"\n", config.title, reqpersec);
+<a href='../S/94.html#L340'>config</a>            340 src/redis-benchmark.c         printf("%s: %.2f requests per second\n", config.title, reqpersec);
+<a href='../S/94.html#L347'>config</a>            347 src/redis-benchmark.c     config.title = title;
+<a href='../S/94.html#L348'>config</a>            348 src/redis-benchmark.c     config.requests_issued = 0;
+<a href='../S/94.html#L349'>config</a>            349 src/redis-benchmark.c     config.requests_finished = 0;
+<a href='../S/94.html#L354'>config</a>            354 src/redis-benchmark.c     config.start = mstime();
+<a href='../S/94.html#L355'>config</a>            355 src/redis-benchmark.c     aeMain(config.el);
+<a href='../S/94.html#L356'>config</a>            356 src/redis-benchmark.c     config.totlatency = mstime()-config.start;
+<a href='../S/94.html#L373'>config</a>            373 src/redis-benchmark.c             config.numclients = atoi(argv[++i]);
+<a href='../S/94.html#L376'>config</a>            376 src/redis-benchmark.c             config.requests = atoi(argv[++i]);
+<a href='../S/94.html#L379'>config</a>            379 src/redis-benchmark.c             config.keepalive = atoi(argv[++i]);
+<a href='../S/94.html#L382'>config</a>            382 src/redis-benchmark.c             config.hostip = strdup(argv[++i]);
+<a href='../S/94.html#L385'>config</a>            385 src/redis-benchmark.c             config.hostport = atoi(argv[++i]);
+<a href='../S/94.html#L388'>config</a>            388 src/redis-benchmark.c             config.hostsocket = strdup(argv[++i]);
+<a href='../S/94.html#L391'>config</a>            391 src/redis-benchmark.c             config.datasize = atoi(argv[++i]);
+<a href='../S/94.html#L392'>config</a>            392 src/redis-benchmark.c             if (config.datasize &lt; 1) config.datasize=1;
+<a href='../S/94.html#L393'>config</a>            393 src/redis-benchmark.c             if (config.datasize &gt; 1024*1024*1024) config.datasize = 1024*1024*1024;
+<a href='../S/94.html#L396'>config</a>            396 src/redis-benchmark.c             config.pipeline = atoi(argv[++i]);
+<a href='../S/94.html#L397'>config</a>            397 src/redis-benchmark.c             if (config.pipeline &lt;= 0) config.pipeline=1;
+<a href='../S/94.html#L400'>config</a>            400 src/redis-benchmark.c             config.randomkeys = 1;
+<a href='../S/94.html#L401'>config</a>            401 src/redis-benchmark.c             config.randomkeys_keyspacelen = atoi(argv[++i]);
+<a href='../S/94.html#L402'>config</a>            402 src/redis-benchmark.c             if (config.randomkeys_keyspacelen &lt; 0)
+<a href='../S/94.html#L403'>config</a>            403 src/redis-benchmark.c                 config.randomkeys_keyspacelen = 0;
+<a href='../S/94.html#L405'>config</a>            405 src/redis-benchmark.c             config.quiet = 1;
+<a href='../S/94.html#L407'>config</a>            407 src/redis-benchmark.c             config.csv = 1;
+<a href='../S/94.html#L409'>config</a>            409 src/redis-benchmark.c             config.loop = 1;
+<a href='../S/94.html#L411'>config</a>            411 src/redis-benchmark.c             config.idlemode = 1;
+<a href='../S/94.html#L419'>config</a>            419 src/redis-benchmark.c             config.tests = sdsnew(",");
+<a href='../S/94.html#L420'>config</a>            420 src/redis-benchmark.c             config.tests = sdscat(config.tests,(char*)argv[++i]);
+<a href='../S/94.html#L421'>config</a>            421 src/redis-benchmark.c             config.tests = sdscat(config.tests,",");
+<a href='../S/94.html#L422'>config</a>            422 src/redis-benchmark.c             sdstolower(config.tests);
+<a href='../S/94.html#L484'>config</a>            484 src/redis-benchmark.c     if (config.csv) return 250;
+<a href='../S/94.html#L485'>config</a>            485 src/redis-benchmark.c     float dt = (float)(mstime()-config.start)/1000.0;
+<a href='../S/94.html#L486'>config</a>            486 src/redis-benchmark.c     float rps = (float)config.requests_finished/dt;
+<a href='../S/94.html#L487'>config</a>            487 src/redis-benchmark.c     printf("%s: %.2f\r", config.title, rps);
+<a href='../S/94.html#L498'>config</a>            498 src/redis-benchmark.c     if (config.tests == NULL) return 1;
+<a href='../S/94.html#L503'>config</a>            503 src/redis-benchmark.c     return strstr(config.tests,buf) != NULL;
+<a href='../S/94.html#L516'>config</a>            516 src/redis-benchmark.c     config.numclients = 50;
+<a href='../S/94.html#L517'>config</a>            517 src/redis-benchmark.c     config.requests = 10000;
+<a href='../S/94.html#L518'>config</a>            518 src/redis-benchmark.c     config.liveclients = 0;
+<a href='../S/94.html#L519'>config</a>            519 src/redis-benchmark.c     config.el = aeCreateEventLoop(1024*10);
+<a href='../S/94.html#L520'>config</a>            520 src/redis-benchmark.c     aeCreateTimeEvent(config.el,1,showThroughput,NULL,NULL);
+<a href='../S/94.html#L521'>config</a>            521 src/redis-benchmark.c     config.keepalive = 1;
+<a href='../S/94.html#L522'>config</a>            522 src/redis-benchmark.c     config.datasize = 3;
+<a href='../S/94.html#L523'>config</a>            523 src/redis-benchmark.c     config.pipeline = 1;
+<a href='../S/94.html#L524'>config</a>            524 src/redis-benchmark.c     config.randomkeys = 0;
+<a href='../S/94.html#L525'>config</a>            525 src/redis-benchmark.c     config.randomkeys_keyspacelen = 0;
+<a href='../S/94.html#L526'>config</a>            526 src/redis-benchmark.c     config.quiet = 0;
+<a href='../S/94.html#L527'>config</a>            527 src/redis-benchmark.c     config.csv = 0;
+<a href='../S/94.html#L528'>config</a>            528 src/redis-benchmark.c     config.loop = 0;
+<a href='../S/94.html#L529'>config</a>            529 src/redis-benchmark.c     config.idlemode = 0;
+<a href='../S/94.html#L530'>config</a>            530 src/redis-benchmark.c     config.latency = NULL;
+<a href='../S/94.html#L531'>config</a>            531 src/redis-benchmark.c     config.clients = listCreate();
+<a href='../S/94.html#L532'>config</a>            532 src/redis-benchmark.c     config.hostip = "127.0.0.1";
+<a href='../S/94.html#L533'>config</a>            533 src/redis-benchmark.c     config.hostport = 6379;
+<a href='../S/94.html#L534'>config</a>            534 src/redis-benchmark.c     config.hostsocket = NULL;
+<a href='../S/94.html#L535'>config</a>            535 src/redis-benchmark.c     config.tests = NULL;
+<a href='../S/94.html#L541'>config</a>            541 src/redis-benchmark.c     config.latency = zmalloc(sizeof(long long)*config.requests);
+<a href='../S/94.html#L543'>config</a>            543 src/redis-benchmark.c     if (config.keepalive == 0) {
+<a href='../S/94.html#L547'>config</a>            547 src/redis-benchmark.c     if (config.idlemode) {
+<a href='../S/94.html#L548'>config</a>            548 src/redis-benchmark.c         printf("Creating %d idle connections and waiting forever (Ctrl+C when done)\n", config.numclients);
+<a href='../S/94.html#L551'>config</a>            551 src/redis-benchmark.c         aeMain(config.el);
+<a href='../S/94.html#L567'>config</a>            567 src/redis-benchmark.c         } while(config.loop);
+<a href='../S/94.html#L574'>config</a>            574 src/redis-benchmark.c         data = zmalloc(config.datasize+1);
+<a href='../S/94.html#L575'>config</a>            575 src/redis-benchmark.c         memset(data,'x',config.datasize);
+<a href='../S/94.html#L576'>config</a>            576 src/redis-benchmark.c         data[config.datasize] = '\0';
+<a href='../S/94.html#L677'>config</a>            677 src/redis-benchmark.c         if (!config.csv) printf("\n");
+<a href='../S/94.html#L678'>config</a>            678 src/redis-benchmark.c     } while(config.loop);
+<a href='../S/27.html#L83'>config</a>             83 src/redis-cli.c } config;
+<a href='../S/27.html#L106'>config</a>            106 src/redis-cli.c     if (config.hostsocket != NULL)
+<a href='../S/27.html#L107'>config</a>            107 src/redis-cli.c         len = snprintf(config.prompt,sizeof(config.prompt),"redis %s",
+<a href='../S/27.html#L108'>config</a>            108 src/redis-cli.c                        config.hostsocket);
+<a href='../S/27.html#L110'>config</a>            110 src/redis-cli.c         len = snprintf(config.prompt,sizeof(config.prompt),"redis %s:%d",
+<a href='../S/27.html#L111'>config</a>            111 src/redis-cli.c                        config.hostip, config.hostport);
+<a href='../S/27.html#L113'>config</a>            113 src/redis-cli.c     if (config.dbnum != 0)
+<a href='../S/27.html#L114'>config</a>            114 src/redis-cli.c         len += snprintf(config.prompt+len,sizeof(config.prompt)-len,"[%d]",
+<a href='../S/27.html#L115'>config</a>            115 src/redis-cli.c             config.dbnum);
+<a href='../S/27.html#L116'>config</a>            116 src/redis-cli.c     snprintf(config.prompt+len,sizeof(config.prompt)-len,"&gt; ");
+<a href='../S/27.html#L285'>config</a>            285 src/redis-cli.c     if (config.auth == NULL) return REDIS_OK;
+<a href='../S/27.html#L287'>config</a>            287 src/redis-cli.c     reply = redisCommand(context,"AUTH %s",config.auth);
+<a href='../S/27.html#L298'>config</a>            298 src/redis-cli.c     if (config.dbnum == 0) return REDIS_OK;
+<a href='../S/27.html#L300'>config</a>            300 src/redis-cli.c     reply = redisCommand(context,"SELECT %d",config.dbnum);
+<a href='../S/27.html#L315'>config</a>            315 src/redis-cli.c         if (config.hostsocket == NULL) {
+<a href='../S/27.html#L316'>config</a>            316 src/redis-cli.c             context = redisConnect(config.hostip,config.hostport);
+<a href='../S/27.html#L318'>config</a>            318 src/redis-cli.c             context = redisConnectUnix(config.hostsocket);
+<a href='../S/27.html#L323'>config</a>            323 src/redis-cli.c             if (config.hostsocket == NULL)
+<a href='../S/27.html#L324'>config</a>            324 src/redis-cli.c                 fprintf(stderr,"%s:%d: %s\n",config.hostip,config.hostport,context-&gt;errstr);
+<a href='../S/27.html#L326'>config</a>            326 src/redis-cli.c                 fprintf(stderr,"%s: %s\n",config.hostsocket,context-&gt;errstr);
+<a href='../S/27.html#L434'>config</a>            434 src/redis-cli.c             if (i &gt; 0) out = sdscat(out,config.mb_delim);
+<a href='../S/27.html#L490'>config</a>            490 src/redis-cli.c         if (config.shutdown)
+<a href='../S/27.html#L492'>config</a>            492 src/redis-cli.c         if (config.interactive) {
+<a href='../S/27.html#L508'>config</a>            508 src/redis-cli.c     if (config.cluster_mode &amp;&amp; reply-&gt;type == REDIS_REPLY_ERROR &amp;&amp;
+<a href='../S/27.html#L526'>config</a>            526 src/redis-cli.c         sdsfree(config.hostip);
+<a href='../S/27.html#L527'>config</a>            527 src/redis-cli.c         config.hostip = sdsnew(p+1);
+<a href='../S/27.html#L528'>config</a>            528 src/redis-cli.c         config.hostport = atoi(s+1);
+<a href='../S/27.html#L529'>config</a>            529 src/redis-cli.c         if (config.interactive)
+<a href='../S/27.html#L531'>config</a>            531 src/redis-cli.c                 slot, config.hostip, config.hostport);
+<a href='../S/27.html#L532'>config</a>            532 src/redis-cli.c         config.cluster_reissue_command = 1;
+<a href='../S/27.html#L539'>config</a>            539 src/redis-cli.c             if (config.output == OUTPUT_RAW) {
+<a href='../S/27.html#L542'>config</a>            542 src/redis-cli.c             } else if (config.output == OUTPUT_STANDARD) {
+<a href='../S/27.html#L544'>config</a>            544 src/redis-cli.c             } else if (config.output == OUTPUT_CSV) {
+<a href='../S/27.html#L580'>config</a>            580 src/redis-cli.c     if (!strcasecmp(command,"shutdown")) config.shutdown = 1;
+<a href='../S/27.html#L581'>config</a>            581 src/redis-cli.c     if (!strcasecmp(command,"monitor")) config.monitor_mode = 1;
+<a href='../S/27.html#L583'>config</a>            583 src/redis-cli.c         !strcasecmp(command,"psubscribe")) config.pubsub_mode = 1;
+<a href='../S/27.html#L592'>config</a>            592 src/redis-cli.c         while (config.monitor_mode) {
+<a href='../S/27.html#L597'>config</a>            597 src/redis-cli.c         if (config.pubsub_mode) {
+<a href='../S/27.html#L598'>config</a>            598 src/redis-cli.c             if (config.output != OUTPUT_RAW)
+<a href='../S/27.html#L611'>config</a>            611 src/redis-cli.c                 config.dbnum = atoi(argv[1]);
+<a href='../S/27.html#L615'>config</a>            615 src/redis-cli.c         if (config.interval) usleep(config.interval);
+<a href='../S/27.html#L634'>config</a>            634 src/redis-cli.c             sdsfree(config.hostip);
+<a href='../S/27.html#L635'>config</a>            635 src/redis-cli.c             config.hostip = sdsnew(argv[++i]);
+<a href='../S/27.html#L641'>config</a>            641 src/redis-cli.c             config.stdinarg = 1;
+<a href='../S/27.html#L643'>config</a>            643 src/redis-cli.c             config.hostport = atoi(argv[++i]);
+<a href='../S/27.html#L645'>config</a>            645 src/redis-cli.c             config.hostsocket = argv[++i];
+<a href='../S/27.html#L647'>config</a>            647 src/redis-cli.c             config.repeat = strtoll(argv[++i],NULL,10);
+<a href='../S/27.html#L650'>config</a>            650 src/redis-cli.c             config.interval = seconds*1000000;
+<a href='../S/27.html#L652'>config</a>            652 src/redis-cli.c             config.dbnum = atoi(argv[++i]);
+<a href='../S/27.html#L654'>config</a>            654 src/redis-cli.c             config.auth = argv[++i];
+<a href='../S/27.html#L656'>config</a>            656 src/redis-cli.c             config.output = OUTPUT_RAW;
+<a href='../S/27.html#L658'>config</a>            658 src/redis-cli.c             config.output = OUTPUT_CSV;
+<a href='../S/27.html#L660'>config</a>            660 src/redis-cli.c             config.latency_mode = 1;
+<a href='../S/27.html#L662'>config</a>            662 src/redis-cli.c             config.slave_mode = 1;
+<a href='../S/27.html#L664'>config</a>            664 src/redis-cli.c             config.pipe_mode = 1;
+<a href='../S/27.html#L666'>config</a>            666 src/redis-cli.c             config.bigkeys = 1;
+<a href='../S/27.html#L668'>config</a>            668 src/redis-cli.c             config.eval = argv[++i];
+<a href='../S/27.html#L670'>config</a>            670 src/redis-cli.c             config.cluster_mode = 1;
+<a href='../S/27.html#L672'>config</a>            672 src/redis-cli.c             sdsfree(config.mb_delim);
+<a href='../S/27.html#L673'>config</a>            673 src/redis-cli.c             config.mb_delim = sdsnew(argv[++i]);
+<a href='../S/27.html#L764'>config</a>            764 src/redis-cli.c     config.interactive = 1;
+<a href='../S/27.html#L778'>config</a>            778 src/redis-cli.c     while((line = linenoise(context ? config.prompt : "not connected&gt; ")) != NULL) {
+<a href='../S/27.html#L794'>config</a>            794 src/redis-cli.c                     sdsfree(config.hostip);
+<a href='../S/27.html#L795'>config</a>            795 src/redis-cli.c                     config.hostip = sdsnew(argv[1]);
+<a href='../S/27.html#L796'>config</a>            796 src/redis-cli.c                     config.hostport = atoi(argv[2]);
+<a href='../S/27.html#L812'>config</a>            812 src/redis-cli.c                         config.cluster_reissue_command = 0;
+<a href='../S/27.html#L825'>config</a>            825 src/redis-cli.c                         if (config.cluster_mode &amp;&amp; config.cluster_reissue_command) {
+<a href='../S/27.html#L849'>config</a>            849 src/redis-cli.c     if (config.stdinarg) {
+<a href='../S/27.html#L852'>config</a>            852 src/redis-cli.c         retval = cliSendCommand(argc+1, argv, config.repeat);
+<a href='../S/27.html#L855'>config</a>            855 src/redis-cli.c         retval = cliSendCommand(argc, argv, config.repeat);
+<a href='../S/27.html#L869'>config</a>            869 src/redis-cli.c     fp = fopen(config.eval,"r");
+<a href='../S/27.html#L872'>config</a>            872 src/redis-cli.c             "Can't open file '%s': %s\n", config.eval, strerror(errno));
+<a href='../S/27.html#L895'>config</a>            895 src/redis-cli.c     return cliSendCommand(argc+3-got_comma, argv2, config.repeat);
+<a href='../S/27.html#L974'>config</a>            974 src/redis-cli.c     config.output = OUTPUT_CSV;
+<a href='../S/27.html#L1181'>config</a>           1181 src/redis-cli.c         if ((samples % 100) == 0 &amp;&amp; config.interval)
+<a href='../S/27.html#L1182'>config</a>           1182 src/redis-cli.c             usleep(config.interval);
+<a href='../S/27.html#L1193'>config</a>           1193 src/redis-cli.c     config.hostip = sdsnew("127.0.0.1");
+<a href='../S/27.html#L1194'>config</a>           1194 src/redis-cli.c     config.hostport = 6379;
+<a href='../S/27.html#L1195'>config</a>           1195 src/redis-cli.c     config.hostsocket = NULL;
+<a href='../S/27.html#L1196'>config</a>           1196 src/redis-cli.c     config.repeat = 1;
+<a href='../S/27.html#L1197'>config</a>           1197 src/redis-cli.c     config.interval = 0;
+<a href='../S/27.html#L1198'>config</a>           1198 src/redis-cli.c     config.dbnum = 0;
+<a href='../S/27.html#L1199'>config</a>           1199 src/redis-cli.c     config.interactive = 0;
+<a href='../S/27.html#L1200'>config</a>           1200 src/redis-cli.c     config.shutdown = 0;
+<a href='../S/27.html#L1201'>config</a>           1201 src/redis-cli.c     config.monitor_mode = 0;
+<a href='../S/27.html#L1202'>config</a>           1202 src/redis-cli.c     config.pubsub_mode = 0;
+<a href='../S/27.html#L1203'>config</a>           1203 src/redis-cli.c     config.latency_mode = 0;
+<a href='../S/27.html#L1204'>config</a>           1204 src/redis-cli.c     config.cluster_mode = 0;
+<a href='../S/27.html#L1205'>config</a>           1205 src/redis-cli.c     config.slave_mode = 0;
+<a href='../S/27.html#L1206'>config</a>           1206 src/redis-cli.c     config.pipe_mode = 0;
+<a href='../S/27.html#L1207'>config</a>           1207 src/redis-cli.c     config.bigkeys = 0;
+<a href='../S/27.html#L1208'>config</a>           1208 src/redis-cli.c     config.stdinarg = 0;
+<a href='../S/27.html#L1209'>config</a>           1209 src/redis-cli.c     config.auth = NULL;
+<a href='../S/27.html#L1210'>config</a>           1210 src/redis-cli.c     config.eval = NULL;
+<a href='../S/27.html#L1212'>config</a>           1212 src/redis-cli.c         config.output = OUTPUT_RAW;
+<a href='../S/27.html#L1214'>config</a>           1214 src/redis-cli.c         config.output = OUTPUT_STANDARD;
+<a href='../S/27.html#L1215'>config</a>           1215 src/redis-cli.c     config.mb_delim = sdsnew("\n");
+<a href='../S/27.html#L1223'>config</a>           1223 src/redis-cli.c     if (config.latency_mode) {
+<a href='../S/27.html#L1229'>config</a>           1229 src/redis-cli.c     if (config.slave_mode) {
+<a href='../S/27.html#L1235'>config</a>           1235 src/redis-cli.c     if (config.pipe_mode) {
+<a href='../S/27.html#L1241'>config</a>           1241 src/redis-cli.c     if (config.bigkeys) {
+<a href='../S/27.html#L1247'>config</a>           1247 src/redis-cli.c     if (argc == 0 &amp;&amp; !config.eval) {
+<a href='../S/27.html#L1256'>config</a>           1256 src/redis-cli.c     if (config.eval) {
+</pre>
+</body>
+</html>

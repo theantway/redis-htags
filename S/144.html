@@ -1,0 +1,123 @@
+<html>
+<head>
+<title>deps/jemalloc/include/jemalloc/internal/mutex.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/391.html'>include</a>/<a href='../files/392.html'>jemalloc</a>/<a href='../files/393.html'>internal</a>/mutex.h</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L68'>[^]</a><a href='#L83'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L68' title='Defined at 68.'>malloc_mutex_lock</a>
+<li><a href='#L83' title='Defined at 83.'>malloc_mutex_unlock</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L2'><font color='darkred'>#ifdef</font> JEMALLOC_H_TYPES
+<a name='L3'>
+<a name='L4'><b>typedef</b> <b>struct</b> <a href='../S/144.html#L27' title='Defined at 27 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_s</a> <a href='../R/2933.html' title='Multiple refered from 36 places.'>malloc_mutex_t</a>;
+<a name='L5'>
+<a name='L6'><font color='darkred'>#ifdef</font> _WIN32
+<a name='L7'><font color='darkred'>#  define</font> <a href='../S/213.html#L74' title='Refered from 74 in deps/jemalloc/src/jemalloc.c.'>MALLOC_MUTEX_INITIALIZER</a>
+<a name='L8'><font color='darkred'>#elif</font> (<b>defined</b>(JEMALLOC_OSSPIN))
+<a name='L9'><font color='darkred'>#  define</font> <a href='../S/213.html#L74' title='Refered from 74 in deps/jemalloc/src/jemalloc.c.'>MALLOC_MUTEX_INITIALIZER</a> <font color='red'>{</font>0<font color='red'>}</font>
+<a name='L10'><font color='darkred'>#elif</font> (<b>defined</b>(JEMALLOC_MUTEX_INIT_CB))
+<a name='L11'><font color='darkred'>#  define</font> <a href='../S/213.html#L74' title='Refered from 74 in deps/jemalloc/src/jemalloc.c.'>MALLOC_MUTEX_INITIALIZER</a> <font color='red'>{</font>PTHREAD_MUTEX_INITIALIZER, NULL<font color='red'>}</font>
+<a name='L12'><font color='darkred'>#else</font>
+<a name='L13'><font color='darkred'>#  if</font> (<b>defined</b>(PTHREAD_MUTEX_ADAPTIVE_NP) &amp;&amp;                            \
+<a name='L14'>       <b>defined</b>(PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP))
+<a name='L15'><font color='darkred'>#    define</font> <a href='../S/214.html#L95' title='Refered from 95 in deps/jemalloc/src/mutex.c.'>MALLOC_MUTEX_TYPE</a> PTHREAD_MUTEX_ADAPTIVE_NP
+<a name='L16'><font color='darkred'>#    define</font> <a href='../S/213.html#L74' title='Refered from 74 in deps/jemalloc/src/jemalloc.c.'>MALLOC_MUTEX_INITIALIZER</a> <font color='red'>{</font>PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP<font color='red'>}</font>
+<a name='L17'><font color='darkred'>#  else</font>
+<a name='L18'><font color='darkred'>#    define</font> <a href='../S/214.html#L95' title='Refered from 95 in deps/jemalloc/src/mutex.c.'>MALLOC_MUTEX_TYPE</a> PTHREAD_MUTEX_DEFAULT
+<a name='L19'><font color='darkred'>#    define</font> <a href='../S/213.html#L74' title='Refered from 74 in deps/jemalloc/src/jemalloc.c.'>MALLOC_MUTEX_INITIALIZER</a> <font color='red'>{</font>PTHREAD_MUTEX_INITIALIZER<font color='red'>}</font>
+<a name='L20'><font color='darkred'>#  endif</font>
+<a name='L21'><font color='darkred'>#endif</font>
+<a name='L22'>
+<a name='L23'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_TYPES */</font></i>
+<a name='L24'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L25'><font color='darkred'>#ifdef</font> JEMALLOC_H_STRUCTS
+<a name='L26'>
+<a name='L27'><b>struct</b> <a href='../S/144.html#L4' title='Refered from 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_s</a> <font color='red'>{</font>
+<a name='L28'><font color='darkred'>#ifdef</font> _WIN32
+<a name='L29'>        CRITICAL_SECTION        lock;
+<a name='L30'><font color='darkred'>#elif</font> (<b>defined</b>(JEMALLOC_OSSPIN))
+<a name='L31'>        OSSpinLock              lock;
+<a name='L32'><font color='darkred'>#elif</font> (<b>defined</b>(JEMALLOC_MUTEX_INIT_CB))
+<a name='L33'>        pthread_mutex_t         lock;
+<a name='L34'>        <a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a>          *postponed_next;
+<a name='L35'><font color='darkred'>#else</font>
+<a name='L36'>        pthread_mutex_t         lock;
+<a name='L37'><font color='darkred'>#endif</font>
+<a name='L38'><font color='red'>}</font>;
+<a name='L39'>
+<a name='L40'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_STRUCTS */</font></i>
+<a name='L41'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L42'><font color='darkred'>#ifdef</font> JEMALLOC_H_EXTERNS
+<a name='L43'>
+<a name='L44'><font color='darkred'>#ifdef</font> JEMALLOC_LAZY_LOCK
+<a name='L45'><b>extern</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> <a href='../D/2573.html' title='Multiple defined in 3 places.'>isthreaded</a>;
+<a name='L46'><font color='darkred'>#else</font>
+<a name='L47'><font color='darkred'>#  undef</font> <a href='../R/2281.html' title='Multiple refered from 11 places.'>isthreaded</a> <i><font color='green'>/* Undo private_namespace.h definition. */</font></i>
+<a name='L48'><font color='darkred'>#  define</font> <a href='../R/2281.html' title='Multiple refered from 11 places.'>isthreaded</a> <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>
+<a name='L49'><font color='darkred'>#endif</font>
+<a name='L50'>
+<a name='L51'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>    <a href='../D/3272.html' title='Multiple defined in 2 places.'>malloc_mutex_init</a>(<a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a> *mutex);
+<a name='L52'><b>void</b>    <a href='../D/3276.html' title='Multiple defined in 2 places.'>malloc_mutex_prefork</a>(<a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a> *mutex);
+<a name='L53'><b>void</b>    <a href='../D/3275.html' title='Multiple defined in 2 places.'>malloc_mutex_postfork_parent</a>(<a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a> *mutex);
+<a name='L54'><b>void</b>    <a href='../D/3274.html' title='Multiple defined in 2 places.'>malloc_mutex_postfork_child</a>(<a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a> *mutex);
+<a name='L55'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>    <a href='../D/3407.html' title='Multiple defined in 2 places.'>mutex_boot</a>(<b>void</b>);
+<a name='L56'>
+<a name='L57'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_EXTERNS */</font></i>
+<a name='L58'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L59'><font color='darkred'>#ifdef</font> JEMALLOC_H_INLINES
+<a name='L60'>
+<a name='L61'><font color='darkred'>#ifndef</font> JEMALLOC_ENABLE_INLINE
+<a name='L62'><b>void</b>    <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(<a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a> *mutex);
+<a name='L63'><b>void</b>    <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(<a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a> *mutex);
+<a name='L64'><font color='darkred'>#endif</font>
+<a name='L65'>
+<a name='L66'><font color='darkred'>#if</font> (<b>defined</b>(JEMALLOC_ENABLE_INLINE) || <b>defined</b>(<a href='../S/214.html#L1' title='Defined at 1 in deps/jemalloc/src/mutex.c.'>JEMALLOC_MUTEX_C_</a>))
+<a name='L67'>JEMALLOC_INLINE <b>void</b>
+<a name='L68'><a href='../R/2928.html' title='Multiple refered from 101 places.'>malloc_mutex_lock</a>(<a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a> *mutex)
+<a name='L69'><font color='red'>{</font>
+<a name='L70'>
+<a name='L71'>        <b>if</b> (<a href='../D/2573.html' title='Multiple defined in 3 places.'>isthreaded</a>) <font color='red'>{</font>
+<a name='L72'><font color='darkred'>#ifdef</font> _WIN32
+<a name='L73'>                EnterCriticalSection(&amp;mutex-&gt;lock);
+<a name='L74'><font color='darkred'>#elif</font> (<b>defined</b>(JEMALLOC_OSSPIN))
+<a name='L75'>                OSSpinLockLock(&amp;mutex-&gt;lock);
+<a name='L76'><font color='darkred'>#else</font>
+<a name='L77'>                pthread_mutex_lock(&amp;mutex-&gt;lock);
+<a name='L78'><font color='darkred'>#endif</font>
+<a name='L79'>        <font color='red'>}</font>
+<a name='L80'><font color='red'>}</font>
+<a name='L81'>
+<a name='L82'>JEMALLOC_INLINE <b>void</b>
+<a name='L83'><a href='../R/2934.html' title='Multiple refered from 125 places.'>malloc_mutex_unlock</a>(<a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a> *mutex)
+<a name='L84'><font color='red'>{</font>
+<a name='L85'>
+<a name='L86'>        <b>if</b> (<a href='../D/2573.html' title='Multiple defined in 3 places.'>isthreaded</a>) <font color='red'>{</font>
+<a name='L87'><font color='darkred'>#ifdef</font> _WIN32
+<a name='L88'>                LeaveCriticalSection(&amp;mutex-&gt;lock);
+<a name='L89'><font color='darkred'>#elif</font> (<b>defined</b>(JEMALLOC_OSSPIN))
+<a name='L90'>                OSSpinLockUnlock(&amp;mutex-&gt;lock);
+<a name='L91'><font color='darkred'>#else</font>
+<a name='L92'>                pthread_mutex_unlock(&amp;mutex-&gt;lock);
+<a name='L93'><font color='darkred'>#endif</font>
+<a name='L94'>        <font color='red'>}</font>
+<a name='L95'><font color='red'>}</font>
+<a name='L96'><font color='darkred'>#endif</font>
+<a name='L97'>
+<a name='L98'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_INLINES */</font></i>
+<a name='L99'><i><font color='green'>/******************************************************************************/</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L68'>[^]</a><a href='#L83'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

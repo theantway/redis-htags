@@ -1,0 +1,150 @@
+<html>
+<head>
+<title>deps/jemalloc/test/rallocm.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/396.html'>test</a>/rallocm.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L5'>[^]</a>[v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L5' title='Defined at 5.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> JEMALLOC_MANGLE
+<a name='L2'><font color='darkred'>#include</font> "jemalloc_test.h"
+<a name='L3'>
+<a name='L4'><b>int</b>
+<a name='L5'>main(<b>void</b>)
+<a name='L6'><font color='red'>{</font>
+<a name='L7'>        size_t pagesize;
+<a name='L8'>        <b>void</b> *p, *q;
+<a name='L9'>        size_t sz, tsz;
+<a name='L10'>        <b>int</b> r;
+<a name='L11'>
+<a name='L12'>        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Test begin\n");
+<a name='L13'>
+<a name='L14'>        <i><font color='green'>/* Get page size. */</font></i>
+<a name='L15'>        <font color='red'>{</font>
+<a name='L16'><font color='darkred'>#ifdef</font> _WIN32
+<a name='L17'>                SYSTEM_INFO si;
+<a name='L18'>                GetSystemInfo(&amp;si);
+<a name='L19'>                pagesize = (size_t)si.dwPageSize;
+<a name='L20'><font color='darkred'>#else</font>
+<a name='L21'>                <b>long</b> result = sysconf(_SC_PAGESIZE);
+<a name='L22'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(result != -1);
+<a name='L23'>                pagesize = (size_t)result;
+<a name='L24'><font color='darkred'>#endif</font>
+<a name='L25'>        <font color='red'>}</font>
+<a name='L26'>
+<a name='L27'>        r = allocm(&amp;p, &amp;sz, 42, 0);
+<a name='L28'>        <b>if</b> (r != ALLOCM_SUCCESS) <font color='red'>{</font>
+<a name='L29'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected allocm() error\n");
+<a name='L30'>                abort();
+<a name='L31'>        <font color='red'>}</font>
+<a name='L32'>
+<a name='L33'>        q = p;
+<a name='L34'>        r = rallocm(&amp;q, &amp;tsz, sz, 0, ALLOCM_NO_MOVE);
+<a name='L35'>        <b>if</b> (r != ALLOCM_SUCCESS)
+<a name='L36'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected rallocm() error\n");
+<a name='L37'>        <b>if</b> (q != p)
+<a name='L38'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected object move\n");
+<a name='L39'>        <b>if</b> (tsz != sz) <font color='red'>{</font>
+<a name='L40'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected size change: %zu --&gt; %zu\n",
+<a name='L41'>                    sz, tsz);
+<a name='L42'>        <font color='red'>}</font>
+<a name='L43'>
+<a name='L44'>        q = p;
+<a name='L45'>        r = rallocm(&amp;q, &amp;tsz, sz, 5, ALLOCM_NO_MOVE);
+<a name='L46'>        <b>if</b> (r != ALLOCM_SUCCESS)
+<a name='L47'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected rallocm() error\n");
+<a name='L48'>        <b>if</b> (q != p)
+<a name='L49'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected object move\n");
+<a name='L50'>        <b>if</b> (tsz != sz) <font color='red'>{</font>
+<a name='L51'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected size change: %zu --&gt; %zu\n",
+<a name='L52'>                    sz, tsz);
+<a name='L53'>        <font color='red'>}</font>
+<a name='L54'>
+<a name='L55'>        q = p;
+<a name='L56'>        r = rallocm(&amp;q, &amp;tsz, sz + 5, 0, ALLOCM_NO_MOVE);
+<a name='L57'>        <b>if</b> (r != ALLOCM_ERR_NOT_MOVED)
+<a name='L58'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected rallocm() result\n");
+<a name='L59'>        <b>if</b> (q != p)
+<a name='L60'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected object move\n");
+<a name='L61'>        <b>if</b> (tsz != sz) <font color='red'>{</font>
+<a name='L62'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected size change: %zu --&gt; %zu\n",
+<a name='L63'>                    sz, tsz);
+<a name='L64'>        <font color='red'>}</font>
+<a name='L65'>
+<a name='L66'>        q = p;
+<a name='L67'>        r = rallocm(&amp;q, &amp;tsz, sz + 5, 0, 0);
+<a name='L68'>        <b>if</b> (r != ALLOCM_SUCCESS)
+<a name='L69'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected rallocm() error\n");
+<a name='L70'>        <b>if</b> (q == p)
+<a name='L71'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Expected object move\n");
+<a name='L72'>        <b>if</b> (tsz == sz) <font color='red'>{</font>
+<a name='L73'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Expected size change: %zu --&gt; %zu\n",
+<a name='L74'>                    sz, tsz);
+<a name='L75'>        <font color='red'>}</font>
+<a name='L76'>        p = q;
+<a name='L77'>        sz = tsz;
+<a name='L78'>
+<a name='L79'>        r = rallocm(&amp;q, &amp;tsz, pagesize*2, 0, 0);
+<a name='L80'>        <b>if</b> (r != ALLOCM_SUCCESS)
+<a name='L81'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected rallocm() error\n");
+<a name='L82'>        <b>if</b> (q == p)
+<a name='L83'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Expected object move\n");
+<a name='L84'>        <b>if</b> (tsz == sz) <font color='red'>{</font>
+<a name='L85'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Expected size change: %zu --&gt; %zu\n",
+<a name='L86'>                    sz, tsz);
+<a name='L87'>        <font color='red'>}</font>
+<a name='L88'>        p = q;
+<a name='L89'>        sz = tsz;
+<a name='L90'>
+<a name='L91'>        r = rallocm(&amp;q, &amp;tsz, pagesize*4, 0, 0);
+<a name='L92'>        <b>if</b> (r != ALLOCM_SUCCESS)
+<a name='L93'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected rallocm() error\n");
+<a name='L94'>        <b>if</b> (tsz == sz) <font color='red'>{</font>
+<a name='L95'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Expected size change: %zu --&gt; %zu\n",
+<a name='L96'>                    sz, tsz);
+<a name='L97'>        <font color='red'>}</font>
+<a name='L98'>        p = q;
+<a name='L99'>        sz = tsz;
+<a name='L100'>
+<a name='L101'>        r = rallocm(&amp;q, &amp;tsz, pagesize*2, 0, ALLOCM_NO_MOVE);
+<a name='L102'>        <b>if</b> (r != ALLOCM_SUCCESS)
+<a name='L103'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected rallocm() error\n");
+<a name='L104'>        <b>if</b> (q != p)
+<a name='L105'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected object move\n");
+<a name='L106'>        <b>if</b> (tsz == sz) <font color='red'>{</font>
+<a name='L107'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Expected size change: %zu --&gt; %zu\n",
+<a name='L108'>                    sz, tsz);
+<a name='L109'>        <font color='red'>}</font>
+<a name='L110'>        sz = tsz;
+<a name='L111'>
+<a name='L112'>        r = rallocm(&amp;q, &amp;tsz, pagesize*4, 0, ALLOCM_NO_MOVE);
+<a name='L113'>        <b>if</b> (r != ALLOCM_SUCCESS)
+<a name='L114'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected rallocm() error\n");
+<a name='L115'>        <b>if</b> (q != p)
+<a name='L116'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected object move\n");
+<a name='L117'>        <b>if</b> (tsz == sz) <font color='red'>{</font>
+<a name='L118'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Expected size change: %zu --&gt; %zu\n",
+<a name='L119'>                    sz, tsz);
+<a name='L120'>        <font color='red'>}</font>
+<a name='L121'>        sz = tsz;
+<a name='L122'>
+<a name='L123'>        dallocm(p, 0);
+<a name='L124'>
+<a name='L125'>        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Test end\n");
+<a name='L126'>        <b>return</b> (0);
+<a name='L127'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^]<a href='#L5'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

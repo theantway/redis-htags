@@ -1,0 +1,318 @@
+<html>
+<head>
+<title>robj</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/62.html#L325'>robj</a>              325 src/aof.c          robj *o;
+<a href='../S/62.html#L356'>robj</a>              356 src/aof.c          robj *argv[3];
+<a href='../S/62.html#L386'>robj</a>              386 src/aof.c          robj *tmpargv[3];
+<a href='../S/62.html#L503'>robj</a>              503 src/aof.c              robj **argv;
+<a href='../S/62.html#L524'>robj</a>              524 src/aof.c              argv = zmalloc(sizeof(robj*)*argc);
+<a href='../S/62.html#L637'>robj</a>              637 src/aof.c                  robj *eleobj = listNodeValue(ln);
+<a href='../S/62.html#L684'>robj</a>              684 src/aof.c                  robj *eleobj = dictGetKey(de);
+<a href='../S/62.html#L750'>robj</a>              750 src/aof.c                  robj *eleobj = dictGetKey(de);
+<a href='../S/62.html#L793'>robj</a>              793 src/aof.c              robj *value;
+<a href='../S/62.html#L875'>robj</a>              875 src/aof.c                  robj key, *o;
+<a href='../S/17.html#L107'>robj</a>              107 src/bitops.c       robj *o;
+<a href='../S/17.html#L135'>robj</a>              135 src/bitops.c               robj *decoded = getDecodedObject(o);
+<a href='../S/17.html#L162'>robj</a>              162 src/bitops.c       robj *o;
+<a href='../S/17.html#L190'>robj</a>              190 src/bitops.c       robj *o, *targetkey = c-&gt;argv[2];
+<a href='../S/17.html#L192'>robj</a>              192 src/bitops.c       robj **objects;      /* Array of soruce objects. */
+<a href='../S/17.html#L222'>robj</a>              222 src/bitops.c       objects = zmalloc(sizeof(robj*) * numkeys);
+<a href='../S/17.html#L359'>robj</a>              359 src/bitops.c       robj *o;
+<a href='../S/96.html#L452'>robj</a>              452 src/config.c       robj *o;
+<a href='../S/96.html#L744'>robj</a>              744 src/config.c       robj *o = c-&gt;argv[2];
+<a href='../S/31.html#L42'>robj</a>               42 src/db.c       robj *lookupKey(redisDb *db, robj *key) {
+<a href='../S/31.html#L45'>robj</a>               45 src/db.c               robj *val = dictGetVal(de);
+<a href='../S/31.html#L58'>robj</a>               58 src/db.c       robj *lookupKeyRead(redisDb *db, robj *key) {
+<a href='../S/31.html#L59'>robj</a>               59 src/db.c           robj *val;
+<a href='../S/31.html#L70'>robj</a>               70 src/db.c       robj *lookupKeyWrite(redisDb *db, robj *key) {
+<a href='../S/31.html#L75'>robj</a>               75 src/db.c       robj *lookupKeyReadOrReply(redisClient *c, robj *key, robj *reply) {
+<a href='../S/31.html#L76'>robj</a>               76 src/db.c           robj *o = lookupKeyRead(c-&gt;db, key);
+<a href='../S/31.html#L81'>robj</a>               81 src/db.c       robj *lookupKeyWriteOrReply(redisClient *c, robj *key, robj *reply) {
+<a href='../S/31.html#L82'>robj</a>               82 src/db.c           robj *o = lookupKeyWrite(c-&gt;db, key);
+<a href='../S/31.html#L135'>robj</a>              135 src/db.c       robj *dbRandomKey(redisDb *db) {
+<a href='../S/31.html#L140'>robj</a>              140 src/db.c               robj *keyobj;
+<a href='../S/31.html#L272'>robj</a>              272 src/db.c           robj *key;
+<a href='../S/31.html#L295'>robj</a>              295 src/db.c               robj *keyobj;
+<a href='../S/31.html#L319'>robj</a>              319 src/db.c           robj *o;
+<a href='../S/31.html#L359'>robj</a>              359 src/db.c           robj *o;
+<a href='../S/31.html#L400'>robj</a>              400 src/db.c           robj *o;
+<a href='../S/31.html#L487'>robj</a>              487 src/db.c           robj *argv[2];
+<a href='../S/31.html#L544'>robj</a>              544 src/db.c           robj *key = c-&gt;argv[1], *param = c-&gt;argv[2];
+<a href='../S/31.html#L565'>robj</a>              565 src/db.c               robj *aux;
+<a href='../S/69.html#L129'>robj</a>              129 src/debug.c                robj *keyobj, *o;
+<a href='../S/69.html#L151'>robj</a>              151 src/debug.c                        robj *eleobj = listTypeGet(&amp;entry);
+<a href='../S/69.html#L158'>robj</a>              158 src/debug.c                    robj *ele;
+<a href='../S/69.html#L203'>robj</a>              203 src/debug.c                            robj *eleobj = dictGetKey(de);
+<a href='../S/69.html#L218'>robj</a>              218 src/debug.c                    robj *obj;
+<a href='../S/69.html#L280'>robj</a>              280 src/debug.c            robj *val;
+<a href='../S/69.html#L299'>robj</a>              299 src/debug.c            robj *key, *val;
+<a href='../S/69.html#L645'>robj</a>              645 src/debug.c            robj *decoded;
+<a href='../S/69.html#L654'>robj</a>              654 src/debug.c            robj *val, *key;
+<a href='../S/18.html#L66'>robj</a>               66 src/migrate.c      robj *o, *dumpobj;
+<a href='../S/18.html#L90'>robj</a>               90 src/migrate.c      robj *obj;
+<a href='../S/18.html#L134'>robj</a>              134 src/migrate.c      robj *o;
+<a href='../S/18.html#L218'>robj</a>              218 src/migrate.c              robj *aux;
+<a href='../S/81.html#L65'>robj</a>               65 src/multi.c        mc-&gt;argv = zmalloc(sizeof(robj*)*c-&gt;argc);
+<a href='../S/81.html#L66'>robj</a>               66 src/multi.c        memcpy(mc-&gt;argv,c-&gt;argv,sizeof(robj*)*c-&gt;argc);
+<a href='../S/81.html#L107'>robj</a>              107 src/multi.c        robj *multistring = createStringObject("MULTI",5);
+<a href='../S/81.html#L118'>robj</a>              118 src/multi.c        robj **orig_argv;
+<a href='../S/81.html#L200'>robj</a>              200 src/multi.c        robj *key;
+<a href='../S/86.html#L44'>robj</a>               44 src/networking.c     incrRefCount((robj*)o);
+<a href='../S/86.html#L135'>robj</a>              135 src/networking.c robj *dupLastObjectIfNeeded(list *reply) {
+<a href='../S/86.html#L136'>robj</a>              136 src/networking.c     robj *new, *cur;
+<a href='../S/86.html#L171'>robj</a>              171 src/networking.c     robj *tail;
+<a href='../S/86.html#L202'>robj</a>              202 src/networking.c     robj *tail;
+<a href='../S/86.html#L233'>robj</a>              233 src/networking.c     robj *tail;
+<a href='../S/86.html#L238'>robj</a>              238 src/networking.c         robj *o = createStringObject(s,len);
+<a href='../S/86.html#L254'>robj</a>              254 src/networking.c             robj *o = createStringObject(s,len);
+<a href='../S/86.html#L383'>robj</a>              383 src/networking.c     robj *len, *next;
+<a href='../S/86.html#L699'>robj</a>              699 src/networking.c     robj *o;
+<a href='../S/86.html#L814'>robj</a>              814 src/networking.c     c-&gt;argv = zmalloc(sizeof(robj*)*argc);
+<a href='../S/86.html#L885'>robj</a>              885 src/networking.c         c-&gt;argv = zmalloc(sizeof(robj*)*c-&gt;multibulklen);
+<a href='../S/86.html#L1202'>robj</a>             1202 src/networking.c     robj **argv; /* The new argument vector */
+<a href='../S/86.html#L1204'>robj</a>             1204 src/networking.c     argv = zmalloc(sizeof(robj*)*argc);
+<a href='../S/86.html#L1207'>robj</a>             1207 src/networking.c         robj *a;
+<a href='../S/86.html#L1209'>robj</a>             1209 src/networking.c         a = va_arg(ap, robj*);
+<a href='../S/86.html#L1229'>robj</a>             1229 src/networking.c     robj *oldval;
+<a href='../S/86.html#L1258'>robj</a>             1258 src/networking.c     unsigned long list_item_size = sizeof(listNode)+sizeof(robj);
+<a href='../S/71.html#L35'>robj</a>               35 src/object.c   robj *createObject(int type, void *ptr) {
+<a href='../S/71.html#L36'>robj</a>               36 src/object.c       robj *o = zmalloc(sizeof(*o));
+<a href='../S/71.html#L47'>robj</a>               47 src/object.c   robj *createStringObject(char *ptr, size_t len) {
+<a href='../S/71.html#L51'>robj</a>               51 src/object.c   robj *createStringObjectFromLongLong(long long value) {
+<a href='../S/71.html#L52'>robj</a>               52 src/object.c       robj *o;
+<a href='../S/71.html#L70'>robj</a>               70 src/object.c   robj *createStringObjectFromLongDouble(long double value) {
+<a href='../S/71.html#L92'>robj</a>               92 src/object.c   robj *dupStringObject(robj *o) {
+<a href='../S/71.html#L97'>robj</a>               97 src/object.c   robj *createListObject(void) {
+<a href='../S/71.html#L99'>robj</a>               99 src/object.c       robj *o = createObject(REDIS_LIST,l);
+<a href='../S/71.html#L105'>robj</a>              105 src/object.c   robj *createZiplistObject(void) {
+<a href='../S/71.html#L107'>robj</a>              107 src/object.c       robj *o = createObject(REDIS_LIST,zl);
+<a href='../S/71.html#L112'>robj</a>              112 src/object.c   robj *createSetObject(void) {
+<a href='../S/71.html#L114'>robj</a>              114 src/object.c       robj *o = createObject(REDIS_SET,d);
+<a href='../S/71.html#L119'>robj</a>              119 src/object.c   robj *createIntsetObject(void) {
+<a href='../S/71.html#L121'>robj</a>              121 src/object.c       robj *o = createObject(REDIS_SET,is);
+<a href='../S/71.html#L126'>robj</a>              126 src/object.c   robj *createHashObject(void) {
+<a href='../S/71.html#L128'>robj</a>              128 src/object.c       robj *o = createObject(REDIS_HASH, zl);
+<a href='../S/71.html#L133'>robj</a>              133 src/object.c   robj *createZsetObject(void) {
+<a href='../S/71.html#L135'>robj</a>              135 src/object.c       robj *o;
+<a href='../S/71.html#L144'>robj</a>              144 src/object.c   robj *createZsetZiplistObject(void) {
+<a href='../S/71.html#L146'>robj</a>              146 src/object.c       robj *o = createObject(REDIS_ZSET,zl);
+<a href='../S/71.html#L219'>robj</a>              219 src/object.c       robj *o = obj;
+<a href='../S/71.html#L249'>robj</a>              249 src/object.c   robj *resetRefCount(robj *obj) {
+<a href='../S/71.html#L273'>robj</a>              273 src/object.c   robj *tryObjectEncoding(robj *o) {
+<a href='../S/71.html#L312'>robj</a>              312 src/object.c   robj *getDecodedObject(robj *o) {
+<a href='../S/71.html#L313'>robj</a>              313 src/object.c       robj *dec;
+<a href='../S/71.html#L540'>robj</a>              540 src/object.c   robj *objectCommandLookup(redisClient *c, robj *key) {
+<a href='../S/71.html#L544'>robj</a>              544 src/object.c       return (robj*) dictGetVal(de);
+<a href='../S/71.html#L547'>robj</a>              547 src/object.c   robj *objectCommandLookupOrReply(redisClient *c, robj *key, robj *reply) {
+<a href='../S/71.html#L548'>robj</a>              548 src/object.c       robj *o = objectCommandLookup(c,key);
+<a href='../S/71.html#L557'>robj</a>              557 src/object.c       robj *o;
+<a href='../S/46.html#L178'>robj</a>              178 src/pubsub.c           robj *channel = dictGetKey(de);
+<a href='../S/46.html#L195'>robj</a>              195 src/pubsub.c           robj *pattern = ln-&gt;value;
+<a href='../S/87.html#L166'>robj</a>              166 src/rdb.c      robj *rdbLoadIntegerObject(rio *rdb, int enctype, int encode) {
+<a href='../S/87.html#L249'>robj</a>              249 src/rdb.c      robj *rdbLoadLzfStringObject(rio *rdb) {
+<a href='../S/87.html#L333'>robj</a>              333 src/rdb.c      robj *rdbGenericLoadStringObject(rio *rdb, int encode) {
+<a href='../S/87.html#L361'>robj</a>              361 src/rdb.c      robj *rdbLoadStringObject(rio *rdb) {
+<a href='../S/87.html#L365'>robj</a>              365 src/rdb.c      robj *rdbLoadEncodedStringObject(rio *rdb) {
+<a href='../S/87.html#L502'>robj</a>              502 src/rdb.c                      robj *eleobj = listNodeValue(ln);
+<a href='../S/87.html#L520'>robj</a>              520 src/rdb.c                      robj *eleobj = dictGetKey(de);
+<a href='../S/87.html#L549'>robj</a>              549 src/rdb.c                      robj *eleobj = dictGetKey(de);
+<a href='../S/87.html#L577'>robj</a>              577 src/rdb.c                      robj *key = dictGetKey(de);
+<a href='../S/87.html#L578'>robj</a>              578 src/rdb.c                      robj *val = dictGetVal(de);
+<a href='../S/87.html#L672'>robj</a>              672 src/rdb.c                  robj key, *o = dictGetVal(de);
+<a href='../S/87.html#L770'>robj</a>              770 src/rdb.c      robj *rdbLoadObject(int rdbtype, rio *rdb) {
+<a href='../S/87.html#L771'>robj</a>              771 src/rdb.c          robj *o, *ele, *dec;
+<a href='../S/87.html#L863'>robj</a>              863 src/rdb.c                  robj *ele;
+<a href='../S/87.html#L900'>robj</a>              900 src/rdb.c                  robj *field, *value;
+<a href='../S/87.html#L929'>robj</a>              929 src/rdb.c                  robj *field, *value;
+<a href='../S/87.html#L955'>robj</a>              955 src/rdb.c              robj *aux = rdbLoadStringObject(rdb);
+<a href='../S/87.html#L1096'>robj</a>             1096 src/rdb.c              robj *key, *val;
+<a href='../S/91.html#L109'>robj</a>              109 src/rdb.h      robj *rdbLoadObject(int type, rio *rdb);
+<a href='../S/91.html#L112'>robj</a>              112 src/rdb.h      robj *rdbLoadStringObject(rio *rdb);
+<a href='../S/35.html#L422'>robj</a>              422 src/redis.c        const robj *o1 = key1, *o2 = key2;
+<a href='../S/35.html#L427'>robj</a>              427 src/redis.c        const robj *o = key;
+<a href='../S/35.html#L442'>robj</a>              442 src/redis.c        robj *o1 = (robj*) key1, *o2 = (robj*) key2;
+<a href='../S/35.html#L458'>robj</a>              458 src/redis.c        robj *o = (robj*) key;
+<a href='../S/35.html#L665'>robj</a>              665 src/redis.c                        robj *keyobj = createStringObject(key,sdslen(key));
+<a href='../S/35.html#L2297'>robj</a>             2297 src/redis.c                        robj *o;
+<a href='../S/35.html#L2339'>robj</a>             2339 src/redis.c                    robj *keyobj = createStringObject(bestkey,sdslen(bestkey));
+<a href='../S/32.html#L342'>robj</a>              342 src/redis.h        robj **argv;
+<a href='../S/32.html#L357'>robj</a>              357 src/redis.h        robj *target;           /* The key that should receive the element,
+<a href='../S/32.html#L374'>robj</a>              374 src/redis.h        robj *key;
+<a href='../S/32.html#L386'>robj</a>              386 src/redis.h        robj **argv;
+<a href='../S/32.html#L424'>robj</a>              424 src/redis.h        robj *crlf, *ok, *err, *emptybulk, *czero, *cone, *cnegone, *pong, *space,
+<a href='../S/32.html#L440'>robj</a>              440 src/redis.h        robj *obj;
+<a href='../S/32.html#L473'>robj</a>              473 src/redis.h        robj **argv;
+<a href='../S/32.html#L669'>robj</a>              669 src/redis.h        robj *pattern;
+<a href='../S/32.html#L695'>robj</a>              695 src/redis.h        robj *obj;
+<a href='../S/32.html#L698'>robj</a>              698 src/redis.h            robj *cmpobj;
+<a href='../S/32.html#L704'>robj</a>              704 src/redis.h        robj *pattern;
+<a href='../S/32.html#L709'>robj</a>              709 src/redis.h        robj *subject;
+<a href='../S/32.html#L725'>robj</a>              725 src/redis.h        robj *subject;
+<a href='../S/32.html#L736'>robj</a>              736 src/redis.h        robj *subject;
+<a href='../S/32.html#L827'>robj</a>              827 src/redis.h    robj *listTypePop(robj *subject, int where);
+<a href='../S/32.html#L832'>robj</a>              832 src/redis.h    robj *listTypeGet(listTypeEntry *entry);
+<a href='../S/32.html#L854'>robj</a>              854 src/redis.h    robj *resetRefCount(robj *obj);
+<a href='../S/32.html#L860'>robj</a>              860 src/redis.h    robj *createObject(int type, void *ptr);
+<a href='../S/32.html#L861'>robj</a>              861 src/redis.h    robj *createStringObject(char *ptr, size_t len);
+<a href='../S/32.html#L862'>robj</a>              862 src/redis.h    robj *dupStringObject(robj *o);
+<a href='../S/32.html#L864'>robj</a>              864 src/redis.h    robj *tryObjectEncoding(robj *o);
+<a href='../S/32.html#L865'>robj</a>              865 src/redis.h    robj *getDecodedObject(robj *o);
+<a href='../S/32.html#L867'>robj</a>              867 src/redis.h    robj *createStringObjectFromLongLong(long long value);
+<a href='../S/32.html#L868'>robj</a>              868 src/redis.h    robj *createStringObjectFromLongDouble(long double value);
+<a href='../S/32.html#L869'>robj</a>              869 src/redis.h    robj *createListObject(void);
+<a href='../S/32.html#L870'>robj</a>              870 src/redis.h    robj *createZiplistObject(void);
+<a href='../S/32.html#L871'>robj</a>              871 src/redis.h    robj *createSetObject(void);
+<a href='../S/32.html#L872'>robj</a>              872 src/redis.h    robj *createIntsetObject(void);
+<a href='../S/32.html#L873'>robj</a>              873 src/redis.h    robj *createHashObject(void);
+<a href='../S/32.html#L874'>robj</a>              874 src/redis.h    robj *createZsetObject(void);
+<a href='../S/32.html#L875'>robj</a>              875 src/redis.h    robj *createZsetZiplistObject(void);
+<a href='../S/32.html#L960'>robj</a>              960 src/redis.h    robj *setTypeCreate(robj *value);
+<a href='../S/32.html#L967'>robj</a>              967 src/redis.h    robj *setTypeNextObject(setTypeIterator *si);
+<a href='../S/32.html#L976'>robj</a>              976 src/redis.h    robj *hashTypeGetObject(robj *o, robj *key);
+<a href='../S/32.html#L989'>robj</a>              989 src/redis.h    robj *hashTypeCurrentObject(hashTypeIterator *hi, int what);
+<a href='../S/32.html#L990'>robj</a>              990 src/redis.h    robj *hashTypeLookupWriteOrCreate(redisClient *c, robj *key);
+<a href='../S/32.html#L1010'>robj</a>             1010 src/redis.h    robj *lookupKey(redisDb *db, robj *key);
+<a href='../S/32.html#L1011'>robj</a>             1011 src/redis.h    robj *lookupKeyRead(redisDb *db, robj *key);
+<a href='../S/32.html#L1012'>robj</a>             1012 src/redis.h    robj *lookupKeyWrite(redisDb *db, robj *key);
+<a href='../S/32.html#L1013'>robj</a>             1013 src/redis.h    robj *lookupKeyReadOrReply(redisClient *c, robj *key, robj *reply);
+<a href='../S/32.html#L1014'>robj</a>             1014 src/redis.h    robj *lookupKeyWriteOrReply(redisClient *c, robj *key, robj *reply);
+<a href='../S/32.html#L1019'>robj</a>             1019 src/redis.h    robj *dbRandomKey(redisDb *db);
+<a href='../S/14.html#L58'>robj</a>               58 src/replication.c             robj *selectcmd;
+<a href='../S/14.html#L81'>robj</a>               81 src/replication.c     robj *cmdobj;
+<a href='../S/75.html#L195'>robj</a>              195 src/scripting.c     robj **argv;
+<a href='../S/75.html#L207'>robj</a>              207 src/scripting.c     argv = zmalloc(sizeof(robj*)*argc);
+<a href='../S/75.html#L303'>robj</a>              303 src/scripting.c         robj *o = listNodeValue(listFirst(c-&gt;reply));
+<a href='../S/75.html#L907'>robj</a>              907 src/scripting.c         robj *script = dictFetchValue(server.lua_scripts,c-&gt;argv[1]-&gt;ptr);
+<a href='../S/82.html#L473'>robj</a>              473 src/sentinel.c     robj *channel, *payload;
+<a href='../S/70.html#L54'>robj</a>               54 src/slowlog.c      se-&gt;argv = zmalloc(sizeof(robj*)*slargc);
+<a href='../S/21.html#L35'>robj</a>               35 src/slowlog.h      robj **argv;
+<a href='../S/57.html#L61'>robj</a>               61 src/sort.c     robj *lookupKeyByPattern(redisDb *db, robj *pattern, robj *subst) {
+<a href='../S/57.html#L64'>robj</a>               64 src/sort.c         robj *keyobj, *fieldobj = NULL, *o;
+<a href='../S/57.html#L187'>robj</a>              187 src/sort.c         robj *sortval, *sortby = NULL, *storekey = NULL;
+<a href='../S/57.html#L321'>robj</a>              321 src/sort.c             robj *ele;
+<a href='../S/57.html#L340'>robj</a>              340 src/sort.c             robj *ele;
+<a href='../S/57.html#L391'>robj</a>              391 src/sort.c                 robj *byval;
+<a href='../S/57.html#L457'>robj</a>              457 src/sort.c                     robj *val = lookupKeyByPattern(c-&gt;db,sop-&gt;pattern,
+<a href='../S/57.html#L474'>robj</a>              474 src/sort.c             robj *sobj = createZiplistObject();
+<a href='../S/57.html#L487'>robj</a>              487 src/sort.c                         robj *val = lookupKeyByPattern(c-&gt;db,sop-&gt;pattern,
+<a href='../S/97.html#L118'>robj</a>              118 src/t_hash.c   robj *hashTypeGetObject(robj *o, robj *field) {
+<a href='../S/97.html#L119'>robj</a>              119 src/t_hash.c       robj *value = NULL;
+<a href='../S/97.html#L135'>robj</a>              135 src/t_hash.c           robj *aux;
+<a href='../S/97.html#L157'>robj</a>              157 src/t_hash.c           robj *aux;
+<a href='../S/97.html#L373'>robj</a>              373 src/t_hash.c   robj *hashTypeCurrentObject(hashTypeIterator *hi, int what) {
+<a href='../S/97.html#L374'>robj</a>              374 src/t_hash.c       robj *dst;
+<a href='../S/97.html#L399'>robj</a>              399 src/t_hash.c   robj *hashTypeLookupWriteOrCreate(redisClient *c, robj *key) {
+<a href='../S/97.html#L400'>robj</a>              400 src/t_hash.c       robj *o = lookupKeyWrite(c-&gt;db,key);
+<a href='../S/97.html#L428'>robj</a>              428 src/t_hash.c               robj *field, *value;
+<a href='../S/97.html#L469'>robj</a>              469 src/t_hash.c       robj *o;
+<a href='../S/97.html#L481'>robj</a>              481 src/t_hash.c       robj *o;
+<a href='../S/97.html#L498'>robj</a>              498 src/t_hash.c       robj *o;
+<a href='../S/97.html#L518'>robj</a>              518 src/t_hash.c       robj *o, *current, *new;
+<a href='../S/97.html#L551'>robj</a>              551 src/t_hash.c       robj *o, *current, *new, *aux;
+<a href='../S/97.html#L609'>robj</a>              609 src/t_hash.c           robj *value;
+<a href='../S/97.html#L624'>robj</a>              624 src/t_hash.c       robj *o;
+<a href='../S/97.html#L633'>robj</a>              633 src/t_hash.c       robj *o;
+<a href='../S/97.html#L651'>robj</a>              651 src/t_hash.c       robj *o;
+<a href='../S/97.html#L674'>robj</a>              674 src/t_hash.c       robj *o;
+<a href='../S/97.html#L695'>robj</a>              695 src/t_hash.c           robj *value;
+<a href='../S/97.html#L706'>robj</a>              706 src/t_hash.c       robj *o;
+<a href='../S/97.html#L749'>robj</a>              749 src/t_hash.c       robj *o;
+<a href='../S/60.html#L77'>robj</a>               77 src/t_list.c   robj *listTypePop(robj *subject, int where) {
+<a href='../S/60.html#L78'>robj</a>               78 src/t_list.c       robj *value = NULL;
+<a href='../S/60.html#L178'>robj</a>              178 src/t_list.c   robj *listTypeGet(listTypeEntry *entry) {
+<a href='../S/60.html#L180'>robj</a>              180 src/t_list.c       robj *value = NULL;
+<a href='../S/60.html#L204'>robj</a>              204 src/t_list.c       robj *subject = entry-&gt;li-&gt;subject;
+<a href='../S/60.html#L299'>robj</a>              299 src/t_list.c       robj *lobj = lookupKeyWrite(c-&gt;db,c-&gt;argv[1]);
+<a href='../S/60.html#L332'>robj</a>              332 src/t_list.c       robj *subject;
+<a href='../S/60.html#L406'>robj</a>              406 src/t_list.c       robj *o = lookupKeyReadOrReply(c,c-&gt;argv[1],shared.czero);
+<a href='../S/60.html#L412'>robj</a>              412 src/t_list.c       robj *o = lookupKeyReadOrReply(c,c-&gt;argv[1],shared.nullbulk);
+<a href='../S/60.html#L415'>robj</a>              415 src/t_list.c       robj *value = NULL;
+<a href='../S/60.html#L451'>robj</a>              451 src/t_list.c       robj *o = lookupKeyWriteOrReply(c,c-&gt;argv[1],shared.nokeyerr);
+<a href='../S/60.html#L454'>robj</a>              454 src/t_list.c       robj *value = (c-&gt;argv[3] = tryObjectEncoding(c-&gt;argv[3]));
+<a href='../S/60.html#L479'>robj</a>              479 src/t_list.c               decrRefCount((robj*)listNodeValue(ln));
+<a href='../S/60.html#L492'>robj</a>              492 src/t_list.c       robj *o = lookupKeyWriteOrReply(c,c-&gt;argv[1],shared.nullbulk);
+<a href='../S/60.html#L495'>robj</a>              495 src/t_list.c       robj *value = listTypePop(o,where);
+<a href='../S/60.html#L516'>robj</a>              516 src/t_list.c       robj *o;
+<a href='../S/60.html#L575'>robj</a>              575 src/t_list.c       robj *o;
+<a href='../S/60.html#L628'>robj</a>              628 src/t_list.c       robj *subject, *obj;
+<a href='../S/60.html#L701'>robj</a>              701 src/t_list.c       robj *sobj, *value;
+<a href='../S/60.html#L710'>robj</a>              710 src/t_list.c           robj *dobj = lookupKeyWrite(c-&gt;db,c-&gt;argv[2]);
+<a href='../S/60.html#L711'>robj</a>              711 src/t_list.c           robj *touchedkey = c-&gt;argv[1];
+<a href='../S/60.html#L801'>robj</a>              801 src/t_list.c           robj *key = dictGetKey(de);
+<a href='../S/60.html#L876'>robj</a>              876 src/t_list.c       robj *argv[3];
+<a href='../S/60.html#L893'>robj</a>              893 src/t_list.c           robj *dstobj =
+<a href='../S/60.html#L955'>robj</a>              955 src/t_list.c               robj *o = lookupKeyWrite(rl-&gt;db,rl-&gt;key);
+<a href='../S/60.html#L969'>robj</a>              969 src/t_list.c                           robj *dstkey = receiver-&gt;bpop.target;
+<a href='../S/60.html#L973'>robj</a>              973 src/t_list.c                           robj *value = listTypePop(o,where);
+<a href='../S/60.html#L1033'>robj</a>             1033 src/t_list.c       robj *o;
+<a href='../S/60.html#L1049'>robj</a>             1049 src/t_list.c                       robj *value = listTypePop(o,where);
+<a href='../S/60.html#L1095'>robj</a>             1095 src/t_list.c       robj *key = lookupKeyWrite(c-&gt;db, c-&gt;argv[1]);
+<a href='../S/92.html#L41'>robj</a>               41 src/t_set.c    robj *setTypeCreate(robj *value) {
+<a href='../S/92.html#L164'>robj</a>              164 src/t_set.c    robj *setTypeNextObject(setTypeIterator *si) {
+<a href='../S/92.html#L166'>robj</a>              166 src/t_set.c        robj *objele;
+<a href='../S/92.html#L229'>robj</a>              229 src/t_set.c            robj *element;
+<a href='../S/92.html#L251'>robj</a>              251 src/t_set.c        robj *set;
+<a href='../S/92.html#L275'>robj</a>              275 src/t_set.c        robj *set;
+<a href='../S/92.html#L298'>robj</a>              298 src/t_set.c        robj *srcset, *dstset, *ele;
+<a href='../S/92.html#L344'>robj</a>              344 src/t_set.c        robj *set;
+<a href='../S/92.html#L357'>robj</a>              357 src/t_set.c        robj *o;
+<a href='../S/92.html#L366'>robj</a>              366 src/t_set.c        robj *set, *ele, *aux;
+<a href='../S/92.html#L406'>robj</a>              406 src/t_set.c        robj *set, *ele;
+<a href='../S/92.html#L541'>robj</a>              541 src/t_set.c        robj *set, *ele;
+<a href='../S/92.html#L565'>robj</a>              565 src/t_set.c        return setTypeSize(*(robj**)s1)-setTypeSize(*(robj**)s2);
+<a href='../S/92.html#L569'>robj</a>              569 src/t_set.c        robj **sets = zmalloc(sizeof(robj*)*setnum);
+<a href='../S/92.html#L571'>robj</a>              571 src/t_set.c        robj *eleobj, *dstset = NULL;
+<a href='../S/92.html#L578'>robj</a>              578 src/t_set.c            robj *setobj = dstkey ?
+<a href='../S/92.html#L602'>robj</a>              602 src/t_set.c        qsort(sets,setnum,sizeof(robj*),qsortCompareSetsByCardinality);
+<a href='../S/92.html#L711'>robj</a>              711 src/t_set.c        robj **sets = zmalloc(sizeof(robj*)*setnum);
+<a href='../S/92.html#L713'>robj</a>              713 src/t_set.c        robj *ele, *dstset = NULL;
+<a href='../S/92.html#L717'>robj</a>              717 src/t_set.c            robj *setobj = dstkey ?
+<a href='../S/79.html#L89'>robj</a>               89 src/t_string.c     robj *o;
+<a href='../S/79.html#L115'>robj</a>              115 src/t_string.c     robj *o;
+<a href='../S/79.html#L161'>robj</a>              161 src/t_string.c             robj *decoded = getDecodedObject(o);
+<a href='../S/79.html#L178'>robj</a>              178 src/t_string.c     robj *o;
+<a href='../S/79.html#L219'>robj</a>              219 src/t_string.c         robj *o = lookupKeyRead(c-&gt;db,c-&gt;argv[j]);
+<a href='../S/79.html#L271'>robj</a>              271 src/t_string.c     robj *o, *new;
+<a href='../S/79.html#L320'>robj</a>              320 src/t_string.c     robj *o, *new, *aux;
+<a href='../S/79.html#L353'>robj</a>              353 src/t_string.c     robj *o, *append;
+<a href='../S/79.html#L375'>robj</a>              375 src/t_string.c             robj *decoded = getDecodedObject(o);
+<a href='../S/79.html#L391'>robj</a>              391 src/t_string.c     robj *o;
+<a href='../S/59.html#L763'>robj</a>              763 src/t_zset.c       robj *ele;
+<a href='../S/59.html#L843'>robj</a>              843 src/t_zset.c       robj *key = c-&gt;argv[1];
+<a href='../S/59.html#L844'>robj</a>              844 src/t_zset.c       robj *ele;
+<a href='../S/59.html#L845'>robj</a>              845 src/t_zset.c       robj *zobj;
+<a href='../S/59.html#L846'>robj</a>              846 src/t_zset.c       robj *curobj;
+<a href='../S/59.html#L993'>robj</a>              993 src/t_zset.c       robj *key = c-&gt;argv[1];
+<a href='../S/59.html#L994'>robj</a>              994 src/t_zset.c       robj *zobj;
+<a href='../S/59.html#L1048'>robj</a>             1048 src/t_zset.c       robj *key = c-&gt;argv[1];
+<a href='../S/59.html#L1049'>robj</a>             1049 src/t_zset.c       robj *zobj;
+<a href='../S/59.html#L1080'>robj</a>             1080 src/t_zset.c       robj *key = c-&gt;argv[1];
+<a href='../S/59.html#L1081'>robj</a>             1081 src/t_zset.c       robj *zobj;
+<a href='../S/59.html#L1128'>robj</a>             1128 src/t_zset.c       robj *subject;
+<a href='../S/59.html#L1176'>robj</a>             1176 src/t_zset.c       robj *ele;
+<a href='../S/59.html#L1364'>robj</a>             1364 src/t_zset.c   robj *zuiObjectFromValue(zsetopval *val) {
+<a href='../S/59.html#L1482'>robj</a>             1482 src/t_zset.c       robj *tmp;
+<a href='../S/59.html#L1484'>robj</a>             1484 src/t_zset.c       robj *dstobj;
+<a href='../S/59.html#L1508'>robj</a>             1508 src/t_zset.c           robj *obj = lookupKeyWrite(c-&gt;db,c-&gt;argv[j]);
+<a href='../S/59.html#L1693'>robj</a>             1693 src/t_zset.c       robj *key = c-&gt;argv[1];
+<a href='../S/59.html#L1694'>robj</a>             1694 src/t_zset.c       robj *zobj;
+<a href='../S/59.html#L1768'>robj</a>             1768 src/t_zset.c           robj *ele;
+<a href='../S/59.html#L1805'>robj</a>             1805 src/t_zset.c       robj *key = c-&gt;argv[1];
+<a href='../S/59.html#L1806'>robj</a>             1806 src/t_zset.c       robj *zobj;
+<a href='../S/59.html#L1998'>robj</a>             1998 src/t_zset.c       robj *key = c-&gt;argv[1];
+<a href='../S/59.html#L1999'>robj</a>             1999 src/t_zset.c       robj *zobj;
+<a href='../S/59.html#L2075'>robj</a>             2075 src/t_zset.c       robj *key = c-&gt;argv[1];
+<a href='../S/59.html#L2076'>robj</a>             2076 src/t_zset.c       robj *zobj;
+<a href='../S/59.html#L2085'>robj</a>             2085 src/t_zset.c       robj *key = c-&gt;argv[1];
+<a href='../S/59.html#L2086'>robj</a>             2086 src/t_zset.c       robj *zobj;
+<a href='../S/59.html#L2115'>robj</a>             2115 src/t_zset.c       robj *key = c-&gt;argv[1];
+<a href='../S/59.html#L2116'>robj</a>             2116 src/t_zset.c       robj *ele = c-&gt;argv[2];
+<a href='../S/59.html#L2117'>robj</a>             2117 src/t_zset.c       robj *zobj;
+</pre>
+</body>
+</html>

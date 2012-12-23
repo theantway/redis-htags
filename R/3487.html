@@ -1,0 +1,24 @@
+<html>
+<head>
+<title>redisReader</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/120.html#L556'>redisReader</a>       556 deps/hiredis/hiredis.c redisReader *redisReaderCreate(void) {
+<a href='../S/120.html#L557'>redisReader</a>       557 deps/hiredis/hiredis.c     redisReader *r;
+<a href='../S/120.html#L559'>redisReader</a>       559 deps/hiredis/hiredis.c     r = calloc(sizeof(redisReader),1);
+<a href='../S/121.html#L141'>redisReader</a>       141 deps/hiredis/hiredis.h redisReader *redisReaderCreate(void);
+<a href='../S/121.html#L142'>redisReader</a>       142 deps/hiredis/hiredis.h void redisReaderFree(redisReader *r);
+<a href='../S/121.html#L143'>redisReader</a>       143 deps/hiredis/hiredis.h int redisReaderFeed(redisReader *r, const char *buf, size_t len);
+<a href='../S/121.html#L144'>redisReader</a>       144 deps/hiredis/hiredis.h int redisReaderGetReply(redisReader *r, void **reply);
+<a href='../S/121.html#L151'>redisReader</a>       151 deps/hiredis/hiredis.h #define redisReplyReaderSetPrivdata(_r, _p) (int)(((redisReader*)(_r))-&gt;privdata = (_p))
+<a href='../S/121.html#L152'>redisReader</a>       152 deps/hiredis/hiredis.h #define redisReplyReaderGetObject(_r) (((redisReader*)(_r))-&gt;reply)
+<a href='../S/121.html#L153'>redisReader</a>       153 deps/hiredis/hiredis.h #define redisReplyReaderGetError(_r) (((redisReader*)(_r))-&gt;errstr)
+<a href='../S/121.html#L170'>redisReader</a>       170 deps/hiredis/hiredis.h     redisReader *reader; /* Protocol reader */
+<a href='../S/122.html#L204'>redisReader</a>       204 deps/hiredis/test.c     redisReader *reader;
+<a href='../S/27.html#L983'>redisReader</a>       983 src/redis-cli.c     redisReader *reader = redisReaderCreate();
+</pre>
+</body>
+</html>

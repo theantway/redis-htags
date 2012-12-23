@@ -1,0 +1,215 @@
+<html>
+<head>
+<title>sds</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/104.html#L79'>sds</a>                79 deps/hiredis/async.c     l1 = sdslen((sds)key1);
+<a href='../S/104.html#L80'>sds</a>                80 deps/hiredis/async.c     l2 = sdslen((sds)key2);
+<a href='../S/104.html#L87'>sds</a>                87 deps/hiredis/async.c     sdsfree((sds)key);
+<a href='../S/104.html#L320'>sds</a>               320 deps/hiredis/async.c     sds sname;
+<a href='../S/104.html#L538'>sds</a>               538 deps/hiredis/async.c     sds sname;
+<a href='../S/120.html#L586'>sds</a>               586 deps/hiredis/hiredis.c     sds newbuf;
+<a href='../S/120.html#L690'>sds</a>               690 deps/hiredis/hiredis.c     sds curarg, newarg; /* current argument */
+<a href='../S/120.html#L1184'>sds</a>              1184 deps/hiredis/hiredis.c     sds newbuf;
+<a href='../S/117.html#L44'>sds</a>                44 deps/hiredis/sds.c sds sdsnewlen(const void *init, size_t initlen) {
+<a href='../S/117.html#L63'>sds</a>                63 deps/hiredis/sds.c sds sdsempty(void) {
+<a href='../S/117.html#L67'>sds</a>                67 deps/hiredis/sds.c sds sdsnew(const char *init) {
+<a href='../S/117.html#L72'>sds</a>                72 deps/hiredis/sds.c sds sdsdup(const sds s) {
+<a href='../S/117.html#L88'>sds</a>                88 deps/hiredis/sds.c static sds sdsMakeRoomFor(sds s, size_t addlen) {
+<a href='../S/117.html#L110'>sds</a>               110 deps/hiredis/sds.c sds sdsgrowzero(sds s, size_t len) {
+<a href='../S/117.html#L127'>sds</a>               127 deps/hiredis/sds.c sds sdscatlen(sds s, const void *t, size_t len) {
+<a href='../S/117.html#L141'>sds</a>               141 deps/hiredis/sds.c sds sdscat(sds s, const char *t) {
+<a href='../S/117.html#L145'>sds</a>               145 deps/hiredis/sds.c sds sdscpylen(sds s, char *t, size_t len) {
+<a href='../S/117.html#L162'>sds</a>               162 deps/hiredis/sds.c sds sdscpy(sds s, char *t) {
+<a href='../S/117.html#L166'>sds</a>               166 deps/hiredis/sds.c sds sdscatvprintf(sds s, const char *fmt, va_list ap) {
+<a href='../S/117.html#L193'>sds</a>               193 deps/hiredis/sds.c sds sdscatprintf(sds s, const char *fmt, ...) {
+<a href='../S/117.html#L202'>sds</a>               202 deps/hiredis/sds.c sds sdstrim(sds s, const char *cset) {
+<a href='../S/117.html#L219'>sds</a>               219 deps/hiredis/sds.c sds sdsrange(sds s, int start, int end) {
+<a href='../S/117.html#L290'>sds</a>               290 deps/hiredis/sds.c sds *sdssplitlen(char *s, int len, char *sep, int seplen, int *count) {
+<a href='../S/117.html#L293'>sds</a>               293 deps/hiredis/sds.c     sds *tokens = malloc(sizeof(sds)*slots);
+<a href='../S/117.html#L305'>sds</a>               305 deps/hiredis/sds.c             sds *newtokens;
+<a href='../S/117.html#L308'>sds</a>               308 deps/hiredis/sds.c             newtokens = realloc(tokens,sizeof(sds)*slots);
+<a href='../S/117.html#L364'>sds</a>               364 deps/hiredis/sds.c sds sdsfromlonglong(long long value) {
+<a href='../S/117.html#L379'>sds</a>               379 deps/hiredis/sds.c sds sdscatrepr(sds s, char *p, size_t len) {
+<a href='../S/117.html#L419'>sds</a>               419 deps/hiredis/sds.c sds *sdssplitargs(char *line, int *argc) {
+<a href='../S/117.html#L523'>sds</a>               523 deps/hiredis/sds.c         sds x = sdsnew("foo"), y;
+<a href='../S/112.html#L55'>sds</a>                55 deps/hiredis/sds.h sds sdsnewlen(const void *init, size_t initlen);
+<a href='../S/112.html#L56'>sds</a>                56 deps/hiredis/sds.h sds sdsnew(const char *init);
+<a href='../S/112.html#L57'>sds</a>                57 deps/hiredis/sds.h sds sdsempty(void);
+<a href='../S/112.html#L59'>sds</a>                59 deps/hiredis/sds.h sds sdsdup(const sds s);
+<a href='../S/112.html#L62'>sds</a>                62 deps/hiredis/sds.h sds sdsgrowzero(sds s, size_t len);
+<a href='../S/112.html#L63'>sds</a>                63 deps/hiredis/sds.h sds sdscatlen(sds s, const void *t, size_t len);
+<a href='../S/112.html#L64'>sds</a>                64 deps/hiredis/sds.h sds sdscat(sds s, const char *t);
+<a href='../S/112.html#L65'>sds</a>                65 deps/hiredis/sds.h sds sdscpylen(sds s, char *t, size_t len);
+<a href='../S/112.html#L66'>sds</a>                66 deps/hiredis/sds.h sds sdscpy(sds s, char *t);
+<a href='../S/112.html#L68'>sds</a>                68 deps/hiredis/sds.h sds sdscatvprintf(sds s, const char *fmt, va_list ap);
+<a href='../S/112.html#L70'>sds</a>                70 deps/hiredis/sds.h sds sdscatprintf(sds s, const char *fmt, ...)
+<a href='../S/112.html#L73'>sds</a>                73 deps/hiredis/sds.h sds sdscatprintf(sds s, const char *fmt, ...);
+<a href='../S/112.html#L76'>sds</a>                76 deps/hiredis/sds.h sds sdstrim(sds s, const char *cset);
+<a href='../S/112.html#L77'>sds</a>                77 deps/hiredis/sds.h sds sdsrange(sds s, int start, int end);
+<a href='../S/112.html#L80'>sds</a>                80 deps/hiredis/sds.h sds *sdssplitlen(char *s, int len, char *sep, int seplen, int *count);
+<a href='../S/112.html#L84'>sds</a>                84 deps/hiredis/sds.h sds sdsfromlonglong(long long value);
+<a href='../S/112.html#L85'>sds</a>                85 deps/hiredis/sds.h sds sdscatrepr(sds s, char *p, size_t len);
+<a href='../S/112.html#L86'>sds</a>                86 deps/hiredis/sds.h sds *sdssplitargs(char *line, int *argc);
+<a href='../S/62.html#L322'>sds</a>               322 src/aof.c      sds catAppendOnlyGenericCommand(sds dst, int argc, robj **argv) {
+<a href='../S/62.html#L354'>sds</a>               354 src/aof.c      sds catAppendOnlyExpireAtCommand(sds buf, struct redisCommand *cmd, robj *key, robj *seconds) {
+<a href='../S/62.html#L385'>sds</a>               385 src/aof.c          sds buf = sdsempty();
+<a href='../S/62.html#L505'>sds</a>               505 src/aof.c              sds argsds;
+<a href='../S/62.html#L874'>sds</a>               874 src/aof.c                  sds keystr;
+<a href='../S/96.html#L60'>sds</a>                60 src/config.c       sds *lines;
+<a href='../S/96.html#L65'>sds</a>                65 src/config.c           sds *argv;
+<a href='../S/96.html#L339'>sds</a>               339 src/config.c                   sds copy = sdsdup(argv[2]);
+<a href='../S/96.html#L418'>sds</a>               418 src/config.c       sds config = sdsempty();
+<a href='../S/96.html#L538'>sds</a>               538 src/config.c           sds *v = sdssplitlen(o-&gt;ptr,sdslen(o-&gt;ptr)," ",1,&amp;vlen);
+<a href='../S/96.html#L629'>sds</a>               629 src/config.c           sds *v = sdssplitlen(o-&gt;ptr,sdslen(o-&gt;ptr)," ",1,&amp;vlen);
+<a href='../S/96.html#L856'>sds</a>               856 src/config.c           sds buf = sdsempty();
+<a href='../S/96.html#L886'>sds</a>               886 src/config.c           sds buf = sdsempty();
+<a href='../S/31.html#L92'>sds</a>                92 src/db.c           sds copy = sdsdup(key-&gt;ptr);
+<a href='../S/31.html#L139'>sds</a>               139 src/db.c               sds key;
+<a href='../S/31.html#L286'>sds</a>               286 src/db.c           sds pattern = c-&gt;argv[1]-&gt;ptr;
+<a href='../S/31.html#L294'>sds</a>               294 src/db.c               sds key = dictGetKey(de);
+<a href='../S/69.html#L128'>sds</a>               128 src/debug.c                sds key;
+<a href='../S/69.html#L319'>sds</a>               319 src/debug.c            sds d = sdsempty();
+<a href='../S/69.html#L637'>sds</a>               637 src/debug.c        sds client;
+<a href='../S/69.html#L670'>sds</a>               670 src/debug.c        sds infostring, clients;
+<a href='../S/18.html#L192'>sds</a>               192 src/migrate.c          sds buf = cmd.io.buffer.ptr;
+<a href='../S/86.html#L338'>sds</a>               338 src/networking.c     sds s = sdscatvprintf(sdsempty(),fmt,ap);
+<a href='../S/86.html#L363'>sds</a>               363 src/networking.c     sds s = sdscatvprintf(sdsempty(),fmt,ap);
+<a href='../S/86.html#L793'>sds</a>               793 src/networking.c     sds *argv;
+<a href='../S/86.html#L833'>sds</a>               833 src/networking.c         sds client = getClientInfoString(c);
+<a href='../S/86.html#L1061'>sds</a>              1061 src/networking.c         sds ci = getClientInfoString(c), bytes = sdsempty();
+<a href='../S/86.html#L1093'>sds</a>              1093 src/networking.c sds getClientInfoString(redisClient *client) {
+<a href='../S/86.html#L1143'>sds</a>              1143 src/networking.c sds getAllClientsInfoString(void) {
+<a href='../S/86.html#L1147'>sds</a>              1147 src/networking.c     sds o = sdsempty();
+<a href='../S/86.html#L1151'>sds</a>              1151 src/networking.c         sds cs;
+<a href='../S/86.html#L1168'>sds</a>              1168 src/networking.c         sds o = getAllClientsInfoString();
+<a href='../S/86.html#L1345'>sds</a>              1345 src/networking.c         sds client = getClientInfoString(c);
+<a href='../S/71.html#L275'>sds</a>               275 src/object.c       sds s = o-&gt;ptr;
+<a href='../S/87.html#L252'>sds</a>               252 src/rdb.c          sds val = NULL;
+<a href='../S/87.html#L336'>sds</a>               336 src/rdb.c          sds val;
+<a href='../S/87.html#L671'>sds</a>               671 src/rdb.c                  sds keystr = dictGetKey(de);
+<a href='../S/94.html#L80'>sds</a>                80 src/redis-benchmark.c     sds obuf;
+<a href='../S/94.html#L557'>sds</a>               557 src/redis-benchmark.c         sds title = sdsnew(argv[0]);
+<a href='../S/27.html#L80'>sds</a>                80 src/redis-cli.c     sds mb_delim;
+<a href='../S/27.html#L129'>sds</a>               129 src/redis-cli.c     sds *argv;
+<a href='../S/27.html#L130'>sds</a>               130 src/redis-cli.c     sds full;
+<a href='../S/27.html#L139'>sds</a>               139 src/redis-cli.c static sds cliVersion() {
+<a href='../S/27.html#L140'>sds</a>               140 src/redis-cli.c     sds version;
+<a href='../S/27.html#L164'>sds</a>               164 src/redis-cli.c         tmp.argv = malloc(sizeof(sds));
+<a href='../S/27.html#L193'>sds</a>               193 src/redis-cli.c     sds version = cliVersion();
+<a href='../S/27.html#L255'>sds</a>               255 src/redis-cli.c     sds tmp;
+<a href='../S/27.html#L346'>sds</a>               346 src/redis-cli.c static sds cliFormatReplyTTY(redisReply *r, char *prefix) {
+<a href='../S/27.html#L347'>sds</a>               347 src/redis-cli.c     sds out = sdsempty();
+<a href='../S/27.html#L375'>sds</a>               375 src/redis-cli.c             sds _prefix;
+<a href='../S/27.html#L376'>sds</a>               376 src/redis-cli.c             sds tmp;
+<a href='../S/27.html#L413'>sds</a>               413 src/redis-cli.c static sds cliFormatReplyRaw(redisReply *r) {
+<a href='../S/27.html#L414'>sds</a>               414 src/redis-cli.c     sds out = sdsempty(), tmp;
+<a href='../S/27.html#L447'>sds</a>               447 src/redis-cli.c static sds cliFormatReplyCSV(redisReply *r) {
+<a href='../S/27.html#L450'>sds</a>               450 src/redis-cli.c     sds out = sdsempty();
+<a href='../S/27.html#L470'>sds</a>               470 src/redis-cli.c             sds tmp = cliFormatReplyCSV(r-&gt;element[i]);
+<a href='../S/27.html#L486'>sds</a>               486 src/redis-cli.c     sds out = NULL;
+<a href='../S/27.html#L675'>sds</a>               675 src/redis-cli.c             sds version = cliVersion();
+<a href='../S/27.html#L686'>sds</a>               686 src/redis-cli.c static sds readArgFromStdin(void) {
+<a href='../S/27.html#L688'>sds</a>               688 src/redis-cli.c     sds arg = sdsempty();
+<a href='../S/27.html#L704'>sds</a>               704 src/redis-cli.c     sds version = cliVersion();
+<a href='../S/27.html#L748'>sds</a>               748 src/redis-cli.c   char **sds = zmalloc(sizeof(char*)*count);
+<a href='../S/27.html#L751'>sds</a>               751 src/redis-cli.c     sds[j] = sdsnew(args[j]);
+<a href='../S/27.html#L753'>sds</a>               753 src/redis-cli.c   return sds;
+<a href='../S/27.html#L758'>sds</a>               758 src/redis-cli.c     sds historyfile = NULL;
+<a href='../S/27.html#L762'>sds</a>               762 src/redis-cli.c     sds *argv;
+<a href='../S/27.html#L861'>sds</a>               861 src/redis-cli.c     sds script = sdsempty();
+<a href='../S/27.html#L881'>sds</a>               881 src/redis-cli.c     argv2 = zmalloc(sizeof(sds)*(argc+3));
+<a href='../S/35.html#L388'>sds</a>               388 src/redis.c        l1 = sdslen((sds)key1);
+<a href='../S/35.html#L389'>sds</a>               389 src/redis.c        l2 = sdslen((sds)key2);
+<a href='../S/35.html#L428'>sds</a>               428 src/redis.c        return dictGenHashFunction(o-&gt;ptr, sdslen((sds)o-&gt;ptr));
+<a href='../S/35.html#L461'>sds</a>               461 src/redis.c            return dictGenHashFunction(o-&gt;ptr, sdslen((sds)o-&gt;ptr));
+<a href='../S/35.html#L473'>sds</a>               473 src/redis.c                hash = dictGenHashFunction(o-&gt;ptr, sdslen((sds)o-&gt;ptr));
+<a href='../S/35.html#L664'>sds</a>               664 src/redis.c                        sds key = dictGetKey(de);
+<a href='../S/35.html#L1454'>sds</a>              1454 src/redis.c        sds name = sdsnew(s);
+<a href='../S/35.html#L1838'>sds</a>              1838 src/redis.c    sds genRedisInfoString(char *section) {
+<a href='../S/35.html#L1839'>sds</a>              1839 src/redis.c        sds info = sdsempty();
+<a href='../S/35.html#L2194'>sds</a>              2194 src/redis.c        sds info = genRedisInfoString(section);
+<a href='../S/35.html#L2268'>sds</a>              2268 src/redis.c                sds bestkey = NULL;
+<a href='../S/35.html#L2295'>sds</a>              2295 src/redis.c                        sds thiskey;
+<a href='../S/35.html#L2319'>sds</a>              2319 src/redis.c                        sds thiskey;
+<a href='../S/35.html#L2552'>sds</a>              2552 src/redis.c            sds options = sdsempty();
+<a href='../S/32.html#L383'>sds</a>               383 src/redis.h        sds querybuf;
+<a href='../S/32.html#L569'>sds</a>               569 src/redis.h        sds aof_buf;      /* AOF buffer, written before entering the event loop */
+<a href='../S/32.html#L802'>sds</a>               802 src/redis.h    sds getClientInfoString(redisClient *client);
+<a href='../S/32.html#L803'>sds</a>               803 src/redis.h    sds getAllClientsInfoString(void);
+<a href='../S/32.html#L1200'>sds</a>              1200 src/redis.h    sds genRedisInfoString(char *section);
+<a href='../S/14.html#L80'>sds</a>                80 src/replication.c     sds cmdrepr = sdsnew("+");
+<a href='../S/14.html#L234'>sds</a>               234 src/replication.c         sds bulkcount;
+<a href='../S/14.html#L479'>sds</a>               479 src/replication.c     sds cmd = sdsempty();
+<a href='../S/14.html#L603'>sds</a>               603 src/replication.c         sds port = sdsfromlonglong(server.port);
+<a href='../S/65.html#L58'>sds</a>                58 src/rio.h                  sds ptr;
+<a href='../S/75.html#L197'>sds</a>               197 src/scripting.c     sds reply;
+<a href='../S/75.html#L395'>sds</a>               395 src/scripting.c     sds log;
+<a href='../S/75.html#L492'>sds</a>               492 src/scripting.c     sds code = sdsempty();
+<a href='../S/75.html#L685'>sds</a>               685 src/scripting.c             sds err = sdsnew(lua_tostring(lua,-1));
+<a href='../S/75.html#L698'>sds</a>               698 src/scripting.c             sds ok = sdsnew(lua_tostring(lua,-1));
+<a href='../S/75.html#L751'>sds</a>               751 src/scripting.c     sds funcdef = sdsempty();
+<a href='../S/75.html#L992'>sds</a>               992 src/scripting.c         sds sha;
+<a href='../S/63.html#L39'>sds</a>                39 src/sds.c      sds sdsnewlen(const void *init, size_t initlen) {
+<a href='../S/63.html#L56'>sds</a>                56 src/sds.c      sds sdsempty(void) {
+<a href='../S/63.html#L60'>sds</a>                60 src/sds.c      sds sdsnew(const char *init) {
+<a href='../S/63.html#L65'>sds</a>                65 src/sds.c      sds sdsdup(const sds s) {
+<a href='../S/63.html#L94'>sds</a>                94 src/sds.c      sds sdsMakeRoomFor(sds s, size_t addlen) {
+<a href='../S/63.html#L117'>sds</a>               117 src/sds.c      sds sdsRemoveFreeSpace(sds s) {
+<a href='../S/63.html#L165'>sds</a>               165 src/sds.c      sds sdsgrowzero(sds s, size_t len) {
+<a href='../S/63.html#L182'>sds</a>               182 src/sds.c      sds sdscatlen(sds s, const void *t, size_t len) {
+<a href='../S/63.html#L196'>sds</a>               196 src/sds.c      sds sdscat(sds s, const char *t) {
+<a href='../S/63.html#L200'>sds</a>               200 src/sds.c      sds sdscatsds(sds s, const sds t) {
+<a href='../S/63.html#L204'>sds</a>               204 src/sds.c      sds sdscpylen(sds s, const char *t, size_t len) {
+<a href='../S/63.html#L221'>sds</a>               221 src/sds.c      sds sdscpy(sds s, const char *t) {
+<a href='../S/63.html#L225'>sds</a>               225 src/sds.c      sds sdscatvprintf(sds s, const char *fmt, va_list ap) {
+<a href='../S/63.html#L248'>sds</a>               248 src/sds.c      sds sdscatprintf(sds s, const char *fmt, ...) {
+<a href='../S/63.html#L257'>sds</a>               257 src/sds.c      sds sdstrim(sds s, const char *cset) {
+<a href='../S/63.html#L274'>sds</a>               274 src/sds.c      sds sdsrange(sds s, int start, int end) {
+<a href='../S/63.html#L345'>sds</a>               345 src/sds.c      sds *sdssplitlen(const char *s, int len, const char *sep, int seplen, int *count) {
+<a href='../S/63.html#L347'>sds</a>               347 src/sds.c          sds *tokens;
+<a href='../S/63.html#L351'>sds</a>               351 src/sds.c          tokens = zmalloc(sizeof(sds)*slots);
+<a href='../S/63.html#L361'>sds</a>               361 src/sds.c                  sds *newtokens;
+<a href='../S/63.html#L364'>sds</a>               364 src/sds.c                  newtokens = zrealloc(tokens,sizeof(sds)*slots);
+<a href='../S/63.html#L401'>sds</a>               401 src/sds.c      sds sdsfromlonglong(long long value) {
+<a href='../S/63.html#L416'>sds</a>               416 src/sds.c      sds sdscatrepr(sds s, const char *p, size_t len) {
+<a href='../S/63.html#L484'>sds</a>               484 src/sds.c      sds *sdssplitargs(const char *line, int *argc) {
+<a href='../S/63.html#L607'>sds</a>               607 src/sds.c      sds sdsmapchars(sds s, const char *from, const char *to, size_t setlen) {
+<a href='../S/63.html#L628'>sds</a>               628 src/sds.c              sds x = sdsnew("foo"), y;
+<a href='../S/41.html#L57'>sds</a>                57 src/sds.h      sds sdsnewlen(const void *init, size_t initlen);
+<a href='../S/41.html#L58'>sds</a>                58 src/sds.h      sds sdsnew(const char *init);
+<a href='../S/41.html#L59'>sds</a>                59 src/sds.h      sds sdsempty();
+<a href='../S/41.html#L61'>sds</a>                61 src/sds.h      sds sdsdup(const sds s);
+<a href='../S/41.html#L64'>sds</a>                64 src/sds.h      sds sdsgrowzero(sds s, size_t len);
+<a href='../S/41.html#L65'>sds</a>                65 src/sds.h      sds sdscatlen(sds s, const void *t, size_t len);
+<a href='../S/41.html#L66'>sds</a>                66 src/sds.h      sds sdscat(sds s, const char *t);
+<a href='../S/41.html#L67'>sds</a>                67 src/sds.h      sds sdscatsds(sds s, const sds t);
+<a href='../S/41.html#L68'>sds</a>                68 src/sds.h      sds sdscpylen(sds s, const char *t, size_t len);
+<a href='../S/41.html#L69'>sds</a>                69 src/sds.h      sds sdscpy(sds s, const char *t);
+<a href='../S/41.html#L71'>sds</a>                71 src/sds.h      sds sdscatvprintf(sds s, const char *fmt, va_list ap);
+<a href='../S/41.html#L73'>sds</a>                73 src/sds.h      sds sdscatprintf(sds s, const char *fmt, ...)
+<a href='../S/41.html#L76'>sds</a>                76 src/sds.h      sds sdscatprintf(sds s, const char *fmt, ...);
+<a href='../S/41.html#L79'>sds</a>                79 src/sds.h      sds sdstrim(sds s, const char *cset);
+<a href='../S/41.html#L80'>sds</a>                80 src/sds.h      sds sdsrange(sds s, int start, int end);
+<a href='../S/41.html#L84'>sds</a>                84 src/sds.h      sds *sdssplitlen(const char *s, int len, const char *sep, int seplen, int *count);
+<a href='../S/41.html#L88'>sds</a>                88 src/sds.h      sds sdsfromlonglong(long long value);
+<a href='../S/41.html#L89'>sds</a>                89 src/sds.h      sds sdscatrepr(sds s, const char *p, size_t len);
+<a href='../S/41.html#L90'>sds</a>                90 src/sds.h      sds *sdssplitargs(const char *line, int *argc);
+<a href='../S/41.html#L92'>sds</a>                92 src/sds.h      sds sdsmapchars(sds s, const char *from, const char *to, size_t setlen);
+<a href='../S/41.html#L95'>sds</a>                95 src/sds.h      sds sdsMakeRoomFor(sds s, size_t addlen);
+<a href='../S/41.html#L97'>sds</a>                97 src/sds.h      sds sdsRemoveFreeSpace(sds s);
+<a href='../S/82.html#L940'>sds</a>               940 src/sentinel.c     sds key;
+<a href='../S/82.html#L1031'>sds</a>              1031 src/sentinel.c     sds sdsname = sdsnew(name);
+<a href='../S/82.html#L1354'>sds</a>              1354 src/sentinel.c     sds *lines;
+<a href='../S/82.html#L1368'>sds</a>              1368 src/sentinel.c         sds l = lines[j];
+<a href='../S/82.html#L2080'>sds</a>              2080 src/sentinel.c     sds info = sdsempty();
+<a href='../S/82.html#L2091'>sds</a>              2091 src/sentinel.c         sds serversection = genRedisInfoString("server");
+<a href='../S/70.html#L69'>sds</a>                69 src/slowlog.c                  sds s = sdsnewlen(argv[j]-&gt;ptr, SLOWLOG_ENTRY_MAX_STRING);
+<a href='../S/57.html#L63'>sds</a>                63 src/sort.c         sds spat, ssub;
+<a href='../S/79.html#L117'>sds</a>               117 src/t_string.c     sds value = c-&gt;argv[3]-&gt;ptr;
+</pre>
+</body>
+</html>

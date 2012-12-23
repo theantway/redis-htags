@@ -1,0 +1,262 @@
+<html>
+<head>
+<title>deps/lua/src/lundump.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/lundump.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L36'>[^]</a><a href='#L214'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L36' title='Defined at 36.'>error</a>
+<li><a href='#L48' title='Defined at 48.'>LoadBlock</a>
+<li><a href='#L54' title='Defined at 54.'>LoadChar</a>
+<li><a href='#L61' title='Defined at 61.'>LoadInt</a>
+<li><a href='#L69' title='Defined at 69.'>LoadNumber</a>
+<li><a href='#L76' title='Defined at 76.'>LoadString</a>
+<li><a href='#L90' title='Defined at 90.'>LoadCode</a>
+<li><a href='#L100' title='Defined at 100.'>LoadConstants</a>
+<li><a href='#L137' title='Defined at 137.'>LoadDebug</a>
+<li><a href='#L161' title='Defined at 161.'>LoadFunction</a>
+<li><a href='#L183' title='Defined at 183.'>LoadHeader</a>
+<li><a href='#L195' title='Defined at 195.'>luaU_undump</a>
+<li><a href='#L214' title='Defined at 214.'>luaU_header</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: lundump.c,v 2.7.1.4 2008/04/04 19:51:41 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** load precompiled Lua chunks</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L8'>
+<a name='L9'><font color='darkred'>#define</font> lundump_c
+<a name='L10'><font color='darkred'>#define</font> <a href='../R/303.html' title='Multiple refered from 2 places.'>LUA_CORE</a>
+<a name='L11'>
+<a name='L12'><font color='darkred'>#include</font> "<a href='266.html'>lua.h</a>"
+<a name='L13'>
+<a name='L14'><font color='darkred'>#include</font> "<a href='264.html'>ldebug.h</a>"
+<a name='L15'><font color='darkred'>#include</font> "<a href='296.html'>ldo.h</a>"
+<a name='L16'><font color='darkred'>#include</font> "<a href='257.html'>lfunc.h</a>"
+<a name='L17'><font color='darkred'>#include</font> "<a href='278.html'>lmem.h</a>"
+<a name='L18'><font color='darkred'>#include</font> "<a href='282.html'>lobject.h</a>"
+<a name='L19'><font color='darkred'>#include</font> "<a href='268.html'>lstring.h</a>"
+<a name='L20'><font color='darkred'>#include</font> "<a href='271.html'>lundump.h</a>"
+<a name='L21'><font color='darkred'>#include</font> "<a href='312.html'>lzio.h</a>"
+<a name='L22'>
+<a name='L23'><b>typedef</b> <b>struct</b> <font color='red'>{</font>
+<a name='L24'> <a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a>* L;
+<a name='L25'> <a href='../S/312.html#L18' title='Defined at 18 in deps/lua/src/lzio.h.'>ZIO</a>* Z;
+<a name='L26'> <a href='../D/512.html' title='Multiple defined in 2 places.'>Mbuffer</a>* b;
+<a name='L27'> <b>const</b> <b>char</b>* name;
+<a name='L28'><font color='red'>}</font> <a href='../S/308.html#L197' title='Refered from 197 in deps/lua/src/lundump.c.'>LoadState</a>;
+<a name='L29'>
+<a name='L30'><font color='darkred'>#ifdef</font> LUAC_TRUST_BINARIES
+<a name='L31'><font color='darkred'>#define</font> <a href='../R/189.html' title='Multiple refered from 4 places.'>IF</a>(c,s)
+<a name='L32'><font color='darkred'>#define</font> <a href='../R/1893.html' title='Multiple refered from 38 places.'>error</a>(S,s)
+<a name='L33'><font color='darkred'>#else</font>
+<a name='L34'><font color='darkred'>#define</font> <a href='../R/189.html' title='Multiple refered from 4 places.'>IF</a>(c,s)         <b>if</b> (c) <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>,s)
+<a name='L35'>
+<a name='L36'><b>static</b> <b>void</b> <a href='../R/1893.html' title='Multiple refered from 38 places.'>error</a>(LoadState* <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>, <b>const</b> <b>char</b>* why)
+<a name='L37'><font color='red'>{</font>
+<a name='L38'> <a href='../S/311.html#L172' title='Defined at 172 in deps/lua/src/lobject.c.'>luaO_pushfstring</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;L,"%s: %s in precompiled chunk",<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;name,why);
+<a name='L39'> <a href='../S/297.html#L94' title='Defined at 94 in deps/lua/src/ldo.c.'>luaD_throw</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;L,<a href='../S/266.html#L45' title='Defined at 45 in deps/lua/src/lua.h.'>LUA_ERRSYNTAX</a>);
+<a name='L40'><font color='red'>}</font>
+<a name='L41'><font color='darkred'>#endif</font>
+<a name='L42'>
+<a name='L43'><font color='darkred'>#define</font> <a href='../R/417.html' title='Multiple refered from 2 places.'>LoadMem</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>,b,n,size)     <a href='../S/308.html#L48' title='Defined at 48 in deps/lua/src/lundump.c.'>LoadBlock</a>(S,b,(n)*(size))
+<a name='L44'><font color='darkred'>#define</font> <a href='../R/408.html' title='Multiple refered from 4 places.'>LoadByte</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>)             (<a href='../S/310.html#L27' title='Defined at 27 in deps/lua/src/llimits.h.'>lu_byte</a>)<a href='../S/308.html#L54' title='Defined at 54 in deps/lua/src/lundump.c.'>LoadChar</a>(S)
+<a name='L45'><font color='darkred'>#define</font> <a href='../R/422.html' title='Multiple refered from 4 places.'>LoadVar</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>,x)            <a href='../S/308.html#L43' title='Defined at 43 in deps/lua/src/lundump.c.'>LoadMem</a>(S,&amp;x,1,<b>sizeof</b>(x))
+<a name='L46'><font color='darkred'>#define</font> <a href='../R/423.html' title='Multiple refered from 2 places.'>LoadVector</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>,b,n,size)  <a href='../S/308.html#L43' title='Defined at 43 in deps/lua/src/lundump.c.'>LoadMem</a>(S,b,n,size)
+<a name='L47'>
+<a name='L48'><b>static</b> <b>void</b> <a href='../R/407.html' title='Multiple refered from 3 places.'>LoadBlock</a>(LoadState* <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>, <b>void</b>* b, size_t size)
+<a name='L49'><font color='red'>{</font>
+<a name='L50'> size_t r=<a href='../S/289.html#L58' title='Defined at 58 in deps/lua/src/lzio.c.'>luaZ_read</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;Z,b,size);
+<a name='L51'> <a href='../D/196.html' title='Multiple defined in 2 places.'>IF</a> (r!=0, "unexpected end");
+<a name='L52'><font color='red'>}</font>
+<a name='L53'>
+<a name='L54'><b>static</b> <b>int</b> <a href='../R/409.html' title='Multiple refered from 3 places.'>LoadChar</a>(LoadState* <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>)
+<a name='L55'><font color='red'>{</font>
+<a name='L56'> <b>char</b> x;
+<a name='L57'> <a href='../S/308.html#L45' title='Defined at 45 in deps/lua/src/lundump.c.'>LoadVar</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>,x);
+<a name='L58'> <b>return</b> x;
+<a name='L59'><font color='red'>}</font>
+<a name='L60'>
+<a name='L61'><b>static</b> <b>int</b> <a href='../R/416.html' title='Multiple refered from 10 places.'>LoadInt</a>(LoadState* <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>)
+<a name='L62'><font color='red'>{</font>
+<a name='L63'> <b>int</b> x;
+<a name='L64'> <a href='../S/308.html#L45' title='Defined at 45 in deps/lua/src/lundump.c.'>LoadVar</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>,x);
+<a name='L65'> <a href='../D/196.html' title='Multiple defined in 2 places.'>IF</a> (x&lt;0, "bad integer");
+<a name='L66'> <b>return</b> x;
+<a name='L67'><font color='red'>}</font>
+<a name='L68'>
+<a name='L69'><b>static</b> <a href='../S/266.html#L99' title='Defined at 99 in deps/lua/src/lua.h.'>lua_Number</a> <a href='../S/308.html#L120' title='Refered from 120 in deps/lua/src/lundump.c.'>LoadNumber</a>(LoadState* <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>)
+<a name='L70'><font color='red'>{</font>
+<a name='L71'> <a href='../S/266.html#L99' title='Defined at 99 in deps/lua/src/lua.h.'>lua_Number</a> x;
+<a name='L72'> <a href='../S/308.html#L45' title='Defined at 45 in deps/lua/src/lundump.c.'>LoadVar</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>,x);
+<a name='L73'> <b>return</b> x;
+<a name='L74'><font color='red'>}</font>
+<a name='L75'>
+<a name='L76'><b>static</b> <a href='../D/1215.html' title='Multiple defined in 2 places.'>TString</a>* <a href='../R/421.html' title='Multiple refered from 4 places.'>LoadString</a>(LoadState* <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>)
+<a name='L77'><font color='red'>{</font>
+<a name='L78'> size_t size;
+<a name='L79'> <a href='../S/308.html#L45' title='Defined at 45 in deps/lua/src/lundump.c.'>LoadVar</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>,size);
+<a name='L80'> <b>if</b> (size==0)
+<a name='L81'>  <b>return</b> NULL;
+<a name='L82'> <b>else</b>
+<a name='L83'> <font color='red'>{</font>
+<a name='L84'>  <b>char</b>* s=<a href='../S/289.html#L74' title='Defined at 74 in deps/lua/src/lzio.c.'>luaZ_openspace</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;L,<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;b,size);
+<a name='L85'>  <a href='../S/308.html#L48' title='Defined at 48 in deps/lua/src/lundump.c.'>LoadBlock</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>,s,size);
+<a name='L86'>  <b>return</b> <a href='../S/284.html#L75' title='Defined at 75 in deps/lua/src/lstring.c.'>luaS_newlstr</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;L,s,size-1);           <i><font color='green'>/* remove trailing '\0' */</font></i>
+<a name='L87'> <font color='red'>}</font>
+<a name='L88'><font color='red'>}</font>
+<a name='L89'>
+<a name='L90'><b>static</b> <b>void</b> <a href='../S/308.html#L174' title='Refered from 174 in deps/lua/src/lundump.c.'>LoadCode</a>(LoadState* <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>, Proto* f)
+<a name='L91'><font color='red'>{</font>
+<a name='L92'> <b>int</b> n=<a href='../S/308.html#L61' title='Defined at 61 in deps/lua/src/lundump.c.'>LoadInt</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>);
+<a name='L93'> f-&gt;code=<a href='../S/278.html#L30' title='Defined at 30 in deps/lua/src/lmem.h.'>luaM_newvector</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;L,n,<a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a>);
+<a name='L94'> f-&gt;sizecode=n;
+<a name='L95'> <a href='../S/308.html#L46' title='Defined at 46 in deps/lua/src/lundump.c.'>LoadVector</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>,f-&gt;code,n,<b>sizeof</b>(<a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a>));
+<a name='L96'><font color='red'>}</font>
+<a name='L97'>
+<a name='L98'><b>static</b> <a href='../D/722.html' title='Multiple defined in 2 places.'>Proto</a>* <a href='../S/308.html#L161' title='Defined at 161 in deps/lua/src/lundump.c.'>LoadFunction</a>(LoadState* <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>, TString* p);
+<a name='L99'>
+<a name='L100'><b>static</b> <b>void</b> <a href='../S/308.html#L175' title='Refered from 175 in deps/lua/src/lundump.c.'>LoadConstants</a>(LoadState* <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>, Proto* f)
+<a name='L101'><font color='red'>{</font>
+<a name='L102'> <b>int</b> i,n;
+<a name='L103'> n=<a href='../S/308.html#L61' title='Defined at 61 in deps/lua/src/lundump.c.'>LoadInt</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>);
+<a name='L104'> f-&gt;k=<a href='../S/278.html#L30' title='Defined at 30 in deps/lua/src/lmem.h.'>luaM_newvector</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;L,n,<a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a>);
+<a name='L105'> f-&gt;sizek=n;
+<a name='L106'> <b>for</b> (i=0; i&lt;n; i++) <a href='../S/282.html#L117' title='Defined at 117 in deps/lua/src/lobject.h.'>setnilvalue</a>(&amp;f-&gt;k[i]);
+<a name='L107'> <b>for</b> (i=0; i&lt;n; i++)
+<a name='L108'> <font color='red'>{</font>
+<a name='L109'>  <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a>* o=&amp;f-&gt;k[i];
+<a name='L110'>  <b>int</b> t=<a href='../S/308.html#L54' title='Defined at 54 in deps/lua/src/lundump.c.'>LoadChar</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>);
+<a name='L111'>  <b>switch</b> (t)
+<a name='L112'>  <font color='red'>{</font>
+<a name='L113'>   <b>case</b> <a href='../S/266.html#L74' title='Defined at 74 in deps/lua/src/lua.h.'>LUA_TNIL</a>:
+<a name='L114'>        <a href='../S/282.html#L117' title='Defined at 117 in deps/lua/src/lobject.h.'>setnilvalue</a>(o);
+<a name='L115'>        <b>break</b>;
+<a name='L116'>   <b>case</b> <a href='../S/266.html#L75' title='Defined at 75 in deps/lua/src/lua.h.'>LUA_TBOOLEAN</a>:
+<a name='L117'>        <a href='../S/282.html#L125' title='Defined at 125 in deps/lua/src/lobject.h.'>setbvalue</a>(o,<a href='../S/308.html#L54' title='Defined at 54 in deps/lua/src/lundump.c.'>LoadChar</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>)!=0);
+<a name='L118'>        <b>break</b>;
+<a name='L119'>   <b>case</b> <a href='../S/266.html#L77' title='Defined at 77 in deps/lua/src/lua.h.'>LUA_TNUMBER</a>:
+<a name='L120'>        <a href='../S/282.html#L119' title='Defined at 119 in deps/lua/src/lobject.h.'>setnvalue</a>(o,<a href='../S/308.html#L69' title='Defined at 69 in deps/lua/src/lundump.c.'>LoadNumber</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>));
+<a name='L121'>        <b>break</b>;
+<a name='L122'>   <b>case</b> <a href='../S/266.html#L78' title='Defined at 78 in deps/lua/src/lua.h.'>LUA_TSTRING</a>:
+<a name='L123'>        <a href='../S/282.html#L184' title='Defined at 184 in deps/lua/src/lobject.h.'>setsvalue2n</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;L,o,<a href='../S/308.html#L76' title='Defined at 76 in deps/lua/src/lundump.c.'>LoadString</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>));
+<a name='L124'>        <b>break</b>;
+<a name='L125'>   <b>default</b>:
+<a name='L126'>        <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>,"bad constant");
+<a name='L127'>        <b>break</b>;
+<a name='L128'>  <font color='red'>}</font>
+<a name='L129'> <font color='red'>}</font>
+<a name='L130'> n=<a href='../S/308.html#L61' title='Defined at 61 in deps/lua/src/lundump.c.'>LoadInt</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>);
+<a name='L131'> f-&gt;p=<a href='../S/278.html#L30' title='Defined at 30 in deps/lua/src/lmem.h.'>luaM_newvector</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;L,n,<a href='../D/722.html' title='Multiple defined in 2 places.'>Proto</a>*);
+<a name='L132'> f-&gt;sizep=n;
+<a name='L133'> <b>for</b> (i=0; i&lt;n; i++) f-&gt;p[i]=NULL;
+<a name='L134'> <b>for</b> (i=0; i&lt;n; i++) f-&gt;p[i]=<a href='../S/308.html#L161' title='Defined at 161 in deps/lua/src/lundump.c.'>LoadFunction</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>,f-&gt;source);
+<a name='L135'><font color='red'>}</font>
+<a name='L136'>
+<a name='L137'><b>static</b> <b>void</b> <a href='../S/308.html#L176' title='Refered from 176 in deps/lua/src/lundump.c.'>LoadDebug</a>(LoadState* <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>, Proto* f)
+<a name='L138'><font color='red'>{</font>
+<a name='L139'> <b>int</b> i,n;
+<a name='L140'> n=<a href='../S/308.html#L61' title='Defined at 61 in deps/lua/src/lundump.c.'>LoadInt</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>);
+<a name='L141'> f-&gt;lineinfo=<a href='../S/278.html#L30' title='Defined at 30 in deps/lua/src/lmem.h.'>luaM_newvector</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;L,n,<b>int</b>);
+<a name='L142'> f-&gt;sizelineinfo=n;
+<a name='L143'> <a href='../S/308.html#L46' title='Defined at 46 in deps/lua/src/lundump.c.'>LoadVector</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>,f-&gt;lineinfo,n,<b>sizeof</b>(<b>int</b>));
+<a name='L144'> n=<a href='../S/308.html#L61' title='Defined at 61 in deps/lua/src/lundump.c.'>LoadInt</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>);
+<a name='L145'> f-&gt;locvars=<a href='../S/278.html#L30' title='Defined at 30 in deps/lua/src/lmem.h.'>luaM_newvector</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;L,n,<a href='../D/473.html' title='Multiple defined in 2 places.'>LocVar</a>);
+<a name='L146'> f-&gt;sizelocvars=n;
+<a name='L147'> <b>for</b> (i=0; i&lt;n; i++) f-&gt;locvars[i].varname=NULL;
+<a name='L148'> <b>for</b> (i=0; i&lt;n; i++)
+<a name='L149'> <font color='red'>{</font>
+<a name='L150'>  f-&gt;locvars[i].varname=<a href='../S/308.html#L76' title='Defined at 76 in deps/lua/src/lundump.c.'>LoadString</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>);
+<a name='L151'>  f-&gt;locvars[i].startpc=<a href='../S/308.html#L61' title='Defined at 61 in deps/lua/src/lundump.c.'>LoadInt</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>);
+<a name='L152'>  f-&gt;locvars[i].endpc=<a href='../S/308.html#L61' title='Defined at 61 in deps/lua/src/lundump.c.'>LoadInt</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>);
+<a name='L153'> <font color='red'>}</font>
+<a name='L154'> n=<a href='../S/308.html#L61' title='Defined at 61 in deps/lua/src/lundump.c.'>LoadInt</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>);
+<a name='L155'> f-&gt;upvalues=<a href='../S/278.html#L30' title='Defined at 30 in deps/lua/src/lmem.h.'>luaM_newvector</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;L,n,<a href='../D/1215.html' title='Multiple defined in 2 places.'>TString</a>*);
+<a name='L156'> f-&gt;sizeupvalues=n;
+<a name='L157'> <b>for</b> (i=0; i&lt;n; i++) f-&gt;upvalues[i]=NULL;
+<a name='L158'> <b>for</b> (i=0; i&lt;n; i++) f-&gt;upvalues[i]=<a href='../S/308.html#L76' title='Defined at 76 in deps/lua/src/lundump.c.'>LoadString</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>);
+<a name='L159'><font color='red'>}</font>
+<a name='L160'>
+<a name='L161'><b>static</b> <a href='../D/722.html' title='Multiple defined in 2 places.'>Proto</a>* <a href='../R/414.html' title='Multiple refered from 3 places.'>LoadFunction</a>(LoadState* <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>, TString* p)
+<a name='L162'><font color='red'>{</font>
+<a name='L163'> <a href='../D/722.html' title='Multiple defined in 2 places.'>Proto</a>* f;
+<a name='L164'> <b>if</b> (++<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;L-&gt;nCcalls &gt; <a href='../S/317.html#L468' title='Defined at 468 in deps/lua/src/luaconf.h.'>LUAI_MAXCCALLS</a>) <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>,"code too deep");
+<a name='L165'> f=<a href='../S/258.html#L115' title='Defined at 115 in deps/lua/src/lfunc.c.'>luaF_newproto</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;L);
+<a name='L166'> <a href='../S/282.html#L177' title='Defined at 177 in deps/lua/src/lobject.h.'>setptvalue2s</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;L,<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;L-&gt;top,f); <a href='../S/296.html#L22' title='Defined at 22 in deps/lua/src/ldo.h.'>incr_top</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;L);
+<a name='L167'> f-&gt;source=<a href='../S/308.html#L76' title='Defined at 76 in deps/lua/src/lundump.c.'>LoadString</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>); <b>if</b> (f-&gt;source==NULL) f-&gt;source=p;
+<a name='L168'> f-&gt;linedefined=<a href='../S/308.html#L61' title='Defined at 61 in deps/lua/src/lundump.c.'>LoadInt</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>);
+<a name='L169'> f-&gt;lastlinedefined=<a href='../S/308.html#L61' title='Defined at 61 in deps/lua/src/lundump.c.'>LoadInt</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>);
+<a name='L170'> f-&gt;nups=<a href='../S/308.html#L44' title='Defined at 44 in deps/lua/src/lundump.c.'>LoadByte</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>);
+<a name='L171'> f-&gt;numparams=<a href='../S/308.html#L44' title='Defined at 44 in deps/lua/src/lundump.c.'>LoadByte</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>);
+<a name='L172'> f-&gt;is_vararg=<a href='../S/308.html#L44' title='Defined at 44 in deps/lua/src/lundump.c.'>LoadByte</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>);
+<a name='L173'> f-&gt;maxstacksize=<a href='../S/308.html#L44' title='Defined at 44 in deps/lua/src/lundump.c.'>LoadByte</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>);
+<a name='L174'> <a href='../S/308.html#L90' title='Defined at 90 in deps/lua/src/lundump.c.'>LoadCode</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>,f);
+<a name='L175'> <a href='../S/308.html#L100' title='Defined at 100 in deps/lua/src/lundump.c.'>LoadConstants</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>,f);
+<a name='L176'> <a href='../S/308.html#L137' title='Defined at 137 in deps/lua/src/lundump.c.'>LoadDebug</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>,f);
+<a name='L177'> <a href='../D/196.html' title='Multiple defined in 2 places.'>IF</a> (!<a href='../S/299.html#L484' title='Defined at 484 in deps/lua/src/ldebug.c.'>luaG_checkcode</a>(f), "bad code");
+<a name='L178'> <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;L-&gt;top--;
+<a name='L179'> <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>-&gt;L-&gt;nCcalls--;
+<a name='L180'> <b>return</b> f;
+<a name='L181'><font color='red'>}</font>
+<a name='L182'>
+<a name='L183'><b>static</b> <b>void</b> <a href='../S/308.html#L207' title='Refered from 207 in deps/lua/src/lundump.c.'>LoadHeader</a>(LoadState* <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>)
+<a name='L184'><font color='red'>{</font>
+<a name='L185'> <b>char</b> h[<a href='../S/271.html#L34' title='Defined at 34 in deps/lua/src/lundump.h.'>LUAC_HEADERSIZE</a>];
+<a name='L186'> <b>char</b> s[<a href='../S/271.html#L34' title='Defined at 34 in deps/lua/src/lundump.h.'>LUAC_HEADERSIZE</a>];
+<a name='L187'> <a href='../S/308.html#L214' title='Defined at 214 in deps/lua/src/lundump.c.'>luaU_header</a>(h);
+<a name='L188'> <a href='../S/308.html#L48' title='Defined at 48 in deps/lua/src/lundump.c.'>LoadBlock</a>(<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>,s,<a href='../S/271.html#L34' title='Defined at 34 in deps/lua/src/lundump.h.'>LUAC_HEADERSIZE</a>);
+<a name='L189'> <a href='../D/196.html' title='Multiple defined in 2 places.'>IF</a> (memcmp(h,s,<a href='../S/271.html#L34' title='Defined at 34 in deps/lua/src/lundump.h.'>LUAC_HEADERSIZE</a>)!=0, "bad header");
+<a name='L190'><font color='red'>}</font>
+<a name='L191'>
+<a name='L192'><i><font color='green'>/*</font></i>
+<a name='L193'><i><font color='green'>** load precompiled chunk</font></i>
+<a name='L194'><i><font color='green'>*/</font></i>
+<a name='L195'><a href='../D/722.html' title='Multiple defined in 2 places.'>Proto</a>* <a href='../R/2720.html' title='Multiple refered from 2 places.'>luaU_undump</a> (lua_State* L, <a href='../S/312.html#L18' title='Defined at 18 in deps/lua/src/lzio.h.'>ZIO</a>* Z, Mbuffer* buff, <b>const</b> <b>char</b>* name)
+<a name='L196'><font color='red'>{</font>
+<a name='L197'> <a href='../S/308.html#L28' title='Defined at 28 in deps/lua/src/lundump.c.'>LoadState</a> <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>;
+<a name='L198'> <b>if</b> (*name=='@' || *name=='=')
+<a name='L199'>  <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>.name=name+1;
+<a name='L200'> <b>else</b> <b>if</b> (*name==<a href='../S/266.html#L27' title='Defined at 27 in deps/lua/src/lua.h.'>LUA_SIGNATURE</a>[0])
+<a name='L201'>  <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>.name="binary string";
+<a name='L202'> <b>else</b>
+<a name='L203'>  <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>.name=name;
+<a name='L204'> <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>.L=L;
+<a name='L205'> <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>.Z=Z;
+<a name='L206'> <a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>.b=buff;
+<a name='L207'> <a href='../S/308.html#L183' title='Defined at 183 in deps/lua/src/lundump.c.'>LoadHeader</a>(&amp;<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>);
+<a name='L208'> <b>return</b> <a href='../S/308.html#L161' title='Defined at 161 in deps/lua/src/lundump.c.'>LoadFunction</a>(&amp;<a href='../S/283.html#L159' title='Defined at 159 in deps/lua/src/print.c.'>S</a>,<a href='../S/268.html#L21' title='Defined at 21 in deps/lua/src/lstring.h.'>luaS_newliteral</a>(L,"=?"));
+<a name='L209'><font color='red'>}</font>
+<a name='L210'>
+<a name='L211'><i><font color='green'>/*</font></i>
+<a name='L212'><i><font color='green'>* make header</font></i>
+<a name='L213'><i><font color='green'>*/</font></i>
+<a name='L214'><b>void</b> <a href='../R/2719.html' title='Multiple refered from 3 places.'>luaU_header</a> (<b>char</b>* h)
+<a name='L215'><font color='red'>{</font>
+<a name='L216'> <b>int</b> x=1;
+<a name='L217'> memcpy(h,<a href='../S/266.html#L27' title='Defined at 27 in deps/lua/src/lua.h.'>LUA_SIGNATURE</a>,<b>sizeof</b>(<a href='../S/266.html#L27' title='Defined at 27 in deps/lua/src/lua.h.'>LUA_SIGNATURE</a>)-1);
+<a name='L218'> h+=<b>sizeof</b>(<a href='../S/266.html#L27' title='Defined at 27 in deps/lua/src/lua.h.'>LUA_SIGNATURE</a>)-1;
+<a name='L219'> *h++=(<b>char</b>)<a href='../S/271.html#L28' title='Defined at 28 in deps/lua/src/lundump.h.'>LUAC_VERSION</a>;
+<a name='L220'> *h++=(<b>char</b>)<a href='../S/271.html#L31' title='Defined at 31 in deps/lua/src/lundump.h.'>LUAC_FORMAT</a>;
+<a name='L221'> *h++=(<b>char</b>)*(<b>char</b>*)&amp;x;                         <i><font color='green'>/* endianness */</font></i>
+<a name='L222'> *h++=(<b>char</b>)<b>sizeof</b>(<b>int</b>);
+<a name='L223'> *h++=(<b>char</b>)<b>sizeof</b>(size_t);
+<a name='L224'> *h++=(<b>char</b>)<b>sizeof</b>(<a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a>);
+<a name='L225'> *h++=(<b>char</b>)<b>sizeof</b>(<a href='../S/266.html#L99' title='Defined at 99 in deps/lua/src/lua.h.'>lua_Number</a>);
+<a name='L226'> *h++=(<b>char</b>)(((<a href='../S/266.html#L99' title='Defined at 99 in deps/lua/src/lua.h.'>lua_Number</a>)0.5)==0);             <i><font color='green'>/* is lua_Number integral? */</font></i>
+<a name='L227'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L36'>[^]</a><a href='#L214'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

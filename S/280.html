@@ -1,0 +1,777 @@
+<html>
+<head>
+<title>deps/lua/src/lua_cmsgpack.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/lua_cmsgpack.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L43'>[^]</a><a href='#L696'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L43' title='Defined at 43.'>memrevifle</a>
+<li><a href='#L70' title='Defined at 70.'>mp_buf_new</a>
+<li><a href='#L78' title='Defined at 78.'>mp_buf_append</a>
+<li><a href='#L90' title='Defined at 90.'>mp_buf_free</a>
+<li><a href='#L114' title='Defined at 114.'>mp_cur_new</a>
+<li><a href='#L123' title='Defined at 123.'>mp_cur_free</a>
+<li><a href='#L141' title='Defined at 141.'>mp_encode_bytes</a>
+<li><a href='#L166' title='Defined at 166.'>mp_encode_double</a>
+<li><a href='#L184' title='Defined at 184.'>mp_encode_int</a>
+<li><a href='#L256' title='Defined at 256.'>mp_encode_array</a>
+<li><a href='#L279' title='Defined at 279.'>mp_encode_map</a>
+<li><a href='#L304' title='Defined at 304.'>mp_encode_lua_string</a>
+<li><a href='#L312' title='Defined at 312.'>mp_encode_lua_bool</a>
+<li><a href='#L317' title='Defined at 317.'>mp_encode_lua_number</a>
+<li><a href='#L330' title='Defined at 330.'>mp_encode_lua_table_as_array</a>
+<li><a href='#L342' title='Defined at 342.'>mp_encode_lua_table_as_map</a>
+<li><a href='#L369' title='Defined at 369.'>table_is_an_array</a>
+<li><a href='#L399' title='Defined at 399.'>mp_encode_lua_table</a>
+<li><a href='#L406' title='Defined at 406.'>mp_encode_lua_null</a>
+<li><a href='#L413' title='Defined at 413.'>mp_encode_lua_type</a>
+<li><a href='#L429' title='Defined at 429.'>mp_pack</a>
+<li><a href='#L442' title='Defined at 442.'>mp_decode_to_lua_array</a>
+<li><a href='#L454' title='Defined at 454.'>mp_decode_to_lua_hash</a>
+<li><a href='#L467' title='Defined at 467.'>mp_decode_to_lua_type</a>
+<li><a href='#L657' title='Defined at 657.'>mp_unpack</a>
+<li><a href='#L696' title='Defined at 696.'>luaopen_cmsgpack</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#include</font> &lt;math.h&gt;
+<a name='L2'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L3'><font color='darkred'>#include</font> &lt;<a href='160.html'>stdint.h</a>&gt;
+<a name='L4'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L5'><font color='darkred'>#include</font> &lt;assert.h&gt;
+<a name='L6'>
+<a name='L7'><font color='darkred'>#include</font> "<a href='266.html'>lua.h</a>"
+<a name='L8'><font color='darkred'>#include</font> "<a href='265.html'>lauxlib.h</a>"
+<a name='L9'>
+<a name='L10'><font color='darkred'>#define</font> <a href='../S/280.html#L699' title='Refered from 699 in deps/lua/src/lua_cmsgpack.c.'>LUACMSGPACK_VERSION</a>     "lua-cmsgpack 0.3.0"
+<a name='L11'><font color='darkred'>#define</font> <a href='../S/280.html#L701' title='Refered from 701 in deps/lua/src/lua_cmsgpack.c.'>LUACMSGPACK_COPYRIGHT</a>   "Copyright (C) 2012, Salvatore Sanfilippo"
+<a name='L12'><font color='darkred'>#define</font> <a href='../S/280.html#L703' title='Refered from 703 in deps/lua/src/lua_cmsgpack.c.'>LUACMSGPACK_DESCRIPTION</a> "MessagePack C implementation for Lua"
+<a name='L13'>
+<a name='L14'><font color='darkred'>#define</font> <a href='../S/280.html#L418' title='Refered from 418 in deps/lua/src/lua_cmsgpack.c.'>LUACMSGPACK_MAX_NESTING</a>  16 <i><font color='green'>/* Max tables nesting. */</font></i>
+<a name='L15'>
+<a name='L16'><i><font color='green'>/* ==============================================================================</font></i>
+<a name='L17'><i><font color='green'> * MessagePack implementation and bindings for Lua 5.1.</font></i>
+<a name='L18'><i><font color='green'> * Copyright(C) 2012 Salvatore Sanfilippo &lt;antirez@gmail.com&gt;</font></i>
+<a name='L19'><i><font color='green'> *</font></i>
+<a name='L20'><i><font color='green'> * http://github.com/antirez/lua-cmsgpack</font></i>
+<a name='L21'><i><font color='green'> *</font></i>
+<a name='L22'><i><font color='green'> * For MessagePack specification check the following web site:</font></i>
+<a name='L23'><i><font color='green'> * http://wiki.msgpack.org/display/MSGPACK/Format+specification</font></i>
+<a name='L24'><i><font color='green'> *</font></i>
+<a name='L25'><i><font color='green'> * See Copyright Notice at the end of this file.</font></i>
+<a name='L26'><i><font color='green'> *</font></i>
+<a name='L27'><i><font color='green'> * CHANGELOG:</font></i>
+<a name='L28'><i><font color='green'> * 19-Feb-2012 (ver 0.1.0): Initial release.</font></i>
+<a name='L29'><i><font color='green'> * 20-Feb-2012 (ver 0.2.0): Tables encoding improved.</font></i>
+<a name='L30'><i><font color='green'> * 20-Feb-2012 (ver 0.2.1): Minor bug fixing.</font></i>
+<a name='L31'><i><font color='green'> * 20-Feb-2012 (ver 0.3.0): Module renamed lua-cmsgpack (was lua-msgpack).</font></i>
+<a name='L32'><i><font color='green'> * ============================================================================ */</font></i>
+<a name='L33'>
+<a name='L34'><i><font color='green'>/* --------------------------- Endian conversion --------------------------------</font></i>
+<a name='L35'><i><font color='green'> * We use it only for floats and doubles, all the other conversions are performed</font></i>
+<a name='L36'><i><font color='green'> * in an endian independent fashion. So the only thing we need is a function</font></i>
+<a name='L37'><i><font color='green'> * that swaps a binary string if the arch is little endian (and left it untouched</font></i>
+<a name='L38'><i><font color='green'> * otherwise). */</font></i>
+<a name='L39'>
+<a name='L40'><i><font color='green'>/* Reverse memory bytes if arch is little endian. Given the conceptual</font></i>
+<a name='L41'><i><font color='green'> * simplicity of the Lua build system we prefer to check for endianess at runtime.</font></i>
+<a name='L42'><i><font color='green'> * The performance difference should be acceptable. */</font></i>
+<a name='L43'><b>static</b> <b>void</b> <a href='../R/3001.html' title='Multiple refered from 4 places.'>memrevifle</a>(<b>void</b> *ptr, size_t len) <font color='red'>{</font>
+<a name='L44'>    <b>unsigned</b> <b>char</b> *p = ptr, *e = p+len-1, aux;
+<a name='L45'>    <b>int</b> <a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a> = 1;
+<a name='L46'>    <b>unsigned</b> <b>char</b> *testp = (<b>unsigned</b> <b>char</b>*) &amp;<a href='../S/122.html#L34' title='Defined at 34 in deps/hiredis/test.c.'>test</a>;
+<a name='L47'>
+<a name='L48'>    <b>if</b> (testp[0] == 0) <b>return</b>; <i><font color='green'>/* Big endian, nothign to do. */</font></i>
+<a name='L49'>    len /= 2;
+<a name='L50'>    <b>while</b>(len--) <font color='red'>{</font>
+<a name='L51'>        aux = *p;
+<a name='L52'>        *p = *e;
+<a name='L53'>        *e = aux;
+<a name='L54'>        p++;
+<a name='L55'>        e--;
+<a name='L56'>    <font color='red'>}</font>
+<a name='L57'><font color='red'>}</font>
+<a name='L58'>
+<a name='L59'><i><font color='green'>/* ----------------------------- String buffer ----------------------------------</font></i>
+<a name='L60'><i><font color='green'> * This is a simple implementation of string buffers. The only opereation</font></i>
+<a name='L61'><i><font color='green'> * supported is creating empty buffers and appending bytes to it.</font></i>
+<a name='L62'><i><font color='green'> * The string buffer uses 2x preallocation on every realloc for O(N) append</font></i>
+<a name='L63'><i><font color='green'> * behavior.  */</font></i>
+<a name='L64'>
+<a name='L65'><b>typedef</b> <b>struct</b> <a href='../R/3024.html' title='Multiple refered from 3 places.'>mp_buf</a> <font color='red'>{</font>
+<a name='L66'>    <b>unsigned</b> <b>char</b> *b;
+<a name='L67'>    size_t len, <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>;
+<a name='L68'><font color='red'>}</font> <a href='../R/3024.html' title='Multiple refered from 3 places.'>mp_buf</a>;
+<a name='L69'>
+<a name='L70'><b>static</b> <a href='../D/3372.html' title='Multiple defined in 2 places.'>mp_buf</a> *<a href='../S/280.html#L430' title='Refered from 430 in deps/lua/src/lua_cmsgpack.c.'>mp_buf_new</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L71'>    <a href='../D/3372.html' title='Multiple defined in 2 places.'>mp_buf</a> *buf = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(*buf));
+<a name='L72'>    
+<a name='L73'>    buf-&gt;b = NULL;
+<a name='L74'>    buf-&gt;len = buf-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> = 0;
+<a name='L75'>    <b>return</b> buf;
+<a name='L76'><font color='red'>}</font>
+<a name='L77'>
+<a name='L78'><b>void</b> <a href='../R/3025.html' title='Multiple refered from 9 places.'>mp_buf_append</a>(mp_buf *buf, <b>const</b> <b>unsigned</b> <b>char</b> *s, size_t len) <font color='red'>{</font>
+<a name='L79'>    <b>if</b> (buf-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> &lt; len) <font color='red'>{</font>
+<a name='L80'>        size_t newlen = buf-&gt;len+len;
+<a name='L81'>
+<a name='L82'>        buf-&gt;b = <a href='../D/3747.html' title='Multiple defined in 2 places.'>realloc</a>(buf-&gt;b,newlen*2);
+<a name='L83'>        buf-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> = newlen;
+<a name='L84'>    <font color='red'>}</font>
+<a name='L85'>    memcpy(buf-&gt;b+buf-&gt;len,s,len);
+<a name='L86'>    buf-&gt;len += len;
+<a name='L87'>    buf-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> -= len;
+<a name='L88'><font color='red'>}</font>
+<a name='L89'>
+<a name='L90'><b>void</b> <a href='../S/280.html#L434' title='Refered from 434 in deps/lua/src/lua_cmsgpack.c.'>mp_buf_free</a>(mp_buf *buf) <font color='red'>{</font>
+<a name='L91'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(buf-&gt;b);
+<a name='L92'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(buf);
+<a name='L93'><font color='red'>}</font>
+<a name='L94'>
+<a name='L95'><i><font color='green'>/* ------------------------------ String cursor ----------------------------------</font></i>
+<a name='L96'><i><font color='green'> * This simple data structure is used for parsing. Basically you create a cursor</font></i>
+<a name='L97'><i><font color='green'> * using a string pointer and a length, then it is possible to access the</font></i>
+<a name='L98'><i><font color='green'> * current string position with cursor-&gt;p, check the remaining length</font></i>
+<a name='L99'><i><font color='green'> * in cursor-&gt;left, and finally consume more string using</font></i>
+<a name='L100'><i><font color='green'> * mp_cur_consume(cursor,len), to advance 'p' and subtract 'left'.</font></i>
+<a name='L101'><i><font color='green'> * An additional field cursor-&gt;error is set to zero on initialization and can</font></i>
+<a name='L102'><i><font color='green'> * be used to report errors. */</font></i>
+<a name='L103'>
+<a name='L104'><font color='darkred'>#define</font> <a href='../S/280.html#L119' title='Refered from 119 in deps/lua/src/lua_cmsgpack.c.'>MP_CUR_ERROR_NONE</a>   0
+<a name='L105'><font color='darkred'>#define</font> <a href='../R/457.html' title='Multiple refered from 2 places.'>MP_CUR_ERROR_EOF</a>    1   <i><font color='green'>/* Not enough data to complete the opereation. */</font></i>
+<a name='L106'><font color='darkred'>#define</font> <a href='../R/456.html' title='Multiple refered from 2 places.'>MP_CUR_ERROR_BADFMT</a> 2   <i><font color='green'>/* Bad data format */</font></i>
+<a name='L107'>
+<a name='L108'><b>typedef</b> <b>struct</b> <a href='../R/3028.html' title='Multiple refered from 3 places.'>mp_cur</a> <font color='red'>{</font>
+<a name='L109'>    <b>const</b> <b>unsigned</b> <b>char</b> *p;
+<a name='L110'>    size_t left;
+<a name='L111'>    <b>int</b> err;
+<a name='L112'><font color='red'>}</font> <a href='../R/3028.html' title='Multiple refered from 3 places.'>mp_cur</a>;
+<a name='L113'>
+<a name='L114'><b>static</b> <a href='../D/3376.html' title='Multiple defined in 2 places.'>mp_cur</a> *<a href='../S/280.html#L668' title='Refered from 668 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_new</a>(<b>const</b> <b>unsigned</b> <b>char</b> *s, size_t len) <font color='red'>{</font>
+<a name='L115'>    <a href='../D/3376.html' title='Multiple defined in 2 places.'>mp_cur</a> *cursor = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(*cursor));
+<a name='L116'>
+<a name='L117'>    cursor-&gt;p = s;
+<a name='L118'>    cursor-&gt;left = len;
+<a name='L119'>    cursor-&gt;err = <a href='../S/280.html#L104' title='Defined at 104 in deps/lua/src/lua_cmsgpack.c.'>MP_CUR_ERROR_NONE</a>;
+<a name='L120'>    <b>return</b> cursor;
+<a name='L121'><font color='red'>}</font>
+<a name='L122'>
+<a name='L123'><b>static</b> <b>void</b> <a href='../R/3030.html' title='Multiple refered from 4 places.'>mp_cur_free</a>(mp_cur *cursor) <font color='red'>{</font>
+<a name='L124'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cursor);
+<a name='L125'><font color='red'>}</font>
+<a name='L126'>
+<a name='L127'><font color='darkred'>#define</font> <a href='../R/3029.html' title='Multiple refered from 24 places.'>mp_cur_consume</a>(_c,_len) <b>do</b> <font color='red'>{</font> _c-&gt;p += _len; _c-&gt;left -= _len; <font color='red'>}</font> <b>while</b>(0)
+<a name='L128'>
+<a name='L129'><i><font color='green'>/* When there is not enough room we set an error in the cursor and return, this</font></i>
+<a name='L130'><i><font color='green'> * is very common across the code so we have a macro to make the code look</font></i>
+<a name='L131'><i><font color='green'> * a bit simpler. */</font></i>
+<a name='L132'><font color='darkred'>#define</font> <a href='../R/3031.html' title='Multiple refered from 20 places.'>mp_cur_need</a>(_c,_len) <b>do</b> <font color='red'>{</font> \
+<a name='L133'>    <b>if</b> (_c-&gt;left &lt; _len) <font color='red'>{</font> \
+<a name='L134'>        _c-&gt;err = <a href='../S/280.html#L105' title='Defined at 105 in deps/lua/src/lua_cmsgpack.c.'>MP_CUR_ERROR_EOF</a>; \
+<a name='L135'>        <b>return</b>; \
+<a name='L136'>    <font color='red'>}</font> \
+<a name='L137'><font color='red'>}</font> <b>while</b>(0)
+<a name='L138'>
+<a name='L139'><i><font color='green'>/* --------------------------- Low level MP encoding -------------------------- */</font></i>
+<a name='L140'>
+<a name='L141'><b>static</b> <b>void</b> <a href='../S/280.html#L309' title='Refered from 309 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_bytes</a>(mp_buf *buf, <b>const</b> <b>unsigned</b> <b>char</b> *s, size_t len) <font color='red'>{</font>
+<a name='L142'>    <b>unsigned</b> <b>char</b> hdr[5];
+<a name='L143'>    <b>int</b> hdrlen;
+<a name='L144'>
+<a name='L145'>    <b>if</b> (len &lt; 32) <font color='red'>{</font>
+<a name='L146'>        hdr[0] = 0xa0 | (len&amp;0xff); <i><font color='green'>/* fix raw */</font></i>
+<a name='L147'>        hdrlen = 1;
+<a name='L148'>    <font color='red'>}</font> <b>else</b> <b>if</b> (len &lt;= 0xffff) <font color='red'>{</font>
+<a name='L149'>        hdr[0] = 0xda;
+<a name='L150'>        hdr[1] = (len&amp;0xff00)&gt;&gt;8;
+<a name='L151'>        hdr[2] = len&amp;0xff;
+<a name='L152'>        hdrlen = 3;
+<a name='L153'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L154'>        hdr[0] = 0xdb;
+<a name='L155'>        hdr[1] = (len&amp;0xff000000)&gt;&gt;24;
+<a name='L156'>        hdr[2] = (len&amp;0xff0000)&gt;&gt;16;
+<a name='L157'>        hdr[3] = (len&amp;0xff00)&gt;&gt;8;
+<a name='L158'>        hdr[4] = len&amp;0xff;
+<a name='L159'>        hdrlen = 5;
+<a name='L160'>    <font color='red'>}</font>
+<a name='L161'>    <a href='../S/280.html#L78' title='Defined at 78 in deps/lua/src/lua_cmsgpack.c.'>mp_buf_append</a>(buf,hdr,hdrlen);
+<a name='L162'>    <a href='../S/280.html#L78' title='Defined at 78 in deps/lua/src/lua_cmsgpack.c.'>mp_buf_append</a>(buf,s,len);
+<a name='L163'><font color='red'>}</font>
+<a name='L164'>
+<a name='L165'><i><font color='green'>/* we assume IEEE 754 internal format for single and double precision floats. */</font></i>
+<a name='L166'><b>static</b> <b>void</b> <a href='../S/280.html#L321' title='Refered from 321 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_double</a>(mp_buf *buf, <b>double</b> d) <font color='red'>{</font>
+<a name='L167'>    <b>unsigned</b> <b>char</b> b[9];
+<a name='L168'>    <b>float</b> f = d;
+<a name='L169'>
+<a name='L170'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<b>sizeof</b>(f) == 4 &amp;&amp; <b>sizeof</b>(d) == 8);
+<a name='L171'>    <b>if</b> (d == (<b>double</b>)f) <font color='red'>{</font>
+<a name='L172'>        b[0] = 0xca;    <i><font color='green'>/* float IEEE 754 */</font></i>
+<a name='L173'>        memcpy(b+1,&amp;f,4);
+<a name='L174'>        <a href='../S/280.html#L43' title='Defined at 43 in deps/lua/src/lua_cmsgpack.c.'>memrevifle</a>(b+1,4);
+<a name='L175'>        <a href='../S/280.html#L78' title='Defined at 78 in deps/lua/src/lua_cmsgpack.c.'>mp_buf_append</a>(buf,b,5);
+<a name='L176'>    <font color='red'>}</font> <b>else</b> <b>if</b> (<b>sizeof</b>(d) == 8) <font color='red'>{</font>
+<a name='L177'>        b[0] = 0xcb;    <i><font color='green'>/* double IEEE 754 */</font></i>
+<a name='L178'>        memcpy(b+1,&amp;d,8);
+<a name='L179'>        <a href='../S/280.html#L43' title='Defined at 43 in deps/lua/src/lua_cmsgpack.c.'>memrevifle</a>(b+1,8);
+<a name='L180'>        <a href='../S/280.html#L78' title='Defined at 78 in deps/lua/src/lua_cmsgpack.c.'>mp_buf_append</a>(buf,b,9);
+<a name='L181'>    <font color='red'>}</font>
+<a name='L182'><font color='red'>}</font>
+<a name='L183'>
+<a name='L184'><b>static</b> <b>void</b> <a href='../S/280.html#L323' title='Refered from 323 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_int</a>(mp_buf *buf, <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> n) <font color='red'>{</font>
+<a name='L185'>    <b>unsigned</b> <b>char</b> b[9];
+<a name='L186'>    <b>int</b> enclen;
+<a name='L187'>
+<a name='L188'>    <b>if</b> (n &gt;= 0) <font color='red'>{</font>
+<a name='L189'>        <b>if</b> (n &lt;= 127) <font color='red'>{</font>
+<a name='L190'>            b[0] = n &amp; 0x7f;    <i><font color='green'>/* positive fixnum */</font></i>
+<a name='L191'>            enclen = 1;
+<a name='L192'>        <font color='red'>}</font> <b>else</b> <b>if</b> (n &lt;= 0xff) <font color='red'>{</font>
+<a name='L193'>            b[0] = 0xcc;        <i><font color='green'>/* uint 8 */</font></i>
+<a name='L194'>            b[1] = n &amp; 0xff;
+<a name='L195'>            enclen = 2;
+<a name='L196'>        <font color='red'>}</font> <b>else</b> <b>if</b> (n &lt;= 0xffff) <font color='red'>{</font>
+<a name='L197'>            b[0] = 0xcd;        <i><font color='green'>/* uint 16 */</font></i>
+<a name='L198'>            b[1] = (n &amp; 0xff00) &gt;&gt; 8;
+<a name='L199'>            b[2] = n &amp; 0xff;
+<a name='L200'>            enclen = 3;
+<a name='L201'>        <font color='red'>}</font> <b>else</b> <b>if</b> (n &lt;= 0xffffffffLL) <font color='red'>{</font>
+<a name='L202'>            b[0] = 0xce;        <i><font color='green'>/* uint 32 */</font></i>
+<a name='L203'>            b[1] = (n &amp; 0xff000000) &gt;&gt; 24;
+<a name='L204'>            b[2] = (n &amp; 0xff0000) &gt;&gt; 16;
+<a name='L205'>            b[3] = (n &amp; 0xff00) &gt;&gt; 8;
+<a name='L206'>            b[4] = n &amp; 0xff;
+<a name='L207'>            enclen = 5;
+<a name='L208'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L209'>            b[0] = 0xcf;        <i><font color='green'>/* uint 64 */</font></i>
+<a name='L210'>            b[1] = (n &amp; 0xff00000000000000LL) &gt;&gt; 56;
+<a name='L211'>            b[2] = (n &amp; 0xff000000000000LL) &gt;&gt; 48;
+<a name='L212'>            b[3] = (n &amp; 0xff0000000000LL) &gt;&gt; 40;
+<a name='L213'>            b[4] = (n &amp; 0xff00000000LL) &gt;&gt; 32;
+<a name='L214'>            b[5] = (n &amp; 0xff000000) &gt;&gt; 24;
+<a name='L215'>            b[6] = (n &amp; 0xff0000) &gt;&gt; 16;
+<a name='L216'>            b[7] = (n &amp; 0xff00) &gt;&gt; 8;
+<a name='L217'>            b[8] = n &amp; 0xff;
+<a name='L218'>            enclen = 9;
+<a name='L219'>        <font color='red'>}</font>
+<a name='L220'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L221'>        <b>if</b> (n &gt;= -32) <font color='red'>{</font>
+<a name='L222'>            b[0] = ((<b>char</b>)n);   <i><font color='green'>/* negative fixnum */</font></i>
+<a name='L223'>            enclen = 1;
+<a name='L224'>        <font color='red'>}</font> <b>else</b> <b>if</b> (n &gt;= -128) <font color='red'>{</font>
+<a name='L225'>            b[0] = 0xd0;        <i><font color='green'>/* int 8 */</font></i>
+<a name='L226'>            b[1] = n &amp; 0xff;
+<a name='L227'>            enclen = 2;
+<a name='L228'>        <font color='red'>}</font> <b>else</b> <b>if</b> (n &gt;= -32768) <font color='red'>{</font>
+<a name='L229'>            b[0] = 0xd1;        <i><font color='green'>/* int 16 */</font></i>
+<a name='L230'>            b[1] = (n &amp; 0xff00) &gt;&gt; 8;
+<a name='L231'>            b[2] = n &amp; 0xff;
+<a name='L232'>            enclen = 3;
+<a name='L233'>        <font color='red'>}</font> <b>else</b> <b>if</b> (n &gt;= -2147483648LL) <font color='red'>{</font>
+<a name='L234'>            b[0] = 0xd2;        <i><font color='green'>/* int 32 */</font></i>
+<a name='L235'>            b[1] = (n &amp; 0xff000000) &gt;&gt; 24;
+<a name='L236'>            b[2] = (n &amp; 0xff0000) &gt;&gt; 16;
+<a name='L237'>            b[3] = (n &amp; 0xff00) &gt;&gt; 8;
+<a name='L238'>            b[4] = n &amp; 0xff;
+<a name='L239'>            enclen = 5;
+<a name='L240'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L241'>            b[0] = 0xd3;        <i><font color='green'>/* int 64 */</font></i>
+<a name='L242'>            b[1] = (n &amp; 0xff00000000000000LL) &gt;&gt; 56;
+<a name='L243'>            b[2] = (n &amp; 0xff000000000000LL) &gt;&gt; 48;
+<a name='L244'>            b[3] = (n &amp; 0xff0000000000LL) &gt;&gt; 40;
+<a name='L245'>            b[4] = (n &amp; 0xff00000000LL) &gt;&gt; 32;
+<a name='L246'>            b[5] = (n &amp; 0xff000000) &gt;&gt; 24;
+<a name='L247'>            b[6] = (n &amp; 0xff0000) &gt;&gt; 16;
+<a name='L248'>            b[7] = (n &amp; 0xff00) &gt;&gt; 8;
+<a name='L249'>            b[8] = n &amp; 0xff;
+<a name='L250'>            enclen = 9;
+<a name='L251'>        <font color='red'>}</font>
+<a name='L252'>    <font color='red'>}</font>
+<a name='L253'>    <a href='../S/280.html#L78' title='Defined at 78 in deps/lua/src/lua_cmsgpack.c.'>mp_buf_append</a>(buf,b,enclen);
+<a name='L254'><font color='red'>}</font>
+<a name='L255'>
+<a name='L256'><b>static</b> <b>void</b> <a href='../S/280.html#L333' title='Refered from 333 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_array</a>(mp_buf *buf, <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> n) <font color='red'>{</font>
+<a name='L257'>    <b>unsigned</b> <b>char</b> b[5];
+<a name='L258'>    <b>int</b> enclen;
+<a name='L259'>
+<a name='L260'>    <b>if</b> (n &lt;= 15) <font color='red'>{</font>
+<a name='L261'>        b[0] = 0x90 | (n &amp; 0xf);    <i><font color='green'>/* fix array */</font></i>
+<a name='L262'>        enclen = 1;
+<a name='L263'>    <font color='red'>}</font> <b>else</b> <b>if</b> (n &lt;= 65535) <font color='red'>{</font>
+<a name='L264'>        b[0] = 0xdc;                <i><font color='green'>/* array 16 */</font></i>
+<a name='L265'>        b[1] = (n &amp; 0xff00) &gt;&gt; 8;
+<a name='L266'>        b[2] = n &amp; 0xff;
+<a name='L267'>        enclen = 3;
+<a name='L268'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L269'>        b[0] = 0xdd;                <i><font color='green'>/* array 32 */</font></i>
+<a name='L270'>        b[1] = (n &amp; 0xff000000) &gt;&gt; 24;
+<a name='L271'>        b[2] = (n &amp; 0xff0000) &gt;&gt; 16;
+<a name='L272'>        b[3] = (n &amp; 0xff00) &gt;&gt; 8;
+<a name='L273'>        b[4] = n &amp; 0xff;
+<a name='L274'>        enclen = 5;
+<a name='L275'>    <font color='red'>}</font>
+<a name='L276'>    <a href='../S/280.html#L78' title='Defined at 78 in deps/lua/src/lua_cmsgpack.c.'>mp_buf_append</a>(buf,b,enclen);
+<a name='L277'><font color='red'>}</font>
+<a name='L278'>
+<a name='L279'><b>static</b> <b>void</b> <a href='../S/280.html#L356' title='Refered from 356 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_map</a>(mp_buf *buf, <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> n) <font color='red'>{</font>
+<a name='L280'>    <b>unsigned</b> <b>char</b> b[5];
+<a name='L281'>    <b>int</b> enclen;
+<a name='L282'>
+<a name='L283'>    <b>if</b> (n &lt;= 15) <font color='red'>{</font>
+<a name='L284'>        b[0] = 0x80 | (n &amp; 0xf);    <i><font color='green'>/* fix map */</font></i>
+<a name='L285'>        enclen = 1;
+<a name='L286'>    <font color='red'>}</font> <b>else</b> <b>if</b> (n &lt;= 65535) <font color='red'>{</font>
+<a name='L287'>        b[0] = 0xde;                <i><font color='green'>/* map 16 */</font></i>
+<a name='L288'>        b[1] = (n &amp; 0xff00) &gt;&gt; 8;
+<a name='L289'>        b[2] = n &amp; 0xff;
+<a name='L290'>        enclen = 3;
+<a name='L291'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L292'>        b[0] = 0xdf;                <i><font color='green'>/* map 32 */</font></i>
+<a name='L293'>        b[1] = (n &amp; 0xff000000) &gt;&gt; 24;
+<a name='L294'>        b[2] = (n &amp; 0xff0000) &gt;&gt; 16;
+<a name='L295'>        b[3] = (n &amp; 0xff00) &gt;&gt; 8;
+<a name='L296'>        b[4] = n &amp; 0xff;
+<a name='L297'>        enclen = 5;
+<a name='L298'>    <font color='red'>}</font>
+<a name='L299'>    <a href='../S/280.html#L78' title='Defined at 78 in deps/lua/src/lua_cmsgpack.c.'>mp_buf_append</a>(buf,b,enclen);
+<a name='L300'><font color='red'>}</font>
+<a name='L301'>
+<a name='L302'><i><font color='green'>/* ----------------------------- Lua types encoding --------------------------- */</font></i>
+<a name='L303'>
+<a name='L304'><b>static</b> <b>void</b> <a href='../S/280.html#L420' title='Refered from 420 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_lua_string</a>(lua_State *L, mp_buf *buf) <font color='red'>{</font>
+<a name='L305'>    size_t len;
+<a name='L306'>    <b>const</b> <b>char</b> *s;
+<a name='L307'>
+<a name='L308'>    s = <a href='../S/272.html#L343' title='Defined at 343 in deps/lua/src/lapi.c.'>lua_tolstring</a>(L,-1,&amp;len);
+<a name='L309'>    <a href='../S/280.html#L141' title='Defined at 141 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_bytes</a>(buf,(<b>const</b> <b>unsigned</b> <b>char</b>*)s,len);
+<a name='L310'><font color='red'>}</font>
+<a name='L311'>
+<a name='L312'><b>static</b> <b>void</b> <a href='../S/280.html#L421' title='Refered from 421 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_lua_bool</a>(lua_State *L, mp_buf *buf) <font color='red'>{</font>
+<a name='L313'>    <b>unsigned</b> <b>char</b> b = <a href='../S/272.html#L337' title='Defined at 337 in deps/lua/src/lapi.c.'>lua_toboolean</a>(L,-1) ? 0xc3 : 0xc2;
+<a name='L314'>    <a href='../S/280.html#L78' title='Defined at 78 in deps/lua/src/lua_cmsgpack.c.'>mp_buf_append</a>(buf,&amp;b,1);
+<a name='L315'><font color='red'>}</font>
+<a name='L316'>
+<a name='L317'><b>static</b> <b>void</b> <a href='../S/280.html#L422' title='Refered from 422 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_lua_number</a>(lua_State *L, mp_buf *buf) <font color='red'>{</font>
+<a name='L318'>    <a href='../S/266.html#L99' title='Defined at 99 in deps/lua/src/lua.h.'>lua_Number</a> n = <a href='../S/272.html#L313' title='Defined at 313 in deps/lua/src/lapi.c.'>lua_tonumber</a>(L,-1);
+<a name='L319'>
+<a name='L320'>    <b>if</b> (floor(n) != n) <font color='red'>{</font>
+<a name='L321'>        <a href='../S/280.html#L166' title='Defined at 166 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_double</a>(buf,(<b>double</b>)n);
+<a name='L322'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L323'>        <a href='../S/280.html#L184' title='Defined at 184 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_int</a>(buf,(<a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>)n);
+<a name='L324'>    <font color='red'>}</font>
+<a name='L325'><font color='red'>}</font>
+<a name='L326'>
+<a name='L327'><b>static</b> <b>void</b> <a href='../S/280.html#L413' title='Defined at 413 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_lua_type</a>(lua_State *L, mp_buf *buf, <b>int</b> level);
+<a name='L328'>
+<a name='L329'><i><font color='green'>/* Convert a lua table into a message pack list. */</font></i>
+<a name='L330'><b>static</b> <b>void</b> <a href='../S/280.html#L401' title='Refered from 401 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_lua_table_as_array</a>(lua_State *L, mp_buf *buf, <b>int</b> level) <font color='red'>{</font>
+<a name='L331'>    size_t len = <a href='../S/272.html#L361' title='Defined at 361 in deps/lua/src/lapi.c.'>lua_objlen</a>(L,-1), j;
+<a name='L332'>
+<a name='L333'>    <a href='../S/280.html#L256' title='Defined at 256 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_array</a>(buf,len);
+<a name='L334'>    <b>for</b> (j = 1; j &lt;= len; j++) <font color='red'>{</font>
+<a name='L335'>        <a href='../S/272.html#L429' title='Defined at 429 in deps/lua/src/lapi.c.'>lua_pushnumber</a>(L,j);
+<a name='L336'>        <a href='../S/272.html#L534' title='Defined at 534 in deps/lua/src/lapi.c.'>lua_gettable</a>(L,-2);
+<a name='L337'>        <a href='../S/280.html#L413' title='Defined at 413 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_lua_type</a>(L,buf,level+1);
+<a name='L338'>    <font color='red'>}</font>
+<a name='L339'><font color='red'>}</font>
+<a name='L340'>
+<a name='L341'><i><font color='green'>/* Convert a lua table into a message pack key-value map. */</font></i>
+<a name='L342'><b>static</b> <b>void</b> <a href='../S/280.html#L403' title='Refered from 403 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_lua_table_as_map</a>(lua_State *L, mp_buf *buf, <b>int</b> level) <font color='red'>{</font>
+<a name='L343'>    size_t len = 0;
+<a name='L344'>
+<a name='L345'>    <i><font color='green'>/* First step: count keys into table. No other way to do it with the</font></i>
+<a name='L346'><i><font color='green'>     * Lua API, we need to iterate a first time. Note that an alternative</font></i>
+<a name='L347'><i><font color='green'>     * would be to do a single run, and then hack the buffer to insert the</font></i>
+<a name='L348'><i><font color='green'>     * map opcodes for message pack. Too hachish for this lib. */</font></i>
+<a name='L349'>    <a href='../S/272.html#L421' title='Defined at 421 in deps/lua/src/lapi.c.'>lua_pushnil</a>(L);
+<a name='L350'>    <b>while</b>(<a href='../S/272.html#L973' title='Defined at 973 in deps/lua/src/lapi.c.'>lua_next</a>(L,-2)) <font color='red'>{</font>
+<a name='L351'>        <a href='../S/266.html#L254' title='Defined at 254 in deps/lua/src/lua.h.'>lua_pop</a>(L,1); <i><font color='green'>/* remove value, keep key for next iteration. */</font></i>
+<a name='L352'>        len++;
+<a name='L353'>    <font color='red'>}</font>
+<a name='L354'>
+<a name='L355'>    <i><font color='green'>/* Step two: actually encoding of the map. */</font></i>
+<a name='L356'>    <a href='../S/280.html#L279' title='Defined at 279 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_map</a>(buf,len);
+<a name='L357'>    <a href='../S/272.html#L421' title='Defined at 421 in deps/lua/src/lapi.c.'>lua_pushnil</a>(L);
+<a name='L358'>    <b>while</b>(<a href='../S/272.html#L973' title='Defined at 973 in deps/lua/src/lapi.c.'>lua_next</a>(L,-2)) <font color='red'>{</font>
+<a name='L359'>        <i><font color='green'>/* Stack: ... key value */</font></i>
+<a name='L360'>        <a href='../S/272.html#L228' title='Defined at 228 in deps/lua/src/lapi.c.'>lua_pushvalue</a>(L,-2); <i><font color='green'>/* Stack: ... key value key */</font></i>
+<a name='L361'>        <a href='../S/280.html#L413' title='Defined at 413 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_lua_type</a>(L,buf,level+1); <i><font color='green'>/* encode key */</font></i>
+<a name='L362'>        <a href='../S/280.html#L413' title='Defined at 413 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_lua_type</a>(L,buf,level+1); <i><font color='green'>/* encode val */</font></i>
+<a name='L363'>    <font color='red'>}</font>
+<a name='L364'><font color='red'>}</font>
+<a name='L365'>
+<a name='L366'><i><font color='green'>/* Returns true if the Lua table on top of the stack is exclusively composed</font></i>
+<a name='L367'><i><font color='green'> * of keys from numerical keys from 1 up to N, with N being the total number</font></i>
+<a name='L368'><i><font color='green'> * of elements, without any hole in the middle. */</font></i>
+<a name='L369'><b>static</b> <b>int</b> <a href='../S/280.html#L400' title='Refered from 400 in deps/lua/src/lua_cmsgpack.c.'>table_is_an_array</a>(lua_State *L) <font color='red'>{</font>
+<a name='L370'>    <b>long</b> count = 0, max = 0, idx = 0;
+<a name='L371'>    <a href='../S/266.html#L99' title='Defined at 99 in deps/lua/src/lua.h.'>lua_Number</a> n;
+<a name='L372'>
+<a name='L373'>    <a href='../S/272.html#L421' title='Defined at 421 in deps/lua/src/lapi.c.'>lua_pushnil</a>(L);
+<a name='L374'>    <b>while</b>(<a href='../S/272.html#L973' title='Defined at 973 in deps/lua/src/lapi.c.'>lua_next</a>(L,-2)) <font color='red'>{</font>
+<a name='L375'>        <i><font color='green'>/* Stack: ... key value */</font></i>
+<a name='L376'>        <a href='../S/266.html#L254' title='Defined at 254 in deps/lua/src/lua.h.'>lua_pop</a>(L,1); <i><font color='green'>/* Stack: ... key */</font></i>
+<a name='L377'>        <b>if</b> (!<a href='../S/272.html#L260' title='Defined at 260 in deps/lua/src/lapi.c.'>lua_isnumber</a>(L,-1)) <b>goto</b> not_array;
+<a name='L378'>        n = <a href='../S/272.html#L313' title='Defined at 313 in deps/lua/src/lapi.c.'>lua_tonumber</a>(L,-1);
+<a name='L379'>        idx = n;
+<a name='L380'>        <b>if</b> (idx != n || idx &lt; 1) <b>goto</b> not_array;
+<a name='L381'>        count++;
+<a name='L382'>        max = idx;
+<a name='L383'>    <font color='red'>}</font>
+<a name='L384'>    <i><font color='green'>/* We have the total number of elements in "count". Also we have</font></i>
+<a name='L385'><i><font color='green'>     * the max index encountered in "idx". We can't reach this code</font></i>
+<a name='L386'><i><font color='green'>     * if there are indexes &lt;= 0. If you also note that there can not be</font></i>
+<a name='L387'><i><font color='green'>     * repeated keys into a table, you have that if idx==count you are sure</font></i>
+<a name='L388'><i><font color='green'>     * that there are all the keys form 1 to count (both included). */</font></i>
+<a name='L389'>    <b>return</b> idx == count;
+<a name='L390'>
+<a name='L391'>not_array:
+<a name='L392'>    <a href='../S/266.html#L254' title='Defined at 254 in deps/lua/src/lua.h.'>lua_pop</a>(L,1);
+<a name='L393'>    <b>return</b> 0;
+<a name='L394'><font color='red'>}</font>
+<a name='L395'>
+<a name='L396'><i><font color='green'>/* If the length operator returns non-zero, that is, there is at least</font></i>
+<a name='L397'><i><font color='green'> * an object at key '1', we serialize to message pack list. Otherwise</font></i>
+<a name='L398'><i><font color='green'> * we use a map. */</font></i>
+<a name='L399'><b>static</b> <b>void</b> <a href='../S/280.html#L423' title='Refered from 423 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_lua_table</a>(lua_State *L, mp_buf *buf, <b>int</b> level) <font color='red'>{</font>
+<a name='L400'>    <b>if</b> (<a href='../S/280.html#L369' title='Defined at 369 in deps/lua/src/lua_cmsgpack.c.'>table_is_an_array</a>(L))
+<a name='L401'>        <a href='../S/280.html#L330' title='Defined at 330 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_lua_table_as_array</a>(L,buf,level);
+<a name='L402'>    <b>else</b>
+<a name='L403'>        <a href='../S/280.html#L342' title='Defined at 342 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_lua_table_as_map</a>(L,buf,level);
+<a name='L404'><font color='red'>}</font>
+<a name='L405'>
+<a name='L406'><b>static</b> <b>void</b> <a href='../S/280.html#L424' title='Refered from 424 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_lua_null</a>(lua_State *L, mp_buf *buf) <font color='red'>{</font>
+<a name='L407'>    <b>unsigned</b> <b>char</b> b[1];
+<a name='L408'>
+<a name='L409'>    b[0] = 0xc0;
+<a name='L410'>    <a href='../S/280.html#L78' title='Defined at 78 in deps/lua/src/lua_cmsgpack.c.'>mp_buf_append</a>(buf,b,1);
+<a name='L411'><font color='red'>}</font>
+<a name='L412'>
+<a name='L413'><b>static</b> <b>void</b> <a href='../R/3047.html' title='Multiple refered from 5 places.'>mp_encode_lua_type</a>(lua_State *L, mp_buf *buf, <b>int</b> level) <font color='red'>{</font>
+<a name='L414'>    <b>int</b> t = <a href='../S/272.html#L242' title='Defined at 242 in deps/lua/src/lapi.c.'>lua_type</a>(L,-1);
+<a name='L415'>
+<a name='L416'>    <i><font color='green'>/* Limit the encoding of nested tables to a specfiied maximum depth, so that</font></i>
+<a name='L417'><i><font color='green'>     * we survive when called against circular references in tables. */</font></i>
+<a name='L418'>    <b>if</b> (t == <a href='../S/266.html#L79' title='Defined at 79 in deps/lua/src/lua.h.'>LUA_TTABLE</a> &amp;&amp; level == <a href='../S/280.html#L14' title='Defined at 14 in deps/lua/src/lua_cmsgpack.c.'>LUACMSGPACK_MAX_NESTING</a>) t = <a href='../S/266.html#L74' title='Defined at 74 in deps/lua/src/lua.h.'>LUA_TNIL</a>;
+<a name='L419'>    <b>switch</b>(t) <font color='red'>{</font>
+<a name='L420'>    <b>case</b> <a href='../S/266.html#L78' title='Defined at 78 in deps/lua/src/lua.h.'>LUA_TSTRING</a>: <a href='../S/280.html#L304' title='Defined at 304 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_lua_string</a>(L,buf); <b>break</b>;
+<a name='L421'>    <b>case</b> <a href='../S/266.html#L75' title='Defined at 75 in deps/lua/src/lua.h.'>LUA_TBOOLEAN</a>: <a href='../S/280.html#L312' title='Defined at 312 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_lua_bool</a>(L,buf); <b>break</b>;
+<a name='L422'>    <b>case</b> <a href='../S/266.html#L77' title='Defined at 77 in deps/lua/src/lua.h.'>LUA_TNUMBER</a>: <a href='../S/280.html#L317' title='Defined at 317 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_lua_number</a>(L,buf); <b>break</b>;
+<a name='L423'>    <b>case</b> <a href='../S/266.html#L79' title='Defined at 79 in deps/lua/src/lua.h.'>LUA_TTABLE</a>: <a href='../S/280.html#L399' title='Defined at 399 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_lua_table</a>(L,buf,level); <b>break</b>;
+<a name='L424'>    <b>default</b>: <a href='../S/280.html#L406' title='Defined at 406 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_lua_null</a>(L,buf); <b>break</b>;
+<a name='L425'>    <font color='red'>}</font>
+<a name='L426'>    <a href='../S/266.html#L254' title='Defined at 254 in deps/lua/src/lua.h.'>lua_pop</a>(L,1);
+<a name='L427'><font color='red'>}</font>
+<a name='L428'>
+<a name='L429'><b>static</b> <b>int</b> <a href='../S/280.html#L691' title='Refered from 691 in deps/lua/src/lua_cmsgpack.c.'>mp_pack</a>(lua_State *L) <font color='red'>{</font>
+<a name='L430'>    <a href='../D/3372.html' title='Multiple defined in 2 places.'>mp_buf</a> *buf = <a href='../S/280.html#L70' title='Defined at 70 in deps/lua/src/lua_cmsgpack.c.'>mp_buf_new</a>();
+<a name='L431'>
+<a name='L432'>    <a href='../S/280.html#L413' title='Defined at 413 in deps/lua/src/lua_cmsgpack.c.'>mp_encode_lua_type</a>(L,buf,0);
+<a name='L433'>    <a href='../S/272.html#L445' title='Defined at 445 in deps/lua/src/lapi.c.'>lua_pushlstring</a>(L,(<b>char</b>*)buf-&gt;b,buf-&gt;len);
+<a name='L434'>    <a href='../S/280.html#L90' title='Defined at 90 in deps/lua/src/lua_cmsgpack.c.'>mp_buf_free</a>(buf);
+<a name='L435'>    <b>return</b> 1;
+<a name='L436'><font color='red'>}</font>
+<a name='L437'>
+<a name='L438'><i><font color='green'>/* --------------------------------- Decoding --------------------------------- */</font></i>
+<a name='L439'>
+<a name='L440'><b>void</b> <a href='../S/280.html#L467' title='Defined at 467 in deps/lua/src/lua_cmsgpack.c.'>mp_decode_to_lua_type</a>(lua_State *L, mp_cur *c);
+<a name='L441'>
+<a name='L442'><b>void</b> <a href='../R/3033.html' title='Multiple refered from 3 places.'>mp_decode_to_lua_array</a>(lua_State *L, mp_cur *c, size_t len) <font color='red'>{</font>
+<a name='L443'>    <b>int</b> index = 1;
+<a name='L444'>
+<a name='L445'>    <a href='../S/266.html#L256' title='Defined at 256 in deps/lua/src/lua.h.'>lua_newtable</a>(L);
+<a name='L446'>    <b>while</b>(len--) <font color='red'>{</font>
+<a name='L447'>        <a href='../S/272.html#L429' title='Defined at 429 in deps/lua/src/lapi.c.'>lua_pushnumber</a>(L,index++);
+<a name='L448'>        <a href='../S/280.html#L467' title='Defined at 467 in deps/lua/src/lua_cmsgpack.c.'>mp_decode_to_lua_type</a>(L,c);
+<a name='L449'>        <b>if</b> (c-&gt;err) <b>return</b>;
+<a name='L450'>        <a href='../S/272.html#L645' title='Defined at 645 in deps/lua/src/lapi.c.'>lua_settable</a>(L,-3);
+<a name='L451'>    <font color='red'>}</font>
+<a name='L452'><font color='red'>}</font>
+<a name='L453'>
+<a name='L454'><b>void</b> <a href='../R/3034.html' title='Multiple refered from 3 places.'>mp_decode_to_lua_hash</a>(lua_State *L, mp_cur *c, size_t len) <font color='red'>{</font>
+<a name='L455'>    <a href='../S/266.html#L256' title='Defined at 256 in deps/lua/src/lua.h.'>lua_newtable</a>(L);
+<a name='L456'>    <b>while</b>(len--) <font color='red'>{</font>
+<a name='L457'>        <a href='../S/280.html#L467' title='Defined at 467 in deps/lua/src/lua_cmsgpack.c.'>mp_decode_to_lua_type</a>(L,c); <i><font color='green'>/* key */</font></i>
+<a name='L458'>        <b>if</b> (c-&gt;err) <b>return</b>;
+<a name='L459'>        <a href='../S/280.html#L467' title='Defined at 467 in deps/lua/src/lua_cmsgpack.c.'>mp_decode_to_lua_type</a>(L,c); <i><font color='green'>/* value */</font></i>
+<a name='L460'>        <b>if</b> (c-&gt;err) <b>return</b>;
+<a name='L461'>        <a href='../S/272.html#L645' title='Defined at 645 in deps/lua/src/lapi.c.'>lua_settable</a>(L,-3);
+<a name='L462'>    <font color='red'>}</font>
+<a name='L463'><font color='red'>}</font>
+<a name='L464'>
+<a name='L465'><i><font color='green'>/* Decode a Message Pack raw object pointed by the string cursor 'c' to</font></i>
+<a name='L466'><i><font color='green'> * a Lua type, that is left as the only result on the stack. */</font></i>
+<a name='L467'><b>void</b> <a href='../R/3035.html' title='Multiple refered from 5 places.'>mp_decode_to_lua_type</a>(lua_State *L, mp_cur *c) <font color='red'>{</font>
+<a name='L468'>    <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,1);
+<a name='L469'>    <b>switch</b>(c-&gt;p[0]) <font color='red'>{</font>
+<a name='L470'>    <b>case</b> 0xcc:  <i><font color='green'>/* uint 8 */</font></i>
+<a name='L471'>        <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,2);
+<a name='L472'>        <a href='../S/272.html#L429' title='Defined at 429 in deps/lua/src/lapi.c.'>lua_pushnumber</a>(L,c-&gt;p[1]);
+<a name='L473'>        <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,2);
+<a name='L474'>        <b>break</b>;
+<a name='L475'>    <b>case</b> 0xd0:  <i><font color='green'>/* int 8 */</font></i>
+<a name='L476'>        <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,2);
+<a name='L477'>        <a href='../S/272.html#L429' title='Defined at 429 in deps/lua/src/lapi.c.'>lua_pushnumber</a>(L,(<b>char</b>)c-&gt;p[1]);
+<a name='L478'>        <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,2);
+<a name='L479'>        <b>break</b>;
+<a name='L480'>    <b>case</b> 0xcd:  <i><font color='green'>/* uint 16 */</font></i>
+<a name='L481'>        <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,3);
+<a name='L482'>        <a href='../S/272.html#L429' title='Defined at 429 in deps/lua/src/lapi.c.'>lua_pushnumber</a>(L,
+<a name='L483'>            (c-&gt;p[1] &lt;&lt; 8) |
+<a name='L484'>             c-&gt;p[2]);
+<a name='L485'>        <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,3);
+<a name='L486'>        <b>break</b>;
+<a name='L487'>    <b>case</b> 0xd1:  <i><font color='green'>/* int 16 */</font></i>
+<a name='L488'>        <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,3);
+<a name='L489'>        <a href='../S/272.html#L429' title='Defined at 429 in deps/lua/src/lapi.c.'>lua_pushnumber</a>(L,(<a href='../D/2492.html' title='Multiple defined in 2 places.'>int16_t</a>)
+<a name='L490'>            (c-&gt;p[1] &lt;&lt; 8) |
+<a name='L491'>             c-&gt;p[2]);
+<a name='L492'>        <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,3);
+<a name='L493'>        <b>break</b>;
+<a name='L494'>    <b>case</b> 0xce:  <i><font color='green'>/* uint 32 */</font></i>
+<a name='L495'>        <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,5);
+<a name='L496'>        <a href='../S/272.html#L429' title='Defined at 429 in deps/lua/src/lapi.c.'>lua_pushnumber</a>(L,
+<a name='L497'>            ((<a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a>)c-&gt;p[1] &lt;&lt; 24) |
+<a name='L498'>            ((<a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a>)c-&gt;p[2] &lt;&lt; 16) |
+<a name='L499'>            ((<a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a>)c-&gt;p[3] &lt;&lt; 8) |
+<a name='L500'>             (<a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a>)c-&gt;p[4]);
+<a name='L501'>        <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,5);
+<a name='L502'>        <b>break</b>;
+<a name='L503'>    <b>case</b> 0xd2:  <i><font color='green'>/* int 32 */</font></i>
+<a name='L504'>        <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,5);
+<a name='L505'>        <a href='../S/272.html#L429' title='Defined at 429 in deps/lua/src/lapi.c.'>lua_pushnumber</a>(L,
+<a name='L506'>            ((<a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a>)c-&gt;p[1] &lt;&lt; 24) |
+<a name='L507'>            ((<a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a>)c-&gt;p[2] &lt;&lt; 16) |
+<a name='L508'>            ((<a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a>)c-&gt;p[3] &lt;&lt; 8) |
+<a name='L509'>             (<a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a>)c-&gt;p[4]);
+<a name='L510'>        <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,5);
+<a name='L511'>        <b>break</b>;
+<a name='L512'>    <b>case</b> 0xcf:  <i><font color='green'>/* uint 64 */</font></i>
+<a name='L513'>        <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,9);
+<a name='L514'>        <a href='../S/272.html#L429' title='Defined at 429 in deps/lua/src/lapi.c.'>lua_pushnumber</a>(L,
+<a name='L515'>            ((<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)c-&gt;p[1] &lt;&lt; 56) |
+<a name='L516'>            ((<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)c-&gt;p[2] &lt;&lt; 48) |
+<a name='L517'>            ((<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)c-&gt;p[3] &lt;&lt; 40) |
+<a name='L518'>            ((<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)c-&gt;p[4] &lt;&lt; 32) |
+<a name='L519'>            ((<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)c-&gt;p[5] &lt;&lt; 24) |
+<a name='L520'>            ((<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)c-&gt;p[6] &lt;&lt; 16) |
+<a name='L521'>            ((<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)c-&gt;p[7] &lt;&lt; 8) |
+<a name='L522'>             (<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)c-&gt;p[8]);
+<a name='L523'>        <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,9);
+<a name='L524'>        <b>break</b>;
+<a name='L525'>    <b>case</b> 0xd3:  <i><font color='green'>/* int 64 */</font></i>
+<a name='L526'>        <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,9);
+<a name='L527'>        <a href='../S/272.html#L429' title='Defined at 429 in deps/lua/src/lapi.c.'>lua_pushnumber</a>(L,
+<a name='L528'>            ((<a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>)c-&gt;p[1] &lt;&lt; 56) |
+<a name='L529'>            ((<a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>)c-&gt;p[2] &lt;&lt; 48) |
+<a name='L530'>            ((<a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>)c-&gt;p[3] &lt;&lt; 40) |
+<a name='L531'>            ((<a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>)c-&gt;p[4] &lt;&lt; 32) |
+<a name='L532'>            ((<a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>)c-&gt;p[5] &lt;&lt; 24) |
+<a name='L533'>            ((<a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>)c-&gt;p[6] &lt;&lt; 16) |
+<a name='L534'>            ((<a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>)c-&gt;p[7] &lt;&lt; 8) |
+<a name='L535'>             (<a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>)c-&gt;p[8]);
+<a name='L536'>        <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,9);
+<a name='L537'>        <b>break</b>;
+<a name='L538'>    <b>case</b> 0xc0:  <i><font color='green'>/* nil */</font></i>
+<a name='L539'>        <a href='../S/272.html#L421' title='Defined at 421 in deps/lua/src/lapi.c.'>lua_pushnil</a>(L);
+<a name='L540'>        <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,1);
+<a name='L541'>        <b>break</b>;
+<a name='L542'>    <b>case</b> 0xc3:  <i><font color='green'>/* true */</font></i>
+<a name='L543'>        <a href='../S/272.html#L503' title='Defined at 503 in deps/lua/src/lapi.c.'>lua_pushboolean</a>(L,1);
+<a name='L544'>        <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,1);
+<a name='L545'>        <b>break</b>;
+<a name='L546'>    <b>case</b> 0xc2:  <i><font color='green'>/* false */</font></i>
+<a name='L547'>        <a href='../S/272.html#L503' title='Defined at 503 in deps/lua/src/lapi.c.'>lua_pushboolean</a>(L,0);
+<a name='L548'>        <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,1);
+<a name='L549'>        <b>break</b>;
+<a name='L550'>    <b>case</b> 0xca:  <i><font color='green'>/* float */</font></i>
+<a name='L551'>        <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,5);
+<a name='L552'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<b>sizeof</b>(<b>float</b>) == 4);
+<a name='L553'>        <font color='red'>{</font>
+<a name='L554'>            <b>float</b> f;
+<a name='L555'>            memcpy(&amp;f,c-&gt;p+1,4);
+<a name='L556'>            <a href='../S/280.html#L43' title='Defined at 43 in deps/lua/src/lua_cmsgpack.c.'>memrevifle</a>(&amp;f,4);
+<a name='L557'>            <a href='../S/272.html#L429' title='Defined at 429 in deps/lua/src/lapi.c.'>lua_pushnumber</a>(L,f);
+<a name='L558'>            <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,5);
+<a name='L559'>        <font color='red'>}</font>
+<a name='L560'>        <b>break</b>;
+<a name='L561'>    <b>case</b> 0xcb:  <i><font color='green'>/* double */</font></i>
+<a name='L562'>        <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,9);
+<a name='L563'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<b>sizeof</b>(<b>double</b>) == 8);
+<a name='L564'>        <font color='red'>{</font>
+<a name='L565'>            <b>double</b> d;
+<a name='L566'>            memcpy(&amp;d,c-&gt;p+1,8);
+<a name='L567'>            <a href='../S/280.html#L43' title='Defined at 43 in deps/lua/src/lua_cmsgpack.c.'>memrevifle</a>(&amp;d,8);
+<a name='L568'>            <a href='../S/272.html#L429' title='Defined at 429 in deps/lua/src/lapi.c.'>lua_pushnumber</a>(L,d);
+<a name='L569'>            <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,9);
+<a name='L570'>        <font color='red'>}</font>
+<a name='L571'>        <b>break</b>;
+<a name='L572'>    <b>case</b> 0xda:  <i><font color='green'>/* raw 16 */</font></i>
+<a name='L573'>        <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,3);
+<a name='L574'>        <font color='red'>{</font>
+<a name='L575'>            size_t l = (c-&gt;p[1] &lt;&lt; 8) | c-&gt;p[2];
+<a name='L576'>            <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,3+l);
+<a name='L577'>            <a href='../S/272.html#L445' title='Defined at 445 in deps/lua/src/lapi.c.'>lua_pushlstring</a>(L,(<b>char</b>*)c-&gt;p+3,l);
+<a name='L578'>            <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,3+l);
+<a name='L579'>        <font color='red'>}</font>
+<a name='L580'>        <b>break</b>;
+<a name='L581'>    <b>case</b> 0xdb:  <i><font color='green'>/* raw 32 */</font></i>
+<a name='L582'>        <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,5);
+<a name='L583'>        <font color='red'>{</font>
+<a name='L584'>            size_t l = (c-&gt;p[1] &lt;&lt; 24) |
+<a name='L585'>                       (c-&gt;p[2] &lt;&lt; 16) |
+<a name='L586'>                       (c-&gt;p[3] &lt;&lt; 8) |
+<a name='L587'>                       c-&gt;p[4];
+<a name='L588'>            <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,5+l);
+<a name='L589'>            <a href='../S/272.html#L445' title='Defined at 445 in deps/lua/src/lapi.c.'>lua_pushlstring</a>(L,(<b>char</b>*)c-&gt;p+5,l);
+<a name='L590'>            <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,5+l);
+<a name='L591'>        <font color='red'>}</font>
+<a name='L592'>        <b>break</b>;
+<a name='L593'>    <b>case</b> 0xdc:  <i><font color='green'>/* array 16 */</font></i>
+<a name='L594'>        <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,3);
+<a name='L595'>        <font color='red'>{</font>
+<a name='L596'>            size_t l = (c-&gt;p[1] &lt;&lt; 8) | c-&gt;p[2];
+<a name='L597'>            <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,3);
+<a name='L598'>            <a href='../S/280.html#L442' title='Defined at 442 in deps/lua/src/lua_cmsgpack.c.'>mp_decode_to_lua_array</a>(L,c,l);
+<a name='L599'>        <font color='red'>}</font>
+<a name='L600'>        <b>break</b>;
+<a name='L601'>    <b>case</b> 0xdd:  <i><font color='green'>/* array 32 */</font></i>
+<a name='L602'>        <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,5);
+<a name='L603'>        <font color='red'>{</font>
+<a name='L604'>            size_t l = (c-&gt;p[1] &lt;&lt; 24) |
+<a name='L605'>                       (c-&gt;p[2] &lt;&lt; 16) |
+<a name='L606'>                       (c-&gt;p[3] &lt;&lt; 8) |
+<a name='L607'>                       c-&gt;p[4];
+<a name='L608'>            <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,5);
+<a name='L609'>            <a href='../S/280.html#L442' title='Defined at 442 in deps/lua/src/lua_cmsgpack.c.'>mp_decode_to_lua_array</a>(L,c,l);
+<a name='L610'>        <font color='red'>}</font>
+<a name='L611'>        <b>break</b>;
+<a name='L612'>    <b>case</b> 0xde:  <i><font color='green'>/* map 16 */</font></i>
+<a name='L613'>        <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,3);
+<a name='L614'>        <font color='red'>{</font>
+<a name='L615'>            size_t l = (c-&gt;p[1] &lt;&lt; 8) | c-&gt;p[2];
+<a name='L616'>            <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,3);
+<a name='L617'>            <a href='../S/280.html#L454' title='Defined at 454 in deps/lua/src/lua_cmsgpack.c.'>mp_decode_to_lua_hash</a>(L,c,l);
+<a name='L618'>        <font color='red'>}</font>
+<a name='L619'>        <b>break</b>;
+<a name='L620'>    <b>case</b> 0xdf:  <i><font color='green'>/* map 32 */</font></i>
+<a name='L621'>        <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,5);
+<a name='L622'>        <font color='red'>{</font>
+<a name='L623'>            size_t l = (c-&gt;p[1] &lt;&lt; 24) |
+<a name='L624'>                       (c-&gt;p[2] &lt;&lt; 16) |
+<a name='L625'>                       (c-&gt;p[3] &lt;&lt; 8) |
+<a name='L626'>                       c-&gt;p[4];
+<a name='L627'>            <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,5);
+<a name='L628'>            <a href='../S/280.html#L454' title='Defined at 454 in deps/lua/src/lua_cmsgpack.c.'>mp_decode_to_lua_hash</a>(L,c,l);
+<a name='L629'>        <font color='red'>}</font>
+<a name='L630'>        <b>break</b>;
+<a name='L631'>    <b>default</b>:    <i><font color='green'>/* types that can't be idenitified by first byte value. */</font></i>
+<a name='L632'>        <b>if</b> ((c-&gt;p[0] &amp; 0x80) == 0) <font color='red'>{</font>   <i><font color='green'>/* positive fixnum */</font></i>
+<a name='L633'>            <a href='../S/272.html#L429' title='Defined at 429 in deps/lua/src/lapi.c.'>lua_pushnumber</a>(L,c-&gt;p[0]);
+<a name='L634'>            <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,1);
+<a name='L635'>        <font color='red'>}</font> <b>else</b> <b>if</b> ((c-&gt;p[0] &amp; 0xe0) == 0xe0) <font color='red'>{</font>  <i><font color='green'>/* negative fixnum */</font></i>
+<a name='L636'>            <a href='../S/272.html#L429' title='Defined at 429 in deps/lua/src/lapi.c.'>lua_pushnumber</a>(L,(<b>signed</b> <b>char</b>)c-&gt;p[0]);
+<a name='L637'>            <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,1);
+<a name='L638'>        <font color='red'>}</font> <b>else</b> <b>if</b> ((c-&gt;p[0] &amp; 0xe0) == 0xa0) <font color='red'>{</font>  <i><font color='green'>/* fix raw */</font></i>
+<a name='L639'>            size_t l = c-&gt;p[0] &amp; 0x1f;
+<a name='L640'>            <a href='../S/280.html#L132' title='Defined at 132 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_need</a>(c,1+l);
+<a name='L641'>            <a href='../S/272.html#L445' title='Defined at 445 in deps/lua/src/lapi.c.'>lua_pushlstring</a>(L,(<b>char</b>*)c-&gt;p+1,l);
+<a name='L642'>            <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,1+l);
+<a name='L643'>        <font color='red'>}</font> <b>else</b> <b>if</b> ((c-&gt;p[0] &amp; 0xf0) == 0x90) <font color='red'>{</font>  <i><font color='green'>/* fix map */</font></i>
+<a name='L644'>            size_t l = c-&gt;p[0] &amp; 0xf;
+<a name='L645'>            <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,1);
+<a name='L646'>            <a href='../S/280.html#L442' title='Defined at 442 in deps/lua/src/lua_cmsgpack.c.'>mp_decode_to_lua_array</a>(L,c,l);
+<a name='L647'>        <font color='red'>}</font> <b>else</b> <b>if</b> ((c-&gt;p[0] &amp; 0xf0) == 0x80) <font color='red'>{</font>  <i><font color='green'>/* fix map */</font></i>
+<a name='L648'>            size_t l = c-&gt;p[0] &amp; 0xf;
+<a name='L649'>            <a href='../S/280.html#L127' title='Defined at 127 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_consume</a>(c,1);
+<a name='L650'>            <a href='../S/280.html#L454' title='Defined at 454 in deps/lua/src/lua_cmsgpack.c.'>mp_decode_to_lua_hash</a>(L,c,l);
+<a name='L651'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L652'>            c-&gt;err = <a href='../S/280.html#L106' title='Defined at 106 in deps/lua/src/lua_cmsgpack.c.'>MP_CUR_ERROR_BADFMT</a>;
+<a name='L653'>        <font color='red'>}</font>
+<a name='L654'>    <font color='red'>}</font>
+<a name='L655'><font color='red'>}</font>
+<a name='L656'>
+<a name='L657'><b>static</b> <b>int</b> <a href='../S/280.html#L692' title='Refered from 692 in deps/lua/src/lua_cmsgpack.c.'>mp_unpack</a>(lua_State *L) <font color='red'>{</font>
+<a name='L658'>    size_t len;
+<a name='L659'>    <b>const</b> <b>unsigned</b> <b>char</b> *s;
+<a name='L660'>    <a href='../D/3376.html' title='Multiple defined in 2 places.'>mp_cur</a> *c;
+<a name='L661'>
+<a name='L662'>    <b>if</b> (!<a href='../S/272.html#L267' title='Defined at 267 in deps/lua/src/lapi.c.'>lua_isstring</a>(L,-1)) <font color='red'>{</font>
+<a name='L663'>        <a href='../S/272.html#L454' title='Defined at 454 in deps/lua/src/lapi.c.'>lua_pushstring</a>(L,"MessagePack decoding needs a string as input.");
+<a name='L664'>        <a href='../S/272.html#L964' title='Defined at 964 in deps/lua/src/lapi.c.'>lua_error</a>(L);
+<a name='L665'>    <font color='red'>}</font>
+<a name='L666'>
+<a name='L667'>    s = (<b>const</b> <b>unsigned</b> <b>char</b>*) <a href='../S/272.html#L343' title='Defined at 343 in deps/lua/src/lapi.c.'>lua_tolstring</a>(L,-1,&amp;len);
+<a name='L668'>    c = <a href='../S/280.html#L114' title='Defined at 114 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_new</a>(s,len);
+<a name='L669'>    <a href='../S/280.html#L467' title='Defined at 467 in deps/lua/src/lua_cmsgpack.c.'>mp_decode_to_lua_type</a>(L,c);
+<a name='L670'>    
+<a name='L671'>    <b>if</b> (c-&gt;err == <a href='../S/280.html#L105' title='Defined at 105 in deps/lua/src/lua_cmsgpack.c.'>MP_CUR_ERROR_EOF</a>) <font color='red'>{</font>
+<a name='L672'>        <a href='../S/280.html#L123' title='Defined at 123 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_free</a>(c);
+<a name='L673'>        <a href='../S/272.html#L454' title='Defined at 454 in deps/lua/src/lapi.c.'>lua_pushstring</a>(L,"Missing bytes in input.");
+<a name='L674'>        <a href='../S/272.html#L964' title='Defined at 964 in deps/lua/src/lapi.c.'>lua_error</a>(L);
+<a name='L675'>    <font color='red'>}</font> <b>else</b> <b>if</b> (c-&gt;err == <a href='../S/280.html#L106' title='Defined at 106 in deps/lua/src/lua_cmsgpack.c.'>MP_CUR_ERROR_BADFMT</a>) <font color='red'>{</font>
+<a name='L676'>        <a href='../S/280.html#L123' title='Defined at 123 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_free</a>(c);
+<a name='L677'>        <a href='../S/272.html#L454' title='Defined at 454 in deps/lua/src/lapi.c.'>lua_pushstring</a>(L,"Bad data format in input.");
+<a name='L678'>        <a href='../S/272.html#L964' title='Defined at 964 in deps/lua/src/lapi.c.'>lua_error</a>(L);
+<a name='L679'>    <font color='red'>}</font> <b>else</b> <b>if</b> (c-&gt;left != 0) <font color='red'>{</font>
+<a name='L680'>        <a href='../S/280.html#L123' title='Defined at 123 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_free</a>(c);
+<a name='L681'>        <a href='../S/272.html#L454' title='Defined at 454 in deps/lua/src/lapi.c.'>lua_pushstring</a>(L,"Extra bytes in input.");
+<a name='L682'>        <a href='../S/272.html#L964' title='Defined at 964 in deps/lua/src/lapi.c.'>lua_error</a>(L);
+<a name='L683'>    <font color='red'>}</font>
+<a name='L684'>    <a href='../S/280.html#L123' title='Defined at 123 in deps/lua/src/lua_cmsgpack.c.'>mp_cur_free</a>(c);
+<a name='L685'>    <b>return</b> 1;
+<a name='L686'><font color='red'>}</font>
+<a name='L687'>
+<a name='L688'><i><font color='green'>/* ---------------------------------------------------------------------------- */</font></i>
+<a name='L689'>
+<a name='L690'><b>static</b> <b>const</b> <b>struct</b> <a href='../S/265.html#L170' title='Defined at 170 in deps/lua/src/lauxlib.h.'>luaL_reg</a> thislib[] = <font color='red'>{</font>
+<a name='L691'>    <font color='red'>{</font>"pack", <a href='../S/280.html#L429' title='Defined at 429 in deps/lua/src/lua_cmsgpack.c.'>mp_pack</a><font color='red'>}</font>,
+<a name='L692'>    <font color='red'>{</font>"unpack", <a href='../S/280.html#L657' title='Defined at 657 in deps/lua/src/lua_cmsgpack.c.'>mp_unpack</a><font color='red'>}</font>,
+<a name='L693'>    <font color='red'>{</font>NULL, NULL<font color='red'>}</font>
+<a name='L694'><font color='red'>}</font>;
+<a name='L695'>
+<a name='L696'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> <a href='../R/2898.html' title='Multiple refered from 2 places.'>luaopen_cmsgpack</a> (lua_State *L) <font color='red'>{</font>
+<a name='L697'>    luaL_register(L, "cmsgpack", thislib);
+<a name='L698'>
+<a name='L699'>    <a href='../S/266.html#L273' title='Defined at 273 in deps/lua/src/lua.h.'>lua_pushliteral</a>(L, <a href='../S/280.html#L10' title='Defined at 10 in deps/lua/src/lua_cmsgpack.c.'>LUACMSGPACK_VERSION</a>);
+<a name='L700'>    <a href='../S/272.html#L657' title='Defined at 657 in deps/lua/src/lapi.c.'>lua_setfield</a>(L, -2, "_VERSION");
+<a name='L701'>    <a href='../S/266.html#L273' title='Defined at 273 in deps/lua/src/lua.h.'>lua_pushliteral</a>(L, <a href='../S/280.html#L11' title='Defined at 11 in deps/lua/src/lua_cmsgpack.c.'>LUACMSGPACK_COPYRIGHT</a>);
+<a name='L702'>    <a href='../S/272.html#L657' title='Defined at 657 in deps/lua/src/lapi.c.'>lua_setfield</a>(L, -2, "_COPYRIGHT");
+<a name='L703'>    <a href='../S/266.html#L273' title='Defined at 273 in deps/lua/src/lua.h.'>lua_pushliteral</a>(L, <a href='../S/280.html#L12' title='Defined at 12 in deps/lua/src/lua_cmsgpack.c.'>LUACMSGPACK_DESCRIPTION</a>);
+<a name='L704'>    <a href='../S/272.html#L657' title='Defined at 657 in deps/lua/src/lapi.c.'>lua_setfield</a>(L, -2, "_DESCRIPTION"); 
+<a name='L705'>    <b>return</b> 1;
+<a name='L706'><font color='red'>}</font>
+<a name='L707'>
+<a name='L708'><i><font color='green'>/******************************************************************************</font></i>
+<a name='L709'><i><font color='green'>* Copyright (C) 2012 Salvatore Sanfilippo.  All rights reserved.</font></i>
+<a name='L710'><i><font color='green'>*</font></i>
+<a name='L711'><i><font color='green'>* Permission is hereby granted, free of charge, to any person obtaining</font></i>
+<a name='L712'><i><font color='green'>* a copy of this software and associated documentation files (the</font></i>
+<a name='L713'><i><font color='green'>* "Software"), to deal in the Software without restriction, including</font></i>
+<a name='L714'><i><font color='green'>* without limitation the rights to use, copy, modify, merge, publish,</font></i>
+<a name='L715'><i><font color='green'>* distribute, sublicense, and/or sell copies of the Software, and to</font></i>
+<a name='L716'><i><font color='green'>* permit persons to whom the Software is furnished to do so, subject to</font></i>
+<a name='L717'><i><font color='green'>* the following conditions:</font></i>
+<a name='L718'><i><font color='green'>*</font></i>
+<a name='L719'><i><font color='green'>* The above copyright notice and this permission notice shall be</font></i>
+<a name='L720'><i><font color='green'>* included in all copies or substantial portions of the Software.</font></i>
+<a name='L721'><i><font color='green'>*</font></i>
+<a name='L722'><i><font color='green'>* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,</font></i>
+<a name='L723'><i><font color='green'>* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF</font></i>
+<a name='L724'><i><font color='green'>* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.</font></i>
+<a name='L725'><i><font color='green'>* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY</font></i>
+<a name='L726'><i><font color='green'>* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,</font></i>
+<a name='L727'><i><font color='green'>* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE</font></i>
+<a name='L728'><i><font color='green'>* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</font></i>
+<a name='L729'><i><font color='green'>******************************************************************************/</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L43'>[^]</a><a href='#L696'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

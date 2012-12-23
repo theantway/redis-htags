@@ -1,0 +1,217 @@
+<html>
+<head>
+<title>deps/jemalloc/test/allocm.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/396.html'>test</a>/allocm.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L10'>[^]</a>[v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L10' title='Defined at 10.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> JEMALLOC_MANGLE
+<a name='L2'><font color='darkred'>#include</font> "jemalloc_test.h"
+<a name='L3'>
+<a name='L4'><font color='darkred'>#define</font> CHUNK 0x400000
+<a name='L5'><i><font color='green'>/* #define MAXALIGN ((size_t)UINT64_C(0x80000000000)) */</font></i>
+<a name='L6'><font color='darkred'>#define</font> <a href='../R/432.html' title='Multiple refered from 9 places.'>MAXALIGN</a> ((size_t)0x2000000LU)
+<a name='L7'><font color='darkred'>#define</font> <a href='../R/465.html' title='Multiple refered from 12 places.'>NITER</a> 4
+<a name='L8'>
+<a name='L9'><b>int</b>
+<a name='L10'>main(<b>void</b>)
+<a name='L11'><font color='red'>{</font>
+<a name='L12'>        <b>int</b> r;
+<a name='L13'>        <b>void</b> *p;
+<a name='L14'>        size_t nsz, rsz, sz, alignment, total;
+<a name='L15'>        <b>unsigned</b> i;
+<a name='L16'>        <b>void</b> *ps[<a href='../D/516.html' title='Multiple defined in 3 places.'>NITER</a>];
+<a name='L17'>
+<a name='L18'>        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Test begin\n");
+<a name='L19'>
+<a name='L20'>        sz = 42;
+<a name='L21'>        nsz = 0;
+<a name='L22'>        r = nallocm(&amp;nsz, sz, 0);
+<a name='L23'>        <b>if</b> (r != ALLOCM_SUCCESS) <font color='red'>{</font>
+<a name='L24'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected nallocm() error\n");
+<a name='L25'>                abort();
+<a name='L26'>        <font color='red'>}</font>
+<a name='L27'>        rsz = 0;
+<a name='L28'>        r = allocm(&amp;p, &amp;rsz, sz, 0);
+<a name='L29'>        <b>if</b> (r != ALLOCM_SUCCESS) <font color='red'>{</font>
+<a name='L30'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected allocm() error\n");
+<a name='L31'>                abort();
+<a name='L32'>        <font color='red'>}</font>
+<a name='L33'>        <b>if</b> (rsz &lt; sz)
+<a name='L34'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Real size smaller than expected\n");
+<a name='L35'>        <b>if</b> (nsz != rsz)
+<a name='L36'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("nallocm()/allocm() rsize mismatch\n");
+<a name='L37'>        <b>if</b> (dallocm(p, 0) != ALLOCM_SUCCESS)
+<a name='L38'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected dallocm() error\n");
+<a name='L39'>
+<a name='L40'>        r = allocm(&amp;p, NULL, sz, 0);
+<a name='L41'>        <b>if</b> (r != ALLOCM_SUCCESS) <font color='red'>{</font>
+<a name='L42'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected allocm() error\n");
+<a name='L43'>                abort();
+<a name='L44'>        <font color='red'>}</font>
+<a name='L45'>        <b>if</b> (dallocm(p, 0) != ALLOCM_SUCCESS)
+<a name='L46'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected dallocm() error\n");
+<a name='L47'>
+<a name='L48'>        nsz = 0;
+<a name='L49'>        r = nallocm(&amp;nsz, sz, ALLOCM_ZERO);
+<a name='L50'>        <b>if</b> (r != ALLOCM_SUCCESS) <font color='red'>{</font>
+<a name='L51'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected nallocm() error\n");
+<a name='L52'>                abort();
+<a name='L53'>        <font color='red'>}</font>
+<a name='L54'>        rsz = 0;
+<a name='L55'>        r = allocm(&amp;p, &amp;rsz, sz, ALLOCM_ZERO);
+<a name='L56'>        <b>if</b> (r != ALLOCM_SUCCESS) <font color='red'>{</font>
+<a name='L57'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected allocm() error\n");
+<a name='L58'>                abort();
+<a name='L59'>        <font color='red'>}</font>
+<a name='L60'>        <b>if</b> (nsz != rsz)
+<a name='L61'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("nallocm()/allocm() rsize mismatch\n");
+<a name='L62'>        <b>if</b> (dallocm(p, 0) != ALLOCM_SUCCESS)
+<a name='L63'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected dallocm() error\n");
+<a name='L64'>
+<a name='L65'><font color='darkred'>#if</font> LG_SIZEOF_PTR == 3
+<a name='L66'>        alignment = <a href='../S/160.html#L238' title='Defined at 238 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT64_C</a>(0x8000000000000000);
+<a name='L67'>        sz        = <a href='../S/160.html#L238' title='Defined at 238 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT64_C</a>(0x8000000000000000);
+<a name='L68'><font color='darkred'>#else</font>
+<a name='L69'>        alignment = 0x80000000LU;
+<a name='L70'>        sz        = 0x80000000LU;
+<a name='L71'><font color='darkred'>#endif</font>
+<a name='L72'>        nsz = 0;
+<a name='L73'>        r = nallocm(&amp;nsz, sz, ALLOCM_ALIGN(alignment));
+<a name='L74'>        <b>if</b> (r == ALLOCM_SUCCESS) <font color='red'>{</font>
+<a name='L75'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>(
+<a name='L76'>                    "Expected error for nallocm(&amp;nsz, %zu, %#x)\n",
+<a name='L77'>                    sz, ALLOCM_ALIGN(alignment));
+<a name='L78'>        <font color='red'>}</font>
+<a name='L79'>        rsz = 0;
+<a name='L80'>        r = allocm(&amp;p, &amp;rsz, sz, ALLOCM_ALIGN(alignment));
+<a name='L81'>        <b>if</b> (r == ALLOCM_SUCCESS) <font color='red'>{</font>
+<a name='L82'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>(
+<a name='L83'>                    "Expected error for allocm(&amp;p, %zu, %#x)\n",
+<a name='L84'>                    sz, ALLOCM_ALIGN(alignment));
+<a name='L85'>        <font color='red'>}</font>
+<a name='L86'>        <b>if</b> (nsz != rsz)
+<a name='L87'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("nallocm()/allocm() rsize mismatch\n");
+<a name='L88'>
+<a name='L89'><font color='darkred'>#if</font> LG_SIZEOF_PTR == 3
+<a name='L90'>        alignment = <a href='../S/160.html#L238' title='Defined at 238 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT64_C</a>(0x4000000000000000);
+<a name='L91'>        sz        = <a href='../S/160.html#L238' title='Defined at 238 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT64_C</a>(0x8400000000000001);
+<a name='L92'><font color='darkred'>#else</font>
+<a name='L93'>        alignment = 0x40000000LU;
+<a name='L94'>        sz        = 0x84000001LU;
+<a name='L95'><font color='darkred'>#endif</font>
+<a name='L96'>        nsz = 0;
+<a name='L97'>        r = nallocm(&amp;nsz, sz, ALLOCM_ALIGN(alignment));
+<a name='L98'>        <b>if</b> (r != ALLOCM_SUCCESS)
+<a name='L99'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected nallocm() error\n");
+<a name='L100'>        rsz = 0;
+<a name='L101'>        r = allocm(&amp;p, &amp;rsz, sz, ALLOCM_ALIGN(alignment));
+<a name='L102'>        <b>if</b> (r == ALLOCM_SUCCESS) <font color='red'>{</font>
+<a name='L103'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>(
+<a name='L104'>                    "Expected error for allocm(&amp;p, %zu, %#x)\n",
+<a name='L105'>                    sz, ALLOCM_ALIGN(alignment));
+<a name='L106'>        <font color='red'>}</font>
+<a name='L107'>
+<a name='L108'>        alignment = 0x10LU;
+<a name='L109'><font color='darkred'>#if</font> LG_SIZEOF_PTR == 3
+<a name='L110'>        sz = <a href='../S/160.html#L238' title='Defined at 238 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT64_C</a>(0xfffffffffffffff0);
+<a name='L111'><font color='darkred'>#else</font>
+<a name='L112'>        sz = 0xfffffff0LU;
+<a name='L113'><font color='darkred'>#endif</font>
+<a name='L114'>        nsz = 0;
+<a name='L115'>        r = nallocm(&amp;nsz, sz, ALLOCM_ALIGN(alignment));
+<a name='L116'>        <b>if</b> (r == ALLOCM_SUCCESS) <font color='red'>{</font>
+<a name='L117'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>(
+<a name='L118'>                    "Expected error for nallocm(&amp;nsz, %zu, %#x)\n",
+<a name='L119'>                    sz, ALLOCM_ALIGN(alignment));
+<a name='L120'>        <font color='red'>}</font>
+<a name='L121'>        rsz = 0;
+<a name='L122'>        r = allocm(&amp;p, &amp;rsz, sz, ALLOCM_ALIGN(alignment));
+<a name='L123'>        <b>if</b> (r == ALLOCM_SUCCESS) <font color='red'>{</font>
+<a name='L124'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>(
+<a name='L125'>                    "Expected error for allocm(&amp;p, %zu, %#x)\n",
+<a name='L126'>                    sz, ALLOCM_ALIGN(alignment));
+<a name='L127'>        <font color='red'>}</font>
+<a name='L128'>        <b>if</b> (nsz != rsz)
+<a name='L129'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("nallocm()/allocm() rsize mismatch\n");
+<a name='L130'>
+<a name='L131'>        <b>for</b> (i = 0; i &lt; <a href='../D/516.html' title='Multiple defined in 3 places.'>NITER</a>; i++)
+<a name='L132'>                ps[i] = NULL;
+<a name='L133'>
+<a name='L134'>        <b>for</b> (alignment = 8;
+<a name='L135'>            alignment &lt;= <a href='../D/481.html' title='Multiple defined in 4 places.'>MAXALIGN</a>;
+<a name='L136'>            alignment &lt;&lt;= 1) <font color='red'>{</font>
+<a name='L137'>                total = 0;
+<a name='L138'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Alignment: %zu\n", alignment);
+<a name='L139'>                <b>for</b> (sz = 1;
+<a name='L140'>                    sz &lt; 3 * alignment &amp;&amp; sz &lt; (1U &lt;&lt; 31);
+<a name='L141'>                    sz += (alignment &gt;&gt; (LG_SIZEOF_PTR-1)) - 1) <font color='red'>{</font>
+<a name='L142'>                        <b>for</b> (i = 0; i &lt; <a href='../D/516.html' title='Multiple defined in 3 places.'>NITER</a>; i++) <font color='red'>{</font>
+<a name='L143'>                                nsz = 0;
+<a name='L144'>                                r = nallocm(&amp;nsz, sz,
+<a name='L145'>                                    ALLOCM_ALIGN(alignment) | ALLOCM_ZERO);
+<a name='L146'>                                <b>if</b> (r != ALLOCM_SUCCESS) <font color='red'>{</font>
+<a name='L147'>                                        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>(
+<a name='L148'>                                            "nallocm() error for size %zu"
+<a name='L149'>                                            " (%#zx): %d\n",
+<a name='L150'>                                            sz, sz, r);
+<a name='L151'>                                        exit(1);
+<a name='L152'>                                <font color='red'>}</font>
+<a name='L153'>                                rsz = 0;
+<a name='L154'>                                r = allocm(&amp;ps[i], &amp;rsz, sz,
+<a name='L155'>                                    ALLOCM_ALIGN(alignment) | ALLOCM_ZERO);
+<a name='L156'>                                <b>if</b> (r != ALLOCM_SUCCESS) <font color='red'>{</font>
+<a name='L157'>                                        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>(
+<a name='L158'>                                            "allocm() error for size %zu"
+<a name='L159'>                                            " (%#zx): %d\n",
+<a name='L160'>                                            sz, sz, r);
+<a name='L161'>                                        exit(1);
+<a name='L162'>                                <font color='red'>}</font>
+<a name='L163'>                                <b>if</b> (rsz &lt; sz) <font color='red'>{</font>
+<a name='L164'>                                        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>(
+<a name='L165'>                                            "Real size smaller than"
+<a name='L166'>                                            " expected\n");
+<a name='L167'>                                <font color='red'>}</font>
+<a name='L168'>                                <b>if</b> (nsz != rsz) <font color='red'>{</font>
+<a name='L169'>                                        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>(
+<a name='L170'>                                            "nallocm()/allocm() rsize"
+<a name='L171'>                                            " mismatch\n");
+<a name='L172'>                                <font color='red'>}</font>
+<a name='L173'>                                <b>if</b> ((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)p &amp; (alignment-1)) <font color='red'>{</font>
+<a name='L174'>                                        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>(
+<a name='L175'>                                            "%p inadequately aligned for"
+<a name='L176'>                                            " alignment: %zu\n", p, alignment);
+<a name='L177'>                                <font color='red'>}</font>
+<a name='L178'>                                sallocm(ps[i], &amp;rsz, 0);
+<a name='L179'>                                total += rsz;
+<a name='L180'>                                <b>if</b> (total &gt;= (<a href='../D/481.html' title='Multiple defined in 4 places.'>MAXALIGN</a> &lt;&lt; 1))
+<a name='L181'>                                        <b>break</b>;
+<a name='L182'>                        <font color='red'>}</font>
+<a name='L183'>                        <b>for</b> (i = 0; i &lt; <a href='../D/516.html' title='Multiple defined in 3 places.'>NITER</a>; i++) <font color='red'>{</font>
+<a name='L184'>                                <b>if</b> (ps[i] != NULL) <font color='red'>{</font>
+<a name='L185'>                                        dallocm(ps[i], 0);
+<a name='L186'>                                        ps[i] = NULL;
+<a name='L187'>                                <font color='red'>}</font>
+<a name='L188'>                        <font color='red'>}</font>
+<a name='L189'>                <font color='red'>}</font>
+<a name='L190'>        <font color='red'>}</font>
+<a name='L191'>
+<a name='L192'>        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Test end\n");
+<a name='L193'>        <b>return</b> (0);
+<a name='L194'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^]<a href='#L10'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

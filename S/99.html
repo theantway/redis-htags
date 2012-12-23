@@ -1,0 +1,668 @@
+<html>
+<head>
+<title>deps/linenoise/linenoise.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/397.html'>linenoise</a>/linenoise.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L115'>[^]</a><a href='#L610'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L115' title='Defined at 115.'>isUnsupportedTerm</a>
+<li><a href='#L125' title='Defined at 125.'>freeHistory</a>
+<li><a href='#L135' title='Defined at 135.'>enableRawMode</a>
+<li><a href='#L170' title='Defined at 170.'>disableRawMode</a>
+<li><a href='#L177' title='Defined at 177.'>linenoiseAtExit</a>
+<li><a href='#L182' title='Defined at 182.'>getColumns</a>
+<li><a href='#L189' title='Defined at 189.'>refreshLine</a>
+<li><a href='#L216' title='Defined at 216.'>beep</a>
+<li><a href='#L221' title='Defined at 221.'>freeCompletions</a>
+<li><a href='#L229' title='Defined at 229.'>completeLine</a>
+<li><a href='#L284' title='Defined at 284.'>linenoiseClearScreen</a>
+<li><a href='#L290' title='Defined at 290.'>linenoisePrompt</a>
+<li><a href='#L490' title='Defined at 490.'>linenoiseRaw</a>
+<li><a href='#L514' title='Defined at 514.'>linenoise</a>
+<li><a href='#L538' title='Defined at 538.'>linenoiseSetCompletionCallback</a>
+<li><a href='#L542' title='Defined at 542.'>linenoiseAddCompletion</a>
+<li><a href='#L551' title='Defined at 551.'>linenoiseHistoryAdd</a>
+<li><a href='#L572' title='Defined at 572.'>linenoiseHistorySetMaxLen</a>
+<li><a href='#L594' title='Defined at 594.'>linenoiseHistorySave</a>
+<li><a href='#L610' title='Defined at 610.'>linenoiseHistoryLoad</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* linenoise.c -- guerrilla line editing library against the idea that a</font></i>
+<a name='L2'><i><font color='green'> * line editing lib needs to be 20,000 lines of C code.</font></i>
+<a name='L3'><i><font color='green'> *</font></i>
+<a name='L4'><i><font color='green'> * You can find the latest source code at:</font></i>
+<a name='L5'><i><font color='green'> * </font></i>
+<a name='L6'><i><font color='green'> *   http://github.com/antirez/linenoise</font></i>
+<a name='L7'><i><font color='green'> *</font></i>
+<a name='L8'><i><font color='green'> * Does a number of crazy assumptions that happen to be true in 99.9999% of</font></i>
+<a name='L9'><i><font color='green'> * the 2010 UNIX computers around.</font></i>
+<a name='L10'><i><font color='green'> *</font></i>
+<a name='L11'><i><font color='green'> * ------------------------------------------------------------------------</font></i>
+<a name='L12'><i><font color='green'> *</font></i>
+<a name='L13'><i><font color='green'> * Copyright (c) 2010, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L14'><i><font color='green'> * Copyright (c) 2010, Pieter Noordhuis &lt;pcnoordhuis at gmail dot com&gt;</font></i>
+<a name='L15'><i><font color='green'> *</font></i>
+<a name='L16'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L17'><i><font color='green'> * </font></i>
+<a name='L18'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L19'><i><font color='green'> * modification, are permitted provided that the following conditions are</font></i>
+<a name='L20'><i><font color='green'> * met:</font></i>
+<a name='L21'><i><font color='green'> * </font></i>
+<a name='L22'><i><font color='green'> *  *  Redistributions of source code must retain the above copyright</font></i>
+<a name='L23'><i><font color='green'> *     notice, this list of conditions and the following disclaimer.</font></i>
+<a name='L24'><i><font color='green'> *</font></i>
+<a name='L25'><i><font color='green'> *  *  Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L26'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L27'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L28'><i><font color='green'> * </font></i>
+<a name='L29'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS</font></i>
+<a name='L30'><i><font color='green'> * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT</font></i>
+<a name='L31'><i><font color='green'> * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR</font></i>
+<a name='L32'><i><font color='green'> * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT</font></i>
+<a name='L33'><i><font color='green'> * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,</font></i>
+<a name='L34'><i><font color='green'> * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT</font></i>
+<a name='L35'><i><font color='green'> * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,</font></i>
+<a name='L36'><i><font color='green'> * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY</font></i>
+<a name='L37'><i><font color='green'> * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT</font></i>
+<a name='L38'><i><font color='green'> * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE</font></i>
+<a name='L39'><i><font color='green'> * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L40'><i><font color='green'> * </font></i>
+<a name='L41'><i><font color='green'> * ------------------------------------------------------------------------</font></i>
+<a name='L42'><i><font color='green'> *</font></i>
+<a name='L43'><i><font color='green'> * References:</font></i>
+<a name='L44'><i><font color='green'> * - http://invisible-island.net/xterm/ctlseqs/ctlseqs.html</font></i>
+<a name='L45'><i><font color='green'> * - http://www.3waylabs.com/nw/WWW/products/wizcon/vt220.html</font></i>
+<a name='L46'><i><font color='green'> *</font></i>
+<a name='L47'><i><font color='green'> * Todo list:</font></i>
+<a name='L48'><i><font color='green'> * - Switch to gets() if $TERM is something we can't support.</font></i>
+<a name='L49'><i><font color='green'> * - Filter bogus Ctrl+&lt;char&gt; combinations.</font></i>
+<a name='L50'><i><font color='green'> * - Win32 support</font></i>
+<a name='L51'><i><font color='green'> *</font></i>
+<a name='L52'><i><font color='green'> * Bloat:</font></i>
+<a name='L53'><i><font color='green'> * - Completion?</font></i>
+<a name='L54'><i><font color='green'> * - History search like Ctrl+r in readline?</font></i>
+<a name='L55'><i><font color='green'> *</font></i>
+<a name='L56'><i><font color='green'> * List of escape sequences used by this program, we do everything just</font></i>
+<a name='L57'><i><font color='green'> * with three sequences. In order to be so cheap we may have some</font></i>
+<a name='L58'><i><font color='green'> * flickering effect with some slow terminal, but the lesser sequences</font></i>
+<a name='L59'><i><font color='green'> * the more compatible.</font></i>
+<a name='L60'><i><font color='green'> *</font></i>
+<a name='L61'><i><font color='green'> * CHA (Cursor Horizontal Absolute)</font></i>
+<a name='L62'><i><font color='green'> *    Sequence: ESC [ n G</font></i>
+<a name='L63'><i><font color='green'> *    Effect: moves cursor to column n</font></i>
+<a name='L64'><i><font color='green'> *</font></i>
+<a name='L65'><i><font color='green'> * EL (Erase Line)</font></i>
+<a name='L66'><i><font color='green'> *    Sequence: ESC [ n K</font></i>
+<a name='L67'><i><font color='green'> *    Effect: if n is 0 or missing, clear from cursor to end of line</font></i>
+<a name='L68'><i><font color='green'> *    Effect: if n is 1, clear from beginning of line to cursor</font></i>
+<a name='L69'><i><font color='green'> *    Effect: if n is 2, clear entire line</font></i>
+<a name='L70'><i><font color='green'> *</font></i>
+<a name='L71'><i><font color='green'> * CUF (CUrsor Forward)</font></i>
+<a name='L72'><i><font color='green'> *    Sequence: ESC [ n C</font></i>
+<a name='L73'><i><font color='green'> *    Effect: moves cursor forward of n chars</font></i>
+<a name='L74'><i><font color='green'> *</font></i>
+<a name='L75'><i><font color='green'> * The following are used to clear the screen: ESC [ H ESC [ 2 J</font></i>
+<a name='L76'><i><font color='green'> * This is actually composed of two sequences:</font></i>
+<a name='L77'><i><font color='green'> *</font></i>
+<a name='L78'><i><font color='green'> * cursorhome</font></i>
+<a name='L79'><i><font color='green'> *    Sequence: ESC [ H</font></i>
+<a name='L80'><i><font color='green'> *    Effect: moves the cursor to upper left corner</font></i>
+<a name='L81'><i><font color='green'> *</font></i>
+<a name='L82'><i><font color='green'> * ED2 (Clear entire screen)</font></i>
+<a name='L83'><i><font color='green'> *    Sequence: ESC [ 2 J</font></i>
+<a name='L84'><i><font color='green'> *    Effect: clear the whole screen</font></i>
+<a name='L85'><i><font color='green'> * </font></i>
+<a name='L86'><i><font color='green'> */</font></i>
+<a name='L87'>
+<a name='L88'><font color='darkred'>#include</font> &lt;termios.h&gt;
+<a name='L89'><font color='darkred'>#include</font> &lt;unistd.h&gt;
+<a name='L90'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L91'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L92'><font color='darkred'>#include</font> &lt;errno.h&gt;
+<a name='L93'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L94'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L95'><font color='darkred'>#include</font> &lt;sys/types.h&gt;
+<a name='L96'><font color='darkred'>#include</font> &lt;sys/ioctl.h&gt;
+<a name='L97'><font color='darkred'>#include</font> &lt;unistd.h&gt;
+<a name='L98'><font color='darkred'>#include</font> "<a href='100.html'>linenoise.h</a>"
+<a name='L99'>
+<a name='L100'><font color='darkred'>#define</font> <a href='../S/99.html#L108' title='Refered from 108 in deps/linenoise/linenoise.c.'>LINENOISE_DEFAULT_HISTORY_MAX_LEN</a> 100
+<a name='L101'><font color='darkred'>#define</font> <a href='../R/258.html' title='Multiple refered from 5 places.'>LINENOISE_MAX_LINE</a> 4096
+<a name='L102'><b>static</b> <b>char</b> *unsupported_term[] = <font color='red'>{</font>"dumb","cons25",NULL<font color='red'>}</font>;
+<a name='L103'><b>static</b> linenoiseCompletionCallback *<a href='../S/27.html#L250' title='Defined at 250 in src/redis-cli.c.'>completionCallback</a> = NULL;
+<a name='L104'>
+<a name='L105'><b>static</b> <b>struct</b> termios orig_termios; <i><font color='green'>/* in order to restore at exit */</font></i>
+<a name='L106'><b>static</b> <b>int</b> rawmode = 0; <i><font color='green'>/* for atexit() function to check if restore is needed*/</font></i>
+<a name='L107'><b>static</b> <b>int</b> atexit_registered = 0; <i><font color='green'>/* register atexit just 1 time */</font></i>
+<a name='L108'><b>static</b> <b>int</b> history_max_len = <a href='../S/99.html#L100' title='Defined at 100 in deps/linenoise/linenoise.c.'>LINENOISE_DEFAULT_HISTORY_MAX_LEN</a>;
+<a name='L109'><b>static</b> <b>int</b> history_len = 0;
+<a name='L110'><b>char</b> **history = NULL;
+<a name='L111'>
+<a name='L112'><b>static</b> <b>void</b> <a href='../S/99.html#L177' title='Defined at 177 in deps/linenoise/linenoise.c.'>linenoiseAtExit</a>(<b>void</b>);
+<a name='L113'><b>int</b> <a href='../S/99.html#L551' title='Defined at 551 in deps/linenoise/linenoise.c.'>linenoiseHistoryAdd</a>(<b>const</b> <b>char</b> *line);
+<a name='L114'>
+<a name='L115'><b>static</b> <b>int</b> <a href='../S/99.html#L518' title='Refered from 518 in deps/linenoise/linenoise.c.'>isUnsupportedTerm</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L116'>    <b>char</b> *term = getenv("TERM");
+<a name='L117'>    <b>int</b> j;
+<a name='L118'>
+<a name='L119'>    <b>if</b> (term == NULL) <b>return</b> 0;
+<a name='L120'>    <b>for</b> (j = 0; unsupported_term[j]; j++)
+<a name='L121'>        <b>if</b> (!strcasecmp(term,unsupported_term[j])) <b>return</b> 1;
+<a name='L122'>    <b>return</b> 0;
+<a name='L123'><font color='red'>}</font>
+<a name='L124'>
+<a name='L125'><b>static</b> <b>void</b> <a href='../S/99.html#L179' title='Refered from 179 in deps/linenoise/linenoise.c.'>freeHistory</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L126'>    <b>if</b> (history) <font color='red'>{</font>
+<a name='L127'>        <b>int</b> j;
+<a name='L128'>
+<a name='L129'>        <b>for</b> (j = 0; j &lt; history_len; j++)
+<a name='L130'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(history[j]);
+<a name='L131'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(history);
+<a name='L132'>    <font color='red'>}</font>
+<a name='L133'><font color='red'>}</font>
+<a name='L134'>
+<a name='L135'><b>static</b> <b>int</b> <a href='../S/99.html#L506' title='Refered from 506 in deps/linenoise/linenoise.c.'>enableRawMode</a>(<b>int</b> fd) <font color='red'>{</font>
+<a name='L136'>    <b>struct</b> termios raw;
+<a name='L137'>
+<a name='L138'>    <b>if</b> (!isatty(STDIN_FILENO)) <b>goto</b> <a href='../S/316.html#L36' title='Defined at 36 in deps/lua/src/luac.c.'>fatal</a>;
+<a name='L139'>    <b>if</b> (!atexit_registered) <font color='red'>{</font>
+<a name='L140'>        atexit(<a href='../S/99.html#L177' title='Defined at 177 in deps/linenoise/linenoise.c.'>linenoiseAtExit</a>);
+<a name='L141'>        atexit_registered = 1;
+<a name='L142'>    <font color='red'>}</font>
+<a name='L143'>    <b>if</b> (tcgetattr(fd,&amp;orig_termios) == -1) <b>goto</b> <a href='../S/316.html#L36' title='Defined at 36 in deps/lua/src/luac.c.'>fatal</a>;
+<a name='L144'>
+<a name='L145'>    raw = orig_termios;  <i><font color='green'>/* modify the original mode */</font></i>
+<a name='L146'>    <i><font color='green'>/* input modes: no break, no CR to NL, no parity check, no strip char,</font></i>
+<a name='L147'><i><font color='green'>     * no start/stop output control. */</font></i>
+<a name='L148'>    raw.c_iflag &amp;= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+<a name='L149'>    <i><font color='green'>/* output modes - disable post processing */</font></i>
+<a name='L150'>    raw.c_oflag &amp;= ~(OPOST);
+<a name='L151'>    <i><font color='green'>/* control modes - set 8 bit chars */</font></i>
+<a name='L152'>    raw.c_cflag |= (CS8);
+<a name='L153'>    <i><font color='green'>/* local modes - choing off, canonical off, no extended functions,</font></i>
+<a name='L154'><i><font color='green'>     * no signal chars (^Z,^C) */</font></i>
+<a name='L155'>    raw.c_lflag &amp;= ~(ECHO | ICANON | IEXTEN | ISIG);
+<a name='L156'>    <i><font color='green'>/* control chars - set return condition: min number of bytes and timer.</font></i>
+<a name='L157'><i><font color='green'>     * We want read to return every single byte, without timeout. */</font></i>
+<a name='L158'>    raw.c_cc[VMIN] = 1; raw.c_cc[VTIME] = 0; <i><font color='green'>/* 1 byte, no timer */</font></i>
+<a name='L159'>
+<a name='L160'>    <i><font color='green'>/* put terminal in raw mode after flushing */</font></i>
+<a name='L161'>    <b>if</b> (tcsetattr(fd,TCSAFLUSH,&amp;raw) &lt; 0) <b>goto</b> <a href='../S/316.html#L36' title='Defined at 36 in deps/lua/src/luac.c.'>fatal</a>;
+<a name='L162'>    rawmode = 1;
+<a name='L163'>    <b>return</b> 0;
+<a name='L164'>
+<a name='L165'><a href='../S/316.html#L36' title='Defined at 36 in deps/lua/src/luac.c.'>fatal</a>:
+<a name='L166'>    errno = ENOTTY;
+<a name='L167'>    <b>return</b> -1;
+<a name='L168'><font color='red'>}</font>
+<a name='L169'>
+<a name='L170'><b>static</b> <b>void</b> <a href='../R/1852.html' title='Multiple refered from 2 places.'>disableRawMode</a>(<b>int</b> fd) <font color='red'>{</font>
+<a name='L171'>    <i><font color='green'>/* Don't even check the return value as it's too late. */</font></i>
+<a name='L172'>    <b>if</b> (rawmode &amp;&amp; tcsetattr(fd,TCSAFLUSH,&amp;orig_termios) != -1)
+<a name='L173'>        rawmode = 0;
+<a name='L174'><font color='red'>}</font>
+<a name='L175'>
+<a name='L176'><i><font color='green'>/* At exit we'll try to fix the terminal to the initial conditions. */</font></i>
+<a name='L177'><b>static</b> <b>void</b> <a href='../R/2366.html' title='Multiple refered from 2 places.'>linenoiseAtExit</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L178'>    <a href='../S/99.html#L170' title='Defined at 170 in deps/linenoise/linenoise.c.'>disableRawMode</a>(STDIN_FILENO);
+<a name='L179'>    <a href='../S/99.html#L125' title='Defined at 125 in deps/linenoise/linenoise.c.'>freeHistory</a>();
+<a name='L180'><font color='red'>}</font>
+<a name='L181'>
+<a name='L182'><b>static</b> <b>int</b> <a href='../S/99.html#L294' title='Refered from 294 in deps/linenoise/linenoise.c.'>getColumns</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L183'>    <b>struct</b> winsize ws;
+<a name='L184'>
+<a name='L185'>    <b>if</b> (ioctl(1, TIOCGWINSZ, &amp;ws) == -1) <b>return</b> 80;
+<a name='L186'>    <b>return</b> ws.ws_col;
+<a name='L187'><font color='red'>}</font>
+<a name='L188'>
+<a name='L189'><b>static</b> <b>void</b> <a href='../R/3510.html' title='Multiple refered from 18 places.'>refreshLine</a>(<b>int</b> fd, <b>const</b> <b>char</b> *prompt, <b>char</b> *buf, size_t len, size_t pos, size_t cols) <font color='red'>{</font>
+<a name='L190'>    <b>char</b> seq[64];
+<a name='L191'>    size_t plen = strlen(prompt);
+<a name='L192'>    
+<a name='L193'>    <b>while</b>((plen+<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>) &gt;= cols) <font color='red'>{</font>
+<a name='L194'>        buf++;
+<a name='L195'>        len--;
+<a name='L196'>        <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>--;
+<a name='L197'>    <font color='red'>}</font>
+<a name='L198'>    <b>while</b> (plen+len &gt; cols) <font color='red'>{</font>
+<a name='L199'>        len--;
+<a name='L200'>    <font color='red'>}</font>
+<a name='L201'>
+<a name='L202'>    <i><font color='green'>/* Cursor to left edge */</font></i>
+<a name='L203'>    snprintf(seq,64,"\x1b[0G");
+<a name='L204'>    <b>if</b> (write(fd,seq,strlen(seq)) == -1) <b>return</b>;
+<a name='L205'>    <i><font color='green'>/* Write the prompt and the current buffer content */</font></i>
+<a name='L206'>    <b>if</b> (write(fd,prompt,strlen(prompt)) == -1) <b>return</b>;
+<a name='L207'>    <b>if</b> (write(fd,buf,len) == -1) <b>return</b>;
+<a name='L208'>    <i><font color='green'>/* Erase to right */</font></i>
+<a name='L209'>    snprintf(seq,64,"\x1b[0K");
+<a name='L210'>    <b>if</b> (write(fd,seq,strlen(seq)) == -1) <b>return</b>;
+<a name='L211'>    <i><font color='green'>/* Move cursor to original position. */</font></i>
+<a name='L212'>    snprintf(seq,64,"\x1b[0G\x1b[%dC", (<b>int</b>)(<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>+plen));
+<a name='L213'>    <b>if</b> (write(fd,seq,strlen(seq)) == -1) <b>return</b>;
+<a name='L214'><font color='red'>}</font>
+<a name='L215'>
+<a name='L216'><b>static</b> <b>void</b> <a href='../R/1451.html' title='Multiple refered from 2 places.'>beep</a>() <font color='red'>{</font>
+<a name='L217'>    fprintf(stderr, "\x7");
+<a name='L218'>    fflush(stderr);
+<a name='L219'><font color='red'>}</font>
+<a name='L220'>
+<a name='L221'><b>static</b> <b>void</b> <a href='../R/1998.html' title='Multiple refered from 2 places.'>freeCompletions</a>(linenoiseCompletions *lc) <font color='red'>{</font>
+<a name='L222'>    size_t i;
+<a name='L223'>    <b>for</b> (i = 0; i &lt; lc-&gt;len; i++)
+<a name='L224'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(lc-&gt;cvec[i]);
+<a name='L225'>    <b>if</b> (lc-&gt;cvec != NULL)
+<a name='L226'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(lc-&gt;cvec);
+<a name='L227'><font color='red'>}</font>
+<a name='L228'>
+<a name='L229'><b>static</b> <b>int</b> <a href='../S/99.html#L319' title='Refered from 319 in deps/linenoise/linenoise.c.'>completeLine</a>(<b>int</b> fd, <b>const</b> <b>char</b> *prompt, <b>char</b> *buf, size_t buflen, size_t *len, size_t *pos, size_t cols) <font color='red'>{</font>
+<a name='L230'>    <a href='../D/2677.html' title='Multiple defined in 2 places.'>linenoiseCompletions</a> lc = <font color='red'>{</font> 0, NULL <font color='red'>}</font>;
+<a name='L231'>    <b>int</b> nread, nwritten;
+<a name='L232'>    <b>char</b> c = 0;
+<a name='L233'>
+<a name='L234'>    <a href='../S/27.html#L250' title='Defined at 250 in src/redis-cli.c.'>completionCallback</a>(buf,&amp;lc);
+<a name='L235'>    <b>if</b> (lc.len == 0) <font color='red'>{</font>
+<a name='L236'>        <a href='../S/99.html#L216' title='Defined at 216 in deps/linenoise/linenoise.c.'>beep</a>();
+<a name='L237'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L238'>        size_t stop = 0, i = 0;
+<a name='L239'>        size_t clen;
+<a name='L240'>
+<a name='L241'>        <b>while</b>(!stop) <font color='red'>{</font>
+<a name='L242'>            <i><font color='green'>/* Show completion or original buffer */</font></i>
+<a name='L243'>            <b>if</b> (i &lt; lc.len) <font color='red'>{</font>
+<a name='L244'>                clen = strlen(lc.cvec[i]);
+<a name='L245'>                <a href='../S/99.html#L189' title='Defined at 189 in deps/linenoise/linenoise.c.'>refreshLine</a>(fd,prompt,lc.cvec[i],clen,clen,cols);
+<a name='L246'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L247'>                <a href='../S/99.html#L189' title='Defined at 189 in deps/linenoise/linenoise.c.'>refreshLine</a>(fd,prompt,buf,*len,*<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,cols);
+<a name='L248'>            <font color='red'>}</font>
+<a name='L249'>
+<a name='L250'>            nread = read(fd,&amp;c,1);
+<a name='L251'>            <b>if</b> (nread &lt;= 0) <font color='red'>{</font>
+<a name='L252'>                <a href='../S/99.html#L221' title='Defined at 221 in deps/linenoise/linenoise.c.'>freeCompletions</a>(&amp;lc);
+<a name='L253'>                <b>return</b> -1;
+<a name='L254'>            <font color='red'>}</font>
+<a name='L255'>
+<a name='L256'>            <b>switch</b>(c) <font color='red'>{</font>
+<a name='L257'>                <b>case</b> 9: <i><font color='green'>/* tab */</font></i>
+<a name='L258'>                    i = (i+1) % (lc.len+1);
+<a name='L259'>                    <b>if</b> (i == lc.len) <a href='../S/99.html#L216' title='Defined at 216 in deps/linenoise/linenoise.c.'>beep</a>();
+<a name='L260'>                    <b>break</b>;
+<a name='L261'>                <b>case</b> 27: <i><font color='green'>/* escape */</font></i>
+<a name='L262'>                    <i><font color='green'>/* Re-show original buffer */</font></i>
+<a name='L263'>                    <b>if</b> (i &lt; lc.len) <font color='red'>{</font>
+<a name='L264'>                        <a href='../S/99.html#L189' title='Defined at 189 in deps/linenoise/linenoise.c.'>refreshLine</a>(fd,prompt,buf,*len,*<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,cols);
+<a name='L265'>                    <font color='red'>}</font>
+<a name='L266'>                    stop = 1;
+<a name='L267'>                    <b>break</b>;
+<a name='L268'>                <b>default</b>:
+<a name='L269'>                    <i><font color='green'>/* Update buffer and return */</font></i>
+<a name='L270'>                    <b>if</b> (i &lt; lc.len) <font color='red'>{</font>
+<a name='L271'>                        nwritten = snprintf(buf,buflen,"%s",lc.cvec[i]);
+<a name='L272'>                        *len = *<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> = nwritten;
+<a name='L273'>                    <font color='red'>}</font>
+<a name='L274'>                    stop = 1;
+<a name='L275'>                    <b>break</b>;
+<a name='L276'>            <font color='red'>}</font>
+<a name='L277'>        <font color='red'>}</font>
+<a name='L278'>    <font color='red'>}</font>
+<a name='L279'>
+<a name='L280'>    <a href='../S/99.html#L221' title='Defined at 221 in deps/linenoise/linenoise.c.'>freeCompletions</a>(&amp;lc);
+<a name='L281'>    <b>return</b> c; <i><font color='green'>/* Return last read character */</font></i>
+<a name='L282'><font color='red'>}</font>
+<a name='L283'>
+<a name='L284'><b>void</b> <a href='../R/2367.html' title='Multiple refered from 3 places.'>linenoiseClearScreen</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L285'>    <b>if</b> (write(STDIN_FILENO,"\x1b[H\x1b[2J",7) &lt;= 0) <font color='red'>{</font>
+<a name='L286'>        <i><font color='green'>/* nothing to do, just to avoid warning. */</font></i>
+<a name='L287'>    <font color='red'>}</font>
+<a name='L288'><font color='red'>}</font>
+<a name='L289'>
+<a name='L290'><b>static</b> <b>int</b> <a href='../S/99.html#L507' title='Refered from 507 in deps/linenoise/linenoise.c.'>linenoisePrompt</a>(<b>int</b> fd, <b>char</b> *buf, size_t buflen, <b>const</b> <b>char</b> *prompt) <font color='red'>{</font>
+<a name='L291'>    size_t plen = strlen(prompt);
+<a name='L292'>    size_t <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> = 0;
+<a name='L293'>    size_t len = 0;
+<a name='L294'>    size_t cols = <a href='../S/99.html#L182' title='Defined at 182 in deps/linenoise/linenoise.c.'>getColumns</a>();
+<a name='L295'>    <b>int</b> history_index = 0;
+<a name='L296'>    size_t old_pos;
+<a name='L297'>    size_t diff;
+<a name='L298'>
+<a name='L299'>    buf[0] = '\0';
+<a name='L300'>    buflen--; <i><font color='green'>/* Make sure there is always space for the nulterm */</font></i>
+<a name='L301'>
+<a name='L302'>    <i><font color='green'>/* The latest history entry is always our current buffer, that</font></i>
+<a name='L303'><i><font color='green'>     * initially is just an empty string. */</font></i>
+<a name='L304'>    <a href='../S/99.html#L551' title='Defined at 551 in deps/linenoise/linenoise.c.'>linenoiseHistoryAdd</a>("");
+<a name='L305'>    
+<a name='L306'>    <b>if</b> (write(fd,prompt,plen) == -1) <b>return</b> -1;
+<a name='L307'>    <b>while</b>(1) <font color='red'>{</font>
+<a name='L308'>        <b>char</b> c;
+<a name='L309'>        <b>int</b> nread;
+<a name='L310'>        <b>char</b> seq[2], seq2[2];
+<a name='L311'>
+<a name='L312'>        nread = read(fd,&amp;c,1);
+<a name='L313'>        <b>if</b> (nread &lt;= 0) <b>return</b> len;
+<a name='L314'>
+<a name='L315'>        <i><font color='green'>/* Only autocomplete when the callback is set. It returns &lt; 0 when</font></i>
+<a name='L316'><i><font color='green'>         * there was an error reading from fd. Otherwise it will return the</font></i>
+<a name='L317'><i><font color='green'>         * character that should be handled next. */</font></i>
+<a name='L318'>        <b>if</b> (c == 9 &amp;&amp; <a href='../S/27.html#L250' title='Defined at 250 in src/redis-cli.c.'>completionCallback</a> != NULL) <font color='red'>{</font>
+<a name='L319'>            c = <a href='../S/99.html#L229' title='Defined at 229 in deps/linenoise/linenoise.c.'>completeLine</a>(fd,prompt,buf,buflen,&amp;len,&amp;<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,cols);
+<a name='L320'>            <i><font color='green'>/* Return on errors */</font></i>
+<a name='L321'>            <b>if</b> (c &lt; 0) <b>return</b> len;
+<a name='L322'>            <i><font color='green'>/* Read next character when 0 */</font></i>
+<a name='L323'>            <b>if</b> (c == 0) <b>continue</b>;
+<a name='L324'>        <font color='red'>}</font>
+<a name='L325'>
+<a name='L326'>        <b>switch</b>(c) <font color='red'>{</font>
+<a name='L327'>        <b>case</b> 13:    <i><font color='green'>/* enter */</font></i>
+<a name='L328'>            history_len--;
+<a name='L329'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(history[history_len]);
+<a name='L330'>            <b>return</b> (<b>int</b>)len;
+<a name='L331'>        <b>case</b> 3:     <i><font color='green'>/* ctrl-c */</font></i>
+<a name='L332'>            errno = EAGAIN;
+<a name='L333'>            <b>return</b> -1;
+<a name='L334'>        <b>case</b> 127:   <i><font color='green'>/* backspace */</font></i>
+<a name='L335'>        <b>case</b> 8:     <i><font color='green'>/* ctrl-h */</font></i>
+<a name='L336'>            <b>if</b> (<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> &gt; 0 &amp;&amp; len &gt; 0) <font color='red'>{</font>
+<a name='L337'>                memmove(buf+<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>-1,buf+<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,len-<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>);
+<a name='L338'>                <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>--;
+<a name='L339'>                len--;
+<a name='L340'>                buf[len] = '\0';
+<a name='L341'>                <a href='../S/99.html#L189' title='Defined at 189 in deps/linenoise/linenoise.c.'>refreshLine</a>(fd,prompt,buf,len,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,cols);
+<a name='L342'>            <font color='red'>}</font>
+<a name='L343'>            <b>break</b>;
+<a name='L344'>        <b>case</b> 4:     <i><font color='green'>/* ctrl-d, remove char at right of cursor */</font></i>
+<a name='L345'>            <b>if</b> (len &gt; 1 &amp;&amp; <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> &lt; (len-1)) <font color='red'>{</font>
+<a name='L346'>                memmove(buf+<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,buf+<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>+1,len-<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>);
+<a name='L347'>                len--;
+<a name='L348'>                buf[len] = '\0';
+<a name='L349'>                <a href='../S/99.html#L189' title='Defined at 189 in deps/linenoise/linenoise.c.'>refreshLine</a>(fd,prompt,buf,len,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,cols);
+<a name='L350'>            <font color='red'>}</font> <b>else</b> <b>if</b> (len == 0) <font color='red'>{</font>
+<a name='L351'>                history_len--;
+<a name='L352'>                <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(history[history_len]);
+<a name='L353'>                <b>return</b> -1;
+<a name='L354'>            <font color='red'>}</font>
+<a name='L355'>            <b>break</b>;
+<a name='L356'>        <b>case</b> 20:    <i><font color='green'>/* ctrl-t */</font></i>
+<a name='L357'>            <b>if</b> (<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> &gt; 0 &amp;&amp; <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> &lt; len) <font color='red'>{</font>
+<a name='L358'>                <b>int</b> aux = buf[<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>-1];
+<a name='L359'>                buf[<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>-1] = buf[<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>];
+<a name='L360'>                buf[<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>] = aux;
+<a name='L361'>                <b>if</b> (<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> != len-1) <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>++;
+<a name='L362'>                <a href='../S/99.html#L189' title='Defined at 189 in deps/linenoise/linenoise.c.'>refreshLine</a>(fd,prompt,buf,len,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,cols);
+<a name='L363'>            <font color='red'>}</font>
+<a name='L364'>            <b>break</b>;
+<a name='L365'>        <b>case</b> 2:     <i><font color='green'>/* ctrl-b */</font></i>
+<a name='L366'>            <b>goto</b> left_arrow;
+<a name='L367'>        <b>case</b> 6:     <i><font color='green'>/* ctrl-f */</font></i>
+<a name='L368'>            <b>goto</b> right_arrow;
+<a name='L369'>        <b>case</b> 16:    <i><font color='green'>/* ctrl-p */</font></i>
+<a name='L370'>            seq[1] = 65;
+<a name='L371'>            <b>goto</b> up_down_arrow;
+<a name='L372'>        <b>case</b> 14:    <i><font color='green'>/* ctrl-n */</font></i>
+<a name='L373'>            seq[1] = 66;
+<a name='L374'>            <b>goto</b> up_down_arrow;
+<a name='L375'>            <b>break</b>;
+<a name='L376'>        <b>case</b> 27:    <i><font color='green'>/* escape sequence */</font></i>
+<a name='L377'>            <b>if</b> (read(fd,seq,2) == -1) <b>break</b>;
+<a name='L378'>            <b>if</b> (seq[0] == 91 &amp;&amp; seq[1] == 68) <font color='red'>{</font>
+<a name='L379'>left_arrow:
+<a name='L380'>                <i><font color='green'>/* left arrow */</font></i>
+<a name='L381'>                <b>if</b> (<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> &gt; 0) <font color='red'>{</font>
+<a name='L382'>                    <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>--;
+<a name='L383'>                    <a href='../S/99.html#L189' title='Defined at 189 in deps/linenoise/linenoise.c.'>refreshLine</a>(fd,prompt,buf,len,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,cols);
+<a name='L384'>                <font color='red'>}</font>
+<a name='L385'>            <font color='red'>}</font> <b>else</b> <b>if</b> (seq[0] == 91 &amp;&amp; seq[1] == 67) <font color='red'>{</font>
+<a name='L386'>right_arrow:
+<a name='L387'>                <i><font color='green'>/* right arrow */</font></i>
+<a name='L388'>                <b>if</b> (<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> != len) <font color='red'>{</font>
+<a name='L389'>                    <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>++;
+<a name='L390'>                    <a href='../S/99.html#L189' title='Defined at 189 in deps/linenoise/linenoise.c.'>refreshLine</a>(fd,prompt,buf,len,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,cols);
+<a name='L391'>                <font color='red'>}</font>
+<a name='L392'>            <font color='red'>}</font> <b>else</b> <b>if</b> (seq[0] == 91 &amp;&amp; (seq[1] == 65 || seq[1] == 66)) <font color='red'>{</font>
+<a name='L393'>up_down_arrow:
+<a name='L394'>                <i><font color='green'>/* up and down arrow: history */</font></i>
+<a name='L395'>                <b>if</b> (history_len &gt; 1) <font color='red'>{</font>
+<a name='L396'>                    <i><font color='green'>/* Update the current history entry before to</font></i>
+<a name='L397'><i><font color='green'>                     * overwrite it with tne next one. */</font></i>
+<a name='L398'>                    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(history[history_len-1-history_index]);
+<a name='L399'>                    history[history_len-1-history_index] = strdup(buf);
+<a name='L400'>                    <i><font color='green'>/* Show the new entry */</font></i>
+<a name='L401'>                    history_index += (seq[1] == 65) ? 1 : -1;
+<a name='L402'>                    <b>if</b> (history_index &lt; 0) <font color='red'>{</font>
+<a name='L403'>                        history_index = 0;
+<a name='L404'>                        <b>break</b>;
+<a name='L405'>                    <font color='red'>}</font> <b>else</b> <b>if</b> (history_index &gt;= history_len) <font color='red'>{</font>
+<a name='L406'>                        history_index = history_len-1;
+<a name='L407'>                        <b>break</b>;
+<a name='L408'>                    <font color='red'>}</font>
+<a name='L409'>                    strncpy(buf,history[history_len-1-history_index],buflen);
+<a name='L410'>                    buf[buflen] = '\0';
+<a name='L411'>                    len = <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> = strlen(buf);
+<a name='L412'>                    <a href='../S/99.html#L189' title='Defined at 189 in deps/linenoise/linenoise.c.'>refreshLine</a>(fd,prompt,buf,len,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,cols);
+<a name='L413'>                <font color='red'>}</font>
+<a name='L414'>            <font color='red'>}</font> <b>else</b> <b>if</b> (seq[0] == 91 &amp;&amp; seq[1] &gt; 48 &amp;&amp; seq[1] &lt; 55) <font color='red'>{</font>
+<a name='L415'>                <i><font color='green'>/* extended escape */</font></i>
+<a name='L416'>                <b>if</b> (read(fd,seq2,2) == -1) <b>break</b>;
+<a name='L417'>                <b>if</b> (seq[1] == 51 &amp;&amp; seq2[0] == 126) <font color='red'>{</font>
+<a name='L418'>                    <i><font color='green'>/* delete */</font></i>
+<a name='L419'>                    <b>if</b> (len &gt; 0 &amp;&amp; <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> &lt; len) <font color='red'>{</font>
+<a name='L420'>                        memmove(buf+<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,buf+<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>+1,len-<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>-1);
+<a name='L421'>                        len--;
+<a name='L422'>                        buf[len] = '\0';
+<a name='L423'>                        <a href='../S/99.html#L189' title='Defined at 189 in deps/linenoise/linenoise.c.'>refreshLine</a>(fd,prompt,buf,len,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,cols);
+<a name='L424'>                    <font color='red'>}</font>
+<a name='L425'>                <font color='red'>}</font>
+<a name='L426'>            <font color='red'>}</font>
+<a name='L427'>            <b>break</b>;
+<a name='L428'>        <b>default</b>:
+<a name='L429'>            <b>if</b> (len &lt; buflen) <font color='red'>{</font>
+<a name='L430'>                <b>if</b> (len == <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>) <font color='red'>{</font>
+<a name='L431'>                    buf[<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>] = c;
+<a name='L432'>                    <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>++;
+<a name='L433'>                    len++;
+<a name='L434'>                    buf[len] = '\0';
+<a name='L435'>                    <b>if</b> (plen+len &lt; cols) <font color='red'>{</font>
+<a name='L436'>                        <i><font color='green'>/* Avoid a full update of the line in the</font></i>
+<a name='L437'><i><font color='green'>                         * trivial case. */</font></i>
+<a name='L438'>                        <b>if</b> (write(fd,&amp;c,1) == -1) <b>return</b> -1;
+<a name='L439'>                    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L440'>                        <a href='../S/99.html#L189' title='Defined at 189 in deps/linenoise/linenoise.c.'>refreshLine</a>(fd,prompt,buf,len,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,cols);
+<a name='L441'>                    <font color='red'>}</font>
+<a name='L442'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L443'>                    memmove(buf+<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>+1,buf+<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,len-<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>);
+<a name='L444'>                    buf[<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>] = c;
+<a name='L445'>                    len++;
+<a name='L446'>                    <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>++;
+<a name='L447'>                    buf[len] = '\0';
+<a name='L448'>                    <a href='../S/99.html#L189' title='Defined at 189 in deps/linenoise/linenoise.c.'>refreshLine</a>(fd,prompt,buf,len,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,cols);
+<a name='L449'>                <font color='red'>}</font>
+<a name='L450'>            <font color='red'>}</font>
+<a name='L451'>            <b>break</b>;
+<a name='L452'>        <b>case</b> 21: <i><font color='green'>/* Ctrl+u, delete the whole line. */</font></i>
+<a name='L453'>            buf[0] = '\0';
+<a name='L454'>            <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> = len = 0;
+<a name='L455'>            <a href='../S/99.html#L189' title='Defined at 189 in deps/linenoise/linenoise.c.'>refreshLine</a>(fd,prompt,buf,len,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,cols);
+<a name='L456'>            <b>break</b>;
+<a name='L457'>        <b>case</b> 11: <i><font color='green'>/* Ctrl+k, delete from current to end of line. */</font></i>
+<a name='L458'>            buf[<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>] = '\0';
+<a name='L459'>            len = <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>;
+<a name='L460'>            <a href='../S/99.html#L189' title='Defined at 189 in deps/linenoise/linenoise.c.'>refreshLine</a>(fd,prompt,buf,len,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,cols);
+<a name='L461'>            <b>break</b>;
+<a name='L462'>        <b>case</b> 1: <i><font color='green'>/* Ctrl+a, go to the start of the line */</font></i>
+<a name='L463'>            <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> = 0;
+<a name='L464'>            <a href='../S/99.html#L189' title='Defined at 189 in deps/linenoise/linenoise.c.'>refreshLine</a>(fd,prompt,buf,len,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,cols);
+<a name='L465'>            <b>break</b>;
+<a name='L466'>        <b>case</b> 5: <i><font color='green'>/* ctrl+e, go to the end of the line */</font></i>
+<a name='L467'>            <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> = len;
+<a name='L468'>            <a href='../S/99.html#L189' title='Defined at 189 in deps/linenoise/linenoise.c.'>refreshLine</a>(fd,prompt,buf,len,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,cols);
+<a name='L469'>            <b>break</b>;
+<a name='L470'>        <b>case</b> 12: <i><font color='green'>/* ctrl+l, clear screen */</font></i>
+<a name='L471'>            <a href='../S/99.html#L284' title='Defined at 284 in deps/linenoise/linenoise.c.'>linenoiseClearScreen</a>();
+<a name='L472'>            <a href='../S/99.html#L189' title='Defined at 189 in deps/linenoise/linenoise.c.'>refreshLine</a>(fd,prompt,buf,len,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,cols);
+<a name='L473'>            <b>break</b>;
+<a name='L474'>        <b>case</b> 23: <i><font color='green'>/* ctrl+w, delete previous word */</font></i>
+<a name='L475'>            old_pos = <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>;
+<a name='L476'>            <b>while</b> (<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> &gt; 0 &amp;&amp; buf[<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>-1] == ' ')
+<a name='L477'>                <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>--;
+<a name='L478'>            <b>while</b> (<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> &gt; 0 &amp;&amp; buf[<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>-1] != ' ')
+<a name='L479'>                <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>--;
+<a name='L480'>            diff = old_pos - <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>;
+<a name='L481'>            memmove(&amp;buf[<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>], &amp;buf[old_pos], len-old_pos+1);
+<a name='L482'>            len -= diff;
+<a name='L483'>            <a href='../S/99.html#L189' title='Defined at 189 in deps/linenoise/linenoise.c.'>refreshLine</a>(fd,prompt,buf,len,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,cols);
+<a name='L484'>            <b>break</b>;
+<a name='L485'>        <font color='red'>}</font>
+<a name='L486'>    <font color='red'>}</font>
+<a name='L487'>    <b>return</b> len;
+<a name='L488'><font color='red'>}</font>
+<a name='L489'>
+<a name='L490'><b>static</b> <b>int</b> <a href='../S/99.html#L531' title='Refered from 531 in deps/linenoise/linenoise.c.'>linenoiseRaw</a>(<b>char</b> *buf, size_t buflen, <b>const</b> <b>char</b> *prompt) <font color='red'>{</font>
+<a name='L491'>    <b>int</b> fd = STDIN_FILENO;
+<a name='L492'>    <b>int</b> count;
+<a name='L493'>
+<a name='L494'>    <b>if</b> (buflen == 0) <font color='red'>{</font>
+<a name='L495'>        errno = EINVAL;
+<a name='L496'>        <b>return</b> -1;
+<a name='L497'>    <font color='red'>}</font>
+<a name='L498'>    <b>if</b> (!isatty(STDIN_FILENO)) <font color='red'>{</font>
+<a name='L499'>        <b>if</b> (fgets(buf, buflen, stdin) == NULL) <b>return</b> -1;
+<a name='L500'>        count = strlen(buf);
+<a name='L501'>        <b>if</b> (count &amp;&amp; buf[count-1] == '\n') <font color='red'>{</font>
+<a name='L502'>            count--;
+<a name='L503'>            buf[count] = '\0';
+<a name='L504'>        <font color='red'>}</font>
+<a name='L505'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L506'>        <b>if</b> (<a href='../S/99.html#L135' title='Defined at 135 in deps/linenoise/linenoise.c.'>enableRawMode</a>(fd) == -1) <b>return</b> -1;
+<a name='L507'>        count = <a href='../S/99.html#L290' title='Defined at 290 in deps/linenoise/linenoise.c.'>linenoisePrompt</a>(fd, buf, buflen, prompt);
+<a name='L508'>        <a href='../S/99.html#L170' title='Defined at 170 in deps/linenoise/linenoise.c.'>disableRawMode</a>(fd);
+<a name='L509'>        printf("\n");
+<a name='L510'>    <font color='red'>}</font>
+<a name='L511'>    <b>return</b> count;
+<a name='L512'><font color='red'>}</font>
+<a name='L513'>
+<a name='L514'><b>char</b> *<a href='../R/2364.html' title='Multiple refered from 3 places.'>linenoise</a>(<b>const</b> <b>char</b> *prompt) <font color='red'>{</font>
+<a name='L515'>    <b>char</b> buf[<a href='../S/99.html#L101' title='Defined at 101 in deps/linenoise/linenoise.c.'>LINENOISE_MAX_LINE</a>];
+<a name='L516'>    <b>int</b> count;
+<a name='L517'>
+<a name='L518'>    <b>if</b> (<a href='../S/99.html#L115' title='Defined at 115 in deps/linenoise/linenoise.c.'>isUnsupportedTerm</a>()) <font color='red'>{</font>
+<a name='L519'>        size_t len;
+<a name='L520'>
+<a name='L521'>        printf("%s",prompt);
+<a name='L522'>        fflush(stdout);
+<a name='L523'>        <b>if</b> (fgets(buf,<a href='../S/99.html#L101' title='Defined at 101 in deps/linenoise/linenoise.c.'>LINENOISE_MAX_LINE</a>,stdin) == NULL) <b>return</b> NULL;
+<a name='L524'>        len = strlen(buf);
+<a name='L525'>        <b>while</b>(len &amp;&amp; (buf[len-1] == '\n' || buf[len-1] == '\r')) <font color='red'>{</font>
+<a name='L526'>            len--;
+<a name='L527'>            buf[len] = '\0';
+<a name='L528'>        <font color='red'>}</font>
+<a name='L529'>        <b>return</b> strdup(buf);
+<a name='L530'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L531'>        count = <a href='../S/99.html#L490' title='Defined at 490 in deps/linenoise/linenoise.c.'>linenoiseRaw</a>(buf,<a href='../S/99.html#L101' title='Defined at 101 in deps/linenoise/linenoise.c.'>LINENOISE_MAX_LINE</a>,prompt);
+<a name='L532'>        <b>if</b> (count == -1) <b>return</b> NULL;
+<a name='L533'>        <b>return</b> strdup(buf);
+<a name='L534'>    <font color='red'>}</font>
+<a name='L535'><font color='red'>}</font>
+<a name='L536'>
+<a name='L537'><i><font color='green'>/* Register a callback function to be called for tab-completion. */</font></i>
+<a name='L538'><b>void</b> <a href='../R/2375.html' title='Multiple refered from 3 places.'>linenoiseSetCompletionCallback</a>(linenoiseCompletionCallback *fn) <font color='red'>{</font>
+<a name='L539'>    <a href='../S/27.html#L250' title='Defined at 250 in src/redis-cli.c.'>completionCallback</a> = fn;
+<a name='L540'><font color='red'>}</font>
+<a name='L541'>
+<a name='L542'><b>void</b> <a href='../R/2365.html' title='Multiple refered from 4 places.'>linenoiseAddCompletion</a>(linenoiseCompletions *lc, <b>char</b> *str) <font color='red'>{</font>
+<a name='L543'>    size_t len = strlen(str);
+<a name='L544'>    <b>char</b> *copy = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(len+1);
+<a name='L545'>    memcpy(copy,str,len+1);
+<a name='L546'>    lc-&gt;cvec = <a href='../D/3747.html' title='Multiple defined in 2 places.'>realloc</a>(lc-&gt;cvec,<b>sizeof</b>(<b>char</b>*)*(lc-&gt;len+1));
+<a name='L547'>    lc-&gt;cvec[lc-&gt;len++] = copy;
+<a name='L548'><font color='red'>}</font>
+<a name='L549'>
+<a name='L550'><i><font color='green'>/* Using a circular buffer is smarter, but a bit more complex to handle. */</font></i>
+<a name='L551'><b>int</b> <a href='../R/2369.html' title='Multiple refered from 6 places.'>linenoiseHistoryAdd</a>(<b>const</b> <b>char</b> *line) <font color='red'>{</font>
+<a name='L552'>    <b>char</b> *linecopy;
+<a name='L553'>
+<a name='L554'>    <b>if</b> (history_max_len == 0) <b>return</b> 0;
+<a name='L555'>    <b>if</b> (history == NULL) <font color='red'>{</font>
+<a name='L556'>        history = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(<b>char</b>*)*history_max_len);
+<a name='L557'>        <b>if</b> (history == NULL) <b>return</b> 0;
+<a name='L558'>        memset(history,0,(<b>sizeof</b>(<b>char</b>*)*history_max_len));
+<a name='L559'>    <font color='red'>}</font>
+<a name='L560'>    linecopy = strdup(line);
+<a name='L561'>    <b>if</b> (!linecopy) <b>return</b> 0;
+<a name='L562'>    <b>if</b> (history_len == history_max_len) <font color='red'>{</font>
+<a name='L563'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(history[0]);
+<a name='L564'>        memmove(history,history+1,<b>sizeof</b>(<b>char</b>*)*(history_max_len-1));
+<a name='L565'>        history_len--;
+<a name='L566'>    <font color='red'>}</font>
+<a name='L567'>    history[history_len] = linecopy;
+<a name='L568'>    history_len++;
+<a name='L569'>    <b>return</b> 1;
+<a name='L570'><font color='red'>}</font>
+<a name='L571'>
+<a name='L572'><b>int</b> <a href='../S/100.html#L50' title='Refered from 50 in deps/linenoise/linenoise.h.'>linenoiseHistorySetMaxLen</a>(<b>int</b> len) <font color='red'>{</font>
+<a name='L573'>    <b>char</b> **new;
+<a name='L574'>
+<a name='L575'>    <b>if</b> (len &lt; 1) <b>return</b> 0;
+<a name='L576'>    <b>if</b> (history) <font color='red'>{</font>
+<a name='L577'>        <b>int</b> tocopy = history_len;
+<a name='L578'>
+<a name='L579'>        new = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(<b>char</b>*)*len);
+<a name='L580'>        <b>if</b> (new == NULL) <b>return</b> 0;
+<a name='L581'>        <b>if</b> (len &lt; tocopy) tocopy = len;
+<a name='L582'>        memcpy(new,history+(history_max_len-tocopy), <b>sizeof</b>(<b>char</b>*)*tocopy);
+<a name='L583'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(history);
+<a name='L584'>        history = new;
+<a name='L585'>    <font color='red'>}</font>
+<a name='L586'>    history_max_len = len;
+<a name='L587'>    <b>if</b> (history_len &gt; history_max_len)
+<a name='L588'>        history_len = history_max_len;
+<a name='L589'>    <b>return</b> 1;
+<a name='L590'><font color='red'>}</font>
+<a name='L591'>
+<a name='L592'><i><font color='green'>/* Save the history in the specified file. On success 0 is returned</font></i>
+<a name='L593'><i><font color='green'> * otherwise -1 is returned. */</font></i>
+<a name='L594'><b>int</b> <a href='../R/2371.html' title='Multiple refered from 3 places.'>linenoiseHistorySave</a>(<b>char</b> *filename) <font color='red'>{</font>
+<a name='L595'>    FILE *fp = fopen(filename,"w");
+<a name='L596'>    <b>int</b> j;
+<a name='L597'>    
+<a name='L598'>    <b>if</b> (fp == NULL) <b>return</b> -1;
+<a name='L599'>    <b>for</b> (j = 0; j &lt; history_len; j++)
+<a name='L600'>        fprintf(fp,"%s\n",history[j]);
+<a name='L601'>    fclose(fp);
+<a name='L602'>    <b>return</b> 0;
+<a name='L603'><font color='red'>}</font>
+<a name='L604'>
+<a name='L605'><i><font color='green'>/* Load the history from the specified file. If the file does not exist</font></i>
+<a name='L606'><i><font color='green'> * zero is returned and no operation is performed.</font></i>
+<a name='L607'><i><font color='green'> *</font></i>
+<a name='L608'><i><font color='green'> * If the file exists and the operation succeeded 0 is returned, otherwise</font></i>
+<a name='L609'><i><font color='green'> * on error -1 is returned. */</font></i>
+<a name='L610'><b>int</b> <a href='../R/2370.html' title='Multiple refered from 3 places.'>linenoiseHistoryLoad</a>(<b>char</b> *filename) <font color='red'>{</font>
+<a name='L611'>    FILE *fp = fopen(filename,"r");
+<a name='L612'>    <b>char</b> buf[<a href='../S/99.html#L101' title='Defined at 101 in deps/linenoise/linenoise.c.'>LINENOISE_MAX_LINE</a>];
+<a name='L613'>    
+<a name='L614'>    <b>if</b> (fp == NULL) <b>return</b> -1;
+<a name='L615'>
+<a name='L616'>    <b>while</b> (fgets(buf,<a href='../S/99.html#L101' title='Defined at 101 in deps/linenoise/linenoise.c.'>LINENOISE_MAX_LINE</a>,fp) != NULL) <font color='red'>{</font>
+<a name='L617'>        <b>char</b> *p;
+<a name='L618'>        
+<a name='L619'>        p = strchr(buf,'\r');
+<a name='L620'>        <b>if</b> (!p) p = strchr(buf,'\n');
+<a name='L621'>        <b>if</b> (p) *p = '\0';
+<a name='L622'>        <a href='../S/99.html#L551' title='Defined at 551 in deps/linenoise/linenoise.c.'>linenoiseHistoryAdd</a>(buf);
+<a name='L623'>    <font color='red'>}</font>
+<a name='L624'>    fclose(fp);
+<a name='L625'>    <b>return</b> 0;
+<a name='L626'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L115'>[^]</a><a href='#L610'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

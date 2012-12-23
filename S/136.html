@@ -1,0 +1,100 @@
+<html>
+<head>
+<title>deps/jemalloc/include/jemalloc/internal/ql.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/391.html'>include</a>/<a href='../files/392.html'>jemalloc</a>/<a href='../files/393.html'>internal</a>/ql.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * List definitions.</font></i>
+<a name='L3'><i><font color='green'> */</font></i>
+<a name='L4'><font color='darkred'>#define</font> <a href='../R/3281.html' title='Multiple refered from 4 places.'>ql_head</a>(a_type)                                                 \
+<a name='L5'><b>struct</b> <font color='red'>{</font>                                                                \
+<a name='L6'>        a_type *qlh_first;                                              \
+<a name='L7'><font color='red'>}</font>
+<a name='L8'>
+<a name='L9'><font color='darkred'>#define</font> ql_head_initializer(a_head) <font color='red'>{</font>NULL<font color='red'>}</font>
+<a name='L10'>
+<a name='L11'><font color='darkred'>#define</font> <a href='../R/3277.html' title='Multiple refered from 4 places.'>ql_elm</a>(a_type)  <a href='../S/145.html#L2' title='Defined at 2 in deps/jemalloc/include/jemalloc/internal/qr.h.'>qr</a>(a_type)
+<a name='L12'>
+<a name='L13'><i><font color='green'>/* List functions. */</font></i>
+<a name='L14'><font color='darkred'>#define</font> <a href='../R/3284.html' title='Multiple refered from 4 places.'>ql_new</a>(a_head) <b>do</b> <font color='red'>{</font>                                             \
+<a name='L15'>        (a_head)-&gt;qlh_first = NULL;                                     \
+<a name='L16'><font color='red'>}</font> <b>while</b> (0)
+<a name='L17'>
+<a name='L18'><font color='darkred'>#define</font> <a href='../R/3278.html' title='Multiple refered from 4 places.'>ql_elm_new</a>(a_elm, a_field) <a href='../S/145.html#L9' title='Defined at 9 in deps/jemalloc/include/jemalloc/internal/qr.h.'>qr_new</a>((a_elm), a_field)
+<a name='L19'>
+<a name='L20'><font color='darkred'>#define</font> <a href='../R/3279.html' title='Multiple refered from 22 places.'>ql_first</a>(a_head) ((a_head)-&gt;qlh_first)
+<a name='L21'>
+<a name='L22'><font color='darkred'>#define</font> <a href='../R/3283.html' title='Multiple refered from 4 places.'>ql_last</a>(a_head, a_field)                                        \
+<a name='L23'>        ((<a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(a_head) != NULL)                                     \
+<a name='L24'>            ? <a href='../S/145.html#L16' title='Defined at 16 in deps/jemalloc/include/jemalloc/internal/qr.h.'>qr_prev</a>(<a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(a_head), a_field) : NULL)
+<a name='L25'>
+<a name='L26'><font color='darkred'>#define</font> ql_next(a_head, a_elm, a_field)                                 \
+<a name='L27'>        ((<a href='../S/136.html#L22' title='Defined at 22 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_last</a>(a_head, a_field) != (a_elm))                          \
+<a name='L28'>            ? <a href='../S/145.html#L14' title='Defined at 14 in deps/jemalloc/include/jemalloc/internal/qr.h.'>qr_next</a>((a_elm), a_field) : NULL)
+<a name='L29'>
+<a name='L30'><font color='darkred'>#define</font> ql_prev(a_head, a_elm, a_field)                                 \
+<a name='L31'>        ((<a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(a_head) != (a_elm)) ? <a href='../S/145.html#L16' title='Defined at 16 in deps/jemalloc/include/jemalloc/internal/qr.h.'>qr_prev</a>((a_elm), a_field)      \
+<a name='L32'>                                       : NULL)
+<a name='L33'>
+<a name='L34'><font color='darkred'>#define</font> ql_before_insert(a_head, a_qlelm, a_elm, a_field) <b>do</b> <font color='red'>{</font>          \
+<a name='L35'>        <a href='../S/145.html#L18' title='Defined at 18 in deps/jemalloc/include/jemalloc/internal/qr.h.'>qr_before_insert</a>((a_qlelm), (a_elm), a_field);                  \
+<a name='L36'>        <b>if</b> (<a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(a_head) == (a_qlelm)) <font color='red'>{</font>                            \
+<a name='L37'>                <a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(a_head) = (a_elm);                             \
+<a name='L38'>        <font color='red'>}</font>                                                               \
+<a name='L39'><font color='red'>}</font> <b>while</b> (0)
+<a name='L40'>
+<a name='L41'><font color='darkred'>#define</font> ql_after_insert(a_qlelm, a_elm, a_field)                        \
+<a name='L42'>        <a href='../S/145.html#L25' title='Defined at 25 in deps/jemalloc/include/jemalloc/internal/qr.h.'>qr_after_insert</a>((a_qlelm), (a_elm), a_field)
+<a name='L43'>
+<a name='L44'><font color='darkred'>#define</font> <a href='../R/3282.html' title='Multiple refered from 2 places.'>ql_head_insert</a>(a_head, a_elm, a_field) <b>do</b> <font color='red'>{</font>                     \
+<a name='L45'>        <b>if</b> (<a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(a_head) != NULL) <font color='red'>{</font>                                 \
+<a name='L46'>                <a href='../S/145.html#L18' title='Defined at 18 in deps/jemalloc/include/jemalloc/internal/qr.h.'>qr_before_insert</a>(<a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(a_head), (a_elm), a_field);   \
+<a name='L47'>        <font color='red'>}</font>                                                               \
+<a name='L48'>        <a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(a_head) = (a_elm);                                     \
+<a name='L49'><font color='red'>}</font> <b>while</b> (0)
+<a name='L50'>
+<a name='L51'><font color='darkred'>#define</font> <a href='../R/3286.html' title='Multiple refered from 3 places.'>ql_tail_insert</a>(a_head, a_elm, a_field) <b>do</b> <font color='red'>{</font>                     \
+<a name='L52'>        <b>if</b> (<a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(a_head) != NULL) <font color='red'>{</font>                                 \
+<a name='L53'>                <a href='../S/145.html#L18' title='Defined at 18 in deps/jemalloc/include/jemalloc/internal/qr.h.'>qr_before_insert</a>(<a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(a_head), (a_elm), a_field);   \
+<a name='L54'>        <font color='red'>}</font>                                                               \
+<a name='L55'>        <a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(a_head) = <a href='../S/145.html#L14' title='Defined at 14 in deps/jemalloc/include/jemalloc/internal/qr.h.'>qr_next</a>((a_elm), a_field);                   \
+<a name='L56'><font color='red'>}</font> <b>while</b> (0)
+<a name='L57'>
+<a name='L58'><font color='darkred'>#define</font> <a href='../R/3285.html' title='Multiple refered from 8 places.'>ql_remove</a>(a_head, a_elm, a_field) <b>do</b> <font color='red'>{</font>                          \
+<a name='L59'>        <b>if</b> (<a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(a_head) == (a_elm)) <font color='red'>{</font>                              \
+<a name='L60'>                <a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(a_head) = <a href='../S/145.html#L14' title='Defined at 14 in deps/jemalloc/include/jemalloc/internal/qr.h.'>qr_next</a>(<a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(a_head), a_field);  \
+<a name='L61'>        <font color='red'>}</font>                                                               \
+<a name='L62'>        <b>if</b> (<a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(a_head) != (a_elm)) <font color='red'>{</font>                              \
+<a name='L63'>                <a href='../S/145.html#L48' title='Defined at 48 in deps/jemalloc/include/jemalloc/internal/qr.h.'>qr_remove</a>((a_elm), a_field);                            \
+<a name='L64'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                        \
+<a name='L65'>                <a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(a_head) = NULL;                                \
+<a name='L66'>        <font color='red'>}</font>                                                               \
+<a name='L67'><font color='red'>}</font> <b>while</b> (0)
+<a name='L68'>
+<a name='L69'><font color='darkred'>#define</font> ql_head_remove(a_head, a_type, a_field) <b>do</b> <font color='red'>{</font>                    \
+<a name='L70'>        a_type *t = <a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(a_head);                                   \
+<a name='L71'>        <a href='../S/136.html#L58' title='Defined at 58 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_remove</a>((a_head), t, a_field);                                \
+<a name='L72'><font color='red'>}</font> <b>while</b> (0)
+<a name='L73'>
+<a name='L74'><font color='darkred'>#define</font> ql_tail_remove(a_head, a_type, a_field) <b>do</b> <font color='red'>{</font>                    \
+<a name='L75'>        a_type *t = <a href='../S/136.html#L22' title='Defined at 22 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_last</a>(a_head, a_field);                           \
+<a name='L76'>        <a href='../S/136.html#L58' title='Defined at 58 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_remove</a>((a_head), t, a_field);                                \
+<a name='L77'><font color='red'>}</font> <b>while</b> (0)
+<a name='L78'>
+<a name='L79'><font color='darkred'>#define</font> <a href='../R/3280.html' title='Multiple refered from 3 places.'>ql_foreach</a>(a_var, a_head, a_field)                              \
+<a name='L80'>        <a href='../S/145.html#L57' title='Defined at 57 in deps/jemalloc/include/jemalloc/internal/qr.h.'>qr_foreach</a>((a_var), <a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(a_head), a_field)
+<a name='L81'>
+<a name='L82'><font color='darkred'>#define</font> ql_reverse_foreach(a_var, a_head, a_field)                      \
+<a name='L83'>        <a href='../S/145.html#L63' title='Defined at 63 in deps/jemalloc/include/jemalloc/internal/qr.h.'>qr_reverse_foreach</a>((a_var), <a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(a_head), a_field)
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

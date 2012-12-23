@@ -1,0 +1,82 @@
+<html>
+<head>
+<title>lua_pop</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/260.html#L116'>lua_pop</a>           116 deps/lua/src/lauxlib.c   lua_pop(L, 1);
+<a href='../S/260.html#L130'>lua_pop</a>           130 deps/lua/src/lauxlib.c         lua_pop(L, 2);  /* remove both metatables */
+<a href='../S/260.html#L209'>lua_pop</a>           209 deps/lua/src/lauxlib.c     lua_pop(L, 2);  /* remove metatable and metafield */
+<a href='../S/260.html#L250'>lua_pop</a>           250 deps/lua/src/lauxlib.c       lua_pop(L, 1);  /* remove previous result */
+<a href='../S/260.html#L267'>lua_pop</a>           267 deps/lua/src/lauxlib.c   lua_pop(L, nup);  /* remove upvalues */
+<a href='../S/260.html#L282'>lua_pop</a>           282 deps/lua/src/lauxlib.c   lua_pop(L, topop);
+<a href='../S/260.html#L290'>lua_pop</a>           290 deps/lua/src/lauxlib.c     lua_pop(L, 1);  /* remove nil */
+<a href='../S/260.html#L316'>lua_pop</a>           316 deps/lua/src/lauxlib.c     lua_pop(L, 1);  /* remove `sizes' */
+<a href='../S/260.html#L367'>lua_pop</a>           367 deps/lua/src/lauxlib.c       lua_pop(L, 1);  /* remove this nil */
+<a href='../S/260.html#L374'>lua_pop</a>           374 deps/lua/src/lauxlib.c       lua_pop(L, 2);  /* remove table and value */
+<a href='../S/260.html#L461'>lua_pop</a>           461 deps/lua/src/lauxlib.c     lua_pop(L, 1);  /* remove from stack */
+<a href='../S/260.html#L485'>lua_pop</a>           485 deps/lua/src/lauxlib.c     lua_pop(L, 1);  /* remove from stack */
+<a href='../S/260.html#L490'>lua_pop</a>           490 deps/lua/src/lauxlib.c   lua_pop(L, 1);  /* remove it from stack */
+<a href='../S/277.html#L46'>lua_pop</a>            46 deps/lua/src/lbaselib.c     lua_pop(L, 1);  /* pop result */
+<a href='../S/277.html#L437'>lua_pop</a>           437 deps/lua/src/lbaselib.c       lua_pop(L, 1);  /* remove value */
+<a href='../S/269.html#L248'>lua_pop</a>           248 deps/lua/src/ldblib.c     lua_pop(L, 1);
+<a href='../S/269.html#L275'>lua_pop</a>           275 deps/lua/src/ldblib.c   lua_pop(L, 1);  /* remove hook table */
+<a href='../S/269.html#L329'>lua_pop</a>           329 deps/lua/src/ldblib.c     lua_pop(L, 1);
+<a href='../S/315.html#L371'>lua_pop</a>           371 deps/lua/src/liolib.c     lua_pop(L, 1);  /* remove last result */
+<a href='../S/315.html#L546'>lua_pop</a>           546 deps/lua/src/liolib.c   lua_pop(L, 1);  /* pop environment for default files */
+<a href='../S/315.html#L550'>lua_pop</a>           550 deps/lua/src/liolib.c   lua_pop(L, 1);  /* pop 'popen' */
+<a href='../S/279.html#L269'>lua_pop</a>           269 deps/lua/src/loadlib.c     lua_pop(L, 1);
+<a href='../S/279.html#L479'>lua_pop</a>           479 deps/lua/src/loadlib.c       lua_pop(L, 1);
+<a href='../S/279.html#L515'>lua_pop</a>           515 deps/lua/src/loadlib.c   lua_pop(L, 1);
+<a href='../S/279.html#L550'>lua_pop</a>           550 deps/lua/src/loadlib.c     lua_pop(L, 1);  /* remove previous result */
+<a href='../S/279.html#L560'>lua_pop</a>           560 deps/lua/src/loadlib.c     lua_pop(L, 1);
+<a href='../S/279.html#L562'>lua_pop</a>           562 deps/lua/src/loadlib.c     lua_pop(L, 1);
+<a href='../S/279.html#L663'>lua_pop</a>           663 deps/lua/src/loadlib.c   lua_pop(L, 1);
+<a href='../S/294.html#L104'>lua_pop</a>           104 deps/lua/src/loslib.c   lua_pop(L, 1);
+<a href='../S/294.html#L119'>lua_pop</a>           119 deps/lua/src/loslib.c   lua_pop(L, 1);
+<a href='../S/270.html#L635'>lua_pop</a>           635 deps/lua/src/lstrlib.c     lua_pop(L, 1);
+<a href='../S/270.html#L850'>lua_pop</a>           850 deps/lua/src/lstrlib.c   lua_pop(L, 1);  /* pop dummy string */
+<a href='../S/270.html#L853'>lua_pop</a>           853 deps/lua/src/lstrlib.c   lua_pop(L, 1);  /* pop metatable */
+<a href='../S/295.html#L33'>lua_pop</a>            33 deps/lua/src/ltablib.c     lua_pop(L, 1);  /* remove nil result */
+<a href='../S/295.html#L50'>lua_pop</a>            50 deps/lua/src/ltablib.c     lua_pop(L, 2);  /* remove value and result */
+<a href='../S/295.html#L61'>lua_pop</a>            61 deps/lua/src/ltablib.c     lua_pop(L, 1);  /* remove value */
+<a href='../S/295.html#L186'>lua_pop</a>           186 deps/lua/src/ltablib.c     lua_pop(L, 1);
+<a href='../S/295.html#L202'>lua_pop</a>           202 deps/lua/src/ltablib.c       lua_pop(L, 2);
+<a href='../S/295.html#L210'>lua_pop</a>           210 deps/lua/src/ltablib.c       lua_pop(L, 1);  /* remove a[l] */
+<a href='../S/295.html#L215'>lua_pop</a>           215 deps/lua/src/ltablib.c         lua_pop(L, 2);
+<a href='../S/295.html#L228'>lua_pop</a>           228 deps/lua/src/ltablib.c         lua_pop(L, 1);  /* remove a[i] */
+<a href='../S/295.html#L233'>lua_pop</a>           233 deps/lua/src/ltablib.c         lua_pop(L, 1);  /* remove a[j] */
+<a href='../S/295.html#L236'>lua_pop</a>           236 deps/lua/src/ltablib.c         lua_pop(L, 3);  /* pop pivot, a[i], a[j] */
+<a href='../S/287.html#L70'>lua_pop</a>            70 deps/lua/src/lua.c     lua_pop(L, 1);
+<a href='../S/287.html#L81'>lua_pop</a>            81 deps/lua/src/lua.c     lua_pop(L, 1);
+<a href='../S/287.html#L86'>lua_pop</a>            86 deps/lua/src/lua.c     lua_pop(L, 2);
+<a href='../S/287.html#L158'>lua_pop</a>           158 deps/lua/src/lua.c   lua_pop(L, 1);  /* remove global */
+<a href='../S/287.html#L169'>lua_pop</a>           169 deps/lua/src/lua.c       lua_pop(L, 1);
+<a href='../S/287.html#L252'>lua_pop</a>           252 deps/lua/src/lua.c     lua_pop(L, narg);      
+<a href='../S/285.html#L188'>lua_pop</a>           188 deps/lua/src/lua_cjson.c     lua_pop(l, 1);
+<a href='../S/285.html#L517'>lua_pop</a>           517 deps/lua/src/lua_cjson.c                 lua_pop(l, 1);
+<a href='../S/285.html#L523'>lua_pop</a>           523 deps/lua/src/lua_cjson.c         lua_pop(l, 2);
+<a href='../S/285.html#L576'>lua_pop</a>           576 deps/lua/src/lua_cjson.c         lua_pop(l, 1);
+<a href='../S/285.html#L636'>lua_pop</a>           636 deps/lua/src/lua_cjson.c         lua_pop(l, 1);
+<a href='../S/280.html#L351'>lua_pop</a>           351 deps/lua/src/lua_cmsgpack.c         lua_pop(L,1); /* remove value, keep key for next iteration. */
+<a href='../S/280.html#L376'>lua_pop</a>           376 deps/lua/src/lua_cmsgpack.c         lua_pop(L,1); /* Stack: ... key */
+<a href='../S/280.html#L392'>lua_pop</a>           392 deps/lua/src/lua_cmsgpack.c     lua_pop(L,1);
+<a href='../S/280.html#L426'>lua_pop</a>           426 deps/lua/src/lua_cmsgpack.c     lua_pop(L,1);
+<a href='../S/302.html#L293'>lua_pop</a>           293 deps/lua/src/lua_struct.c           lua_pop(L, 1);
+<a href='../S/75.html#L180'>lua_pop</a>           180 src/scripting.c         lua_pop(lua,1);             /* Stack: array, table */
+<a href='../S/75.html#L189'>lua_pop</a>           189 src/scripting.c     lua_pop(lua,1);             /* Stack: array (sorted) */
+<a href='../S/75.html#L689'>lua_pop</a>           689 src/scripting.c             lua_pop(lua,2);
+<a href='../S/75.html#L693'>lua_pop</a>           693 src/scripting.c         lua_pop(lua,1);
+<a href='../S/75.html#L702'>lua_pop</a>           702 src/scripting.c             lua_pop(lua,1);
+<a href='../S/75.html#L707'>lua_pop</a>           707 src/scripting.c             lua_pop(lua,1); /* Discard the 'ok' field value we popped */
+<a href='../S/75.html#L713'>lua_pop</a>           713 src/scripting.c                     lua_pop(lua,1);
+<a href='../S/75.html#L725'>lua_pop</a>           725 src/scripting.c     lua_pop(lua,1);
+<a href='../S/75.html#L762'>lua_pop</a>           762 src/scripting.c         lua_pop(lua,1);
+<a href='../S/75.html#L770'>lua_pop</a>           770 src/scripting.c         lua_pop(lua,1);
+<a href='../S/75.html#L835'>lua_pop</a>           835 src/scripting.c         lua_pop(lua,1); /* remove the nil from the stack */
+<a href='../S/75.html#L885'>lua_pop</a>           885 src/scripting.c         lua_pop(lua,1);
+</pre>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<html>
+<head>
+<title>deps/linenoise/example.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/397.html'>linenoise</a>/example.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L6'>[^]</a><a href='#L13'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L6' title='Defined at 6.'>completion</a>
+<li><a href='#L13' title='Defined at 13.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L2'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L3'><font color='darkred'>#include</font> "<a href='100.html'>linenoise.h</a>"
+<a name='L4'>
+<a name='L5'>
+<a name='L6'><b>void</b> <a href='../S/101.html#L16' title='Refered from 16 in deps/linenoise/example.c.'>completion</a>(<b>const</b> <b>char</b> *buf, linenoiseCompletions *lc) <font color='red'>{</font>
+<a name='L7'>    <b>if</b> (buf[0] == 'h') <font color='red'>{</font>
+<a name='L8'>        <a href='../S/99.html#L542' title='Defined at 542 in deps/linenoise/linenoise.c.'>linenoiseAddCompletion</a>(lc,"hello");
+<a name='L9'>        <a href='../S/99.html#L542' title='Defined at 542 in deps/linenoise/linenoise.c.'>linenoiseAddCompletion</a>(lc,"hello there");
+<a name='L10'>    <font color='red'>}</font>
+<a name='L11'><font color='red'>}</font>
+<a name='L12'>
+<a name='L13'><b>int</b> main(<b>void</b>) <font color='red'>{</font>
+<a name='L14'>    <b>char</b> *line;
+<a name='L15'>
+<a name='L16'>    <a href='../S/99.html#L538' title='Defined at 538 in deps/linenoise/linenoise.c.'>linenoiseSetCompletionCallback</a>(<a href='../S/101.html#L6' title='Defined at 6 in deps/linenoise/example.c.'>completion</a>);
+<a name='L17'>    <a href='../S/99.html#L610' title='Defined at 610 in deps/linenoise/linenoise.c.'>linenoiseHistoryLoad</a>("history.txt"); <i><font color='green'>/* Load the history at startup */</font></i>
+<a name='L18'>    <b>while</b>((line = <a href='../S/99.html#L514' title='Defined at 514 in deps/linenoise/linenoise.c.'>linenoise</a>("hello&gt; ")) != NULL) <font color='red'>{</font>
+<a name='L19'>        <b>if</b> (line[0] != '\0') <font color='red'>{</font>
+<a name='L20'>            printf("echo: '%s'\n", line);
+<a name='L21'>            <a href='../S/99.html#L551' title='Defined at 551 in deps/linenoise/linenoise.c.'>linenoiseHistoryAdd</a>(line);
+<a name='L22'>            <a href='../S/99.html#L594' title='Defined at 594 in deps/linenoise/linenoise.c.'>linenoiseHistorySave</a>("history.txt"); <i><font color='green'>/* Save every new entry */</font></i>
+<a name='L23'>        <font color='red'>}</font>
+<a name='L24'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(line);
+<a name='L25'>    <font color='red'>}</font>
+<a name='L26'>    <b>return</b> 0;
+<a name='L27'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L6'>[^]</a><a href='#L13'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

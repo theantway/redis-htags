@@ -1,0 +1,149 @@
+<html>
+<head>
+<title>deps/hiredis/adapters/libev.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/388.html'>hiredis</a>/<a href='../files/389.html'>adapters</a>/libev.h</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L16'>[^]</a><a href='#L83'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='111.html#L7' title='Included from 7 in deps/hiredis/example-libev.c.'>INCLUDED FROM</a></h2>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L16' title='Defined at 16.'>redisLibevReadEvent</a>
+<li><a href='#L26' title='Defined at 26.'>redisLibevWriteEvent</a>
+<li><a href='#L36' title='Defined at 36.'>redisLibevAddRead</a>
+<li><a href='#L46' title='Defined at 46.'>redisLibevDelRead</a>
+<li><a href='#L56' title='Defined at 56.'>redisLibevAddWrite</a>
+<li><a href='#L66' title='Defined at 66.'>redisLibevDelWrite</a>
+<li><a href='#L76' title='Defined at 76.'>redisLibevCleanup</a>
+<li><a href='#L83' title='Defined at 83.'>redisLibevAttach</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#ifndef</font> <a href='../S/109.html#L2' title='Defined at 2 in deps/hiredis/adapters/libev.h.'>__HIREDIS_LIBEV_H__</a>
+<a name='L2'><font color='darkred'>#define</font> <a href='../S/109.html#L1' title='Refered from 1 in deps/hiredis/adapters/libev.h.'>__HIREDIS_LIBEV_H__</a>
+<a name='L3'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L4'><font color='darkred'>#include</font> &lt;sys/types.h&gt;
+<a name='L5'><font color='darkred'>#include</font> &lt;ev.h&gt;
+<a name='L6'><font color='darkred'>#include</font> "<a href='121.html'>../hiredis.h</a>"
+<a name='L7'><font color='darkred'>#include</font> "<a href='124.html'>../async.h</a>"
+<a name='L8'>
+<a name='L9'><b>typedef</b> <b>struct</b> <a href='../R/3454.html' title='Multiple refered from 9 places.'>redisLibevEvents</a> <font color='red'>{</font>
+<a name='L10'>    <a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *context;
+<a name='L11'>    <b>struct</b> ev_loop *loop;
+<a name='L12'>    <b>int</b> reading, writing;
+<a name='L13'>    ev_io rev, wev;
+<a name='L14'><font color='red'>}</font> <a href='../R/3454.html' title='Multiple refered from 9 places.'>redisLibevEvents</a>;
+<a name='L15'>
+<a name='L16'><b>static</b> <b>void</b> <a href='../S/109.html#L112' title='Refered from 112 in deps/hiredis/adapters/libev.h.'>redisLibevReadEvent</a>(EV_P_ ev_io *watcher, <b>int</b> revents) <font color='red'>{</font>
+<a name='L17'><font color='darkred'>#if</font> EV_MULTIPLICITY
+<a name='L18'>    ((<b>void</b>)loop);
+<a name='L19'><font color='darkred'>#endif</font>
+<a name='L20'>    ((<b>void</b>)revents);
+<a name='L21'>
+<a name='L22'>    <a href='../D/3816.html' title='Multiple defined in 2 places.'>redisLibevEvents</a> *e = (<a href='../D/3816.html' title='Multiple defined in 2 places.'>redisLibevEvents</a>*)watcher-&gt;data;
+<a name='L23'>    <a href='../S/104.html#L464' title='Defined at 464 in deps/hiredis/async.c.'>redisAsyncHandleRead</a>(e-&gt;context);
+<a name='L24'><font color='red'>}</font>
+<a name='L25'>
+<a name='L26'><b>static</b> <b>void</b> <a href='../S/109.html#L113' title='Refered from 113 in deps/hiredis/adapters/libev.h.'>redisLibevWriteEvent</a>(EV_P_ ev_io *watcher, <b>int</b> revents) <font color='red'>{</font>
+<a name='L27'><font color='darkred'>#if</font> EV_MULTIPLICITY
+<a name='L28'>    ((<b>void</b>)loop);
+<a name='L29'><font color='darkred'>#endif</font>
+<a name='L30'>    ((<b>void</b>)revents);
+<a name='L31'>
+<a name='L32'>    <a href='../D/3816.html' title='Multiple defined in 2 places.'>redisLibevEvents</a> *e = (<a href='../D/3816.html' title='Multiple defined in 2 places.'>redisLibevEvents</a>*)watcher-&gt;data;
+<a name='L33'>    <a href='../S/104.html#L485' title='Defined at 485 in deps/hiredis/async.c.'>redisAsyncHandleWrite</a>(e-&gt;context);
+<a name='L34'><font color='red'>}</font>
+<a name='L35'>
+<a name='L36'><b>static</b> <b>void</b> <a href='../S/109.html#L104' title='Refered from 104 in deps/hiredis/adapters/libev.h.'>redisLibevAddRead</a>(<b>void</b> *privdata) <font color='red'>{</font>
+<a name='L37'>    <a href='../D/3816.html' title='Multiple defined in 2 places.'>redisLibevEvents</a> *e = (<a href='../D/3816.html' title='Multiple defined in 2 places.'>redisLibevEvents</a>*)privdata;
+<a name='L38'>    <b>struct</b> ev_loop *loop = e-&gt;loop;
+<a name='L39'>    ((<b>void</b>)loop);
+<a name='L40'>    <b>if</b> (!e-&gt;reading) <font color='red'>{</font>
+<a name='L41'>        e-&gt;reading = 1;
+<a name='L42'>        ev_io_start(EV_A_ &amp;e-&gt;rev);
+<a name='L43'>    <font color='red'>}</font>
+<a name='L44'><font color='red'>}</font>
+<a name='L45'>
+<a name='L46'><b>static</b> <b>void</b> <a href='../R/3452.html' title='Multiple refered from 2 places.'>redisLibevDelRead</a>(<b>void</b> *privdata) <font color='red'>{</font>
+<a name='L47'>    <a href='../D/3816.html' title='Multiple defined in 2 places.'>redisLibevEvents</a> *e = (<a href='../D/3816.html' title='Multiple defined in 2 places.'>redisLibevEvents</a>*)privdata;
+<a name='L48'>    <b>struct</b> ev_loop *loop = e-&gt;loop;
+<a name='L49'>    ((<b>void</b>)loop);
+<a name='L50'>    <b>if</b> (e-&gt;reading) <font color='red'>{</font>
+<a name='L51'>        e-&gt;reading = 0;
+<a name='L52'>        ev_io_stop(EV_A_ &amp;e-&gt;rev);
+<a name='L53'>    <font color='red'>}</font>
+<a name='L54'><font color='red'>}</font>
+<a name='L55'>
+<a name='L56'><b>static</b> <b>void</b> <a href='../S/109.html#L106' title='Refered from 106 in deps/hiredis/adapters/libev.h.'>redisLibevAddWrite</a>(<b>void</b> *privdata) <font color='red'>{</font>
+<a name='L57'>    <a href='../D/3816.html' title='Multiple defined in 2 places.'>redisLibevEvents</a> *e = (<a href='../D/3816.html' title='Multiple defined in 2 places.'>redisLibevEvents</a>*)privdata;
+<a name='L58'>    <b>struct</b> ev_loop *loop = e-&gt;loop;
+<a name='L59'>    ((<b>void</b>)loop);
+<a name='L60'>    <b>if</b> (!e-&gt;writing) <font color='red'>{</font>
+<a name='L61'>        e-&gt;writing = 1;
+<a name='L62'>        ev_io_start(EV_A_ &amp;e-&gt;wev);
+<a name='L63'>    <font color='red'>}</font>
+<a name='L64'><font color='red'>}</font>
+<a name='L65'>
+<a name='L66'><b>static</b> <b>void</b> <a href='../R/3453.html' title='Multiple refered from 2 places.'>redisLibevDelWrite</a>(<b>void</b> *privdata) <font color='red'>{</font>
+<a name='L67'>    <a href='../D/3816.html' title='Multiple defined in 2 places.'>redisLibevEvents</a> *e = (<a href='../D/3816.html' title='Multiple defined in 2 places.'>redisLibevEvents</a>*)privdata;
+<a name='L68'>    <b>struct</b> ev_loop *loop = e-&gt;loop;
+<a name='L69'>    ((<b>void</b>)loop);
+<a name='L70'>    <b>if</b> (e-&gt;writing) <font color='red'>{</font>
+<a name='L71'>        e-&gt;writing = 0;
+<a name='L72'>        ev_io_stop(EV_A_ &amp;e-&gt;wev);
+<a name='L73'>    <font color='red'>}</font>
+<a name='L74'><font color='red'>}</font>
+<a name='L75'>
+<a name='L76'><b>static</b> <b>void</b> <a href='../S/109.html#L108' title='Refered from 108 in deps/hiredis/adapters/libev.h.'>redisLibevCleanup</a>(<b>void</b> *privdata) <font color='red'>{</font>
+<a name='L77'>    <a href='../D/3816.html' title='Multiple defined in 2 places.'>redisLibevEvents</a> *e = (<a href='../D/3816.html' title='Multiple defined in 2 places.'>redisLibevEvents</a>*)privdata;
+<a name='L78'>    <a href='../S/109.html#L46' title='Defined at 46 in deps/hiredis/adapters/libev.h.'>redisLibevDelRead</a>(privdata);
+<a name='L79'>    <a href='../S/109.html#L66' title='Defined at 66 in deps/hiredis/adapters/libev.h.'>redisLibevDelWrite</a>(privdata);
+<a name='L80'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(e);
+<a name='L81'><font color='red'>}</font>
+<a name='L82'>
+<a name='L83'><b>static</b> <b>int</b> <a href='../S/111.html#L44' title='Refered from 44 in deps/hiredis/example-libev.c.'>redisLibevAttach</a>(EV_P_ redisAsyncContext *ac) <font color='red'>{</font>
+<a name='L84'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *c = &amp;(ac-&gt;c);
+<a name='L85'>    <a href='../D/3816.html' title='Multiple defined in 2 places.'>redisLibevEvents</a> *e;
+<a name='L86'>
+<a name='L87'>    <i><font color='green'>/* Nothing should be attached when something is already attached */</font></i>
+<a name='L88'>    <b>if</b> (ac-&gt;ev.data != NULL)
+<a name='L89'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L90'>
+<a name='L91'>    <i><font color='green'>/* Create container for context and r/w events */</font></i>
+<a name='L92'>    e = (<a href='../D/3816.html' title='Multiple defined in 2 places.'>redisLibevEvents</a>*)<a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(*e));
+<a name='L93'>    e-&gt;context = ac;
+<a name='L94'><font color='darkred'>#if</font> EV_MULTIPLICITY
+<a name='L95'>    e-&gt;loop = loop;
+<a name='L96'><font color='darkred'>#else</font>
+<a name='L97'>    e-&gt;loop = NULL;
+<a name='L98'><font color='darkred'>#endif</font>
+<a name='L99'>    e-&gt;reading = e-&gt;writing = 0;
+<a name='L100'>    e-&gt;rev.data = e;
+<a name='L101'>    e-&gt;wev.data = e;
+<a name='L102'>
+<a name='L103'>    <i><font color='green'>/* Register functions to start/stop listening for events */</font></i>
+<a name='L104'>    ac-&gt;ev.addRead = <a href='../S/109.html#L36' title='Defined at 36 in deps/hiredis/adapters/libev.h.'>redisLibevAddRead</a>;
+<a name='L105'>    ac-&gt;ev.delRead = <a href='../S/109.html#L46' title='Defined at 46 in deps/hiredis/adapters/libev.h.'>redisLibevDelRead</a>;
+<a name='L106'>    ac-&gt;ev.addWrite = <a href='../S/109.html#L56' title='Defined at 56 in deps/hiredis/adapters/libev.h.'>redisLibevAddWrite</a>;
+<a name='L107'>    ac-&gt;ev.delWrite = <a href='../S/109.html#L66' title='Defined at 66 in deps/hiredis/adapters/libev.h.'>redisLibevDelWrite</a>;
+<a name='L108'>    ac-&gt;ev.cleanup = <a href='../S/109.html#L76' title='Defined at 76 in deps/hiredis/adapters/libev.h.'>redisLibevCleanup</a>;
+<a name='L109'>    ac-&gt;ev.data = e;
+<a name='L110'>
+<a name='L111'>    <i><font color='green'>/* Initialize read/write events */</font></i>
+<a name='L112'>    ev_io_init(&amp;e-&gt;rev,<a href='../S/109.html#L16' title='Defined at 16 in deps/hiredis/adapters/libev.h.'>redisLibevReadEvent</a>,c-&gt;fd,EV_READ);
+<a name='L113'>    ev_io_init(&amp;e-&gt;wev,<a href='../S/109.html#L26' title='Defined at 26 in deps/hiredis/adapters/libev.h.'>redisLibevWriteEvent</a>,c-&gt;fd,EV_WRITE);
+<a name='L114'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L115'><font color='red'>}</font>
+<a name='L116'>
+<a name='L117'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L16'>[^]</a><a href='#L83'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

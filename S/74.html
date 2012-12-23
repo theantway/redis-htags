@@ -1,0 +1,553 @@
+<html>
+<head>
+<title>src/util.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/util.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L44'>[^]</a><a href='#L515'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L44' title='Defined at 44.'>stringmatchlen</a>
+<li><a href='#L166' title='Defined at 166.'>stringmatch</a>
+<li><a href='#L176' title='Defined at 176.'>memtoll</a>
+<li><a href='#L220' title='Defined at 220.'>ll2string</a>
+<li><a href='#L244' title='Defined at 244.'>string2ll</a>
+<li><a href='#L310' title='Defined at 310.'>string2l</a>
+<li><a href='#L325' title='Defined at 325.'>d2string</a>
+<li><a href='#L366' title='Defined at 366.'>getRandomHexChars</a>
+<li><a href='#L411' title='Defined at 411.'>test_string2ll</a>
+<li><a href='#L466' title='Defined at 466.'>test_string2l</a>
+<li><a href='#L515' title='Defined at 515.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L3'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L4'><i><font color='green'> *</font></i>
+<a name='L5'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L6'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L7'><i><font color='green'> *</font></i>
+<a name='L8'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L9'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L10'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L11'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L12'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L13'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L14'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L15'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L16'><i><font color='green'> *</font></i>
+<a name='L17'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L18'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L19'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L20'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L21'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L22'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L23'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L24'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L25'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L26'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L27'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L28'><i><font color='green'> */</font></i>
+<a name='L29'>
+<a name='L30'><font color='darkred'>#include</font> "<a href='../I/12.html'>fmacros.h</a>"
+<a name='L31'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L32'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L33'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L34'><font color='darkred'>#include</font> &lt;ctype.h&gt;
+<a name='L35'><font color='darkred'>#include</font> &lt;limits.h&gt;
+<a name='L36'><font color='darkred'>#include</font> &lt;math.h&gt;
+<a name='L37'><font color='darkred'>#include</font> &lt;unistd.h&gt;
+<a name='L38'><font color='darkred'>#include</font> &lt;sys/time.h&gt;
+<a name='L39'><font color='darkred'>#include</font> &lt;float.h&gt;
+<a name='L40'>
+<a name='L41'><font color='darkred'>#include</font> "<a href='../I/45.html'>util.h</a>"
+<a name='L42'>
+<a name='L43'><i><font color='green'>/* Glob-style pattern matching. */</font></i>
+<a name='L44'><b>int</b> <a href='../R/3891.html' title='Multiple refered from 5 places.'>stringmatchlen</a>(<b>const</b> <b>char</b> *pattern, <b>int</b> patternLen,
+<a name='L45'>        <b>const</b> <b>char</b> *string, <b>int</b> stringLen, <b>int</b> nocase)
+<a name='L46'><font color='red'>{</font>
+<a name='L47'>    <b>while</b>(patternLen) <font color='red'>{</font>
+<a name='L48'>        <b>switch</b>(pattern[0]) <font color='red'>{</font>
+<a name='L49'>        <b>case</b> '*':
+<a name='L50'>            <b>while</b> (pattern[1] == '*') <font color='red'>{</font>
+<a name='L51'>                pattern++;
+<a name='L52'>                patternLen--;
+<a name='L53'>            <font color='red'>}</font>
+<a name='L54'>            <b>if</b> (patternLen == 1)
+<a name='L55'>                <b>return</b> 1; <i><font color='green'>/* match */</font></i>
+<a name='L56'>            <b>while</b>(stringLen) <font color='red'>{</font>
+<a name='L57'>                <b>if</b> (<a href='../S/74.html#L44' title='Defined at 44 in src/util.c.'>stringmatchlen</a>(pattern+1, patternLen-1,
+<a name='L58'>                            string, stringLen, nocase))
+<a name='L59'>                    <b>return</b> 1; <i><font color='green'>/* match */</font></i>
+<a name='L60'>                string++;
+<a name='L61'>                stringLen--;
+<a name='L62'>            <font color='red'>}</font>
+<a name='L63'>            <b>return</b> 0; <i><font color='green'>/* no match */</font></i>
+<a name='L64'>            <b>break</b>;
+<a name='L65'>        <b>case</b> '?':
+<a name='L66'>            <b>if</b> (stringLen == 0)
+<a name='L67'>                <b>return</b> 0; <i><font color='green'>/* no match */</font></i>
+<a name='L68'>            string++;
+<a name='L69'>            stringLen--;
+<a name='L70'>            <b>break</b>;
+<a name='L71'>        <b>case</b> '[':
+<a name='L72'>        <font color='red'>{</font>
+<a name='L73'>            <b>int</b> not, <a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a>;
+<a name='L74'>
+<a name='L75'>            pattern++;
+<a name='L76'>            patternLen--;
+<a name='L77'>            not = pattern[0] == '^';
+<a name='L78'>            <b>if</b> (not) <font color='red'>{</font>
+<a name='L79'>                pattern++;
+<a name='L80'>                patternLen--;
+<a name='L81'>            <font color='red'>}</font>
+<a name='L82'>            <a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a> = 0;
+<a name='L83'>            <b>while</b>(1) <font color='red'>{</font>
+<a name='L84'>                <b>if</b> (pattern[0] == '\\') <font color='red'>{</font>
+<a name='L85'>                    pattern++;
+<a name='L86'>                    patternLen--;
+<a name='L87'>                    <b>if</b> (pattern[0] == string[0])
+<a name='L88'>                        <a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a> = 1;
+<a name='L89'>                <font color='red'>}</font> <b>else</b> <b>if</b> (pattern[0] == ']') <font color='red'>{</font>
+<a name='L90'>                    <b>break</b>;
+<a name='L91'>                <font color='red'>}</font> <b>else</b> <b>if</b> (patternLen == 0) <font color='red'>{</font>
+<a name='L92'>                    pattern--;
+<a name='L93'>                    patternLen++;
+<a name='L94'>                    <b>break</b>;
+<a name='L95'>                <font color='red'>}</font> <b>else</b> <b>if</b> (pattern[1] == '-' &amp;&amp; patternLen &gt;= 3) <font color='red'>{</font>
+<a name='L96'>                    <b>int</b> start = pattern[0];
+<a name='L97'>                    <b>int</b> end = pattern[2];
+<a name='L98'>                    <b>int</b> c = string[0];
+<a name='L99'>                    <b>if</b> (start &gt; end) <font color='red'>{</font>
+<a name='L100'>                        <b>int</b> t = start;
+<a name='L101'>                        start = end;
+<a name='L102'>                        end = t;
+<a name='L103'>                    <font color='red'>}</font>
+<a name='L104'>                    <b>if</b> (nocase) <font color='red'>{</font>
+<a name='L105'>                        start = tolower(start);
+<a name='L106'>                        end = tolower(end);
+<a name='L107'>                        c = tolower(c);
+<a name='L108'>                    <font color='red'>}</font>
+<a name='L109'>                    pattern += 2;
+<a name='L110'>                    patternLen -= 2;
+<a name='L111'>                    <b>if</b> (c &gt;= start &amp;&amp; c &lt;= end)
+<a name='L112'>                        <a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a> = 1;
+<a name='L113'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L114'>                    <b>if</b> (!nocase) <font color='red'>{</font>
+<a name='L115'>                        <b>if</b> (pattern[0] == string[0])
+<a name='L116'>                            <a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a> = 1;
+<a name='L117'>                    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L118'>                        <b>if</b> (tolower((<b>int</b>)pattern[0]) == tolower((<b>int</b>)string[0]))
+<a name='L119'>                            <a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a> = 1;
+<a name='L120'>                    <font color='red'>}</font>
+<a name='L121'>                <font color='red'>}</font>
+<a name='L122'>                pattern++;
+<a name='L123'>                patternLen--;
+<a name='L124'>            <font color='red'>}</font>
+<a name='L125'>            <b>if</b> (not)
+<a name='L126'>                <a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a> = !<a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a>;
+<a name='L127'>            <b>if</b> (!<a href='../S/270.html#L365' title='Defined at 365 in deps/lua/src/lstrlib.c.'>match</a>)
+<a name='L128'>                <b>return</b> 0; <i><font color='green'>/* no match */</font></i>
+<a name='L129'>            string++;
+<a name='L130'>            stringLen--;
+<a name='L131'>            <b>break</b>;
+<a name='L132'>        <font color='red'>}</font>
+<a name='L133'>        <b>case</b> '\\':
+<a name='L134'>            <b>if</b> (patternLen &gt;= 2) <font color='red'>{</font>
+<a name='L135'>                pattern++;
+<a name='L136'>                patternLen--;
+<a name='L137'>            <font color='red'>}</font>
+<a name='L138'>            <i><font color='green'>/* fall through */</font></i>
+<a name='L139'>        <b>default</b>:
+<a name='L140'>            <b>if</b> (!nocase) <font color='red'>{</font>
+<a name='L141'>                <b>if</b> (pattern[0] != string[0])
+<a name='L142'>                    <b>return</b> 0; <i><font color='green'>/* no match */</font></i>
+<a name='L143'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L144'>                <b>if</b> (tolower((<b>int</b>)pattern[0]) != tolower((<b>int</b>)string[0]))
+<a name='L145'>                    <b>return</b> 0; <i><font color='green'>/* no match */</font></i>
+<a name='L146'>            <font color='red'>}</font>
+<a name='L147'>            string++;
+<a name='L148'>            stringLen--;
+<a name='L149'>            <b>break</b>;
+<a name='L150'>        <font color='red'>}</font>
+<a name='L151'>        pattern++;
+<a name='L152'>        patternLen--;
+<a name='L153'>        <b>if</b> (stringLen == 0) <font color='red'>{</font>
+<a name='L154'>            <b>while</b>(*pattern == '*') <font color='red'>{</font>
+<a name='L155'>                pattern++;
+<a name='L156'>                patternLen--;
+<a name='L157'>            <font color='red'>}</font>
+<a name='L158'>            <b>break</b>;
+<a name='L159'>        <font color='red'>}</font>
+<a name='L160'>    <font color='red'>}</font>
+<a name='L161'>    <b>if</b> (patternLen == 0 &amp;&amp; stringLen == 0)
+<a name='L162'>        <b>return</b> 1;
+<a name='L163'>    <b>return</b> 0;
+<a name='L164'><font color='red'>}</font>
+<a name='L165'>
+<a name='L166'><b>int</b> <a href='../R/3890.html' title='Multiple refered from 14 places.'>stringmatch</a>(<b>const</b> <b>char</b> *pattern, <b>const</b> <b>char</b> *string, <b>int</b> nocase) <font color='red'>{</font>
+<a name='L167'>    <b>return</b> <a href='../S/74.html#L44' title='Defined at 44 in src/util.c.'>stringmatchlen</a>(pattern,strlen(pattern),string,strlen(string),nocase);
+<a name='L168'><font color='red'>}</font>
+<a name='L169'>
+<a name='L170'><i><font color='green'>/* Convert a string representing an amount of memory into the number of</font></i>
+<a name='L171'><i><font color='green'> * bytes, so for instance memtoll("1Gi") will return 1073741824 that is</font></i>
+<a name='L172'><i><font color='green'> * (1024*1024*1024).</font></i>
+<a name='L173'><i><font color='green'> *</font></i>
+<a name='L174'><i><font color='green'> * On parsing error, if *err is not NULL, it's set to 1, otherwise it's</font></i>
+<a name='L175'><i><font color='green'> * set to 0 */</font></i>
+<a name='L176'><b>long</b> <b>long</b> <a href='../R/3012.html' title='Multiple refered from 12 places.'>memtoll</a>(<b>const</b> <b>char</b> *p, <b>int</b> *err) <font color='red'>{</font>
+<a name='L177'>    <b>const</b> <b>char</b> *u;
+<a name='L178'>    <b>char</b> buf[128];
+<a name='L179'>    <b>long</b> mul; <i><font color='green'>/* unit multiplier */</font></i>
+<a name='L180'>    <b>long</b> <b>long</b> val;
+<a name='L181'>    <b>unsigned</b> <b>int</b> digits;
+<a name='L182'>
+<a name='L183'>    <b>if</b> (err) *err = 0;
+<a name='L184'>    <i><font color='green'>/* Search the first non digit character. */</font></i>
+<a name='L185'>    u = p;
+<a name='L186'>    <b>if</b> (*u == '-') u++;
+<a name='L187'>    <b>while</b>(*u &amp;&amp; isdigit(*u)) u++;
+<a name='L188'>    <b>if</b> (*u == '\0' || !strcasecmp(u,"b")) <font color='red'>{</font>
+<a name='L189'>        mul = 1;
+<a name='L190'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(u,"k")) <font color='red'>{</font>
+<a name='L191'>        mul = 1000;
+<a name='L192'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(u,"kb")) <font color='red'>{</font>
+<a name='L193'>        mul = 1024;
+<a name='L194'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(u,"m")) <font color='red'>{</font>
+<a name='L195'>        mul = 1000*1000;
+<a name='L196'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(u,"mb")) <font color='red'>{</font>
+<a name='L197'>        mul = 1024*1024;
+<a name='L198'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(u,"g")) <font color='red'>{</font>
+<a name='L199'>        mul = 1000L*1000*1000;
+<a name='L200'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(u,"gb")) <font color='red'>{</font>
+<a name='L201'>        mul = 1024L*1024*1024;
+<a name='L202'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L203'>        <b>if</b> (err) *err = 1;
+<a name='L204'>        mul = 1;
+<a name='L205'>    <font color='red'>}</font>
+<a name='L206'>    digits = u-p;
+<a name='L207'>    <b>if</b> (digits &gt;= <b>sizeof</b>(buf)) <font color='red'>{</font>
+<a name='L208'>        <b>if</b> (err) *err = 1;
+<a name='L209'>        <b>return</b> LLONG_MAX;
+<a name='L210'>    <font color='red'>}</font>
+<a name='L211'>    memcpy(buf,p,digits);
+<a name='L212'>    buf[digits] = '\0';
+<a name='L213'>    val = strtoll(buf,NULL,10);
+<a name='L214'>    <b>return</b> val*mul;
+<a name='L215'><font color='red'>}</font>
+<a name='L216'>
+<a name='L217'><i><font color='green'>/* Convert a long long into a string. Returns the number of</font></i>
+<a name='L218'><i><font color='green'> * characters needed to represent the number, that can be shorter if passed</font></i>
+<a name='L219'><i><font color='green'> * buffer length is not enough to store the whole number. */</font></i>
+<a name='L220'><b>int</b> <a href='../R/2421.html' title='Multiple refered from 33 places.'>ll2string</a>(<b>char</b> *s, size_t len, <b>long</b> <b>long</b> value) <font color='red'>{</font>
+<a name='L221'>    <b>char</b> buf[32], *p;
+<a name='L222'>    <b>unsigned</b> <b>long</b> <b>long</b> v;
+<a name='L223'>    size_t l;
+<a name='L224'>
+<a name='L225'>    <b>if</b> (len == 0) <b>return</b> 0;
+<a name='L226'>    v = (value &lt; 0) ? -value : value;
+<a name='L227'>    p = buf+31; <i><font color='green'>/* point to the last character */</font></i>
+<a name='L228'>    <b>do</b> <font color='red'>{</font>
+<a name='L229'>        *p-- = '0'+(v%10);
+<a name='L230'>        v /= 10;
+<a name='L231'>    <font color='red'>}</font> <b>while</b>(v);
+<a name='L232'>    <b>if</b> (value &lt; 0) *p-- = '-';
+<a name='L233'>    p++;
+<a name='L234'>    l = 32-(p-buf);
+<a name='L235'>    <b>if</b> (l+1 &gt; len) l = len-1; <i><font color='green'>/* Make sure it fits, including the nul term */</font></i>
+<a name='L236'>    memcpy(s,p,l);
+<a name='L237'>    s[l] = '\0';
+<a name='L238'>    <b>return</b> l;
+<a name='L239'><font color='red'>}</font>
+<a name='L240'>
+<a name='L241'><i><font color='green'>/* Convert a string into a long long. Returns 1 if the string could be parsed</font></i>
+<a name='L242'><i><font color='green'> * into a (non-overflowing) long long, 0 otherwise. The value will be set to</font></i>
+<a name='L243'><i><font color='green'> * the parsed value when appropriate. */</font></i>
+<a name='L244'><b>int</b> <a href='../R/3887.html' title='Multiple refered from 24 places.'>string2ll</a>(<b>const</b> <b>char</b> *s, size_t slen, <b>long</b> <b>long</b> *value) <font color='red'>{</font>
+<a name='L245'>    <b>const</b> <b>char</b> *p = s;
+<a name='L246'>    size_t plen = 0;
+<a name='L247'>    <b>int</b> negative = 0;
+<a name='L248'>    <b>unsigned</b> <b>long</b> <b>long</b> v;
+<a name='L249'>
+<a name='L250'>    <b>if</b> (plen == slen)
+<a name='L251'>        <b>return</b> 0;
+<a name='L252'>
+<a name='L253'>    <i><font color='green'>/* Special case: first and only digit is 0. */</font></i>
+<a name='L254'>    <b>if</b> (slen == 1 &amp;&amp; p[0] == '0') <font color='red'>{</font>
+<a name='L255'>        <b>if</b> (value != NULL) *value = 0;
+<a name='L256'>        <b>return</b> 1;
+<a name='L257'>    <font color='red'>}</font>
+<a name='L258'>
+<a name='L259'>    <b>if</b> (p[0] == '-') <font color='red'>{</font>
+<a name='L260'>        negative = 1;
+<a name='L261'>        p++; plen++;
+<a name='L262'>
+<a name='L263'>        <i><font color='green'>/* Abort on only a negative sign. */</font></i>
+<a name='L264'>        <b>if</b> (plen == slen)
+<a name='L265'>            <b>return</b> 0;
+<a name='L266'>    <font color='red'>}</font>
+<a name='L267'>
+<a name='L268'>    <i><font color='green'>/* First digit should be 1-9, otherwise the string should just be 0. */</font></i>
+<a name='L269'>    <b>if</b> (p[0] &gt;= '1' &amp;&amp; p[0] &lt;= '9') <font color='red'>{</font>
+<a name='L270'>        v = p[0]-'0';
+<a name='L271'>        p++; plen++;
+<a name='L272'>    <font color='red'>}</font> <b>else</b> <b>if</b> (p[0] == '0' &amp;&amp; slen == 1) <font color='red'>{</font>
+<a name='L273'>        *value = 0;
+<a name='L274'>        <b>return</b> 1;
+<a name='L275'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L276'>        <b>return</b> 0;
+<a name='L277'>    <font color='red'>}</font>
+<a name='L278'>
+<a name='L279'>    <b>while</b> (plen &lt; slen &amp;&amp; p[0] &gt;= '0' &amp;&amp; p[0] &lt;= '9') <font color='red'>{</font>
+<a name='L280'>        <b>if</b> (v &gt; (ULLONG_MAX / 10)) <i><font color='green'>/* Overflow. */</font></i>
+<a name='L281'>            <b>return</b> 0;
+<a name='L282'>        v *= 10;
+<a name='L283'>
+<a name='L284'>        <b>if</b> (v &gt; (ULLONG_MAX - (p[0]-'0'))) <i><font color='green'>/* Overflow. */</font></i>
+<a name='L285'>            <b>return</b> 0;
+<a name='L286'>        v += p[0]-'0';
+<a name='L287'>
+<a name='L288'>        p++; plen++;
+<a name='L289'>    <font color='red'>}</font>
+<a name='L290'>
+<a name='L291'>    <i><font color='green'>/* Return if not all bytes were used. */</font></i>
+<a name='L292'>    <b>if</b> (plen &lt; slen)
+<a name='L293'>        <b>return</b> 0;
+<a name='L294'>
+<a name='L295'>    <b>if</b> (negative) <font color='red'>{</font>
+<a name='L296'>        <b>if</b> (v &gt; ((<b>unsigned</b> <b>long</b> <b>long</b>)(-(LLONG_MIN+1))+1)) <i><font color='green'>/* Overflow. */</font></i>
+<a name='L297'>            <b>return</b> 0;
+<a name='L298'>        <b>if</b> (value != NULL) *value = -v;
+<a name='L299'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L300'>        <b>if</b> (v &gt; LLONG_MAX) <i><font color='green'>/* Overflow. */</font></i>
+<a name='L301'>            <b>return</b> 0;
+<a name='L302'>        <b>if</b> (value != NULL) *value = v;
+<a name='L303'>    <font color='red'>}</font>
+<a name='L304'>    <b>return</b> 1;
+<a name='L305'><font color='red'>}</font>
+<a name='L306'>
+<a name='L307'><i><font color='green'>/* Convert a string into a long. Returns 1 if the string could be parsed into a</font></i>
+<a name='L308'><i><font color='green'> * (non-overflowing) long, 0 otherwise. The value will be set to the parsed</font></i>
+<a name='L309'><i><font color='green'> * value when appropriate. */</font></i>
+<a name='L310'><b>int</b> <a href='../R/3886.html' title='Multiple refered from 13 places.'>string2l</a>(<b>const</b> <b>char</b> *s, size_t slen, <b>long</b> *lval) <font color='red'>{</font>
+<a name='L311'>    <b>long</b> <b>long</b> llval;
+<a name='L312'>
+<a name='L313'>    <b>if</b> (!<a href='../S/74.html#L244' title='Defined at 244 in src/util.c.'>string2ll</a>(s,slen,&amp;llval))
+<a name='L314'>        <b>return</b> 0;
+<a name='L315'>
+<a name='L316'>    <b>if</b> (llval &lt; LONG_MIN || llval &gt; LONG_MAX)
+<a name='L317'>        <b>return</b> 0;
+<a name='L318'>
+<a name='L319'>    *lval = (<b>long</b>)llval;
+<a name='L320'>    <b>return</b> 1;
+<a name='L321'><font color='red'>}</font>
+<a name='L322'>
+<a name='L323'><i><font color='green'>/* Convert a double to a string representation. Returns the number of bytes</font></i>
+<a name='L324'><i><font color='green'> * required. The representation should always be parsable by stdtod(3). */</font></i>
+<a name='L325'><b>int</b> <a href='../R/1754.html' title='Multiple refered from 2 places.'>d2string</a>(<b>char</b> *buf, size_t len, <b>double</b> value) <font color='red'>{</font>
+<a name='L326'>    <b>if</b> (<a href='../D/2570.html' title='Multiple defined in 2 places.'>isnan</a>(value)) <font color='red'>{</font>
+<a name='L327'>        len = snprintf(buf,len,"nan");
+<a name='L328'>    <font color='red'>}</font> <b>else</b> <b>if</b> (<a href='../D/2568.html' title='Multiple defined in 3 places.'>isinf</a>(value)) <font color='red'>{</font>
+<a name='L329'>        <b>if</b> (value &lt; 0)
+<a name='L330'>            len = snprintf(buf,len,"-inf");
+<a name='L331'>        <b>else</b>
+<a name='L332'>            len = snprintf(buf,len,"inf");
+<a name='L333'>    <font color='red'>}</font> <b>else</b> <b>if</b> (value == 0) <font color='red'>{</font>
+<a name='L334'>        <i><font color='green'>/* See: http://en.wikipedia.org/wiki/Signed_zero, "Comparisons". */</font></i>
+<a name='L335'>        <b>if</b> (1.0/value &lt; 0)
+<a name='L336'>            len = snprintf(buf,len,"-0");
+<a name='L337'>        <b>else</b>
+<a name='L338'>            len = snprintf(buf,len,"0");
+<a name='L339'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L340'><font color='darkred'>#if</font> (DBL_MANT_DIG &gt;= 52) &amp;&amp; (LLONG_MAX == 0x7fffffffffffffffLL)
+<a name='L341'>        <i><font color='green'>/* Check if the float is in a safe range to be casted into a</font></i>
+<a name='L342'><i><font color='green'>         * long long. We are assuming that long long is 64 bit here.</font></i>
+<a name='L343'><i><font color='green'>         * Also we are assuming that there are no implementations around where</font></i>
+<a name='L344'><i><font color='green'>         * double has precision &lt; 52 bit.</font></i>
+<a name='L345'><i><font color='green'>         *</font></i>
+<a name='L346'><i><font color='green'>         * Under this assumptions we test if a double is inside an interval</font></i>
+<a name='L347'><i><font color='green'>         * where casting to long long is safe. Then using two castings we</font></i>
+<a name='L348'><i><font color='green'>         * make sure the decimal part is zero. If all this is true we use</font></i>
+<a name='L349'><i><font color='green'>         * integer printing function that is much faster. */</font></i>
+<a name='L350'>        <b>double</b> <a href='../S/20.html#L50' title='Defined at 50 in src/pqsort.c.'>min</a> = -4503599627370495; <i><font color='green'>/* (2^52)-1 */</font></i>
+<a name='L351'>        <b>double</b> max = 4503599627370496; <i><font color='green'>/* -(2^52) */</font></i>
+<a name='L352'>        <b>if</b> (value &gt; <a href='../S/20.html#L50' title='Defined at 50 in src/pqsort.c.'>min</a> &amp;&amp; value &lt; max &amp;&amp; value == ((<b>double</b>)((<b>long</b> <b>long</b>)value)))
+<a name='L353'>            len = <a href='../S/74.html#L220' title='Defined at 220 in src/util.c.'>ll2string</a>(buf,len,(<b>long</b> <b>long</b>)value);
+<a name='L354'>        <b>else</b>
+<a name='L355'><font color='darkred'>#endif</font>
+<a name='L356'>            len = snprintf(buf,len,"%.17g",value);
+<a name='L357'>    <font color='red'>}</font>
+<a name='L358'>
+<a name='L359'>    <b>return</b> len;
+<a name='L360'><font color='red'>}</font>
+<a name='L361'>
+<a name='L362'><i><font color='green'>/* Generate the Redis "Run ID", a SHA1-sized random number that identifies a</font></i>
+<a name='L363'><i><font color='green'> * given execution of Redis, so that if you are talking with an instance</font></i>
+<a name='L364'><i><font color='green'> * having run_id == A, and you reconnect and it has run_id == B, you can be</font></i>
+<a name='L365'><i><font color='green'> * sure that it is either a different instance or it was restarted. */</font></i>
+<a name='L366'><b>void</b> <a href='../R/2064.html' title='Multiple refered from 2 places.'>getRandomHexChars</a>(<b>char</b> *p, <b>unsigned</b> <b>int</b> len) <font color='red'>{</font>
+<a name='L367'>    FILE *fp = fopen("/dev/urandom","r");
+<a name='L368'>    <b>char</b> *charset = "0123456789abcdef";
+<a name='L369'>    <b>unsigned</b> <b>int</b> j;
+<a name='L370'>
+<a name='L371'>    <b>if</b> (fp == NULL || fread(p,len,1,fp) == 0) <font color='red'>{</font>
+<a name='L372'>        <i><font color='green'>/* If we can't read from /dev/urandom, do some reasonable effort</font></i>
+<a name='L373'><i><font color='green'>         * in order to create some entropy, since this function is used to</font></i>
+<a name='L374'><i><font color='green'>         * generate run_id and cluster instance IDs */</font></i>
+<a name='L375'>        <b>char</b> *x = p;
+<a name='L376'>        <b>unsigned</b> <b>int</b> l = len;
+<a name='L377'>        <b>struct</b> timeval tv;
+<a name='L378'>        pid_t pid = getpid();
+<a name='L379'>
+<a name='L380'>        <i><font color='green'>/* Use time and PID to fill the initial array. */</font></i>
+<a name='L381'>        gettimeofday(&amp;tv,NULL);
+<a name='L382'>        <b>if</b> (l &gt;= <b>sizeof</b>(tv.tv_usec)) <font color='red'>{</font>
+<a name='L383'>            memcpy(x,&amp;tv.tv_usec,<b>sizeof</b>(tv.tv_usec));
+<a name='L384'>            l -= <b>sizeof</b>(tv.tv_usec);
+<a name='L385'>            x += <b>sizeof</b>(tv.tv_usec);
+<a name='L386'>        <font color='red'>}</font>
+<a name='L387'>        <b>if</b> (l &gt;= <b>sizeof</b>(tv.tv_sec)) <font color='red'>{</font>
+<a name='L388'>            memcpy(x,&amp;tv.tv_sec,<b>sizeof</b>(tv.tv_sec));
+<a name='L389'>            l -= <b>sizeof</b>(tv.tv_sec);
+<a name='L390'>            x += <b>sizeof</b>(tv.tv_sec);
+<a name='L391'>        <font color='red'>}</font>
+<a name='L392'>        <b>if</b> (l &gt;= <b>sizeof</b>(pid)) <font color='red'>{</font>
+<a name='L393'>            memcpy(x,&amp;pid,<b>sizeof</b>(pid));
+<a name='L394'>            l -= <b>sizeof</b>(pid);
+<a name='L395'>            x += <b>sizeof</b>(pid);
+<a name='L396'>        <font color='red'>}</font>
+<a name='L397'>        <i><font color='green'>/* Finally xor it with rand() output, that was already seeded with</font></i>
+<a name='L398'><i><font color='green'>         * time() at startup. */</font></i>
+<a name='L399'>        <b>for</b> (j = 0; j &lt; len; j++)
+<a name='L400'>            p[j] ^= rand();
+<a name='L401'>    <font color='red'>}</font>
+<a name='L402'>    <i><font color='green'>/* Turn it into hex digits taking just 4 bits out of 8 for every byte. */</font></i>
+<a name='L403'>    <b>for</b> (j = 0; j &lt; len; j++)
+<a name='L404'>        p[j] = charset[p[j] &amp; 0x0F];
+<a name='L405'>    fclose(fp);
+<a name='L406'><font color='red'>}</font>
+<a name='L407'>
+<a name='L408'><font color='darkred'>#ifdef</font> UTIL_TEST_MAIN
+<a name='L409'><font color='darkred'>#include</font> &lt;assert.h&gt;
+<a name='L410'>
+<a name='L411'><b>void</b> <a href='../S/74.html#L516' title='Refered from 516 in src/util.c.'>test_string2ll</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L412'>    <b>char</b> buf[32];
+<a name='L413'>    <b>long</b> <b>long</b> v;
+<a name='L414'>
+<a name='L415'>    <i><font color='green'>/* May not start with +. */</font></i>
+<a name='L416'>    strcpy(buf,"+1");
+<a name='L417'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L244' title='Defined at 244 in src/util.c.'>string2ll</a>(buf,strlen(buf),&amp;v) == 0);
+<a name='L418'>
+<a name='L419'>    <i><font color='green'>/* Leading space. */</font></i>
+<a name='L420'>    strcpy(buf," 1");
+<a name='L421'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L244' title='Defined at 244 in src/util.c.'>string2ll</a>(buf,strlen(buf),&amp;v) == 0);
+<a name='L422'>
+<a name='L423'>    <i><font color='green'>/* Trailing space. */</font></i>
+<a name='L424'>    strcpy(buf,"1 ");
+<a name='L425'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L244' title='Defined at 244 in src/util.c.'>string2ll</a>(buf,strlen(buf),&amp;v) == 0);
+<a name='L426'>
+<a name='L427'>    <i><font color='green'>/* May not start with 0. */</font></i>
+<a name='L428'>    strcpy(buf,"01");
+<a name='L429'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L244' title='Defined at 244 in src/util.c.'>string2ll</a>(buf,strlen(buf),&amp;v) == 0);
+<a name='L430'>
+<a name='L431'>    strcpy(buf,"-1");
+<a name='L432'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L244' title='Defined at 244 in src/util.c.'>string2ll</a>(buf,strlen(buf),&amp;v) == 1);
+<a name='L433'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(v == -1);
+<a name='L434'>
+<a name='L435'>    strcpy(buf,"0");
+<a name='L436'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L244' title='Defined at 244 in src/util.c.'>string2ll</a>(buf,strlen(buf),&amp;v) == 1);
+<a name='L437'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(v == 0);
+<a name='L438'>
+<a name='L439'>    strcpy(buf,"1");
+<a name='L440'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L244' title='Defined at 244 in src/util.c.'>string2ll</a>(buf,strlen(buf),&amp;v) == 1);
+<a name='L441'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(v == 1);
+<a name='L442'>
+<a name='L443'>    strcpy(buf,"99");
+<a name='L444'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L244' title='Defined at 244 in src/util.c.'>string2ll</a>(buf,strlen(buf),&amp;v) == 1);
+<a name='L445'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(v == 99);
+<a name='L446'>
+<a name='L447'>    strcpy(buf,"-99");
+<a name='L448'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L244' title='Defined at 244 in src/util.c.'>string2ll</a>(buf,strlen(buf),&amp;v) == 1);
+<a name='L449'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(v == -99);
+<a name='L450'>
+<a name='L451'>    strcpy(buf,"-9223372036854775808");
+<a name='L452'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L244' title='Defined at 244 in src/util.c.'>string2ll</a>(buf,strlen(buf),&amp;v) == 1);
+<a name='L453'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(v == LLONG_MIN);
+<a name='L454'>
+<a name='L455'>    strcpy(buf,"-9223372036854775809"); <i><font color='green'>/* overflow */</font></i>
+<a name='L456'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L244' title='Defined at 244 in src/util.c.'>string2ll</a>(buf,strlen(buf),&amp;v) == 0);
+<a name='L457'>
+<a name='L458'>    strcpy(buf,"9223372036854775807");
+<a name='L459'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L244' title='Defined at 244 in src/util.c.'>string2ll</a>(buf,strlen(buf),&amp;v) == 1);
+<a name='L460'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(v == LLONG_MAX);
+<a name='L461'>
+<a name='L462'>    strcpy(buf,"9223372036854775808"); <i><font color='green'>/* overflow */</font></i>
+<a name='L463'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L244' title='Defined at 244 in src/util.c.'>string2ll</a>(buf,strlen(buf),&amp;v) == 0);
+<a name='L464'><font color='red'>}</font>
+<a name='L465'>
+<a name='L466'><b>void</b> <a href='../S/74.html#L517' title='Refered from 517 in src/util.c.'>test_string2l</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L467'>    <b>char</b> buf[32];
+<a name='L468'>    <b>long</b> v;
+<a name='L469'>
+<a name='L470'>    <i><font color='green'>/* May not start with +. */</font></i>
+<a name='L471'>    strcpy(buf,"+1");
+<a name='L472'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L310' title='Defined at 310 in src/util.c.'>string2l</a>(buf,strlen(buf),&amp;v) == 0);
+<a name='L473'>
+<a name='L474'>    <i><font color='green'>/* May not start with 0. */</font></i>
+<a name='L475'>    strcpy(buf,"01");
+<a name='L476'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L310' title='Defined at 310 in src/util.c.'>string2l</a>(buf,strlen(buf),&amp;v) == 0);
+<a name='L477'>
+<a name='L478'>    strcpy(buf,"-1");
+<a name='L479'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L310' title='Defined at 310 in src/util.c.'>string2l</a>(buf,strlen(buf),&amp;v) == 1);
+<a name='L480'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(v == -1);
+<a name='L481'>
+<a name='L482'>    strcpy(buf,"0");
+<a name='L483'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L310' title='Defined at 310 in src/util.c.'>string2l</a>(buf,strlen(buf),&amp;v) == 1);
+<a name='L484'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(v == 0);
+<a name='L485'>
+<a name='L486'>    strcpy(buf,"1");
+<a name='L487'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L310' title='Defined at 310 in src/util.c.'>string2l</a>(buf,strlen(buf),&amp;v) == 1);
+<a name='L488'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(v == 1);
+<a name='L489'>
+<a name='L490'>    strcpy(buf,"99");
+<a name='L491'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L310' title='Defined at 310 in src/util.c.'>string2l</a>(buf,strlen(buf),&amp;v) == 1);
+<a name='L492'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(v == 99);
+<a name='L493'>
+<a name='L494'>    strcpy(buf,"-99");
+<a name='L495'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L310' title='Defined at 310 in src/util.c.'>string2l</a>(buf,strlen(buf),&amp;v) == 1);
+<a name='L496'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(v == -99);
+<a name='L497'>
+<a name='L498'><font color='darkred'>#if</font> LONG_MAX != LLONG_MAX
+<a name='L499'>    strcpy(buf,"-2147483648");
+<a name='L500'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L310' title='Defined at 310 in src/util.c.'>string2l</a>(buf,strlen(buf),&amp;v) == 1);
+<a name='L501'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(v == LONG_MIN);
+<a name='L502'>
+<a name='L503'>    strcpy(buf,"-2147483649"); <i><font color='green'>/* overflow */</font></i>
+<a name='L504'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L310' title='Defined at 310 in src/util.c.'>string2l</a>(buf,strlen(buf),&amp;v) == 0);
+<a name='L505'>
+<a name='L506'>    strcpy(buf,"2147483647");
+<a name='L507'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L310' title='Defined at 310 in src/util.c.'>string2l</a>(buf,strlen(buf),&amp;v) == 1);
+<a name='L508'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(v == LONG_MAX);
+<a name='L509'>
+<a name='L510'>    strcpy(buf,"2147483648"); <i><font color='green'>/* overflow */</font></i>
+<a name='L511'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/74.html#L310' title='Defined at 310 in src/util.c.'>string2l</a>(buf,strlen(buf),&amp;v) == 0);
+<a name='L512'><font color='darkred'>#endif</font>
+<a name='L513'><font color='red'>}</font>
+<a name='L514'>
+<a name='L515'><b>int</b> main(<b>int</b> argc, <b>char</b> **argv) <font color='red'>{</font>
+<a name='L516'>    <a href='../S/74.html#L411' title='Defined at 411 in src/util.c.'>test_string2ll</a>();
+<a name='L517'>    <a href='../S/74.html#L466' title='Defined at 466 in src/util.c.'>test_string2l</a>();
+<a name='L518'>    <b>return</b> 0;
+<a name='L519'><font color='red'>}</font>
+<a name='L520'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L44'>[^]</a><a href='#L515'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

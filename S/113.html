@@ -1,0 +1,323 @@
+<html>
+<head>
+<title>deps/hiredis/net.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/388.html'>hiredis</a>/net.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L57'>[^]</a><a href='#L263'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L57' title='Defined at 57.'>__redisSetErrorFromErrno</a>
+<li><a href='#L67' title='Defined at 67.'>redisSetReuseAddr</a>
+<li><a href='#L77' title='Defined at 77.'>redisCreateSocket</a>
+<li><a href='#L91' title='Defined at 91.'>redisSetBlocking</a>
+<li><a href='#L116' title='Defined at 116.'>redisSetTcpNoDelay</a>
+<li><a href='#L128' title='Defined at 128.'>redisContextWaitReady</a>
+<li><a href='#L175' title='Defined at 175.'>redisCheckSocketError</a>
+<li><a href='#L195' title='Defined at 195.'>redisContextSetTimeout</a>
+<li><a href='#L207' title='Defined at 207.'>redisContextConnectTcp</a>
+<li><a href='#L263' title='Defined at 263.'>redisContextConnectUnix</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* Extracted from anet.c to work properly with Hiredis error reporting.</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2006-2011, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * Copyright (c) 2010-2011, Pieter Noordhuis &lt;pcnoordhuis at gmail dot com&gt;</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L7'><i><font color='green'> *</font></i>
+<a name='L8'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L9'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L10'><i><font color='green'> *</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L12'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L13'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L14'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L15'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L16'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L17'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L18'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L19'><i><font color='green'> *</font></i>
+<a name='L20'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L21'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L22'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L23'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L24'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L25'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L26'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L27'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L28'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L29'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L30'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L31'><i><font color='green'> */</font></i>
+<a name='L32'>
+<a name='L33'><font color='darkred'>#include</font> "<a href='../I/12.html'>fmacros.h</a>"
+<a name='L34'><font color='darkred'>#include</font> &lt;sys/types.h&gt;
+<a name='L35'><font color='darkred'>#include</font> &lt;sys/socket.h&gt;
+<a name='L36'><font color='darkred'>#include</font> &lt;sys/select.h&gt;
+<a name='L37'><font color='darkred'>#include</font> &lt;sys/un.h&gt;
+<a name='L38'><font color='darkred'>#include</font> &lt;netinet/in.h&gt;
+<a name='L39'><font color='darkred'>#include</font> &lt;netinet/tcp.h&gt;
+<a name='L40'><font color='darkred'>#include</font> &lt;arpa/inet.h&gt;
+<a name='L41'><font color='darkred'>#include</font> &lt;unistd.h&gt;
+<a name='L42'><font color='darkred'>#include</font> &lt;fcntl.h&gt;
+<a name='L43'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L44'><font color='darkred'>#include</font> &lt;netdb.h&gt;
+<a name='L45'><font color='darkred'>#include</font> &lt;errno.h&gt;
+<a name='L46'><font color='darkred'>#include</font> &lt;stdarg.h&gt;
+<a name='L47'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L48'><font color='darkred'>#include</font> &lt;poll.h&gt;
+<a name='L49'><font color='darkred'>#include</font> &lt;limits.h&gt;
+<a name='L50'>
+<a name='L51'><font color='darkred'>#include</font> "<a href='125.html'>net.h</a>"
+<a name='L52'><font color='darkred'>#include</font> "<a href='../I/18.html'>sds.h</a>"
+<a name='L53'>
+<a name='L54'><i><font color='green'>/* Defined in hiredis.c */</font></i>
+<a name='L55'><b>void</b> <a href='../S/120.html#L973' title='Defined at 973 in deps/hiredis/hiredis.c.'>__redisSetError</a>(redisContext *c, <b>int</b> type, <b>const</b> <b>char</b> *str);
+<a name='L56'>
+<a name='L57'><b>static</b> <b>void</b> <a href='../R/1146.html' title='Multiple refered from 12 places.'>__redisSetErrorFromErrno</a>(redisContext *c, <b>int</b> type, <b>const</b> <b>char</b> *prefix) <font color='red'>{</font>
+<a name='L58'>    <b>char</b> buf[128];
+<a name='L59'>    size_t len = 0;
+<a name='L60'>
+<a name='L61'>    <b>if</b> (prefix != NULL)
+<a name='L62'>        len = snprintf(buf,<b>sizeof</b>(buf),"%s: ",prefix);
+<a name='L63'>    strerror_r(errno,buf+len,<b>sizeof</b>(buf)-len);
+<a name='L64'>    <a href='../S/120.html#L973' title='Defined at 973 in deps/hiredis/hiredis.c.'>__redisSetError</a>(c,type,buf);
+<a name='L65'><font color='red'>}</font>
+<a name='L66'>
+<a name='L67'><b>static</b> <b>int</b> <a href='../S/113.html#L84' title='Refered from 84 in deps/hiredis/net.c.'>redisSetReuseAddr</a>(redisContext *c, <b>int</b> fd) <font color='red'>{</font>
+<a name='L68'>    <b>int</b> on = 1;
+<a name='L69'>    <b>if</b> (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &amp;on, <b>sizeof</b>(on)) == -1) <font color='red'>{</font>
+<a name='L70'>        <a href='../S/113.html#L57' title='Defined at 57 in deps/hiredis/net.c.'>__redisSetErrorFromErrno</a>(c,<a href='../S/121.html#L49' title='Defined at 49 in deps/hiredis/hiredis.h.'>REDIS_ERR_IO</a>,NULL);
+<a name='L71'>        close(fd);
+<a name='L72'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L73'>    <font color='red'>}</font>
+<a name='L74'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L75'><font color='red'>}</font>
+<a name='L76'>
+<a name='L77'><b>static</b> <b>int</b> <a href='../S/113.html#L268' title='Refered from 268 in deps/hiredis/net.c.'>redisCreateSocket</a>(redisContext *c, <b>int</b> type) <font color='red'>{</font>
+<a name='L78'>    <b>int</b> s;
+<a name='L79'>    <b>if</b> ((s = socket(type, SOCK_STREAM, 0)) == -1) <font color='red'>{</font>
+<a name='L80'>        <a href='../S/113.html#L57' title='Defined at 57 in deps/hiredis/net.c.'>__redisSetErrorFromErrno</a>(c,<a href='../S/121.html#L49' title='Defined at 49 in deps/hiredis/hiredis.h.'>REDIS_ERR_IO</a>,NULL);
+<a name='L81'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L82'>    <font color='red'>}</font>
+<a name='L83'>    <b>if</b> (type == AF_INET) <font color='red'>{</font>
+<a name='L84'>        <b>if</b> (<a href='../S/113.html#L67' title='Defined at 67 in deps/hiredis/net.c.'>redisSetReuseAddr</a>(c,s) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>) <font color='red'>{</font>
+<a name='L85'>            <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L86'>        <font color='red'>}</font>
+<a name='L87'>    <font color='red'>}</font>
+<a name='L88'>    <b>return</b> s;
+<a name='L89'><font color='red'>}</font>
+<a name='L90'>
+<a name='L91'><b>static</b> <b>int</b> <a href='../R/3495.html' title='Multiple refered from 4 places.'>redisSetBlocking</a>(redisContext *c, <b>int</b> fd, <b>int</b> blocking) <font color='red'>{</font>
+<a name='L92'>    <b>int</b> flags;
+<a name='L93'>
+<a name='L94'>    <i><font color='green'>/* Set the socket nonblocking.</font></i>
+<a name='L95'><i><font color='green'>     * Note that fcntl(2) for F_GETFL and F_SETFL can't be</font></i>
+<a name='L96'><i><font color='green'>     * interrupted by a signal. */</font></i>
+<a name='L97'>    <b>if</b> ((flags = fcntl(fd, F_GETFL)) == -1) <font color='red'>{</font>
+<a name='L98'>        <a href='../S/113.html#L57' title='Defined at 57 in deps/hiredis/net.c.'>__redisSetErrorFromErrno</a>(c,<a href='../S/121.html#L49' title='Defined at 49 in deps/hiredis/hiredis.h.'>REDIS_ERR_IO</a>,"fcntl(F_GETFL)");
+<a name='L99'>        close(fd);
+<a name='L100'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L101'>    <font color='red'>}</font>
+<a name='L102'>
+<a name='L103'>    <b>if</b> (blocking)
+<a name='L104'>        flags &amp;= ~O_NONBLOCK;
+<a name='L105'>    <b>else</b>
+<a name='L106'>        flags |= O_NONBLOCK;
+<a name='L107'>
+<a name='L108'>    <b>if</b> (fcntl(fd, F_SETFL, flags) == -1) <font color='red'>{</font>
+<a name='L109'>        <a href='../S/113.html#L57' title='Defined at 57 in deps/hiredis/net.c.'>__redisSetErrorFromErrno</a>(c,<a href='../S/121.html#L49' title='Defined at 49 in deps/hiredis/hiredis.h.'>REDIS_ERR_IO</a>,"fcntl(F_SETFL)");
+<a name='L110'>        close(fd);
+<a name='L111'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L112'>    <font color='red'>}</font>
+<a name='L113'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L114'><font color='red'>}</font>
+<a name='L115'>
+<a name='L116'><b>static</b> <b>int</b> <a href='../S/113.html#L241' title='Refered from 241 in deps/hiredis/net.c.'>redisSetTcpNoDelay</a>(redisContext *c, <b>int</b> fd) <font color='red'>{</font>
+<a name='L117'>    <b>int</b> yes = 1;
+<a name='L118'>    <b>if</b> (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &amp;yes, <b>sizeof</b>(yes)) == -1) <font color='red'>{</font>
+<a name='L119'>        <a href='../S/113.html#L57' title='Defined at 57 in deps/hiredis/net.c.'>__redisSetErrorFromErrno</a>(c,<a href='../S/121.html#L49' title='Defined at 49 in deps/hiredis/hiredis.h.'>REDIS_ERR_IO</a>,"setsockopt(TCP_NODELAY)");
+<a name='L120'>        close(fd);
+<a name='L121'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L122'>    <font color='red'>}</font>
+<a name='L123'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L124'><font color='red'>}</font>
+<a name='L125'>
+<a name='L126'><font color='darkred'>#define</font> <a href='../S/113.html#L138' title='Refered from 138 in deps/hiredis/net.c.'>__MAX_MSEC</a> (((LONG_MAX) - 999) / 1000)
+<a name='L127'>
+<a name='L128'><b>static</b> <b>int</b> <a href='../R/3437.html' title='Multiple refered from 2 places.'>redisContextWaitReady</a>(redisContext *c, <b>int</b> fd, <b>const</b> <b>struct</b> timeval *timeout) <font color='red'>{</font>
+<a name='L129'>    <b>struct</b> pollfd   wfd[1];
+<a name='L130'>    <b>long</b> msec;
+<a name='L131'>
+<a name='L132'>    msec          = -1;
+<a name='L133'>    wfd[0].fd     = fd;
+<a name='L134'>    wfd[0].events = POLLOUT;
+<a name='L135'>
+<a name='L136'>    <i><font color='green'>/* Only use timeout when not NULL. */</font></i>
+<a name='L137'>    <b>if</b> (timeout != NULL) <font color='red'>{</font>
+<a name='L138'>        <b>if</b> (timeout-&gt;tv_usec &gt; 1000000 || timeout-&gt;tv_sec &gt; <a href='../S/113.html#L126' title='Defined at 126 in deps/hiredis/net.c.'>__MAX_MSEC</a>) <font color='red'>{</font>
+<a name='L139'>            close(fd);
+<a name='L140'>            <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L141'>        <font color='red'>}</font>
+<a name='L142'>
+<a name='L143'>        msec = (timeout-&gt;tv_sec * 1000) + ((timeout-&gt;tv_usec + 999) / 1000);
+<a name='L144'>
+<a name='L145'>        <b>if</b> (msec &lt; 0 || msec &gt; INT_MAX) <font color='red'>{</font>
+<a name='L146'>            msec = INT_MAX;
+<a name='L147'>        <font color='red'>}</font>
+<a name='L148'>    <font color='red'>}</font>
+<a name='L149'>
+<a name='L150'>    <b>if</b> (errno == EINPROGRESS) <font color='red'>{</font>
+<a name='L151'>        <b>int</b> res;
+<a name='L152'>
+<a name='L153'>        <b>if</b> ((res = poll(wfd, 1, msec)) == -1) <font color='red'>{</font>
+<a name='L154'>            <a href='../S/113.html#L57' title='Defined at 57 in deps/hiredis/net.c.'>__redisSetErrorFromErrno</a>(c, <a href='../S/121.html#L49' title='Defined at 49 in deps/hiredis/hiredis.h.'>REDIS_ERR_IO</a>, "poll(2)");
+<a name='L155'>            close(fd);
+<a name='L156'>            <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L157'>        <font color='red'>}</font> <b>else</b> <b>if</b> (res == 0) <font color='red'>{</font>
+<a name='L158'>            errno = ETIMEDOUT;
+<a name='L159'>            <a href='../S/113.html#L57' title='Defined at 57 in deps/hiredis/net.c.'>__redisSetErrorFromErrno</a>(c,<a href='../S/121.html#L49' title='Defined at 49 in deps/hiredis/hiredis.h.'>REDIS_ERR_IO</a>,NULL);
+<a name='L160'>            close(fd);
+<a name='L161'>            <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L162'>        <font color='red'>}</font>
+<a name='L163'>
+<a name='L164'>        <b>if</b> (<a href='../S/113.html#L175' title='Defined at 175 in deps/hiredis/net.c.'>redisCheckSocketError</a>(c, fd) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L165'>            <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L166'>
+<a name='L167'>        <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L168'>    <font color='red'>}</font>
+<a name='L169'>
+<a name='L170'>    <a href='../S/113.html#L57' title='Defined at 57 in deps/hiredis/net.c.'>__redisSetErrorFromErrno</a>(c,<a href='../S/121.html#L49' title='Defined at 49 in deps/hiredis/hiredis.h.'>REDIS_ERR_IO</a>,NULL);
+<a name='L171'>    close(fd);
+<a name='L172'>    <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L173'><font color='red'>}</font>
+<a name='L174'>
+<a name='L175'><b>int</b> <a href='../R/3421.html' title='Multiple refered from 3 places.'>redisCheckSocketError</a>(redisContext *c, <b>int</b> fd) <font color='red'>{</font>
+<a name='L176'>    <b>int</b> err = 0;
+<a name='L177'>    socklen_t errlen = <b>sizeof</b>(err);
+<a name='L178'>
+<a name='L179'>    <b>if</b> (getsockopt(fd, SOL_SOCKET, SO_ERROR, &amp;err, &amp;errlen) == -1) <font color='red'>{</font>
+<a name='L180'>        <a href='../S/113.html#L57' title='Defined at 57 in deps/hiredis/net.c.'>__redisSetErrorFromErrno</a>(c,<a href='../S/121.html#L49' title='Defined at 49 in deps/hiredis/hiredis.h.'>REDIS_ERR_IO</a>,"getsockopt(SO_ERROR)");
+<a name='L181'>        close(fd);
+<a name='L182'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L183'>    <font color='red'>}</font>
+<a name='L184'>
+<a name='L185'>    <b>if</b> (err) <font color='red'>{</font>
+<a name='L186'>        errno = err;
+<a name='L187'>        <a href='../S/113.html#L57' title='Defined at 57 in deps/hiredis/net.c.'>__redisSetErrorFromErrno</a>(c,<a href='../S/121.html#L49' title='Defined at 49 in deps/hiredis/hiredis.h.'>REDIS_ERR_IO</a>,NULL);
+<a name='L188'>        close(fd);
+<a name='L189'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L190'>    <font color='red'>}</font>
+<a name='L191'>
+<a name='L192'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L193'><font color='red'>}</font>
+<a name='L194'>
+<a name='L195'><b>int</b> <a href='../R/3436.html' title='Multiple refered from 2 places.'>redisContextSetTimeout</a>(redisContext *c, <b>struct</b> timeval tv) <font color='red'>{</font>
+<a name='L196'>    <b>if</b> (setsockopt(c-&gt;fd,SOL_SOCKET,SO_RCVTIMEO,&amp;tv,<b>sizeof</b>(tv)) == -1) <font color='red'>{</font>
+<a name='L197'>        <a href='../S/113.html#L57' title='Defined at 57 in deps/hiredis/net.c.'>__redisSetErrorFromErrno</a>(c,<a href='../S/121.html#L49' title='Defined at 49 in deps/hiredis/hiredis.h.'>REDIS_ERR_IO</a>,"setsockopt(SO_RCVTIMEO)");
+<a name='L198'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L199'>    <font color='red'>}</font>
+<a name='L200'>    <b>if</b> (setsockopt(c-&gt;fd,SOL_SOCKET,SO_SNDTIMEO,&amp;tv,<b>sizeof</b>(tv)) == -1) <font color='red'>{</font>
+<a name='L201'>        <a href='../S/113.html#L57' title='Defined at 57 in deps/hiredis/net.c.'>__redisSetErrorFromErrno</a>(c,<a href='../S/121.html#L49' title='Defined at 49 in deps/hiredis/hiredis.h.'>REDIS_ERR_IO</a>,"setsockopt(SO_SNDTIMEO)");
+<a name='L202'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L203'>    <font color='red'>}</font>
+<a name='L204'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L205'><font color='red'>}</font>
+<a name='L206'>
+<a name='L207'><b>int</b> <a href='../R/3433.html' title='Multiple refered from 4 places.'>redisContextConnectTcp</a>(redisContext *c, <b>const</b> <b>char</b> *addr, <b>int</b> port, <b>struct</b> timeval *timeout) <font color='red'>{</font>
+<a name='L208'>    <b>int</b> s, rv;
+<a name='L209'>    <b>char</b> _port[6];  <i><font color='green'>/* strlen("65535"); */</font></i>
+<a name='L210'>    <b>struct</b> addrinfo hints, *servinfo, *p;
+<a name='L211'>    <b>int</b> blocking = (c-&gt;flags &amp; <a href='../S/121.html#L57' title='Defined at 57 in deps/hiredis/hiredis.h.'>REDIS_BLOCK</a>);
+<a name='L212'>
+<a name='L213'>    snprintf(_port, 6, "%d", port);
+<a name='L214'>    memset(&amp;hints,0,<b>sizeof</b>(hints));
+<a name='L215'>    hints.ai_family = AF_INET;
+<a name='L216'>    hints.ai_socktype = SOCK_STREAM;
+<a name='L217'>
+<a name='L218'>    <b>if</b> ((rv = getaddrinfo(addr,_port,&amp;hints,&amp;servinfo)) != 0) <font color='red'>{</font>
+<a name='L219'>        <a href='../S/120.html#L973' title='Defined at 973 in deps/hiredis/hiredis.c.'>__redisSetError</a>(c,<a href='../S/121.html#L53' title='Defined at 53 in deps/hiredis/hiredis.h.'>REDIS_ERR_OTHER</a>,gai_strerror(rv));
+<a name='L220'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L221'>    <font color='red'>}</font>
+<a name='L222'>    <b>for</b> (p = servinfo; p != NULL; p = p-&gt;ai_next) <font color='red'>{</font>
+<a name='L223'>        <b>if</b> ((s = socket(p-&gt;ai_family,p-&gt;ai_socktype,p-&gt;ai_protocol)) == -1)
+<a name='L224'>            <b>continue</b>;
+<a name='L225'>
+<a name='L226'>        <b>if</b> (<a href='../S/113.html#L91' title='Defined at 91 in deps/hiredis/net.c.'>redisSetBlocking</a>(c,s,0) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L227'>            <b>goto</b> <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>;
+<a name='L228'>        <b>if</b> (<a href='../S/122.html#L80' title='Defined at 80 in deps/hiredis/test.c.'>connect</a>(s,p-&gt;ai_addr,p-&gt;ai_addrlen) == -1) <font color='red'>{</font>
+<a name='L229'>            <b>if</b> (errno == EHOSTUNREACH) <font color='red'>{</font>
+<a name='L230'>                close(s);
+<a name='L231'>                <b>continue</b>;
+<a name='L232'>            <font color='red'>}</font> <b>else</b> <b>if</b> (errno == EINPROGRESS &amp;&amp; !blocking) <font color='red'>{</font>
+<a name='L233'>                <i><font color='green'>/* This is ok. */</font></i>
+<a name='L234'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L235'>                <b>if</b> (<a href='../S/113.html#L128' title='Defined at 128 in deps/hiredis/net.c.'>redisContextWaitReady</a>(c,s,timeout) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L236'>                    <b>goto</b> <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>;
+<a name='L237'>            <font color='red'>}</font>
+<a name='L238'>        <font color='red'>}</font>
+<a name='L239'>        <b>if</b> (blocking &amp;&amp; <a href='../S/113.html#L91' title='Defined at 91 in deps/hiredis/net.c.'>redisSetBlocking</a>(c,s,1) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L240'>            <b>goto</b> <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>;
+<a name='L241'>        <b>if</b> (<a href='../S/113.html#L116' title='Defined at 116 in deps/hiredis/net.c.'>redisSetTcpNoDelay</a>(c,s) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L242'>            <b>goto</b> <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>;
+<a name='L243'>
+<a name='L244'>        c-&gt;fd = s;
+<a name='L245'>        c-&gt;flags |= <a href='../S/121.html#L61' title='Defined at 61 in deps/hiredis/hiredis.h.'>REDIS_CONNECTED</a>;
+<a name='L246'>        rv = <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L247'>        <b>goto</b> end;
+<a name='L248'>    <font color='red'>}</font>
+<a name='L249'>    <b>if</b> (p == NULL) <font color='red'>{</font>
+<a name='L250'>        <b>char</b> buf[128];
+<a name='L251'>        snprintf(buf,<b>sizeof</b>(buf),"Can't create socket: %s",strerror(errno));
+<a name='L252'>        <a href='../S/120.html#L973' title='Defined at 973 in deps/hiredis/hiredis.c.'>__redisSetError</a>(c,<a href='../S/121.html#L53' title='Defined at 53 in deps/hiredis/hiredis.h.'>REDIS_ERR_OTHER</a>,buf);
+<a name='L253'>        <b>goto</b> <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>;
+<a name='L254'>    <font color='red'>}</font>
+<a name='L255'>
+<a name='L256'><a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>:
+<a name='L257'>    rv = <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L258'>end:
+<a name='L259'>    freeaddrinfo(servinfo);
+<a name='L260'>    <b>return</b> rv;  <i><font color='green'>// Need to return REDIS_OK if alright</font></i>
+<a name='L261'><font color='red'>}</font>
+<a name='L262'>
+<a name='L263'><b>int</b> <a href='../R/3434.html' title='Multiple refered from 4 places.'>redisContextConnectUnix</a>(redisContext *c, <b>const</b> <b>char</b> *path, <b>struct</b> timeval *timeout) <font color='red'>{</font>
+<a name='L264'>    <b>int</b> s;
+<a name='L265'>    <b>int</b> blocking = (c-&gt;flags &amp; <a href='../S/121.html#L57' title='Defined at 57 in deps/hiredis/hiredis.h.'>REDIS_BLOCK</a>);
+<a name='L266'>    <b>struct</b> sockaddr_un sa;
+<a name='L267'>
+<a name='L268'>    <b>if</b> ((s = <a href='../S/113.html#L77' title='Defined at 77 in deps/hiredis/net.c.'>redisCreateSocket</a>(c,<a href='../D/16.html' title='Multiple defined in 2 places.'>AF_LOCAL</a>)) &lt; 0)
+<a name='L269'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L270'>    <b>if</b> (<a href='../S/113.html#L91' title='Defined at 91 in deps/hiredis/net.c.'>redisSetBlocking</a>(c,s,0) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L271'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L272'>
+<a name='L273'>    sa.sun_family = <a href='../D/16.html' title='Multiple defined in 2 places.'>AF_LOCAL</a>;
+<a name='L274'>    strncpy(sa.sun_path,path,<b>sizeof</b>(sa.sun_path)-1);
+<a name='L275'>    <b>if</b> (<a href='../S/122.html#L80' title='Defined at 80 in deps/hiredis/test.c.'>connect</a>(s, (<b>struct</b> sockaddr*)&amp;sa, <b>sizeof</b>(sa)) == -1) <font color='red'>{</font>
+<a name='L276'>        <b>if</b> (errno == EINPROGRESS &amp;&amp; !blocking) <font color='red'>{</font>
+<a name='L277'>            <i><font color='green'>/* This is ok. */</font></i>
+<a name='L278'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L279'>            <b>if</b> (<a href='../S/113.html#L128' title='Defined at 128 in deps/hiredis/net.c.'>redisContextWaitReady</a>(c,s,timeout) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L280'>                <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L281'>        <font color='red'>}</font>
+<a name='L282'>    <font color='red'>}</font>
+<a name='L283'>
+<a name='L284'>    <i><font color='green'>/* Reset socket to be blocking after connect(2). */</font></i>
+<a name='L285'>    <b>if</b> (blocking &amp;&amp; <a href='../S/113.html#L91' title='Defined at 91 in deps/hiredis/net.c.'>redisSetBlocking</a>(c,s,1) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L286'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L287'>
+<a name='L288'>    c-&gt;fd = s;
+<a name='L289'>    c-&gt;flags |= <a href='../S/121.html#L61' title='Defined at 61 in deps/hiredis/hiredis.h.'>REDIS_CONNECTED</a>;
+<a name='L290'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L291'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L57'>[^]</a><a href='#L263'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

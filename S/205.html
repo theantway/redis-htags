@@ -1,0 +1,136 @@
+<html>
+<head>
+<title>deps/jemalloc/src/tsd.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/395.html'>src</a>/tsd.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L13'>[^]</a><a href='#L78'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L13' title='Defined at 13.'>malloc_tsd_malloc</a>
+<li><a href='#L21' title='Defined at 21.'>malloc_tsd_dalloc</a>
+<li><a href='#L28' title='Defined at 28.'>malloc_tsd_no_cleanup</a>
+<li><a href='#L39' title='Defined at 39.'>_malloc_thread_cleanup</a>
+<li><a href='#L61' title='Defined at 61.'>malloc_tsd_cleanup_register</a>
+<li><a href='#L70' title='Defined at 70.'>malloc_tsd_boot</a>
+<li><a href='#L78' title='Defined at 78.'>_tls_callback</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> JEMALLOC_TSD_C_
+<a name='L2'><font color='darkred'>#include</font> "jemalloc/internal/jemalloc_internal.h"
+<a name='L3'>
+<a name='L4'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L5'><i><font color='green'>/* Data. */</font></i>
+<a name='L6'>
+<a name='L7'><b>static</b> <b>unsigned</b> ncleanups;
+<a name='L8'><b>static</b> malloc_tsd_cleanup_t cleanups[<a href='../S/128.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/tsd.h.'>MALLOC_TSD_CLEANUPS_MAX</a>];
+<a name='L9'>
+<a name='L10'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L11'>
+<a name='L12'><b>void</b> *
+<a name='L13'><a href='../R/2943.html' title='Multiple refered from 4 places.'>malloc_tsd_malloc</a>(size_t size)
+<a name='L14'><font color='red'>{</font>
+<a name='L15'>
+<a name='L16'>        <i><font color='green'>/* Avoid choose_arena() in order to dodge bootstrapping issues. */</font></i>
+<a name='L17'>        <b>return</b> (<a href='../D/1608.html' title='Multiple defined in 2 places.'>arena_malloc</a>(<a href='../S/138.html#L55' title='Defined at 55 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arenas</a>[0], size, <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>, <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>));
+<a name='L18'><font color='red'>}</font>
+<a name='L19'>
+<a name='L20'><b>void</b>
+<a name='L21'><a href='../R/2941.html' title='Multiple refered from 4 places.'>malloc_tsd_dalloc</a>(<b>void</b> *wrapper)
+<a name='L22'><font color='red'>{</font>
+<a name='L23'>
+<a name='L24'>        <a href='../S/138.html#L196' title='Defined at 196 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>idalloc</a>(wrapper);
+<a name='L25'><font color='red'>}</font>
+<a name='L26'>
+<a name='L27'><b>void</b>
+<a name='L28'><a href='../R/2944.html' title='Multiple refered from 11 places.'>malloc_tsd_no_cleanup</a>(<b>void</b> *arg)
+<a name='L29'><font color='red'>{</font>
+<a name='L30'>
+<a name='L31'>        <a href='../D/3428.html' title='Multiple defined in 2 places.'>not_reached</a>();
+<a name='L32'><font color='red'>}</font>
+<a name='L33'>
+<a name='L34'><font color='darkred'>#if</font> <b>defined</b>(JEMALLOC_MALLOC_THREAD_CLEANUP) || <b>defined</b>(_WIN32)
+<a name='L35'><font color='darkred'>#ifndef</font> _WIN32
+<a name='L36'>JEMALLOC_EXPORT
+<a name='L37'><font color='darkred'>#endif</font>
+<a name='L38'><b>void</b>
+<a name='L39'><a href='../S/205.html#L88' title='Refered from 88 in deps/jemalloc/src/tsd.c.'>_malloc_thread_cleanup</a>(<b>void</b>)
+<a name='L40'><font color='red'>{</font>
+<a name='L41'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> pending[<a href='../S/128.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/tsd.h.'>MALLOC_TSD_CLEANUPS_MAX</a>], again;
+<a name='L42'>        <b>unsigned</b> i;
+<a name='L43'>
+<a name='L44'>        <b>for</b> (i = 0; i &lt; ncleanups; i++)
+<a name='L45'>                pending[i] = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L46'>
+<a name='L47'>        <b>do</b> <font color='red'>{</font>
+<a name='L48'>                again = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L49'>                <b>for</b> (i = 0; i &lt; ncleanups; i++) <font color='red'>{</font>
+<a name='L50'>                        <b>if</b> (pending[i]) <font color='red'>{</font>
+<a name='L51'>                                pending[i] = cleanups[i]();
+<a name='L52'>                                <b>if</b> (pending[i])
+<a name='L53'>                                        again = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L54'>                        <font color='red'>}</font>
+<a name='L55'>                <font color='red'>}</font>
+<a name='L56'>        <font color='red'>}</font> <b>while</b> (again);
+<a name='L57'><font color='red'>}</font>
+<a name='L58'><font color='darkred'>#endif</font>
+<a name='L59'>
+<a name='L60'><b>void</b>
+<a name='L61'><a href='../R/2940.html' title='Multiple refered from 4 places.'>malloc_tsd_cleanup_register</a>(bool (*f)(<b>void</b>))
+<a name='L62'><font color='red'>{</font>
+<a name='L63'>
+<a name='L64'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ncleanups &lt; <a href='../S/128.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/tsd.h.'>MALLOC_TSD_CLEANUPS_MAX</a>);
+<a name='L65'>        cleanups[ncleanups] = f;
+<a name='L66'>        ncleanups++;
+<a name='L67'><font color='red'>}</font>
+<a name='L68'>
+<a name='L69'><b>void</b>
+<a name='L70'><a href='../R/2939.html' title='Multiple refered from 3 places.'>malloc_tsd_boot</a>(<b>void</b>)
+<a name='L71'><font color='red'>{</font>
+<a name='L72'>
+<a name='L73'>        ncleanups = 0;
+<a name='L74'><font color='red'>}</font>
+<a name='L75'>
+<a name='L76'><font color='darkred'>#ifdef</font> _WIN32
+<a name='L77'><b>static</b> BOOL WINAPI
+<a name='L78'><a href='../S/205.html#L106' title='Refered from 106 in deps/jemalloc/src/tsd.c.'>_tls_callback</a>(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
+<a name='L79'><font color='red'>{</font>
+<a name='L80'>
+<a name='L81'>        <b>switch</b> (fdwReason) <font color='red'>{</font>
+<a name='L82'><font color='darkred'>#ifdef</font> JEMALLOC_LAZY_LOCK
+<a name='L83'>        <b>case</b> DLL_THREAD_ATTACH:
+<a name='L84'>                <a href='../D/2573.html' title='Multiple defined in 3 places.'>isthreaded</a> = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L85'>                <b>break</b>;
+<a name='L86'><font color='darkred'>#endif</font>
+<a name='L87'>        <b>case</b> DLL_THREAD_DETACH:
+<a name='L88'>                <a href='../S/205.html#L39' title='Defined at 39 in deps/jemalloc/src/tsd.c.'>_malloc_thread_cleanup</a>();
+<a name='L89'>                <b>break</b>;
+<a name='L90'>        <b>default</b>:
+<a name='L91'>                <b>break</b>;
+<a name='L92'>        <font color='red'>}</font>
+<a name='L93'>        <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L94'><font color='red'>}</font>
+<a name='L95'>
+<a name='L96'><font color='darkred'>#ifdef</font> _MSC_VER
+<a name='L97'><font color='darkred'>#  ifdef</font> _M_IX86
+<a name='L98'><font color='darkred'>#    pragma</font> comment(linker, "/INCLUDE:__tls_used")
+<a name='L99'><font color='darkred'>#  else</font>
+<a name='L100'><font color='darkred'>#    pragma</font> comment(linker, "/INCLUDE:_tls_used")
+<a name='L101'><font color='darkred'>#  endif</font>
+<a name='L102'><font color='darkred'>#  pragma</font> section(".CRT$XLY",<b>long</b>,read)
+<a name='L103'><font color='darkred'>#endif</font>
+<a name='L104'>JEMALLOC_SECTION(".CRT$XLY") <a href='../D/250.html' title='Multiple defined in 8 places.'>JEMALLOC_ATTR</a>(used)
+<a name='L105'><b>static</b> <b>const</b> BOOL       (WINAPI *tls_callback)(HINSTANCE hinstDLL,
+<a name='L106'>    DWORD fdwReason, LPVOID lpvReserved) = <a href='../S/205.html#L78' title='Defined at 78 in deps/jemalloc/src/tsd.c.'>_tls_callback</a>;
+<a name='L107'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L13'>[^]</a><a href='#L78'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

@@ -1,0 +1,784 @@
+<html>
+<head>
+<title>src/db.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/db.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L42'>[^]</a><a href='#L696'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L42' title='Defined at 42.'>lookupKey</a>
+<li><a href='#L58' title='Defined at 58.'>lookupKeyRead</a>
+<li><a href='#L70' title='Defined at 70.'>lookupKeyWrite</a>
+<li><a href='#L75' title='Defined at 75.'>lookupKeyReadOrReply</a>
+<li><a href='#L81' title='Defined at 81.'>lookupKeyWriteOrReply</a>
+<li><a href='#L91' title='Defined at 91.'>dbAdd</a>
+<li><a href='#L103' title='Defined at 103.'>dbOverwrite</a>
+<li><a href='#L116' title='Defined at 116.'>setKey</a>
+<li><a href='#L127' title='Defined at 127.'>dbExists</a>
+<li><a href='#L135' title='Defined at 135.'>dbRandomKey</a>
+<li><a href='#L158' title='Defined at 158.'>dbDelete</a>
+<li><a href='#L169' title='Defined at 169.'>emptyDb</a>
+<li><a href='#L181' title='Defined at 181.'>selectDb</a>
+<li><a href='#L197' title='Defined at 197.'>signalModifiedKey</a>
+<li><a href='#L201' title='Defined at 201.'>signalFlushedDb</a>
+<li><a href='#L209' title='Defined at 209.'>flushdbCommand</a>
+<li><a href='#L217' title='Defined at 217.'>flushallCommand</a>
+<li><a href='#L235' title='Defined at 235.'>delCommand</a>
+<li><a href='#L248' title='Defined at 248.'>existsCommand</a>
+<li><a href='#L257' title='Defined at 257.'>selectCommand</a>
+<li><a href='#L271' title='Defined at 271.'>randomkeyCommand</a>
+<li><a href='#L283' title='Defined at 283.'>keysCommand</a>
+<li><a href='#L310' title='Defined at 310.'>dbsizeCommand</a>
+<li><a href='#L314' title='Defined at 314.'>lastsaveCommand</a>
+<li><a href='#L318' title='Defined at 318.'>typeCommand</a>
+<li><a href='#L338' title='Defined at 338.'>shutdownCommand</a>
+<li><a href='#L358' title='Defined at 358.'>renameGenericCommand</a>
+<li><a href='#L391' title='Defined at 391.'>renameCommand</a>
+<li><a href='#L395' title='Defined at 395.'>renamenxCommand</a>
+<li><a href='#L399' title='Defined at 399.'>moveCommand</a>
+<li><a href='#L446' title='Defined at 446.'>removeExpire</a>
+<li><a href='#L453' title='Defined at 453.'>setExpire</a>
+<li><a href='#L465' title='Defined at 465.'>getExpire</a>
+<li><a href='#L486' title='Defined at 486.'>propagateExpire</a>
+<li><a href='#L503' title='Defined at 503.'>expireIfNeeded</a>
+<li><a href='#L542' title='Defined at 542.'>expireGenericCommand</a>
+<li><a href='#L586' title='Defined at 586.'>expireCommand</a>
+<li><a href='#L590' title='Defined at 590.'>expireatCommand</a>
+<li><a href='#L594' title='Defined at 594.'>pexpireCommand</a>
+<li><a href='#L598' title='Defined at 598.'>pexpireatCommand</a>
+<li><a href='#L602' title='Defined at 602.'>ttlGenericCommand</a>
+<li><a href='#L617' title='Defined at 617.'>ttlCommand</a>
+<li><a href='#L621' title='Defined at 621.'>pttlCommand</a>
+<li><a href='#L625' title='Defined at 625.'>persistCommand</a>
+<li><a href='#L645' title='Defined at 645.'>getKeysUsingCommandTable</a>
+<li><a href='#L664' title='Defined at 664.'>getKeysFromCommand</a>
+<li><a href='#L672' title='Defined at 672.'>getKeysFreeResult</a>
+<li><a href='#L676' title='Defined at 676.'>noPreloadGetKeys</a>
+<li><a href='#L685' title='Defined at 685.'>renameGetKeys</a>
+<li><a href='#L696' title='Defined at 696.'>zunionInterGetKeys</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L3'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L4'><i><font color='green'> *</font></i>
+<a name='L5'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L6'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L7'><i><font color='green'> *</font></i>
+<a name='L8'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L9'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L10'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L11'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L12'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L13'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L14'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L15'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L16'><i><font color='green'> *</font></i>
+<a name='L17'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L18'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L19'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L20'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L21'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L22'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L23'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L24'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L25'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L26'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L27'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L28'><i><font color='green'> */</font></i>
+<a name='L29'>
+<a name='L30'><font color='darkred'>#include</font> "<a href='32.html'>redis.h</a>"
+<a name='L31'>
+<a name='L32'><font color='darkred'>#include</font> &lt;signal.h&gt;
+<a name='L33'><font color='darkred'>#include</font> &lt;ctype.h&gt;
+<a name='L34'>
+<a name='L35'><b>void</b> SlotToKeyAdd(robj *key);
+<a name='L36'><b>void</b> SlotToKeyDel(robj *key);
+<a name='L37'>
+<a name='L38'><i><font color='green'>/*-----------------------------------------------------------------------------</font></i>
+<a name='L39'><i><font color='green'> * C-level DB API</font></i>
+<a name='L40'><i><font color='green'> *----------------------------------------------------------------------------*/</font></i>
+<a name='L41'>
+<a name='L42'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/2467.html' title='Multiple refered from 3 places.'>lookupKey</a>(redisDb *db, robj *key) <font color='red'>{</font>
+<a name='L43'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *de = <a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>,key-&gt;ptr);
+<a name='L44'>    <b>if</b> (de) <font color='red'>{</font>
+<a name='L45'>        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *val = <a href='../S/88.html#L132' title='Defined at 132 in src/dict.h.'>dictGetVal</a>(de);
+<a name='L46'>
+<a name='L47'>        <i><font color='green'>/* Update the access time for the aging algorithm.</font></i>
+<a name='L48'><i><font color='green'>         * Don't do it if we have a saving child, as this will trigger</font></i>
+<a name='L49'><i><font color='green'>         * a copy on write madness. */</font></i>
+<a name='L50'>        <b>if</b> (server.rdb_child_pid == -1 &amp;&amp; server.aof_child_pid == -1)
+<a name='L51'>            val-&gt;lru = server.lruclock;
+<a name='L52'>        <b>return</b> val;
+<a name='L53'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L54'>        <b>return</b> NULL;
+<a name='L55'>    <font color='red'>}</font>
+<a name='L56'><font color='red'>}</font>
+<a name='L57'>
+<a name='L58'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/2469.html' title='Multiple refered from 13 places.'>lookupKeyRead</a>(redisDb *db, robj *key) <font color='red'>{</font>
+<a name='L59'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *val;
+<a name='L60'>
+<a name='L61'>    <a href='../S/31.html#L503' title='Defined at 503 in src/db.c.'>expireIfNeeded</a>(db,key);
+<a name='L62'>    val = <a href='../S/31.html#L42' title='Defined at 42 in src/db.c.'>lookupKey</a>(db,key);
+<a name='L63'>    <b>if</b> (val == NULL)
+<a name='L64'>        server.stat_keyspace_misses++;
+<a name='L65'>    <b>else</b>
+<a name='L66'>        server.stat_keyspace_hits++;
+<a name='L67'>    <b>return</b> val;
+<a name='L68'><font color='red'>}</font>
+<a name='L69'>
+<a name='L70'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/2471.html' title='Multiple refered from 28 places.'>lookupKeyWrite</a>(redisDb *db, robj *key) <font color='red'>{</font>
+<a name='L71'>    <a href='../S/31.html#L503' title='Defined at 503 in src/db.c.'>expireIfNeeded</a>(db,key);
+<a name='L72'>    <b>return</b> <a href='../S/31.html#L42' title='Defined at 42 in src/db.c.'>lookupKey</a>(db,key);
+<a name='L73'><font color='red'>}</font>
+<a name='L74'>
+<a name='L75'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/2470.html' title='Multiple refered from 24 places.'>lookupKeyReadOrReply</a>(redisClient *c, robj *key, robj *reply) <font color='red'>{</font>
+<a name='L76'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o = <a href='../S/31.html#L58' title='Defined at 58 in src/db.c.'>lookupKeyRead</a>(c-&gt;db, key);
+<a name='L77'>    <b>if</b> (!o) <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,reply);
+<a name='L78'>    <b>return</b> o;
+<a name='L79'><font color='red'>}</font>
+<a name='L80'>
+<a name='L81'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/2472.html' title='Multiple refered from 13 places.'>lookupKeyWriteOrReply</a>(redisClient *c, robj *key, robj *reply) <font color='red'>{</font>
+<a name='L82'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o = <a href='../S/31.html#L70' title='Defined at 70 in src/db.c.'>lookupKeyWrite</a>(c-&gt;db, key);
+<a name='L83'>    <b>if</b> (!o) <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,reply);
+<a name='L84'>    <b>return</b> o;
+<a name='L85'><font color='red'>}</font>
+<a name='L86'>
+<a name='L87'><i><font color='green'>/* Add the key to the DB. It's up to the caller to increment the reference</font></i>
+<a name='L88'><i><font color='green'> * counte of the value if needed.</font></i>
+<a name='L89'><i><font color='green'> *</font></i>
+<a name='L90'><i><font color='green'> * The program is aborted if the key already exists. */</font></i>
+<a name='L91'><b>void</b> <a href='../R/1756.html' title='Multiple refered from 21 places.'>dbAdd</a>(redisDb *db, robj *key, robj *val) <font color='red'>{</font>
+<a name='L92'>    <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> copy = <a href='../D/4004.html' title='Multiple defined in 2 places.'>sdsdup</a>(key-&gt;ptr);
+<a name='L93'>    <b>int</b> retval = <a href='../D/2061.html' title='Multiple defined in 2 places.'>dictAdd</a>(db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>, copy, val);
+<a name='L94'>
+<a name='L95'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(NULL,key,retval == <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>);
+<a name='L96'> <font color='red'>}</font>
+<a name='L97'>
+<a name='L98'><i><font color='green'>/* Overwrite an existing key with a new value. Incrementing the reference</font></i>
+<a name='L99'><i><font color='green'> * count of the new value is up to the caller.</font></i>
+<a name='L100'><i><font color='green'> * This function does not modify the expire time of the existing key.</font></i>
+<a name='L101'><i><font color='green'> *</font></i>
+<a name='L102'><i><font color='green'> * The program is aborted if the key was not already present. */</font></i>
+<a name='L103'><b>void</b> <a href='../R/1759.html' title='Multiple refered from 7 places.'>dbOverwrite</a>(redisDb *db, robj *key, robj *val) <font color='red'>{</font>
+<a name='L104'>    <b>struct</b> <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *de = <a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>,key-&gt;ptr);
+<a name='L105'>    
+<a name='L106'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(NULL,key,de != NULL);
+<a name='L107'>    <a href='../D/2110.html' title='Multiple defined in 2 places.'>dictReplace</a>(db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>, key-&gt;ptr, val);
+<a name='L108'><font color='red'>}</font>
+<a name='L109'>
+<a name='L110'><i><font color='green'>/* High level Set operation. This function can be used in order to set</font></i>
+<a name='L111'><i><font color='green'> * a key, whatever it was existing or not, to a new object.</font></i>
+<a name='L112'><i><font color='green'> *</font></i>
+<a name='L113'><i><font color='green'> * 1) The ref count of the value object is incremented.</font></i>
+<a name='L114'><i><font color='green'> * 2) clients WATCHing for the destination key notified.</font></i>
+<a name='L115'><i><font color='green'> * 3) The expire time of the key is reset (the key is made persistent). */</font></i>
+<a name='L116'><b>void</b> <a href='../R/3733.html' title='Multiple refered from 6 places.'>setKey</a>(redisDb *db, robj *key, robj *val) <font color='red'>{</font>
+<a name='L117'>    <b>if</b> (<a href='../S/31.html#L70' title='Defined at 70 in src/db.c.'>lookupKeyWrite</a>(db,key) == NULL) <font color='red'>{</font>
+<a name='L118'>        <a href='../S/31.html#L91' title='Defined at 91 in src/db.c.'>dbAdd</a>(db,key,val);
+<a name='L119'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L120'>        <a href='../S/31.html#L103' title='Defined at 103 in src/db.c.'>dbOverwrite</a>(db,key,val);
+<a name='L121'>    <font color='red'>}</font>
+<a name='L122'>    <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(val);
+<a name='L123'>    <a href='../S/31.html#L446' title='Defined at 446 in src/db.c.'>removeExpire</a>(db,key);
+<a name='L124'>    <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(db,key);
+<a name='L125'><font color='red'>}</font>
+<a name='L126'>
+<a name='L127'><b>int</b> <a href='../R/1758.html' title='Multiple refered from 2 places.'>dbExists</a>(redisDb *db, robj *key) <font color='red'>{</font>
+<a name='L128'>    <b>return</b> <a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>,key-&gt;ptr) != NULL;
+<a name='L129'><font color='red'>}</font>
+<a name='L130'>
+<a name='L131'><i><font color='green'>/* Return a random key, in form of a Redis object.</font></i>
+<a name='L132'><i><font color='green'> * If there are no keys, NULL is returned.</font></i>
+<a name='L133'><i><font color='green'> *</font></i>
+<a name='L134'><i><font color='green'> * The function makes sure to return keys not already expired. */</font></i>
+<a name='L135'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/1760.html' title='Multiple refered from 2 places.'>dbRandomKey</a>(redisDb *db) <font color='red'>{</font>
+<a name='L136'>    <b>struct</b> <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *de;
+<a name='L137'>
+<a name='L138'>    <b>while</b>(1) <font color='red'>{</font>
+<a name='L139'>        <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> key;
+<a name='L140'>        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *keyobj;
+<a name='L141'>
+<a name='L142'>        de = <a href='../S/29.html#L568' title='Defined at 568 in src/dict.c.'>dictGetRandomKey</a>(db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>);
+<a name='L143'>        <b>if</b> (de == NULL) <b>return</b> NULL;
+<a name='L144'>
+<a name='L145'>        key = <a href='../S/88.html#L131' title='Defined at 131 in src/dict.h.'>dictGetKey</a>(de);
+<a name='L146'>        keyobj = <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>(key,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(key));
+<a name='L147'>        <b>if</b> (<a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(db-&gt;expires,key)) <font color='red'>{</font>
+<a name='L148'>            <b>if</b> (<a href='../S/31.html#L503' title='Defined at 503 in src/db.c.'>expireIfNeeded</a>(db,keyobj)) <font color='red'>{</font>
+<a name='L149'>                <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(keyobj);
+<a name='L150'>                <b>continue</b>; <i><font color='green'>/* search for another key. This expired. */</font></i>
+<a name='L151'>            <font color='red'>}</font>
+<a name='L152'>        <font color='red'>}</font>
+<a name='L153'>        <b>return</b> keyobj;
+<a name='L154'>    <font color='red'>}</font>
+<a name='L155'><font color='red'>}</font>
+<a name='L156'>
+<a name='L157'><i><font color='green'>/* Delete a key, value, and associated expiration entry if any, from the DB */</font></i>
+<a name='L158'><b>int</b> <a href='../R/1757.html' title='Multiple refered from 32 places.'>dbDelete</a>(redisDb *db, robj *key) <font color='red'>{</font>
+<a name='L159'>    <i><font color='green'>/* Deleting an entry from the expires dict will not free the sds of</font></i>
+<a name='L160'><i><font color='green'>     * the key, because it is shared with the main dictionary. */</font></i>
+<a name='L161'>    <b>if</b> (<a href='../D/2125.html' title='Multiple defined in 2 places.'>dictSize</a>(db-&gt;expires) &gt; 0) <a href='../D/2066.html' title='Multiple defined in 2 places.'>dictDelete</a>(db-&gt;expires,key-&gt;ptr);
+<a name='L162'>    <b>if</b> (<a href='../D/2066.html' title='Multiple defined in 2 places.'>dictDelete</a>(db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>,key-&gt;ptr) == <a href='../D/124.html' title='Multiple defined in 2 places.'>DICT_OK</a>) <font color='red'>{</font>
+<a name='L163'>        <b>return</b> 1;
+<a name='L164'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L165'>        <b>return</b> 0;
+<a name='L166'>    <font color='red'>}</font>
+<a name='L167'><font color='red'>}</font>
+<a name='L168'>
+<a name='L169'><b>long</b> <b>long</b> <a href='../R/1882.html' title='Multiple refered from 5 places.'>emptyDb</a>() <font color='red'>{</font>
+<a name='L170'>    <b>int</b> j;
+<a name='L171'>    <b>long</b> <b>long</b> removed = 0;
+<a name='L172'>
+<a name='L173'>    <b>for</b> (j = 0; j &lt; server.dbnum; j++) <font color='red'>{</font>
+<a name='L174'>        removed += <a href='../D/2125.html' title='Multiple defined in 2 places.'>dictSize</a>(server.db[j].<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>);
+<a name='L175'>        <a href='../S/29.html#L673' title='Defined at 673 in src/dict.c.'>dictEmpty</a>(server.db[j].<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>);
+<a name='L176'>        <a href='../S/29.html#L673' title='Defined at 673 in src/dict.c.'>dictEmpty</a>(server.db[j].expires);
+<a name='L177'>    <font color='red'>}</font>
+<a name='L178'>    <b>return</b> removed;
+<a name='L179'><font color='red'>}</font>
+<a name='L180'>
+<a name='L181'><b>int</b> <a href='../R/3656.html' title='Multiple refered from 9 places.'>selectDb</a>(redisClient *c, <b>int</b> id) <font color='red'>{</font>
+<a name='L182'>    <b>if</b> (id &lt; 0 || id &gt;= server.dbnum)
+<a name='L183'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L184'>    c-&gt;db = &amp;server.db[id];
+<a name='L185'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L186'><font color='red'>}</font>
+<a name='L187'>
+<a name='L188'><i><font color='green'>/*-----------------------------------------------------------------------------</font></i>
+<a name='L189'><i><font color='green'> * Hooks for key space changes.</font></i>
+<a name='L190'><i><font color='green'> *</font></i>
+<a name='L191'><i><font color='green'> * Every time a key in the database is modified the function</font></i>
+<a name='L192'><i><font color='green'> * signalModifiedKey() is called.</font></i>
+<a name='L193'><i><font color='green'> *</font></i>
+<a name='L194'><i><font color='green'> * Every time a DB is flushed the function signalFlushDb() is called.</font></i>
+<a name='L195'><i><font color='green'> *----------------------------------------------------------------------------*/</font></i>
+<a name='L196'>
+<a name='L197'><b>void</b> <a href='../R/3793.html' title='Multiple refered from 50 places.'>signalModifiedKey</a>(redisDb *db, robj *key) <font color='red'>{</font>
+<a name='L198'>    <a href='../S/81.html#L264' title='Defined at 264 in src/multi.c.'>touchWatchedKey</a>(db,key);
+<a name='L199'><font color='red'>}</font>
+<a name='L200'>
+<a name='L201'><b>void</b> <a href='../R/3791.html' title='Multiple refered from 3 places.'>signalFlushedDb</a>(<b>int</b> dbid) <font color='red'>{</font>
+<a name='L202'>    <a href='../S/81.html#L287' title='Defined at 287 in src/multi.c.'>touchWatchedKeysOnFlush</a>(dbid);
+<a name='L203'><font color='red'>}</font>
+<a name='L204'>
+<a name='L205'><i><font color='green'>/*-----------------------------------------------------------------------------</font></i>
+<a name='L206'><i><font color='green'> * Type agnostic commands operating on the key space</font></i>
+<a name='L207'><i><font color='green'> *----------------------------------------------------------------------------*/</font></i>
+<a name='L208'>
+<a name='L209'><b>void</b> <a href='../R/1984.html' title='Multiple refered from 2 places.'>flushdbCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L210'>    server.dirty += <a href='../D/2125.html' title='Multiple defined in 2 places.'>dictSize</a>(c-&gt;db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>);
+<a name='L211'>    <a href='../S/31.html#L201' title='Defined at 201 in src/db.c.'>signalFlushedDb</a>(c-&gt;db-&gt;id);
+<a name='L212'>    <a href='../S/29.html#L673' title='Defined at 673 in src/dict.c.'>dictEmpty</a>(c-&gt;db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>);
+<a name='L213'>    <a href='../S/29.html#L673' title='Defined at 673 in src/dict.c.'>dictEmpty</a>(c-&gt;db-&gt;expires);
+<a name='L214'>    <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L215'><font color='red'>}</font>
+<a name='L216'>
+<a name='L217'><b>void</b> <a href='../R/1983.html' title='Multiple refered from 2 places.'>flushallCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L218'>    <a href='../S/31.html#L201' title='Defined at 201 in src/db.c.'>signalFlushedDb</a>(-1);
+<a name='L219'>    server.dirty += <a href='../S/31.html#L169' title='Defined at 169 in src/db.c.'>emptyDb</a>();
+<a name='L220'>    <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L221'>    <b>if</b> (server.rdb_child_pid != -1) <font color='red'>{</font>
+<a name='L222'>        kill(server.rdb_child_pid,SIGKILL);
+<a name='L223'>        <a href='../S/87.html#L761' title='Defined at 761 in src/rdb.c.'>rdbRemoveTempFile</a>(server.rdb_child_pid);
+<a name='L224'>    <font color='red'>}</font>
+<a name='L225'>    <b>if</b> (server.saveparamslen &gt; 0) <font color='red'>{</font>
+<a name='L226'>        <i><font color='green'>/* Normally rdbSave() will reset dirty, but we don't want this here</font></i>
+<a name='L227'><i><font color='green'>         * as otherwise FLUSHALL will not be replicated nor put into the AOF. */</font></i>
+<a name='L228'>        <b>int</b> saved_dirty = server.dirty;
+<a name='L229'>        <a href='../S/87.html#L630' title='Defined at 630 in src/rdb.c.'>rdbSave</a>(server.rdb_filename);
+<a name='L230'>        server.dirty = saved_dirty;
+<a name='L231'>    <font color='red'>}</font>
+<a name='L232'>    server.dirty++;
+<a name='L233'><font color='red'>}</font>
+<a name='L234'>
+<a name='L235'><b>void</b> <a href='../R/1784.html' title='Multiple refered from 5 places.'>delCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L236'>    <b>int</b> deleted = 0, j;
+<a name='L237'>
+<a name='L238'>    <b>for</b> (j = 1; j &lt; c-&gt;argc; j++) <font color='red'>{</font>
+<a name='L239'>        <b>if</b> (<a href='../S/31.html#L158' title='Defined at 158 in src/db.c.'>dbDelete</a>(c-&gt;db,c-&gt;argv[j])) <font color='red'>{</font>
+<a name='L240'>            <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[j]);
+<a name='L241'>            server.dirty++;
+<a name='L242'>            deleted++;
+<a name='L243'>        <font color='red'>}</font>
+<a name='L244'>    <font color='red'>}</font>
+<a name='L245'>    <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,deleted);
+<a name='L246'><font color='red'>}</font>
+<a name='L247'>
+<a name='L248'><b>void</b> <a href='../R/1905.html' title='Multiple refered from 2 places.'>existsCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L249'>    <a href='../S/31.html#L503' title='Defined at 503 in src/db.c.'>expireIfNeeded</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L250'>    <b>if</b> (<a href='../S/31.html#L127' title='Defined at 127 in src/db.c.'>dbExists</a>(c-&gt;db,c-&gt;argv[1])) <font color='red'>{</font>
+<a name='L251'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c, shared.cone);
+<a name='L252'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L253'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c, shared.czero);
+<a name='L254'>    <font color='red'>}</font>
+<a name='L255'><font color='red'>}</font>
+<a name='L256'>
+<a name='L257'><b>void</b> <a href='../R/3655.html' title='Multiple refered from 2 places.'>selectCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L258'>    <b>long</b> id;
+<a name='L259'>
+<a name='L260'>    <b>if</b> (<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c, c-&gt;argv[1], &amp;id,
+<a name='L261'>        "invalid DB index") != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L262'>        <b>return</b>;
+<a name='L263'>
+<a name='L264'>    <b>if</b> (<a href='../S/31.html#L181' title='Defined at 181 in src/db.c.'>selectDb</a>(c,id) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>) <font color='red'>{</font>
+<a name='L265'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"invalid DB index");
+<a name='L266'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L267'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L268'>    <font color='red'>}</font>
+<a name='L269'><font color='red'>}</font>
+<a name='L270'>
+<a name='L271'><b>void</b> <a href='../R/3313.html' title='Multiple refered from 2 places.'>randomkeyCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L272'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *key;
+<a name='L273'>
+<a name='L274'>    <b>if</b> ((key = <a href='../S/31.html#L135' title='Defined at 135 in src/db.c.'>dbRandomKey</a>(c-&gt;db)) == NULL) <font color='red'>{</font>
+<a name='L275'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.nullbulk);
+<a name='L276'>        <b>return</b>;
+<a name='L277'>    <font color='red'>}</font>
+<a name='L278'>
+<a name='L279'>    <a href='../S/86.html#L475' title='Defined at 475 in src/networking.c.'>addReplyBulk</a>(c,key);
+<a name='L280'>    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(key);
+<a name='L281'><font color='red'>}</font>
+<a name='L282'>
+<a name='L283'><b>void</b> <a href='../R/2338.html' title='Multiple refered from 2 places.'>keysCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L284'>    <a href='../D/2099.html' title='Multiple defined in 4 places.'>dictIterator</a> *di;
+<a name='L285'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *de;
+<a name='L286'>    <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> pattern = c-&gt;argv[1]-&gt;ptr;
+<a name='L287'>    <b>int</b> plen = <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(pattern), allkeys;
+<a name='L288'>    <b>unsigned</b> <b>long</b> numkeys = 0;
+<a name='L289'>    <b>void</b> *replylen = <a href='../S/86.html#L371' title='Defined at 371 in src/networking.c.'>addDeferredMultiBulkLength</a>(c);
+<a name='L290'>
+<a name='L291'>    di = <a href='../S/29.html#L521' title='Defined at 521 in src/dict.c.'>dictGetSafeIterator</a>(c-&gt;db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>);
+<a name='L292'>    allkeys = (pattern[0] == '*' &amp;&amp; pattern[1] == '\0');
+<a name='L293'>    <b>while</b>((de = <a href='../D/2101.html' title='Multiple defined in 2 places.'>dictNext</a>(di)) != NULL) <font color='red'>{</font>
+<a name='L294'>        <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> key = <a href='../S/88.html#L131' title='Defined at 131 in src/dict.h.'>dictGetKey</a>(de);
+<a name='L295'>        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *keyobj;
+<a name='L296'>
+<a name='L297'>        <b>if</b> (allkeys || <a href='../S/74.html#L44' title='Defined at 44 in src/util.c.'>stringmatchlen</a>(pattern,plen,key,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(key),0)) <font color='red'>{</font>
+<a name='L298'>            keyobj = <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>(key,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(key));
+<a name='L299'>            <b>if</b> (<a href='../S/31.html#L503' title='Defined at 503 in src/db.c.'>expireIfNeeded</a>(c-&gt;db,keyobj) == 0) <font color='red'>{</font>
+<a name='L300'>                <a href='../S/86.html#L475' title='Defined at 475 in src/networking.c.'>addReplyBulk</a>(c,keyobj);
+<a name='L301'>                numkeys++;
+<a name='L302'>            <font color='red'>}</font>
+<a name='L303'>            <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(keyobj);
+<a name='L304'>        <font color='red'>}</font>
+<a name='L305'>    <font color='red'>}</font>
+<a name='L306'>    <a href='../D/2109.html' title='Multiple defined in 2 places.'>dictReleaseIterator</a>(di);
+<a name='L307'>    <a href='../S/86.html#L381' title='Defined at 381 in src/networking.c.'>setDeferredMultiBulkLength</a>(c,replylen,numkeys);
+<a name='L308'><font color='red'>}</font>
+<a name='L309'>
+<a name='L310'><b>void</b> <a href='../R/1775.html' title='Multiple refered from 2 places.'>dbsizeCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L311'>    <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,<a href='../D/2125.html' title='Multiple defined in 2 places.'>dictSize</a>(c-&gt;db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>));
+<a name='L312'><font color='red'>}</font>
+<a name='L313'>
+<a name='L314'><b>void</b> <a href='../R/2350.html' title='Multiple refered from 2 places.'>lastsaveCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L315'>    <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,server.lastsave);
+<a name='L316'><font color='red'>}</font>
+<a name='L317'>
+<a name='L318'><b>void</b> <a href='../R/4041.html' title='Multiple refered from 2 places.'>typeCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L319'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L320'>    <b>char</b> *type;
+<a name='L321'>
+<a name='L322'>    o = <a href='../S/31.html#L58' title='Defined at 58 in src/db.c.'>lookupKeyRead</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L323'>    <b>if</b> (o == NULL) <font color='red'>{</font>
+<a name='L324'>        type = "none";
+<a name='L325'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L326'>        <b>switch</b>(o-&gt;type) <font color='red'>{</font>
+<a name='L327'>        <b>case</b> <a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>: type = "string"; <b>break</b>;
+<a name='L328'>        <b>case</b> <a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>: type = "list"; <b>break</b>;
+<a name='L329'>        <b>case</b> <a href='../D/908.html' title='Multiple defined in 2 places.'>REDIS_SET</a>: type = "set"; <b>break</b>;
+<a name='L330'>        <b>case</b> <a href='../D/933.html' title='Multiple defined in 2 places.'>REDIS_ZSET</a>: type = "zset"; <b>break</b>;
+<a name='L331'>        <b>case</b> <a href='../D/807.html' title='Multiple defined in 2 places.'>REDIS_HASH</a>: type = "hash"; <b>break</b>;
+<a name='L332'>        <b>default</b>: type = "unknown"; <b>break</b>;
+<a name='L333'>        <font color='red'>}</font>
+<a name='L334'>    <font color='red'>}</font>
+<a name='L335'>    <a href='../S/86.html#L356' title='Defined at 356 in src/networking.c.'>addReplyStatus</a>(c,type);
+<a name='L336'><font color='red'>}</font>
+<a name='L337'>
+<a name='L338'><b>void</b> <a href='../R/3790.html' title='Multiple refered from 3 places.'>shutdownCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L339'>    <b>int</b> flags = 0;
+<a name='L340'>
+<a name='L341'>    <b>if</b> (c-&gt;argc &gt; 2) <font color='red'>{</font>
+<a name='L342'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.syntaxerr);
+<a name='L343'>        <b>return</b>;
+<a name='L344'>    <font color='red'>}</font> <b>else</b> <b>if</b> (c-&gt;argc == 2) <font color='red'>{</font>
+<a name='L345'>        <b>if</b> (!strcasecmp(c-&gt;argv[1]-&gt;ptr,"nosave")) <font color='red'>{</font>
+<a name='L346'>            flags |= <a href='../S/32.html#L278' title='Defined at 278 in src/redis.h.'>REDIS_SHUTDOWN_NOSAVE</a>;
+<a name='L347'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[1]-&gt;ptr,"save")) <font color='red'>{</font>
+<a name='L348'>            flags |= <a href='../S/32.html#L276' title='Defined at 276 in src/redis.h.'>REDIS_SHUTDOWN_SAVE</a>;
+<a name='L349'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L350'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.syntaxerr);
+<a name='L351'>            <b>return</b>;
+<a name='L352'>        <font color='red'>}</font>
+<a name='L353'>    <font color='red'>}</font>
+<a name='L354'>    <b>if</b> (<a href='../S/35.html#L1685' title='Defined at 1685 in src/redis.c.'>prepareForShutdown</a>(flags) == <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) exit(0);
+<a name='L355'>    <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"Errors trying to SHUTDOWN. Check logs.");
+<a name='L356'><font color='red'>}</font>
+<a name='L357'>
+<a name='L358'><b>void</b> <a href='../R/3524.html' title='Multiple refered from 2 places.'>renameGenericCommand</a>(redisClient *c, <b>int</b> nx) <font color='red'>{</font>
+<a name='L359'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L360'>    <b>long</b> <b>long</b> expire;
+<a name='L361'>
+<a name='L362'>    <i><font color='green'>/* To use the same key as src and dst is probably an error */</font></i>
+<a name='L363'>    <b>if</b> (<a href='../D/4001.html' title='Multiple defined in 2 places.'>sdscmp</a>(c-&gt;argv[1]-&gt;ptr,c-&gt;argv[2]-&gt;ptr) == 0) <font color='red'>{</font>
+<a name='L364'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.sameobjecterr);
+<a name='L365'>        <b>return</b>;
+<a name='L366'>    <font color='red'>}</font>
+<a name='L367'>
+<a name='L368'>    <b>if</b> ((o = <a href='../S/31.html#L81' title='Defined at 81 in src/db.c.'>lookupKeyWriteOrReply</a>(c,c-&gt;argv[1],shared.nokeyerr)) == NULL)
+<a name='L369'>        <b>return</b>;
+<a name='L370'>
+<a name='L371'>    <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(o);
+<a name='L372'>    expire = <a href='../S/31.html#L465' title='Defined at 465 in src/db.c.'>getExpire</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L373'>    <b>if</b> (<a href='../S/31.html#L70' title='Defined at 70 in src/db.c.'>lookupKeyWrite</a>(c-&gt;db,c-&gt;argv[2]) != NULL) <font color='red'>{</font>
+<a name='L374'>        <b>if</b> (nx) <font color='red'>{</font>
+<a name='L375'>            <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(o);
+<a name='L376'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.czero);
+<a name='L377'>            <b>return</b>;
+<a name='L378'>        <font color='red'>}</font>
+<a name='L379'>        <i><font color='green'>/* Overwrite: delete the old key before creating the new one with the same name. */</font></i>
+<a name='L380'>        <a href='../S/31.html#L158' title='Defined at 158 in src/db.c.'>dbDelete</a>(c-&gt;db,c-&gt;argv[2]);
+<a name='L381'>    <font color='red'>}</font>
+<a name='L382'>    <a href='../S/31.html#L91' title='Defined at 91 in src/db.c.'>dbAdd</a>(c-&gt;db,c-&gt;argv[2],o);
+<a name='L383'>    <b>if</b> (expire != -1) <a href='../S/31.html#L453' title='Defined at 453 in src/db.c.'>setExpire</a>(c-&gt;db,c-&gt;argv[2],expire);
+<a name='L384'>    <a href='../S/31.html#L158' title='Defined at 158 in src/db.c.'>dbDelete</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L385'>    <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L386'>    <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[2]);
+<a name='L387'>    server.dirty++;
+<a name='L388'>    <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,nx ? shared.cone : shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L389'><font color='red'>}</font>
+<a name='L390'>
+<a name='L391'><b>void</b> <a href='../R/3523.html' title='Multiple refered from 2 places.'>renameCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L392'>    <a href='../S/31.html#L358' title='Defined at 358 in src/db.c.'>renameGenericCommand</a>(c,0);
+<a name='L393'><font color='red'>}</font>
+<a name='L394'>
+<a name='L395'><b>void</b> <a href='../R/3526.html' title='Multiple refered from 2 places.'>renamenxCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L396'>    <a href='../S/31.html#L358' title='Defined at 358 in src/db.c.'>renameGenericCommand</a>(c,1);
+<a name='L397'><font color='red'>}</font>
+<a name='L398'>
+<a name='L399'><b>void</b> <a href='../R/3022.html' title='Multiple refered from 2 places.'>moveCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L400'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L401'>    <a href='../D/3798.html' title='Multiple defined in 2 places.'>redisDb</a> *src, *dst;
+<a name='L402'>    <b>int</b> srcid;
+<a name='L403'>
+<a name='L404'>    <i><font color='green'>/* Obtain source and target DB pointers */</font></i>
+<a name='L405'>    src = c-&gt;db;
+<a name='L406'>    srcid = c-&gt;db-&gt;id;
+<a name='L407'>    <b>if</b> (<a href='../S/31.html#L181' title='Defined at 181 in src/db.c.'>selectDb</a>(c,atoi(c-&gt;argv[2]-&gt;ptr)) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>) <font color='red'>{</font>
+<a name='L408'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.outofrangeerr);
+<a name='L409'>        <b>return</b>;
+<a name='L410'>    <font color='red'>}</font>
+<a name='L411'>    dst = c-&gt;db;
+<a name='L412'>    <a href='../S/31.html#L181' title='Defined at 181 in src/db.c.'>selectDb</a>(c,srcid); <i><font color='green'>/* Back to the source DB */</font></i>
+<a name='L413'>
+<a name='L414'>    <i><font color='green'>/* If the user is moving using as target the same</font></i>
+<a name='L415'><i><font color='green'>     * DB as the source DB it is probably an error. */</font></i>
+<a name='L416'>    <b>if</b> (src == dst) <font color='red'>{</font>
+<a name='L417'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.sameobjecterr);
+<a name='L418'>        <b>return</b>;
+<a name='L419'>    <font color='red'>}</font>
+<a name='L420'>
+<a name='L421'>    <i><font color='green'>/* Check if the element exists and get a reference */</font></i>
+<a name='L422'>    o = <a href='../S/31.html#L70' title='Defined at 70 in src/db.c.'>lookupKeyWrite</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L423'>    <b>if</b> (!o) <font color='red'>{</font>
+<a name='L424'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.czero);
+<a name='L425'>        <b>return</b>;
+<a name='L426'>    <font color='red'>}</font>
+<a name='L427'>
+<a name='L428'>    <i><font color='green'>/* Return zero if the key already exists in the target DB */</font></i>
+<a name='L429'>    <b>if</b> (<a href='../S/31.html#L70' title='Defined at 70 in src/db.c.'>lookupKeyWrite</a>(dst,c-&gt;argv[1]) != NULL) <font color='red'>{</font>
+<a name='L430'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.czero);
+<a name='L431'>        <b>return</b>;
+<a name='L432'>    <font color='red'>}</font>
+<a name='L433'>    <a href='../S/31.html#L91' title='Defined at 91 in src/db.c.'>dbAdd</a>(dst,c-&gt;argv[1],o);
+<a name='L434'>    <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(o);
+<a name='L435'>
+<a name='L436'>    <i><font color='green'>/* OK! key moved, free the entry in the source DB */</font></i>
+<a name='L437'>    <a href='../S/31.html#L158' title='Defined at 158 in src/db.c.'>dbDelete</a>(src,c-&gt;argv[1]);
+<a name='L438'>    server.dirty++;
+<a name='L439'>    <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.cone);
+<a name='L440'><font color='red'>}</font>
+<a name='L441'>
+<a name='L442'><i><font color='green'>/*-----------------------------------------------------------------------------</font></i>
+<a name='L443'><i><font color='green'> * Expires API</font></i>
+<a name='L444'><i><font color='green'> *----------------------------------------------------------------------------*/</font></i>
+<a name='L445'>
+<a name='L446'><b>int</b> <a href='../R/3518.html' title='Multiple refered from 3 places.'>removeExpire</a>(redisDb *db, robj *key) <font color='red'>{</font>
+<a name='L447'>    <i><font color='green'>/* An expire may only be removed if there is a corresponding entry in the</font></i>
+<a name='L448'><i><font color='green'>     * main dict. Otherwise, the key will never be freed. */</font></i>
+<a name='L449'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(NULL,key,<a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>,key-&gt;ptr) != NULL);
+<a name='L450'>    <b>return</b> <a href='../D/2066.html' title='Multiple defined in 2 places.'>dictDelete</a>(db-&gt;expires,key-&gt;ptr) == <a href='../D/124.html' title='Multiple defined in 2 places.'>DICT_OK</a>;
+<a name='L451'><font color='red'>}</font>
+<a name='L452'>
+<a name='L453'><b>void</b> <a href='../R/3731.html' title='Multiple refered from 6 places.'>setExpire</a>(redisDb *db, robj *key, <b>long</b> <b>long</b> when) <font color='red'>{</font>
+<a name='L454'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *kde, *de;
+<a name='L455'>
+<a name='L456'>    <i><font color='green'>/* Reuse the sds from the main dict in the expire dict */</font></i>
+<a name='L457'>    kde = <a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>,key-&gt;ptr);
+<a name='L458'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(NULL,key,kde != NULL);
+<a name='L459'>    de = <a href='../S/29.html#L394' title='Defined at 394 in src/dict.c.'>dictReplaceRaw</a>(db-&gt;expires,<a href='../S/88.html#L131' title='Defined at 131 in src/dict.h.'>dictGetKey</a>(kde));
+<a name='L460'>    <a href='../S/88.html#L108' title='Defined at 108 in src/dict.h.'>dictSetSignedIntegerVal</a>(de,when);
+<a name='L461'><font color='red'>}</font>
+<a name='L462'>
+<a name='L463'><i><font color='green'>/* Return the expire time of the specified key, or -1 if no expire</font></i>
+<a name='L464'><i><font color='green'> * is associated with this key (i.e. the key is non volatile) */</font></i>
+<a name='L465'><b>long</b> <b>long</b> <a href='../R/2050.html' title='Multiple refered from 8 places.'>getExpire</a>(redisDb *db, robj *key) <font color='red'>{</font>
+<a name='L466'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *de;
+<a name='L467'>
+<a name='L468'>    <i><font color='green'>/* No expire? return ASAP */</font></i>
+<a name='L469'>    <b>if</b> (<a href='../D/2125.html' title='Multiple defined in 2 places.'>dictSize</a>(db-&gt;expires) == 0 ||
+<a name='L470'>       (de = <a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(db-&gt;expires,key-&gt;ptr)) == NULL) <b>return</b> -1;
+<a name='L471'>
+<a name='L472'>    <i><font color='green'>/* The entry was found in the expire dict, this means it should also</font></i>
+<a name='L473'><i><font color='green'>     * be present in the main dict (safety check). */</font></i>
+<a name='L474'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(NULL,key,<a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>,key-&gt;ptr) != NULL);
+<a name='L475'>    <b>return</b> <a href='../S/88.html#L133' title='Defined at 133 in src/dict.h.'>dictGetSignedIntegerVal</a>(de);
+<a name='L476'><font color='red'>}</font>
+<a name='L477'>
+<a name='L478'><i><font color='green'>/* Propagate expires into slaves and the AOF file.</font></i>
+<a name='L479'><i><font color='green'> * When a key expires in the master, a DEL operation for this key is sent</font></i>
+<a name='L480'><i><font color='green'> * to all the slaves and the AOF file if enabled.</font></i>
+<a name='L481'><i><font color='green'> *</font></i>
+<a name='L482'><i><font color='green'> * This way the key expiry is centralized in one place, and since both</font></i>
+<a name='L483'><i><font color='green'> * AOF and the master-&gt;slave link guarantee operation ordering, everything</font></i>
+<a name='L484'><i><font color='green'> * will be consistent even if we allow write operations against expiring</font></i>
+<a name='L485'><i><font color='green'> * keys. */</font></i>
+<a name='L486'><b>void</b> <a href='../R/3247.html' title='Multiple refered from 4 places.'>propagateExpire</a>(redisDb *db, robj *key) <font color='red'>{</font>
+<a name='L487'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *argv[2];
+<a name='L488'>
+<a name='L489'>    argv[0] = shared.del;
+<a name='L490'>    argv[1] = key;
+<a name='L491'>    <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(argv[0]);
+<a name='L492'>    <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(argv[1]);
+<a name='L493'>
+<a name='L494'>    <b>if</b> (server.aof_state != <a href='../S/32.html#L167' title='Defined at 167 in src/redis.h.'>REDIS_AOF_OFF</a>)
+<a name='L495'>        <a href='../S/62.html#L384' title='Defined at 384 in src/aof.c.'>feedAppendOnlyFile</a>(server.<a href='../S/31.html#L235' title='Defined at 235 in src/db.c.'>delCommand</a>,db-&gt;id,argv,2);
+<a name='L496'>    <b>if</b> (<a href='../S/58.html#L57' title='Defined at 57 in src/adlist.h.'>listLength</a>(server.slaves))
+<a name='L497'>        <a href='../S/14.html#L42' title='Defined at 42 in src/replication.c.'>replicationFeedSlaves</a>(server.slaves,db-&gt;id,argv,2);
+<a name='L498'>
+<a name='L499'>    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(argv[0]);
+<a name='L500'>    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(argv[1]);
+<a name='L501'><font color='red'>}</font>
+<a name='L502'>
+<a name='L503'><b>int</b> <a href='../R/1915.html' title='Multiple refered from 6 places.'>expireIfNeeded</a>(redisDb *db, robj *key) <font color='red'>{</font>
+<a name='L504'>    <b>long</b> <b>long</b> when = <a href='../S/31.html#L465' title='Defined at 465 in src/db.c.'>getExpire</a>(db,key);
+<a name='L505'>
+<a name='L506'>    <b>if</b> (when &lt; 0) <b>return</b> 0; <i><font color='green'>/* No expire for this key */</font></i>
+<a name='L507'>
+<a name='L508'>    <i><font color='green'>/* Don't expire anything while loading. It will be done later. */</font></i>
+<a name='L509'>    <b>if</b> (server.loading) <b>return</b> 0;
+<a name='L510'>
+<a name='L511'>    <i><font color='green'>/* If we are running in the context of a slave, return ASAP:</font></i>
+<a name='L512'><i><font color='green'>     * the slave key expiration is controlled by the master that will</font></i>
+<a name='L513'><i><font color='green'>     * send us synthesized DEL operations for expired keys.</font></i>
+<a name='L514'><i><font color='green'>     *</font></i>
+<a name='L515'><i><font color='green'>     * Still we try to return the right information to the caller, </font></i>
+<a name='L516'><i><font color='green'>     * that is, 0 if we think the key should be still valid, 1 if</font></i>
+<a name='L517'><i><font color='green'>     * we think the key is expired at this time. */</font></i>
+<a name='L518'>    <b>if</b> (server.masterhost != NULL) <font color='red'>{</font>
+<a name='L519'>        <b>return</b> <a href='../D/3402.html' title='Multiple defined in 3 places.'>mstime</a>() &gt; when;
+<a name='L520'>    <font color='red'>}</font>
+<a name='L521'>
+<a name='L522'>    <i><font color='green'>/* Return when this key has not expired */</font></i>
+<a name='L523'>    <b>if</b> (<a href='../D/3402.html' title='Multiple defined in 3 places.'>mstime</a>() &lt;= when) <b>return</b> 0;
+<a name='L524'>
+<a name='L525'>    <i><font color='green'>/* Delete the key */</font></i>
+<a name='L526'>    server.stat_expiredkeys++;
+<a name='L527'>    <a href='../S/31.html#L486' title='Defined at 486 in src/db.c.'>propagateExpire</a>(db,key);
+<a name='L528'>    <b>return</b> <a href='../S/31.html#L158' title='Defined at 158 in src/db.c.'>dbDelete</a>(db,key);
+<a name='L529'><font color='red'>}</font>
+<a name='L530'>
+<a name='L531'><i><font color='green'>/*-----------------------------------------------------------------------------</font></i>
+<a name='L532'><i><font color='green'> * Expires Commands</font></i>
+<a name='L533'><i><font color='green'> *----------------------------------------------------------------------------*/</font></i>
+<a name='L534'>
+<a name='L535'><i><font color='green'>/* This is the generic command implementation for EXPIRE, PEXPIRE, EXPIREAT</font></i>
+<a name='L536'><i><font color='green'> * and PEXPIREAT. Because the commad second argument may be relative or absolute</font></i>
+<a name='L537'><i><font color='green'> * the "basetime" argument is used to signal what the base time is (either 0</font></i>
+<a name='L538'><i><font color='green'> * for *AT variants of the command, or the current time for relative expires).</font></i>
+<a name='L539'><i><font color='green'> *</font></i>
+<a name='L540'><i><font color='green'> * unit is either UNIT_SECONDS or UNIT_MILLISECONDS, and is only used for</font></i>
+<a name='L541'><i><font color='green'> * the argv[2] parameter. The basetime is always specified in milliesconds. */</font></i>
+<a name='L542'><b>void</b> <a href='../R/1914.html' title='Multiple refered from 4 places.'>expireGenericCommand</a>(redisClient *c, <b>long</b> <b>long</b> basetime, <b>int</b> unit) <font color='red'>{</font>
+<a name='L543'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *de;
+<a name='L544'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *key = c-&gt;argv[1], *param = c-&gt;argv[2];
+<a name='L545'>    <b>long</b> <b>long</b> when; <i><font color='green'>/* unix time in milliseconds when the key will expire. */</font></i>
+<a name='L546'>
+<a name='L547'>    <b>if</b> (<a href='../S/71.html#L484' title='Defined at 484 in src/object.c.'>getLongLongFromObjectOrReply</a>(c, param, &amp;when, NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L548'>        <b>return</b>;
+<a name='L549'>
+<a name='L550'>    <b>if</b> (unit == <a href='../S/32.html#L272' title='Defined at 272 in src/redis.h.'>UNIT_SECONDS</a>) when *= 1000;
+<a name='L551'>    when += basetime;
+<a name='L552'>
+<a name='L553'>    de = <a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(c-&gt;db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>,key-&gt;ptr);
+<a name='L554'>    <b>if</b> (de == NULL) <font color='red'>{</font>
+<a name='L555'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.czero);
+<a name='L556'>        <b>return</b>;
+<a name='L557'>    <font color='red'>}</font>
+<a name='L558'>    <i><font color='green'>/* EXPIRE with negative TTL, or EXPIREAT with a timestamp into the past</font></i>
+<a name='L559'><i><font color='green'>     * should never be executed as a DEL when load the AOF or in the context</font></i>
+<a name='L560'><i><font color='green'>     * of a slave instance.</font></i>
+<a name='L561'><i><font color='green'>     *</font></i>
+<a name='L562'><i><font color='green'>     * Instead we take the other branch of the IF statement setting an expire</font></i>
+<a name='L563'><i><font color='green'>     * (possibly in the past) and wait for an explicit DEL from the master. */</font></i>
+<a name='L564'>    <b>if</b> (when &lt;= <a href='../D/3402.html' title='Multiple defined in 3 places.'>mstime</a>() &amp;&amp; !server.loading &amp;&amp; !server.masterhost) <font color='red'>{</font>
+<a name='L565'>        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *aux;
+<a name='L566'>
+<a name='L567'>        <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,key,<a href='../S/31.html#L158' title='Defined at 158 in src/db.c.'>dbDelete</a>(c-&gt;db,key));
+<a name='L568'>        server.dirty++;
+<a name='L569'>
+<a name='L570'>        <i><font color='green'>/* Replicate/AOF this as an explicit DEL. */</font></i>
+<a name='L571'>        aux = <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>("DEL",3);
+<a name='L572'>        <a href='../S/86.html#L1199' title='Defined at 1199 in src/networking.c.'>rewriteClientCommandVector</a>(c,2,aux,key);
+<a name='L573'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(aux);
+<a name='L574'>        <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,key);
+<a name='L575'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c, shared.cone);
+<a name='L576'>        <b>return</b>;
+<a name='L577'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L578'>        <a href='../S/31.html#L453' title='Defined at 453 in src/db.c.'>setExpire</a>(c-&gt;db,key,when);
+<a name='L579'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.cone);
+<a name='L580'>        <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,key);
+<a name='L581'>        server.dirty++;
+<a name='L582'>        <b>return</b>;
+<a name='L583'>    <font color='red'>}</font>
+<a name='L584'><font color='red'>}</font>
+<a name='L585'>
+<a name='L586'><b>void</b> <a href='../R/1913.html' title='Multiple refered from 5 places.'>expireCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L587'>    <a href='../S/31.html#L542' title='Defined at 542 in src/db.c.'>expireGenericCommand</a>(c,<a href='../D/3402.html' title='Multiple defined in 3 places.'>mstime</a>(),<a href='../S/32.html#L272' title='Defined at 272 in src/redis.h.'>UNIT_SECONDS</a>);
+<a name='L588'><font color='red'>}</font>
+<a name='L589'>
+<a name='L590'><b>void</b> <a href='../R/1916.html' title='Multiple refered from 4 places.'>expireatCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L591'>    <a href='../S/31.html#L542' title='Defined at 542 in src/db.c.'>expireGenericCommand</a>(c,0,<a href='../S/32.html#L272' title='Defined at 272 in src/redis.h.'>UNIT_SECONDS</a>);
+<a name='L592'><font color='red'>}</font>
+<a name='L593'>
+<a name='L594'><b>void</b> <a href='../R/3144.html' title='Multiple refered from 4 places.'>pexpireCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L595'>    <a href='../S/31.html#L542' title='Defined at 542 in src/db.c.'>expireGenericCommand</a>(c,<a href='../D/3402.html' title='Multiple defined in 3 places.'>mstime</a>(),<a href='../S/32.html#L273' title='Defined at 273 in src/redis.h.'>UNIT_MILLISECONDS</a>);
+<a name='L596'><font color='red'>}</font>
+<a name='L597'>
+<a name='L598'><b>void</b> <a href='../R/3145.html' title='Multiple refered from 2 places.'>pexpireatCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L599'>    <a href='../S/31.html#L542' title='Defined at 542 in src/db.c.'>expireGenericCommand</a>(c,0,<a href='../S/32.html#L273' title='Defined at 273 in src/redis.h.'>UNIT_MILLISECONDS</a>);
+<a name='L600'><font color='red'>}</font>
+<a name='L601'>
+<a name='L602'><b>void</b> <a href='../R/4037.html' title='Multiple refered from 2 places.'>ttlGenericCommand</a>(redisClient *c, <b>int</b> output_ms) <font color='red'>{</font>
+<a name='L603'>    <b>long</b> <b>long</b> expire, ttl = -1;
+<a name='L604'>
+<a name='L605'>    expire = <a href='../S/31.html#L465' title='Defined at 465 in src/db.c.'>getExpire</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L606'>    <b>if</b> (expire != -1) <font color='red'>{</font>
+<a name='L607'>        ttl = expire-<a href='../D/3402.html' title='Multiple defined in 3 places.'>mstime</a>();
+<a name='L608'>        <b>if</b> (ttl &lt; 0) ttl = -1;
+<a name='L609'>    <font color='red'>}</font>
+<a name='L610'>    <b>if</b> (ttl == -1) <font color='red'>{</font>
+<a name='L611'>        <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,-1);
+<a name='L612'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L613'>        <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,output_ms ? ttl : ((ttl+500)/1000));
+<a name='L614'>    <font color='red'>}</font>
+<a name='L615'><font color='red'>}</font>
+<a name='L616'>
+<a name='L617'><b>void</b> <a href='../R/4036.html' title='Multiple refered from 2 places.'>ttlCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L618'>    <a href='../S/31.html#L602' title='Defined at 602 in src/db.c.'>ttlGenericCommand</a>(c, 0);
+<a name='L619'><font color='red'>}</font>
+<a name='L620'>
+<a name='L621'><b>void</b> <a href='../R/3254.html' title='Multiple refered from 2 places.'>pttlCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L622'>    <a href='../S/31.html#L602' title='Defined at 602 in src/db.c.'>ttlGenericCommand</a>(c, 1);
+<a name='L623'><font color='red'>}</font>
+<a name='L624'>
+<a name='L625'><b>void</b> <a href='../R/3143.html' title='Multiple refered from 2 places.'>persistCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L626'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *de;
+<a name='L627'>
+<a name='L628'>    de = <a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(c-&gt;db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>,c-&gt;argv[1]-&gt;ptr);
+<a name='L629'>    <b>if</b> (de == NULL) <font color='red'>{</font>
+<a name='L630'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.czero);
+<a name='L631'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L632'>        <b>if</b> (<a href='../S/31.html#L446' title='Defined at 446 in src/db.c.'>removeExpire</a>(c-&gt;db,c-&gt;argv[1])) <font color='red'>{</font>
+<a name='L633'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.cone);
+<a name='L634'>            server.dirty++;
+<a name='L635'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L636'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.czero);
+<a name='L637'>        <font color='red'>}</font>
+<a name='L638'>    <font color='red'>}</font>
+<a name='L639'><font color='red'>}</font>
+<a name='L640'>
+<a name='L641'><i><font color='green'>/* -----------------------------------------------------------------------------</font></i>
+<a name='L642'><i><font color='green'> * API to get key arguments from commands</font></i>
+<a name='L643'><i><font color='green'> * ---------------------------------------------------------------------------*/</font></i>
+<a name='L644'>
+<a name='L645'><b>int</b> *<a href='../R/2055.html' title='Multiple refered from 3 places.'>getKeysUsingCommandTable</a>(<b>struct</b> redisCommand *cmd,robj **argv, <b>int</b> argc, <b>int</b> *numkeys) <font color='red'>{</font>
+<a name='L646'>    <b>int</b> j, i = 0, last, *keys;
+<a name='L647'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(argv);
+<a name='L648'>
+<a name='L649'>    <b>if</b> (cmd-&gt;firstkey == 0) <font color='red'>{</font>
+<a name='L650'>        *numkeys = 0;
+<a name='L651'>        <b>return</b> NULL;
+<a name='L652'>    <font color='red'>}</font>
+<a name='L653'>    last = cmd-&gt;lastkey;
+<a name='L654'>    <b>if</b> (last &lt; 0) last = argc+last;
+<a name='L655'>    keys = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<b>int</b>)*((last - cmd-&gt;firstkey)+1));
+<a name='L656'>    <b>for</b> (j = cmd-&gt;firstkey; j &lt;= last; j += cmd-&gt;keystep) <font color='red'>{</font>
+<a name='L657'>        <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(j &lt; argc);
+<a name='L658'>        keys[i++] = j;
+<a name='L659'>    <font color='red'>}</font>
+<a name='L660'>    *numkeys = i;
+<a name='L661'>    <b>return</b> keys;
+<a name='L662'><font color='red'>}</font>
+<a name='L663'>
+<a name='L664'><b>int</b> *<a href='../S/32.html#L1030' title='Refered from 1030 in src/redis.h.'>getKeysFromCommand</a>(<b>struct</b> redisCommand *cmd,robj **argv, <b>int</b> argc, <b>int</b> *numkeys, <b>int</b> flags) <font color='red'>{</font>
+<a name='L665'>    <b>if</b> (cmd-&gt;getkeys_proc) <font color='red'>{</font>
+<a name='L666'>        <b>return</b> cmd-&gt;getkeys_proc(cmd,argv,argc,numkeys,flags);
+<a name='L667'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L668'>        <b>return</b> <a href='../S/31.html#L645' title='Defined at 645 in src/db.c.'>getKeysUsingCommandTable</a>(cmd,argv,argc,numkeys);
+<a name='L669'>    <font color='red'>}</font>
+<a name='L670'><font color='red'>}</font>
+<a name='L671'>
+<a name='L672'><b>void</b> <a href='../S/32.html#L1031' title='Refered from 1031 in src/redis.h.'>getKeysFreeResult</a>(<b>int</b> *result) <font color='red'>{</font>
+<a name='L673'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(result);
+<a name='L674'><font color='red'>}</font>
+<a name='L675'>
+<a name='L676'><b>int</b> *<a href='../R/3077.html' title='Multiple refered from 7 places.'>noPreloadGetKeys</a>(<b>struct</b> redisCommand *cmd,robj **argv, <b>int</b> argc, <b>int</b> *numkeys, <b>int</b> flags) <font color='red'>{</font>
+<a name='L677'>    <b>if</b> (flags &amp; <a href='../S/32.html#L1029' title='Defined at 1029 in src/redis.h.'>REDIS_GETKEYS_PRELOAD</a>) <font color='red'>{</font>
+<a name='L678'>        *numkeys = 0;
+<a name='L679'>        <b>return</b> NULL;
+<a name='L680'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L681'>        <b>return</b> <a href='../S/31.html#L645' title='Defined at 645 in src/db.c.'>getKeysUsingCommandTable</a>(cmd,argv,argc,numkeys);
+<a name='L682'>    <font color='red'>}</font>
+<a name='L683'><font color='red'>}</font>
+<a name='L684'>
+<a name='L685'><b>int</b> *<a href='../R/3525.html' title='Multiple refered from 3 places.'>renameGetKeys</a>(<b>struct</b> redisCommand *cmd,robj **argv, <b>int</b> argc, <b>int</b> *numkeys, <b>int</b> flags) <font color='red'>{</font>
+<a name='L686'>    <b>if</b> (flags &amp; <a href='../S/32.html#L1029' title='Defined at 1029 in src/redis.h.'>REDIS_GETKEYS_PRELOAD</a>) <font color='red'>{</font>
+<a name='L687'>        <b>int</b> *keys = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<b>int</b>));
+<a name='L688'>        *numkeys = 1;
+<a name='L689'>        keys[0] = 1;
+<a name='L690'>        <b>return</b> keys;
+<a name='L691'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L692'>        <b>return</b> <a href='../S/31.html#L645' title='Defined at 645 in src/db.c.'>getKeysUsingCommandTable</a>(cmd,argv,argc,numkeys);
+<a name='L693'>    <font color='red'>}</font>
+<a name='L694'><font color='red'>}</font>
+<a name='L695'>
+<a name='L696'><b>int</b> *<a href='../R/4222.html' title='Multiple refered from 5 places.'>zunionInterGetKeys</a>(<b>struct</b> redisCommand *cmd,robj **argv, <b>int</b> argc, <b>int</b> *numkeys, <b>int</b> flags) <font color='red'>{</font>
+<a name='L697'>    <b>int</b> i, num, *keys;
+<a name='L698'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(cmd);
+<a name='L699'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(flags);
+<a name='L700'>
+<a name='L701'>    num = atoi(argv[2]-&gt;ptr);
+<a name='L702'>    <i><font color='green'>/* Sanity check. Don't return any key if the command is going to</font></i>
+<a name='L703'><i><font color='green'>     * reply with syntax error. */</font></i>
+<a name='L704'>    <b>if</b> (num &gt; (argc-3)) <font color='red'>{</font>
+<a name='L705'>        *numkeys = 0;
+<a name='L706'>        <b>return</b> NULL;
+<a name='L707'>    <font color='red'>}</font>
+<a name='L708'>    keys = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<b>int</b>)*num);
+<a name='L709'>    <b>for</b> (i = 0; i &lt; num; i++) keys[i] = 3+i;
+<a name='L710'>    *numkeys = num;
+<a name='L711'>    <b>return</b> keys;
+<a name='L712'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L42'>[^]</a><a href='#L696'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

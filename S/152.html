@@ -1,0 +1,77 @@
+<html>
+<head>
+<title>deps/jemalloc/include/jemalloc/internal/prng.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/391.html'>include</a>/<a href='../files/392.html'>jemalloc</a>/<a href='../files/393.html'>internal</a>/prng.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L2'><font color='darkred'>#ifdef</font> JEMALLOC_H_TYPES
+<a name='L3'>
+<a name='L4'><i><font color='green'>/*</font></i>
+<a name='L5'><i><font color='green'> * Simple linear congruential pseudo-random number generator:</font></i>
+<a name='L6'><i><font color='green'> *</font></i>
+<a name='L7'><i><font color='green'> *   prng(y) = (a*x + c) % m</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> * where the following constants ensure maximal period:</font></i>
+<a name='L10'><i><font color='green'> *</font></i>
+<a name='L11'><i><font color='green'> *   a == Odd number (relatively prime to 2^n), and (a-1) is a multiple of 4.</font></i>
+<a name='L12'><i><font color='green'> *   c == Odd number (relatively prime to 2^n).</font></i>
+<a name='L13'><i><font color='green'> *   m == 2^32</font></i>
+<a name='L14'><i><font color='green'> *</font></i>
+<a name='L15'><i><font color='green'> * See Knuth's TAOCP 3rd Ed., Vol. 2, pg. 17 for details on these constraints.</font></i>
+<a name='L16'><i><font color='green'> *</font></i>
+<a name='L17'><i><font color='green'> * This choice of m has the disadvantage that the quality of the bits is</font></i>
+<a name='L18'><i><font color='green'> * proportional to bit position.  For example. the lowest bit has a cycle of 2,</font></i>
+<a name='L19'><i><font color='green'> * the next has a cycle of 4, etc.  For this reason, we prefer to use the upper</font></i>
+<a name='L20'><i><font color='green'> * bits.</font></i>
+<a name='L21'><i><font color='green'> *</font></i>
+<a name='L22'><i><font color='green'> * Macro parameters:</font></i>
+<a name='L23'><i><font color='green'> *   uint32_t r          : Result.</font></i>
+<a name='L24'><i><font color='green'> *   unsigned lg_range   : (0..32], number of least significant bits to return.</font></i>
+<a name='L25'><i><font color='green'> *   uint32_t state      : Seed value.</font></i>
+<a name='L26'><i><font color='green'> *   const uint32_t a, c : See above discussion.</font></i>
+<a name='L27'><i><font color='green'> */</font></i>
+<a name='L28'><font color='darkred'>#define</font> <a href='../R/3170.html' title='Multiple refered from 2 places.'>prng32</a>(r, lg_range, state, a, c) <b>do</b> <font color='red'>{</font>                           \
+<a name='L29'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(lg_range &gt; 0);                                           \
+<a name='L30'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(lg_range &lt;= 32);                                         \
+<a name='L31'>                                                                        \
+<a name='L32'>        r = (state * (a)) + (c);                                        \
+<a name='L33'>        state = r;                                                      \
+<a name='L34'>        r &gt;&gt;= (32 - lg_range);                                          \
+<a name='L35'><font color='red'>}</font> <b>while</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)
+<a name='L36'>
+<a name='L37'><i><font color='green'>/* Same as prng32(), but 64 bits of pseudo-randomness, using uint64_t. */</font></i>
+<a name='L38'><font color='darkred'>#define</font> <a href='../S/141.html#L348' title='Refered from 348 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prng64</a>(r, lg_range, state, a, c) <b>do</b> <font color='red'>{</font>                           \
+<a name='L39'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(lg_range &gt; 0);                                           \
+<a name='L40'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(lg_range &lt;= 64);                                         \
+<a name='L41'>                                                                        \
+<a name='L42'>        r = (state * (a)) + (c);                                        \
+<a name='L43'>        state = r;                                                      \
+<a name='L44'>        r &gt;&gt;= (64 - lg_range);                                          \
+<a name='L45'><font color='red'>}</font> <b>while</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)
+<a name='L46'>
+<a name='L47'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_TYPES */</font></i>
+<a name='L48'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L49'><font color='darkred'>#ifdef</font> JEMALLOC_H_STRUCTS
+<a name='L50'>
+<a name='L51'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_STRUCTS */</font></i>
+<a name='L52'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L53'><font color='darkred'>#ifdef</font> JEMALLOC_H_EXTERNS
+<a name='L54'>
+<a name='L55'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_EXTERNS */</font></i>
+<a name='L56'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L57'><font color='darkred'>#ifdef</font> JEMALLOC_H_INLINES
+<a name='L58'>
+<a name='L59'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_INLINES */</font></i>
+<a name='L60'><i><font color='green'>/******************************************************************************/</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

@@ -1,0 +1,983 @@
+<html>
+<head>
+<title>src/config.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/config.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L38'>[^]</a><a href='#L925'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L38' title='Defined at 38.'>yesnotoi</a>
+<li><a href='#L44' title='Defined at 44.'>appendServerSaveParams</a>
+<li><a href='#L51' title='Defined at 51.'>resetServerSaveParams</a>
+<li><a href='#L57' title='Defined at 57.'>loadServerConfigFromString</a>
+<li><a href='#L417' title='Defined at 417.'>loadServerConfig</a>
+<li><a href='#L451' title='Defined at 451.'>configSetCommand</a>
+<li><a href='#L743' title='Defined at 743.'>configGetCommand</a>
+<li><a href='#L925' title='Defined at 925.'>configCommand</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* Configuration file parsing and CONFIG GET/SET commands implementation.</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'>
+<a name='L32'><font color='darkred'>#include</font> "<a href='32.html'>redis.h</a>"
+<a name='L33'>
+<a name='L34'><i><font color='green'>/*-----------------------------------------------------------------------------</font></i>
+<a name='L35'><i><font color='green'> * Config file parsing</font></i>
+<a name='L36'><i><font color='green'> *----------------------------------------------------------------------------*/</font></i>
+<a name='L37'>
+<a name='L38'><b>int</b> <a href='../R/4095.html' title='Multiple refered from 19 places.'>yesnotoi</a>(<b>char</b> *s) <font color='red'>{</font>
+<a name='L39'>    <b>if</b> (!strcasecmp(s,"yes")) <b>return</b> 1;
+<a name='L40'>    <b>else</b> <b>if</b> (!strcasecmp(s,"no")) <b>return</b> 0;
+<a name='L41'>    <b>else</b> <b>return</b> -1;
+<a name='L42'><font color='red'>}</font>
+<a name='L43'>
+<a name='L44'><b>void</b> <a href='../R/1300.html' title='Multiple refered from 6 places.'>appendServerSaveParams</a>(time_t seconds, <b>int</b> changes) <font color='red'>{</font>
+<a name='L45'>    server.saveparams = <a href='../S/39.html#L149' title='Defined at 149 in src/zmalloc.c.'>zrealloc</a>(server.saveparams,<b>sizeof</b>(<b>struct</b> <a href='../S/32.html#L418' title='Defined at 418 in src/redis.h.'>saveparam</a>)*(server.saveparamslen+1));
+<a name='L46'>    server.saveparams[server.saveparamslen].seconds = seconds;
+<a name='L47'>    server.saveparams[server.saveparamslen].changes = changes;
+<a name='L48'>    server.saveparamslen++;
+<a name='L49'><font color='red'>}</font>
+<a name='L50'>
+<a name='L51'><b>void</b> <a href='../R/3539.html' title='Multiple refered from 5 places.'>resetServerSaveParams</a>() <font color='red'>{</font>
+<a name='L52'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(server.saveparams);
+<a name='L53'>    server.saveparams = NULL;
+<a name='L54'>    server.saveparamslen = 0;
+<a name='L55'><font color='red'>}</font>
+<a name='L56'>
+<a name='L57'><b>void</b> <a href='../S/96.html#L443' title='Refered from 443 in src/config.c.'>loadServerConfigFromString</a>(<b>char</b> *config) <font color='red'>{</font>
+<a name='L58'>    <b>char</b> *err = NULL;
+<a name='L59'>    <b>int</b> linenum = 0, totlines, i;
+<a name='L60'>    <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> *lines;
+<a name='L61'>
+<a name='L62'>    lines = <a href='../D/4018.html' title='Multiple defined in 2 places.'>sdssplitlen</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>,strlen(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>),"\n",1,&amp;totlines);
+<a name='L63'>
+<a name='L64'>    <b>for</b> (i = 0; i &lt; totlines; i++) <font color='red'>{</font>
+<a name='L65'>        <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> *argv;
+<a name='L66'>        <b>int</b> argc;
+<a name='L67'>
+<a name='L68'>        linenum = i+1;
+<a name='L69'>        lines[i] = <a href='../D/4021.html' title='Multiple defined in 2 places.'>sdstrim</a>(lines[i]," \t\r\n");
+<a name='L70'>
+<a name='L71'>        <i><font color='green'>/* Skip comments and blank lines*/</font></i>
+<a name='L72'>        <b>if</b> (lines[i][0] == '#' || lines[i][0] == '\0') <b>continue</b>;
+<a name='L73'>
+<a name='L74'>        <i><font color='green'>/* Split into arguments */</font></i>
+<a name='L75'>        argv = <a href='../D/4016.html' title='Multiple defined in 2 places.'>sdssplitargs</a>(lines[i],&amp;argc);
+<a name='L76'>        <a href='../D/4019.html' title='Multiple defined in 2 places.'>sdstolower</a>(argv[0]);
+<a name='L77'>
+<a name='L78'>        <i><font color='green'>/* Execute config directives */</font></i>
+<a name='L79'>        <b>if</b> (!strcasecmp(argv[0],"timeout") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L80'>            server.maxidletime = atoi(argv[1]);
+<a name='L81'>            <b>if</b> (server.maxidletime &lt; 0) <font color='red'>{</font>
+<a name='L82'>                err = "Invalid timeout value"; <b>goto</b> loaderr;
+<a name='L83'>            <font color='red'>}</font>
+<a name='L84'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"port") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L85'>            server.port = atoi(argv[1]);
+<a name='L86'>            <b>if</b> (server.port &lt; 0 || server.port &gt; 65535) <font color='red'>{</font>
+<a name='L87'>                err = "Invalid port"; <b>goto</b> loaderr;
+<a name='L88'>            <font color='red'>}</font>
+<a name='L89'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"bind") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L90'>            server.bindaddr = <a href='../S/39.html#L210' title='Defined at 210 in src/zmalloc.c.'>zstrdup</a>(argv[1]);
+<a name='L91'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"unixsocket") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L92'>            server.unixsocket = <a href='../S/39.html#L210' title='Defined at 210 in src/zmalloc.c.'>zstrdup</a>(argv[1]);
+<a name='L93'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"unixsocketperm") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L94'>            errno = 0;
+<a name='L95'>            server.unixsocketperm = (mode_t)strtol(argv[1], NULL, 8);
+<a name='L96'>            <b>if</b> (errno || server.unixsocketperm &gt; 0777) <font color='red'>{</font>
+<a name='L97'>                err = "Invalid socket file permissions"; <b>goto</b> loaderr;
+<a name='L98'>            <font color='red'>}</font>
+<a name='L99'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"save")) <font color='red'>{</font>
+<a name='L100'>            <b>if</b> (argc == 3) <font color='red'>{</font>
+<a name='L101'>                <b>int</b> seconds = atoi(argv[1]);
+<a name='L102'>                <b>int</b> changes = atoi(argv[2]);
+<a name='L103'>                <b>if</b> (seconds &lt; 1 || changes &lt; 0) <font color='red'>{</font>
+<a name='L104'>                    err = "Invalid save parameters"; <b>goto</b> loaderr;
+<a name='L105'>                <font color='red'>}</font>
+<a name='L106'>                <a href='../S/96.html#L44' title='Defined at 44 in src/config.c.'>appendServerSaveParams</a>(seconds,changes);
+<a name='L107'>            <font color='red'>}</font> <b>else</b> <b>if</b> (argc == 2 &amp;&amp; !strcasecmp(argv[1],"")) <font color='red'>{</font>
+<a name='L108'>                <a href='../S/96.html#L51' title='Defined at 51 in src/config.c.'>resetServerSaveParams</a>();
+<a name='L109'>            <font color='red'>}</font>
+<a name='L110'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"dir") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L111'>            <b>if</b> (chdir(argv[1]) == -1) <font color='red'>{</font>
+<a name='L112'>                <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Can't chdir to '%s': %s",
+<a name='L113'>                    argv[1], strerror(errno));
+<a name='L114'>                exit(1);
+<a name='L115'>            <font color='red'>}</font>
+<a name='L116'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"loglevel") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L117'>            <b>if</b> (!strcasecmp(argv[1],"debug")) server.verbosity = <a href='../S/32.html#L229' title='Defined at 229 in src/redis.h.'>REDIS_DEBUG</a>;
+<a name='L118'>            <b>else</b> <b>if</b> (!strcasecmp(argv[1],"verbose")) server.verbosity = <a href='../S/32.html#L230' title='Defined at 230 in src/redis.h.'>REDIS_VERBOSE</a>;
+<a name='L119'>            <b>else</b> <b>if</b> (!strcasecmp(argv[1],"notice")) server.verbosity = <a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>;
+<a name='L120'>            <b>else</b> <b>if</b> (!strcasecmp(argv[1],"warning")) server.verbosity = <a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>;
+<a name='L121'>            <b>else</b> <font color='red'>{</font>
+<a name='L122'>                err = "Invalid log level. Must be one of debug, notice, warning";
+<a name='L123'>                <b>goto</b> loaderr;
+<a name='L124'>            <font color='red'>}</font>
+<a name='L125'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"logfile") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L126'>            FILE *logfp;
+<a name='L127'>
+<a name='L128'>            server.logfile = <a href='../S/39.html#L210' title='Defined at 210 in src/zmalloc.c.'>zstrdup</a>(argv[1]);
+<a name='L129'>            <b>if</b> (!strcasecmp(server.logfile,"stdout")) <font color='red'>{</font>
+<a name='L130'>                <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(server.logfile);
+<a name='L131'>                server.logfile = NULL;
+<a name='L132'>            <font color='red'>}</font>
+<a name='L133'>            <b>if</b> (server.logfile) <font color='red'>{</font>
+<a name='L134'>                <i><font color='green'>/* Test if we are able to open the file. The server will not</font></i>
+<a name='L135'><i><font color='green'>                 * be able to abort just for this problem later... */</font></i>
+<a name='L136'>                logfp = fopen(server.logfile,"a");
+<a name='L137'>                <b>if</b> (logfp == NULL) <font color='red'>{</font>
+<a name='L138'>                    err = <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(<a href='../D/4005.html' title='Multiple defined in 2 places.'>sdsempty</a>(),
+<a name='L139'>                        "Can't open the log file: %s", strerror(errno));
+<a name='L140'>                    <b>goto</b> loaderr;
+<a name='L141'>                <font color='red'>}</font>
+<a name='L142'>                fclose(logfp);
+<a name='L143'>            <font color='red'>}</font>
+<a name='L144'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"syslog-enabled") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L145'>            <b>if</b> ((server.syslog_enabled = <a href='../S/96.html#L38' title='Defined at 38 in src/config.c.'>yesnotoi</a>(argv[1])) == -1) <font color='red'>{</font>
+<a name='L146'>                err = "argument must be 'yes' or 'no'"; <b>goto</b> loaderr;
+<a name='L147'>            <font color='red'>}</font>
+<a name='L148'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"syslog-ident") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L149'>            <b>if</b> (server.syslog_ident) <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(server.syslog_ident);
+<a name='L150'>            server.syslog_ident = <a href='../S/39.html#L210' title='Defined at 210 in src/zmalloc.c.'>zstrdup</a>(argv[1]);
+<a name='L151'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"syslog-facility") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L152'>            <b>struct</b> <font color='red'>{</font>
+<a name='L153'>                <b>const</b> <b>char</b>     *name;
+<a name='L154'>                <b>const</b> <b>int</b>       value;
+<a name='L155'>            <font color='red'>}</font> validSyslogFacilities[] = <font color='red'>{</font>
+<a name='L156'>                <font color='red'>{</font>"user",    LOG_USER<font color='red'>}</font>,
+<a name='L157'>                <font color='red'>{</font>"local0",  LOG_LOCAL0<font color='red'>}</font>,
+<a name='L158'>                <font color='red'>{</font>"local1",  LOG_LOCAL1<font color='red'>}</font>,
+<a name='L159'>                <font color='red'>{</font>"local2",  LOG_LOCAL2<font color='red'>}</font>,
+<a name='L160'>                <font color='red'>{</font>"local3",  LOG_LOCAL3<font color='red'>}</font>,
+<a name='L161'>                <font color='red'>{</font>"local4",  LOG_LOCAL4<font color='red'>}</font>,
+<a name='L162'>                <font color='red'>{</font>"local5",  LOG_LOCAL5<font color='red'>}</font>,
+<a name='L163'>                <font color='red'>{</font>"local6",  LOG_LOCAL6<font color='red'>}</font>,
+<a name='L164'>                <font color='red'>{</font>"local7",  LOG_LOCAL7<font color='red'>}</font>,
+<a name='L165'>                <font color='red'>{</font>NULL, 0<font color='red'>}</font>
+<a name='L166'>            <font color='red'>}</font>;
+<a name='L167'>            <b>int</b> i;
+<a name='L168'>
+<a name='L169'>            <b>for</b> (i = 0; validSyslogFacilities[i].name; i++) <font color='red'>{</font>
+<a name='L170'>                <b>if</b> (!strcasecmp(validSyslogFacilities[i].name, argv[1])) <font color='red'>{</font>
+<a name='L171'>                    server.syslog_facility = validSyslogFacilities[i].value;
+<a name='L172'>                    <b>break</b>;
+<a name='L173'>                <font color='red'>}</font>
+<a name='L174'>            <font color='red'>}</font>
+<a name='L175'>
+<a name='L176'>            <b>if</b> (!validSyslogFacilities[i].name) <font color='red'>{</font>
+<a name='L177'>                err = "Invalid log facility. Must be one of USER or between LOCAL0-LOCAL7";
+<a name='L178'>                <b>goto</b> loaderr;
+<a name='L179'>            <font color='red'>}</font>
+<a name='L180'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"databases") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L181'>            server.dbnum = atoi(argv[1]);
+<a name='L182'>            <b>if</b> (server.dbnum &lt; 1) <font color='red'>{</font>
+<a name='L183'>                err = "Invalid number of databases"; <b>goto</b> loaderr;
+<a name='L184'>            <font color='red'>}</font>
+<a name='L185'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"include") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L186'>            <a href='../S/96.html#L417' title='Defined at 417 in src/config.c.'>loadServerConfig</a>(argv[1],NULL);
+<a name='L187'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"maxclients") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L188'>            server.maxclients = atoi(argv[1]);
+<a name='L189'>            <b>if</b> (server.maxclients &lt; 1) <font color='red'>{</font>
+<a name='L190'>                err = "Invalid max clients limit"; <b>goto</b> loaderr;
+<a name='L191'>            <font color='red'>}</font>
+<a name='L192'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"maxmemory") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L193'>            server.maxmemory = <a href='../S/74.html#L176' title='Defined at 176 in src/util.c.'>memtoll</a>(argv[1],NULL);
+<a name='L194'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"maxmemory-policy") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L195'>            <b>if</b> (!strcasecmp(argv[1],"volatile-lru")) <font color='red'>{</font>
+<a name='L196'>                server.maxmemory_policy = <a href='../S/32.html#L261' title='Defined at 261 in src/redis.h.'>REDIS_MAXMEMORY_VOLATILE_LRU</a>;
+<a name='L197'>            <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[1],"volatile-random")) <font color='red'>{</font>
+<a name='L198'>                server.maxmemory_policy = <a href='../S/32.html#L263' title='Defined at 263 in src/redis.h.'>REDIS_MAXMEMORY_VOLATILE_RANDOM</a>;
+<a name='L199'>            <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[1],"volatile-ttl")) <font color='red'>{</font>
+<a name='L200'>                server.maxmemory_policy = <a href='../S/32.html#L262' title='Defined at 262 in src/redis.h.'>REDIS_MAXMEMORY_VOLATILE_TTL</a>;
+<a name='L201'>            <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[1],"allkeys-lru")) <font color='red'>{</font>
+<a name='L202'>                server.maxmemory_policy = <a href='../S/32.html#L264' title='Defined at 264 in src/redis.h.'>REDIS_MAXMEMORY_ALLKEYS_LRU</a>;
+<a name='L203'>            <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[1],"allkeys-random")) <font color='red'>{</font>
+<a name='L204'>                server.maxmemory_policy = <a href='../S/32.html#L265' title='Defined at 265 in src/redis.h.'>REDIS_MAXMEMORY_ALLKEYS_RANDOM</a>;
+<a name='L205'>            <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[1],"noeviction")) <font color='red'>{</font>
+<a name='L206'>                server.maxmemory_policy = <a href='../S/32.html#L266' title='Defined at 266 in src/redis.h.'>REDIS_MAXMEMORY_NO_EVICTION</a>;
+<a name='L207'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L208'>                err = "Invalid maxmemory policy";
+<a name='L209'>                <b>goto</b> loaderr;
+<a name='L210'>            <font color='red'>}</font>
+<a name='L211'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"maxmemory-samples") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L212'>            server.maxmemory_samples = atoi(argv[1]);
+<a name='L213'>            <b>if</b> (server.maxmemory_samples &lt;= 0) <font color='red'>{</font>
+<a name='L214'>                err = "maxmemory-samples must be 1 or greater";
+<a name='L215'>                <b>goto</b> loaderr;
+<a name='L216'>            <font color='red'>}</font>
+<a name='L217'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"slaveof") &amp;&amp; argc == 3) <font color='red'>{</font>
+<a name='L218'>            server.masterhost = <a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>(argv[1]);
+<a name='L219'>            server.masterport = atoi(argv[2]);
+<a name='L220'>            server.repl_state = <a href='../S/32.html#L200' title='Defined at 200 in src/redis.h.'>REDIS_REPL_CONNECT</a>;
+<a name='L221'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"repl-ping-slave-period") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L222'>            server.repl_ping_slave_period = atoi(argv[1]);
+<a name='L223'>            <b>if</b> (server.repl_ping_slave_period &lt;= 0) <font color='red'>{</font>
+<a name='L224'>                err = "repl-ping-slave-period must be 1 or greater";
+<a name='L225'>                <b>goto</b> loaderr;
+<a name='L226'>            <font color='red'>}</font>
+<a name='L227'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"repl-timeout") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L228'>            server.repl_timeout = atoi(argv[1]);
+<a name='L229'>            <b>if</b> (server.repl_timeout &lt;= 0) <font color='red'>{</font>
+<a name='L230'>                err = "repl-timeout must be 1 or greater";
+<a name='L231'>                <b>goto</b> loaderr;
+<a name='L232'>            <font color='red'>}</font>
+<a name='L233'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"masterauth") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L234'>                server.masterauth = <a href='../S/39.html#L210' title='Defined at 210 in src/zmalloc.c.'>zstrdup</a>(argv[1]);
+<a name='L235'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"slave-serve-stale-data") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L236'>            <b>if</b> ((server.repl_serve_stale_data = <a href='../S/96.html#L38' title='Defined at 38 in src/config.c.'>yesnotoi</a>(argv[1])) == -1) <font color='red'>{</font>
+<a name='L237'>                err = "argument must be 'yes' or 'no'"; <b>goto</b> loaderr;
+<a name='L238'>            <font color='red'>}</font>
+<a name='L239'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"slave-read-only") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L240'>            <b>if</b> ((server.repl_slave_ro = <a href='../S/96.html#L38' title='Defined at 38 in src/config.c.'>yesnotoi</a>(argv[1])) == -1) <font color='red'>{</font>
+<a name='L241'>                err = "argument must be 'yes' or 'no'"; <b>goto</b> loaderr;
+<a name='L242'>            <font color='red'>}</font>
+<a name='L243'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"rdbcompression") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L244'>            <b>if</b> ((server.rdb_compression = <a href='../S/96.html#L38' title='Defined at 38 in src/config.c.'>yesnotoi</a>(argv[1])) == -1) <font color='red'>{</font>
+<a name='L245'>                err = "argument must be 'yes' or 'no'"; <b>goto</b> loaderr;
+<a name='L246'>            <font color='red'>}</font>
+<a name='L247'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"rdbchecksum") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L248'>            <b>if</b> ((server.rdb_checksum = <a href='../S/96.html#L38' title='Defined at 38 in src/config.c.'>yesnotoi</a>(argv[1])) == -1) <font color='red'>{</font>
+<a name='L249'>                err = "argument must be 'yes' or 'no'"; <b>goto</b> loaderr;
+<a name='L250'>            <font color='red'>}</font>
+<a name='L251'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"activerehashing") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L252'>            <b>if</b> ((server.activerehashing = <a href='../S/96.html#L38' title='Defined at 38 in src/config.c.'>yesnotoi</a>(argv[1])) == -1) <font color='red'>{</font>
+<a name='L253'>                err = "argument must be 'yes' or 'no'"; <b>goto</b> loaderr;
+<a name='L254'>            <font color='red'>}</font>
+<a name='L255'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"daemonize") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L256'>            <b>if</b> ((server.<a href='../S/35.html#L2402' title='Defined at 2402 in src/redis.c.'>daemonize</a> = <a href='../S/96.html#L38' title='Defined at 38 in src/config.c.'>yesnotoi</a>(argv[1])) == -1) <font color='red'>{</font>
+<a name='L257'>                err = "argument must be 'yes' or 'no'"; <b>goto</b> loaderr;
+<a name='L258'>            <font color='red'>}</font>
+<a name='L259'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"appendonly") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L260'>            <b>int</b> yes;
+<a name='L261'>
+<a name='L262'>            <b>if</b> ((yes = <a href='../S/96.html#L38' title='Defined at 38 in src/config.c.'>yesnotoi</a>(argv[1])) == -1) <font color='red'>{</font>
+<a name='L263'>                err = "argument must be 'yes' or 'no'"; <b>goto</b> loaderr;
+<a name='L264'>            <font color='red'>}</font>
+<a name='L265'>            server.aof_state = yes ? <a href='../S/32.html#L168' title='Defined at 168 in src/redis.h.'>REDIS_AOF_ON</a> : <a href='../S/32.html#L167' title='Defined at 167 in src/redis.h.'>REDIS_AOF_OFF</a>;
+<a name='L266'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"appendfilename") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L267'>            <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(server.aof_filename);
+<a name='L268'>            server.aof_filename = <a href='../S/39.html#L210' title='Defined at 210 in src/zmalloc.c.'>zstrdup</a>(argv[1]);
+<a name='L269'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"no-appendfsync-on-rewrite")
+<a name='L270'>                   &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L271'>            <b>if</b> ((server.aof_no_fsync_on_rewrite= <a href='../S/96.html#L38' title='Defined at 38 in src/config.c.'>yesnotoi</a>(argv[1])) == -1) <font color='red'>{</font>
+<a name='L272'>                err = "argument must be 'yes' or 'no'"; <b>goto</b> loaderr;
+<a name='L273'>            <font color='red'>}</font>
+<a name='L274'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"appendfsync") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L275'>            <b>if</b> (!strcasecmp(argv[1],"no")) <font color='red'>{</font>
+<a name='L276'>                server.<a href='../D/1557.html' title='Multiple defined in 2 places.'>aof_fsync</a> = <a href='../S/32.html#L242' title='Defined at 242 in src/redis.h.'>AOF_FSYNC_NO</a>;
+<a name='L277'>            <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[1],"always")) <font color='red'>{</font>
+<a name='L278'>                server.<a href='../D/1557.html' title='Multiple defined in 2 places.'>aof_fsync</a> = <a href='../S/32.html#L243' title='Defined at 243 in src/redis.h.'>AOF_FSYNC_ALWAYS</a>;
+<a name='L279'>            <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[1],"everysec")) <font color='red'>{</font>
+<a name='L280'>                server.<a href='../D/1557.html' title='Multiple defined in 2 places.'>aof_fsync</a> = <a href='../S/32.html#L244' title='Defined at 244 in src/redis.h.'>AOF_FSYNC_EVERYSEC</a>;
+<a name='L281'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L282'>                err = "argument must be 'no', 'always' or 'everysec'";
+<a name='L283'>                <b>goto</b> loaderr;
+<a name='L284'>            <font color='red'>}</font>
+<a name='L285'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"auto-aof-rewrite-percentage") &amp;&amp;
+<a name='L286'>                   argc == 2)
+<a name='L287'>        <font color='red'>{</font>
+<a name='L288'>            server.aof_rewrite_perc = atoi(argv[1]);
+<a name='L289'>            <b>if</b> (server.aof_rewrite_perc &lt; 0) <font color='red'>{</font>
+<a name='L290'>                err = "Invalid negative percentage for AOF auto rewrite";
+<a name='L291'>                <b>goto</b> loaderr;
+<a name='L292'>            <font color='red'>}</font>
+<a name='L293'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"auto-aof-rewrite-min-size") &amp;&amp;
+<a name='L294'>                   argc == 2)
+<a name='L295'>        <font color='red'>{</font>
+<a name='L296'>            server.aof_rewrite_min_size = <a href='../S/74.html#L176' title='Defined at 176 in src/util.c.'>memtoll</a>(argv[1],NULL);
+<a name='L297'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"requirepass") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L298'>            <b>if</b> (strlen(argv[1]) &gt; <a href='../S/32.html#L88' title='Defined at 88 in src/redis.h.'>REDIS_AUTHPASS_MAX_LEN</a>) <font color='red'>{</font>
+<a name='L299'>                err = "Password is longer than REDIS_AUTHPASS_MAX_LEN";
+<a name='L300'>                <b>goto</b> loaderr;
+<a name='L301'>            <font color='red'>}</font>
+<a name='L302'>            server.requirepass = <a href='../S/39.html#L210' title='Defined at 210 in src/zmalloc.c.'>zstrdup</a>(argv[1]);
+<a name='L303'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"pidfile") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L304'>            <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(server.pidfile);
+<a name='L305'>            server.pidfile = <a href='../S/39.html#L210' title='Defined at 210 in src/zmalloc.c.'>zstrdup</a>(argv[1]);
+<a name='L306'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"dbfilename") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L307'>            <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(server.rdb_filename);
+<a name='L308'>            server.rdb_filename = <a href='../S/39.html#L210' title='Defined at 210 in src/zmalloc.c.'>zstrdup</a>(argv[1]);
+<a name='L309'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"hash-max-ziplist-entries") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L310'>            server.hash_max_ziplist_entries = <a href='../S/74.html#L176' title='Defined at 176 in src/util.c.'>memtoll</a>(argv[1], NULL);
+<a name='L311'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"hash-max-ziplist-value") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L312'>            server.hash_max_ziplist_value = <a href='../S/74.html#L176' title='Defined at 176 in src/util.c.'>memtoll</a>(argv[1], NULL);
+<a name='L313'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"list-max-ziplist-entries") &amp;&amp; argc == 2)<font color='red'>{</font>
+<a name='L314'>            server.list_max_ziplist_entries = <a href='../S/74.html#L176' title='Defined at 176 in src/util.c.'>memtoll</a>(argv[1], NULL);
+<a name='L315'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"list-max-ziplist-value") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L316'>            server.list_max_ziplist_value = <a href='../S/74.html#L176' title='Defined at 176 in src/util.c.'>memtoll</a>(argv[1], NULL);
+<a name='L317'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"set-max-intset-entries") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L318'>            server.set_max_intset_entries = <a href='../S/74.html#L176' title='Defined at 176 in src/util.c.'>memtoll</a>(argv[1], NULL);
+<a name='L319'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"zset-max-ziplist-entries") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L320'>            server.zset_max_ziplist_entries = <a href='../S/74.html#L176' title='Defined at 176 in src/util.c.'>memtoll</a>(argv[1], NULL);
+<a name='L321'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"zset-max-ziplist-value") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L322'>            server.zset_max_ziplist_value = <a href='../S/74.html#L176' title='Defined at 176 in src/util.c.'>memtoll</a>(argv[1], NULL);
+<a name='L323'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"rename-command") &amp;&amp; argc == 3) <font color='red'>{</font>
+<a name='L324'>            <b>struct</b> <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a> *cmd = <a href='../S/35.html#L1448' title='Defined at 1448 in src/redis.c.'>lookupCommand</a>(argv[1]);
+<a name='L325'>            <b>int</b> retval;
+<a name='L326'>
+<a name='L327'>            <b>if</b> (!cmd) <font color='red'>{</font>
+<a name='L328'>                err = "No such command in rename-command";
+<a name='L329'>                <b>goto</b> loaderr;
+<a name='L330'>            <font color='red'>}</font>
+<a name='L331'>
+<a name='L332'>            <i><font color='green'>/* If the target command name is the emtpy string we just</font></i>
+<a name='L333'><i><font color='green'>             * remove it from the command table. */</font></i>
+<a name='L334'>            retval = <a href='../D/2066.html' title='Multiple defined in 2 places.'>dictDelete</a>(server.commands, argv[1]);
+<a name='L335'>            <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(retval == <a href='../D/124.html' title='Multiple defined in 2 places.'>DICT_OK</a>);
+<a name='L336'>
+<a name='L337'>            <i><font color='green'>/* Otherwise we re-add the command under a different name. */</font></i>
+<a name='L338'>            <b>if</b> (<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(argv[2]) != 0) <font color='red'>{</font>
+<a name='L339'>                <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> copy = <a href='../D/4004.html' title='Multiple defined in 2 places.'>sdsdup</a>(argv[2]);
+<a name='L340'>
+<a name='L341'>                retval = <a href='../D/2061.html' title='Multiple defined in 2 places.'>dictAdd</a>(server.commands, copy, cmd);
+<a name='L342'>                <b>if</b> (retval != <a href='../D/124.html' title='Multiple defined in 2 places.'>DICT_OK</a>) <font color='red'>{</font>
+<a name='L343'>                    <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(copy);
+<a name='L344'>                    err = "Target command name already exists"; <b>goto</b> loaderr;
+<a name='L345'>                <font color='red'>}</font>
+<a name='L346'>            <font color='red'>}</font>
+<a name='L347'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"lua-time-limit") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L348'>            server.lua_time_limit = strtoll(argv[1],NULL,10);
+<a name='L349'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"slowlog-log-slower-than") &amp;&amp;
+<a name='L350'>                   argc == 2)
+<a name='L351'>        <font color='red'>{</font>
+<a name='L352'>            server.slowlog_log_slower_than = strtoll(argv[1],NULL,10);
+<a name='L353'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"slowlog-max-len") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L354'>            server.slowlog_max_len = strtoll(argv[1],NULL,10);
+<a name='L355'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"client-output-buffer-limit") &amp;&amp;
+<a name='L356'>                   argc == 5)
+<a name='L357'>        <font color='red'>{</font>
+<a name='L358'>            <b>int</b> class = <a href='../S/86.html#L1278' title='Defined at 1278 in src/networking.c.'>getClientLimitClassByName</a>(argv[1]);
+<a name='L359'>            <b>unsigned</b> <b>long</b> <b>long</b> hard, soft;
+<a name='L360'>            <b>int</b> soft_seconds;
+<a name='L361'>
+<a name='L362'>            <b>if</b> (class == -1) <font color='red'>{</font>
+<a name='L363'>                err = "Unrecognized client limit class";
+<a name='L364'>                <b>goto</b> loaderr;
+<a name='L365'>            <font color='red'>}</font>
+<a name='L366'>            hard = <a href='../S/74.html#L176' title='Defined at 176 in src/util.c.'>memtoll</a>(argv[2],NULL);
+<a name='L367'>            soft = <a href='../S/74.html#L176' title='Defined at 176 in src/util.c.'>memtoll</a>(argv[3],NULL);
+<a name='L368'>            soft_seconds = atoi(argv[4]);
+<a name='L369'>            <b>if</b> (soft_seconds &lt; 0) <font color='red'>{</font>
+<a name='L370'>                err = "Negative number of seconds in soft limt is invalid";
+<a name='L371'>                <b>goto</b> loaderr;
+<a name='L372'>            <font color='red'>}</font>
+<a name='L373'>            server.client_obuf_limits[class].hard_limit_bytes = hard;
+<a name='L374'>            server.client_obuf_limits[class].soft_limit_bytes = soft;
+<a name='L375'>            server.client_obuf_limits[class].soft_limit_seconds = soft_seconds;
+<a name='L376'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"stop-writes-on-bgsave-error") &amp;&amp;
+<a name='L377'>                   argc == 2) <font color='red'>{</font>
+<a name='L378'>            <b>if</b> ((server.stop_writes_on_bgsave_err = <a href='../S/96.html#L38' title='Defined at 38 in src/config.c.'>yesnotoi</a>(argv[1])) == -1) <font color='red'>{</font>
+<a name='L379'>                err = "argument must be 'yes' or 'no'"; <b>goto</b> loaderr;
+<a name='L380'>            <font color='red'>}</font>
+<a name='L381'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"slave-priority") &amp;&amp; argc == 2) <font color='red'>{</font>
+<a name='L382'>            server.slave_priority = atoi(argv[1]);
+<a name='L383'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(argv[0],"sentinel")) <font color='red'>{</font>
+<a name='L384'>            <i><font color='green'>/* argc == 1 is handled by main() as we need to enter the sentinel</font></i>
+<a name='L385'><i><font color='green'>             * mode ASAP. */</font></i>
+<a name='L386'>            <b>if</b> (argc != 1) <font color='red'>{</font>
+<a name='L387'>                <b>if</b> (!server.sentinel_mode) <font color='red'>{</font>
+<a name='L388'>                    err = "sentinel directive while not in sentinel mode";
+<a name='L389'>                    <b>goto</b> loaderr;
+<a name='L390'>                <font color='red'>}</font>
+<a name='L391'>                err = <a href='../S/82.html#L1149' title='Defined at 1149 in src/sentinel.c.'>sentinelHandleConfiguration</a>(argv+1,argc-1);
+<a name='L392'>                <b>if</b> (err) <b>goto</b> loaderr;
+<a name='L393'>            <font color='red'>}</font>
+<a name='L394'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L395'>            err = "Bad directive or wrong number of arguments"; <b>goto</b> loaderr;
+<a name='L396'>        <font color='red'>}</font>
+<a name='L397'>        <a href='../D/4007.html' title='Multiple defined in 2 places.'>sdsfreesplitres</a>(argv,argc);
+<a name='L398'>    <font color='red'>}</font>
+<a name='L399'>    <a href='../D/4007.html' title='Multiple defined in 2 places.'>sdsfreesplitres</a>(lines,totlines);
+<a name='L400'>    <b>return</b>;
+<a name='L401'>
+<a name='L402'>loaderr:
+<a name='L403'>    fprintf(stderr, "\n*** FATAL CONFIG FILE ERROR ***\n");
+<a name='L404'>    fprintf(stderr, "Reading the configuration file, at line %d\n", linenum);
+<a name='L405'>    fprintf(stderr, "&gt;&gt;&gt; '%s'\n", lines[i]);
+<a name='L406'>    fprintf(stderr, "%s\n", err);
+<a name='L407'>    exit(1);
+<a name='L408'><font color='red'>}</font>
+<a name='L409'>
+<a name='L410'><i><font color='green'>/* Load the server configuration from the specified filename.</font></i>
+<a name='L411'><i><font color='green'> * The function appends the additional configuration directives stored</font></i>
+<a name='L412'><i><font color='green'> * in the 'options' string to the config file before loading.</font></i>
+<a name='L413'><i><font color='green'> *</font></i>
+<a name='L414'><i><font color='green'> * Both filename and options can be NULL, in such a case are considered</font></i>
+<a name='L415'><i><font color='green'> * emtpy. This way loadServerConfig can be used to just load a file or</font></i>
+<a name='L416'><i><font color='green'> * just load a string. */</font></i>
+<a name='L417'><b>void</b> <a href='../R/2446.html' title='Multiple refered from 3 places.'>loadServerConfig</a>(<b>char</b> *filename, <b>char</b> *options) <font color='red'>{</font>
+<a name='L418'>    <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a> = <a href='../D/4005.html' title='Multiple defined in 2 places.'>sdsempty</a>();
+<a name='L419'>    <b>char</b> buf[<a href='../S/32.html#L74' title='Defined at 74 in src/redis.h.'>REDIS_CONFIGLINE_MAX</a>+1];
+<a name='L420'>
+<a name='L421'>    <i><font color='green'>/* Load the file content */</font></i>
+<a name='L422'>    <b>if</b> (filename) <font color='red'>{</font>
+<a name='L423'>        FILE *fp;
+<a name='L424'>
+<a name='L425'>        <b>if</b> (filename[0] == '-' &amp;&amp; filename[1] == '\0') <font color='red'>{</font>
+<a name='L426'>            fp = stdin;
+<a name='L427'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L428'>            <b>if</b> ((fp = fopen(filename,"r")) == NULL) <font color='red'>{</font>
+<a name='L429'>                <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,
+<a name='L430'>                    "Fatal error, can't open config file '%s'", filename);
+<a name='L431'>                exit(1);
+<a name='L432'>            <font color='red'>}</font>
+<a name='L433'>        <font color='red'>}</font>
+<a name='L434'>        <b>while</b>(fgets(buf,<a href='../S/32.html#L74' title='Defined at 74 in src/redis.h.'>REDIS_CONFIGLINE_MAX</a>+1,fp) != NULL)
+<a name='L435'>            <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a> = <a href='../D/3994.html' title='Multiple defined in 2 places.'>sdscat</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>,buf);
+<a name='L436'>        <b>if</b> (fp != stdin) fclose(fp);
+<a name='L437'>    <font color='red'>}</font>
+<a name='L438'>    <i><font color='green'>/* Append the additional options */</font></i>
+<a name='L439'>    <b>if</b> (options) <font color='red'>{</font>
+<a name='L440'>        <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a> = <a href='../D/3994.html' title='Multiple defined in 2 places.'>sdscat</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>,"\n");
+<a name='L441'>        <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a> = <a href='../D/3994.html' title='Multiple defined in 2 places.'>sdscat</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>,options);
+<a name='L442'>    <font color='red'>}</font>
+<a name='L443'>    <a href='../S/96.html#L57' title='Defined at 57 in src/config.c.'>loadServerConfigFromString</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>);
+<a name='L444'>    <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>);
+<a name='L445'><font color='red'>}</font>
+<a name='L446'>
+<a name='L447'><i><font color='green'>/*-----------------------------------------------------------------------------</font></i>
+<a name='L448'><i><font color='green'> * CONFIG command for remote configuration</font></i>
+<a name='L449'><i><font color='green'> *----------------------------------------------------------------------------*/</font></i>
+<a name='L450'>
+<a name='L451'><b>void</b> <a href='../S/96.html#L928' title='Refered from 928 in src/config.c.'>configSetCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L452'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L453'>    <b>long</b> <b>long</b> ll;
+<a name='L454'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,c-&gt;argv[2],c-&gt;argv[2]-&gt;encoding == <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>);
+<a name='L455'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,c-&gt;argv[2],c-&gt;argv[3]-&gt;encoding == <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>);
+<a name='L456'>    o = c-&gt;argv[3];
+<a name='L457'>
+<a name='L458'>    <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"dbfilename")) <font color='red'>{</font>
+<a name='L459'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(server.rdb_filename);
+<a name='L460'>        server.rdb_filename = <a href='../S/39.html#L210' title='Defined at 210 in src/zmalloc.c.'>zstrdup</a>(o-&gt;ptr);
+<a name='L461'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"requirepass")) <font color='red'>{</font>
+<a name='L462'>        <b>if</b> (<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(o-&gt;ptr) &gt; <a href='../S/32.html#L88' title='Defined at 88 in src/redis.h.'>REDIS_AUTHPASS_MAX_LEN</a>) <b>goto</b> badfmt;
+<a name='L463'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(server.requirepass);
+<a name='L464'>        server.requirepass = ((<b>char</b>*)o-&gt;ptr)[0] ? <a href='../S/39.html#L210' title='Defined at 210 in src/zmalloc.c.'>zstrdup</a>(o-&gt;ptr) : NULL;
+<a name='L465'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"masterauth")) <font color='red'>{</font>
+<a name='L466'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(server.masterauth);
+<a name='L467'>        server.masterauth = <a href='../S/39.html#L210' title='Defined at 210 in src/zmalloc.c.'>zstrdup</a>(o-&gt;ptr);
+<a name='L468'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"maxmemory")) <font color='red'>{</font>
+<a name='L469'>        <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o,&amp;ll) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> ||
+<a name='L470'>            ll &lt; 0) <b>goto</b> badfmt;
+<a name='L471'>        server.maxmemory = ll;
+<a name='L472'>        <b>if</b> (server.maxmemory) <font color='red'>{</font>
+<a name='L473'>            <b>if</b> (server.maxmemory &lt; <a href='../S/39.html#L218' title='Defined at 218 in src/zmalloc.c.'>zmalloc_used_memory</a>()) <font color='red'>{</font>
+<a name='L474'>                <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"WARNING: the new maxmemory value set via CONFIG SET is smaller than the current memory usage. This will result in keys eviction and/or inability to accept new write commands depending on the maxmemory-policy.");
+<a name='L475'>            <font color='red'>}</font>
+<a name='L476'>            <a href='../S/35.html#L2228' title='Defined at 2228 in src/redis.c.'>freeMemoryIfNeeded</a>();
+<a name='L477'>        <font color='red'>}</font>
+<a name='L478'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"maxmemory-policy")) <font color='red'>{</font>
+<a name='L479'>        <b>if</b> (!strcasecmp(o-&gt;ptr,"volatile-lru")) <font color='red'>{</font>
+<a name='L480'>            server.maxmemory_policy = <a href='../S/32.html#L261' title='Defined at 261 in src/redis.h.'>REDIS_MAXMEMORY_VOLATILE_LRU</a>;
+<a name='L481'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(o-&gt;ptr,"volatile-random")) <font color='red'>{</font>
+<a name='L482'>            server.maxmemory_policy = <a href='../S/32.html#L263' title='Defined at 263 in src/redis.h.'>REDIS_MAXMEMORY_VOLATILE_RANDOM</a>;
+<a name='L483'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(o-&gt;ptr,"volatile-ttl")) <font color='red'>{</font>
+<a name='L484'>            server.maxmemory_policy = <a href='../S/32.html#L262' title='Defined at 262 in src/redis.h.'>REDIS_MAXMEMORY_VOLATILE_TTL</a>;
+<a name='L485'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(o-&gt;ptr,"allkeys-lru")) <font color='red'>{</font>
+<a name='L486'>            server.maxmemory_policy = <a href='../S/32.html#L264' title='Defined at 264 in src/redis.h.'>REDIS_MAXMEMORY_ALLKEYS_LRU</a>;
+<a name='L487'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(o-&gt;ptr,"allkeys-random")) <font color='red'>{</font>
+<a name='L488'>            server.maxmemory_policy = <a href='../S/32.html#L265' title='Defined at 265 in src/redis.h.'>REDIS_MAXMEMORY_ALLKEYS_RANDOM</a>;
+<a name='L489'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(o-&gt;ptr,"noeviction")) <font color='red'>{</font>
+<a name='L490'>            server.maxmemory_policy = <a href='../S/32.html#L266' title='Defined at 266 in src/redis.h.'>REDIS_MAXMEMORY_NO_EVICTION</a>;
+<a name='L491'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L492'>            <b>goto</b> badfmt;
+<a name='L493'>        <font color='red'>}</font>
+<a name='L494'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"maxmemory-samples")) <font color='red'>{</font>
+<a name='L495'>        <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o,&amp;ll) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> ||
+<a name='L496'>            ll &lt;= 0) <b>goto</b> badfmt;
+<a name='L497'>        server.maxmemory_samples = ll;
+<a name='L498'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"timeout")) <font color='red'>{</font>
+<a name='L499'>        <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o,&amp;ll) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> ||
+<a name='L500'>            ll &lt; 0 || ll &gt; LONG_MAX) <b>goto</b> badfmt;
+<a name='L501'>        server.maxidletime = ll;
+<a name='L502'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"appendfsync")) <font color='red'>{</font>
+<a name='L503'>        <b>if</b> (!strcasecmp(o-&gt;ptr,"no")) <font color='red'>{</font>
+<a name='L504'>            server.<a href='../D/1557.html' title='Multiple defined in 2 places.'>aof_fsync</a> = <a href='../S/32.html#L242' title='Defined at 242 in src/redis.h.'>AOF_FSYNC_NO</a>;
+<a name='L505'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(o-&gt;ptr,"everysec")) <font color='red'>{</font>
+<a name='L506'>            server.<a href='../D/1557.html' title='Multiple defined in 2 places.'>aof_fsync</a> = <a href='../S/32.html#L244' title='Defined at 244 in src/redis.h.'>AOF_FSYNC_EVERYSEC</a>;
+<a name='L507'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(o-&gt;ptr,"always")) <font color='red'>{</font>
+<a name='L508'>            server.<a href='../D/1557.html' title='Multiple defined in 2 places.'>aof_fsync</a> = <a href='../S/32.html#L243' title='Defined at 243 in src/redis.h.'>AOF_FSYNC_ALWAYS</a>;
+<a name='L509'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L510'>            <b>goto</b> badfmt;
+<a name='L511'>        <font color='red'>}</font>
+<a name='L512'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"no-appendfsync-on-rewrite")) <font color='red'>{</font>
+<a name='L513'>        <b>int</b> yn = <a href='../S/96.html#L38' title='Defined at 38 in src/config.c.'>yesnotoi</a>(o-&gt;ptr);
+<a name='L514'>
+<a name='L515'>        <b>if</b> (yn == -1) <b>goto</b> badfmt;
+<a name='L516'>        server.aof_no_fsync_on_rewrite = yn;
+<a name='L517'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"appendonly")) <font color='red'>{</font>
+<a name='L518'>        <b>int</b> enable = <a href='../S/96.html#L38' title='Defined at 38 in src/config.c.'>yesnotoi</a>(o-&gt;ptr);
+<a name='L519'>
+<a name='L520'>        <b>if</b> (enable == -1) <b>goto</b> badfmt;
+<a name='L521'>        <b>if</b> (enable == 0 &amp;&amp; server.aof_state != <a href='../S/32.html#L167' title='Defined at 167 in src/redis.h.'>REDIS_AOF_OFF</a>) <font color='red'>{</font>
+<a name='L522'>            <a href='../S/62.html#L165' title='Defined at 165 in src/aof.c.'>stopAppendOnly</a>();
+<a name='L523'>        <font color='red'>}</font> <b>else</b> <b>if</b> (enable &amp;&amp; server.aof_state == <a href='../S/32.html#L167' title='Defined at 167 in src/redis.h.'>REDIS_AOF_OFF</a>) <font color='red'>{</font>
+<a name='L524'>            <b>if</b> (<a href='../S/62.html#L192' title='Defined at 192 in src/aof.c.'>startAppendOnly</a>() == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>) <font color='red'>{</font>
+<a name='L525'>                <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,
+<a name='L526'>                    "Unable to turn on AOF. Check server logs.");
+<a name='L527'>                <b>return</b>;
+<a name='L528'>            <font color='red'>}</font>
+<a name='L529'>        <font color='red'>}</font>
+<a name='L530'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"auto-aof-rewrite-percentage")) <font color='red'>{</font>
+<a name='L531'>        <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o,&amp;ll) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> || ll &lt; 0) <b>goto</b> badfmt;
+<a name='L532'>        server.aof_rewrite_perc = ll;
+<a name='L533'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"auto-aof-rewrite-min-size")) <font color='red'>{</font>
+<a name='L534'>        <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o,&amp;ll) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> || ll &lt; 0) <b>goto</b> badfmt;
+<a name='L535'>        server.aof_rewrite_min_size = ll;
+<a name='L536'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"save")) <font color='red'>{</font>
+<a name='L537'>        <b>int</b> vlen, j;
+<a name='L538'>        <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> *v = <a href='../D/4018.html' title='Multiple defined in 2 places.'>sdssplitlen</a>(o-&gt;ptr,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(o-&gt;ptr)," ",1,&amp;vlen);
+<a name='L539'>
+<a name='L540'>        <i><font color='green'>/* Perform sanity check before setting the new config:</font></i>
+<a name='L541'><i><font color='green'>         * - Even number of args</font></i>
+<a name='L542'><i><font color='green'>         * - Seconds &gt;= 1, changes &gt;= 0 */</font></i>
+<a name='L543'>        <b>if</b> (vlen &amp; 1) <font color='red'>{</font>
+<a name='L544'>            <a href='../D/4007.html' title='Multiple defined in 2 places.'>sdsfreesplitres</a>(v,vlen);
+<a name='L545'>            <b>goto</b> badfmt;
+<a name='L546'>        <font color='red'>}</font>
+<a name='L547'>        <b>for</b> (j = 0; j &lt; vlen; j++) <font color='red'>{</font>
+<a name='L548'>            <b>char</b> *eptr;
+<a name='L549'>            <b>long</b> val;
+<a name='L550'>
+<a name='L551'>            val = strtoll(v[j], &amp;eptr, 10);
+<a name='L552'>            <b>if</b> (eptr[0] != '\0' ||
+<a name='L553'>                ((j &amp; 1) == 0 &amp;&amp; val &lt; 1) ||
+<a name='L554'>                ((j &amp; 1) == 1 &amp;&amp; val &lt; 0)) <font color='red'>{</font>
+<a name='L555'>                <a href='../D/4007.html' title='Multiple defined in 2 places.'>sdsfreesplitres</a>(v,vlen);
+<a name='L556'>                <b>goto</b> badfmt;
+<a name='L557'>            <font color='red'>}</font>
+<a name='L558'>        <font color='red'>}</font>
+<a name='L559'>        <i><font color='green'>/* Finally set the new config */</font></i>
+<a name='L560'>        <a href='../S/96.html#L51' title='Defined at 51 in src/config.c.'>resetServerSaveParams</a>();
+<a name='L561'>        <b>for</b> (j = 0; j &lt; vlen; j += 2) <font color='red'>{</font>
+<a name='L562'>            time_t seconds;
+<a name='L563'>            <b>int</b> changes;
+<a name='L564'>
+<a name='L565'>            seconds = strtoll(v[j],NULL,10);
+<a name='L566'>            changes = strtoll(v[j+1],NULL,10);
+<a name='L567'>            <a href='../S/96.html#L44' title='Defined at 44 in src/config.c.'>appendServerSaveParams</a>(seconds, changes);
+<a name='L568'>        <font color='red'>}</font>
+<a name='L569'>        <a href='../D/4007.html' title='Multiple defined in 2 places.'>sdsfreesplitres</a>(v,vlen);
+<a name='L570'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"slave-serve-stale-data")) <font color='red'>{</font>
+<a name='L571'>        <b>int</b> yn = <a href='../S/96.html#L38' title='Defined at 38 in src/config.c.'>yesnotoi</a>(o-&gt;ptr);
+<a name='L572'>
+<a name='L573'>        <b>if</b> (yn == -1) <b>goto</b> badfmt;
+<a name='L574'>        server.repl_serve_stale_data = yn;
+<a name='L575'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"slave-read-only")) <font color='red'>{</font>
+<a name='L576'>        <b>int</b> yn = <a href='../S/96.html#L38' title='Defined at 38 in src/config.c.'>yesnotoi</a>(o-&gt;ptr);
+<a name='L577'>
+<a name='L578'>        <b>if</b> (yn == -1) <b>goto</b> badfmt;
+<a name='L579'>        server.repl_slave_ro = yn;
+<a name='L580'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"dir")) <font color='red'>{</font>
+<a name='L581'>        <b>if</b> (chdir((<b>char</b>*)o-&gt;ptr) == -1) <font color='red'>{</font>
+<a name='L582'>            <a href='../S/86.html#L334' title='Defined at 334 in src/networking.c.'>addReplyErrorFormat</a>(c,"Changing directory: %s", strerror(errno));
+<a name='L583'>            <b>return</b>;
+<a name='L584'>        <font color='red'>}</font>
+<a name='L585'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"hash-max-ziplist-entries")) <font color='red'>{</font>
+<a name='L586'>        <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o,&amp;ll) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> || ll &lt; 0) <b>goto</b> badfmt;
+<a name='L587'>        server.hash_max_ziplist_entries = ll;
+<a name='L588'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"hash-max-ziplist-value")) <font color='red'>{</font>
+<a name='L589'>        <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o,&amp;ll) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> || ll &lt; 0) <b>goto</b> badfmt;
+<a name='L590'>        server.hash_max_ziplist_value = ll;
+<a name='L591'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"list-max-ziplist-entries")) <font color='red'>{</font>
+<a name='L592'>        <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o,&amp;ll) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> || ll &lt; 0) <b>goto</b> badfmt;
+<a name='L593'>        server.list_max_ziplist_entries = ll;
+<a name='L594'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"list-max-ziplist-value")) <font color='red'>{</font>
+<a name='L595'>        <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o,&amp;ll) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> || ll &lt; 0) <b>goto</b> badfmt;
+<a name='L596'>        server.list_max_ziplist_value = ll;
+<a name='L597'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"set-max-intset-entries")) <font color='red'>{</font>
+<a name='L598'>        <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o,&amp;ll) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> || ll &lt; 0) <b>goto</b> badfmt;
+<a name='L599'>        server.set_max_intset_entries = ll;
+<a name='L600'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"zset-max-ziplist-entries")) <font color='red'>{</font>
+<a name='L601'>        <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o,&amp;ll) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> || ll &lt; 0) <b>goto</b> badfmt;
+<a name='L602'>        server.zset_max_ziplist_entries = ll;
+<a name='L603'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"zset-max-ziplist-value")) <font color='red'>{</font>
+<a name='L604'>        <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o,&amp;ll) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> || ll &lt; 0) <b>goto</b> badfmt;
+<a name='L605'>        server.zset_max_ziplist_value = ll;
+<a name='L606'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"lua-time-limit")) <font color='red'>{</font>
+<a name='L607'>        <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o,&amp;ll) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> || ll &lt; 0) <b>goto</b> badfmt;
+<a name='L608'>        server.lua_time_limit = ll;
+<a name='L609'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"slowlog-log-slower-than")) <font color='red'>{</font>
+<a name='L610'>        <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o,&amp;ll) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>) <b>goto</b> badfmt;
+<a name='L611'>        server.slowlog_log_slower_than = ll;
+<a name='L612'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"slowlog-max-len")) <font color='red'>{</font>
+<a name='L613'>        <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o,&amp;ll) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> || ll &lt; 0) <b>goto</b> badfmt;
+<a name='L614'>        server.slowlog_max_len = (<b>unsigned</b>)ll;
+<a name='L615'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"loglevel")) <font color='red'>{</font>
+<a name='L616'>        <b>if</b> (!strcasecmp(o-&gt;ptr,"warning")) <font color='red'>{</font>
+<a name='L617'>            server.verbosity = <a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>;
+<a name='L618'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(o-&gt;ptr,"notice")) <font color='red'>{</font>
+<a name='L619'>            server.verbosity = <a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>;
+<a name='L620'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(o-&gt;ptr,"verbose")) <font color='red'>{</font>
+<a name='L621'>            server.verbosity = <a href='../S/32.html#L230' title='Defined at 230 in src/redis.h.'>REDIS_VERBOSE</a>;
+<a name='L622'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(o-&gt;ptr,"debug")) <font color='red'>{</font>
+<a name='L623'>            server.verbosity = <a href='../S/32.html#L229' title='Defined at 229 in src/redis.h.'>REDIS_DEBUG</a>;
+<a name='L624'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L625'>            <b>goto</b> badfmt;
+<a name='L626'>        <font color='red'>}</font>
+<a name='L627'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"client-output-buffer-limit")) <font color='red'>{</font>
+<a name='L628'>        <b>int</b> vlen, j;
+<a name='L629'>        <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> *v = <a href='../D/4018.html' title='Multiple defined in 2 places.'>sdssplitlen</a>(o-&gt;ptr,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(o-&gt;ptr)," ",1,&amp;vlen);
+<a name='L630'>
+<a name='L631'>        <i><font color='green'>/* We need a multiple of 4: &lt;class&gt; &lt;hard&gt; &lt;soft&gt; &lt;soft_seconds&gt; */</font></i>
+<a name='L632'>        <b>if</b> (vlen % 4) <font color='red'>{</font>
+<a name='L633'>            <a href='../D/4007.html' title='Multiple defined in 2 places.'>sdsfreesplitres</a>(v,vlen);
+<a name='L634'>            <b>goto</b> badfmt;
+<a name='L635'>        <font color='red'>}</font>
+<a name='L636'>
+<a name='L637'>        <i><font color='green'>/* Sanity check of single arguments, so that we either refuse the</font></i>
+<a name='L638'><i><font color='green'>         * whole configuration string or accept it all, even if a single</font></i>
+<a name='L639'><i><font color='green'>         * error in a single client class is present. */</font></i>
+<a name='L640'>        <b>for</b> (j = 0; j &lt; vlen; j++) <font color='red'>{</font>
+<a name='L641'>            <b>char</b> *eptr;
+<a name='L642'>            <b>long</b> val;
+<a name='L643'>
+<a name='L644'>            <b>if</b> ((j % 4) == 0) <font color='red'>{</font>
+<a name='L645'>                <b>if</b> (<a href='../S/86.html#L1278' title='Defined at 1278 in src/networking.c.'>getClientLimitClassByName</a>(v[j]) == -1) <font color='red'>{</font>
+<a name='L646'>                    <a href='../D/4007.html' title='Multiple defined in 2 places.'>sdsfreesplitres</a>(v,vlen);
+<a name='L647'>                    <b>goto</b> badfmt;
+<a name='L648'>                <font color='red'>}</font>
+<a name='L649'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L650'>                val = strtoll(v[j], &amp;eptr, 10);
+<a name='L651'>                <b>if</b> (eptr[0] != '\0' || val &lt; 0) <font color='red'>{</font>
+<a name='L652'>                    <a href='../D/4007.html' title='Multiple defined in 2 places.'>sdsfreesplitres</a>(v,vlen);
+<a name='L653'>                    <b>goto</b> badfmt;
+<a name='L654'>                <font color='red'>}</font>
+<a name='L655'>            <font color='red'>}</font>
+<a name='L656'>        <font color='red'>}</font>
+<a name='L657'>        <i><font color='green'>/* Finally set the new config */</font></i>
+<a name='L658'>        <b>for</b> (j = 0; j &lt; vlen; j += 4) <font color='red'>{</font>
+<a name='L659'>            <b>int</b> class;
+<a name='L660'>            <b>unsigned</b> <b>long</b> <b>long</b> hard, soft;
+<a name='L661'>            <b>int</b> soft_seconds;
+<a name='L662'>
+<a name='L663'>            class = <a href='../S/86.html#L1278' title='Defined at 1278 in src/networking.c.'>getClientLimitClassByName</a>(v[j]);
+<a name='L664'>            hard = strtoll(v[j+1],NULL,10);
+<a name='L665'>            soft = strtoll(v[j+2],NULL,10);
+<a name='L666'>            soft_seconds = strtoll(v[j+3],NULL,10);
+<a name='L667'>
+<a name='L668'>            server.client_obuf_limits[class].hard_limit_bytes = hard;
+<a name='L669'>            server.client_obuf_limits[class].soft_limit_bytes = soft;
+<a name='L670'>            server.client_obuf_limits[class].soft_limit_seconds = soft_seconds;
+<a name='L671'>        <font color='red'>}</font>
+<a name='L672'>        <a href='../D/4007.html' title='Multiple defined in 2 places.'>sdsfreesplitres</a>(v,vlen);
+<a name='L673'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"stop-writes-on-bgsave-error")) <font color='red'>{</font>
+<a name='L674'>        <b>int</b> yn = <a href='../S/96.html#L38' title='Defined at 38 in src/config.c.'>yesnotoi</a>(o-&gt;ptr);
+<a name='L675'>
+<a name='L676'>        <b>if</b> (yn == -1) <b>goto</b> badfmt;
+<a name='L677'>        server.stop_writes_on_bgsave_err = yn;
+<a name='L678'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"repl-ping-slave-period")) <font color='red'>{</font>
+<a name='L679'>        <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o,&amp;ll) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> || ll &lt;= 0) <b>goto</b> badfmt;
+<a name='L680'>        server.repl_ping_slave_period = ll;
+<a name='L681'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"repl-timeout")) <font color='red'>{</font>
+<a name='L682'>        <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o,&amp;ll) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> || ll &lt;= 0) <b>goto</b> badfmt;
+<a name='L683'>        server.repl_timeout = ll;
+<a name='L684'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"watchdog-period")) <font color='red'>{</font>
+<a name='L685'>        <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o,&amp;ll) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> || ll &lt; 0) <b>goto</b> badfmt;
+<a name='L686'>        <b>if</b> (ll)
+<a name='L687'>            <a href='../S/69.html#L781' title='Defined at 781 in src/debug.c.'>enableWatchdog</a>(ll);
+<a name='L688'>        <b>else</b>
+<a name='L689'>            <a href='../S/69.html#L804' title='Defined at 804 in src/debug.c.'>disableWatchdog</a>();
+<a name='L690'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"rdbcompression")) <font color='red'>{</font>
+<a name='L691'>        <b>int</b> yn = <a href='../S/96.html#L38' title='Defined at 38 in src/config.c.'>yesnotoi</a>(o-&gt;ptr);
+<a name='L692'>
+<a name='L693'>        <b>if</b> (yn == -1) <b>goto</b> badfmt;
+<a name='L694'>        server.rdb_compression = yn;
+<a name='L695'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"rdbchecksum")) <font color='red'>{</font>
+<a name='L696'>        <b>int</b> yn = <a href='../S/96.html#L38' title='Defined at 38 in src/config.c.'>yesnotoi</a>(o-&gt;ptr);
+<a name='L697'>
+<a name='L698'>        <b>if</b> (yn == -1) <b>goto</b> badfmt;
+<a name='L699'>        server.rdb_checksum = yn;
+<a name='L700'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[2]-&gt;ptr,"slave-priority")) <font color='red'>{</font>
+<a name='L701'>        <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o,&amp;ll) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a> ||
+<a name='L702'>            ll &lt;= 0) <b>goto</b> badfmt;
+<a name='L703'>        server.slave_priority = ll;
+<a name='L704'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L705'>        <a href='../S/86.html#L334' title='Defined at 334 in src/networking.c.'>addReplyErrorFormat</a>(c,"Unsupported CONFIG parameter: %s",
+<a name='L706'>            (<b>char</b>*)c-&gt;argv[2]-&gt;ptr);
+<a name='L707'>        <b>return</b>;
+<a name='L708'>    <font color='red'>}</font>
+<a name='L709'>    <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L710'>    <b>return</b>;
+<a name='L711'>
+<a name='L712'>badfmt: <i><font color='green'>/* Bad format errors */</font></i>
+<a name='L713'>    <a href='../S/86.html#L334' title='Defined at 334 in src/networking.c.'>addReplyErrorFormat</a>(c,"Invalid argument '%s' for CONFIG SET '%s'",
+<a name='L714'>            (<b>char</b>*)o-&gt;ptr,
+<a name='L715'>            (<b>char</b>*)c-&gt;argv[2]-&gt;ptr);
+<a name='L716'><font color='red'>}</font>
+<a name='L717'>
+<a name='L718'><font color='darkred'>#define</font> <a href='../R/1675.html' title='Multiple refered from 7 places.'>config_get_string_field</a>(_name,_var) <b>do</b> <font color='red'>{</font> \
+<a name='L719'>    <b>if</b> (<a href='../S/74.html#L166' title='Defined at 166 in src/util.c.'>stringmatch</a>(pattern,_name,0)) <font color='red'>{</font> \
+<a name='L720'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,_name); \
+<a name='L721'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,_var ? _var : ""); \
+<a name='L722'>        matches++; \
+<a name='L723'>    <font color='red'>}</font> \
+<a name='L724'><font color='red'>}</font> <b>while</b>(0);
+<a name='L725'>
+<a name='L726'><font color='darkred'>#define</font> <a href='../R/1673.html' title='Multiple refered from 8 places.'>config_get_bool_field</a>(_name,_var) <b>do</b> <font color='red'>{</font> \
+<a name='L727'>    <b>if</b> (<a href='../S/74.html#L166' title='Defined at 166 in src/util.c.'>stringmatch</a>(pattern,_name,0)) <font color='red'>{</font> \
+<a name='L728'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,_name); \
+<a name='L729'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,_var ? "yes" : "no"); \
+<a name='L730'>        matches++; \
+<a name='L731'>    <font color='red'>}</font> \
+<a name='L732'><font color='red'>}</font> <b>while</b>(0);
+<a name='L733'>
+<a name='L734'><font color='darkred'>#define</font> <a href='../R/1674.html' title='Multiple refered from 22 places.'>config_get_numerical_field</a>(_name,_var) <b>do</b> <font color='red'>{</font> \
+<a name='L735'>    <b>if</b> (<a href='../S/74.html#L166' title='Defined at 166 in src/util.c.'>stringmatch</a>(pattern,_name,0)) <font color='red'>{</font> \
+<a name='L736'>        <a href='../S/74.html#L220' title='Defined at 220 in src/util.c.'>ll2string</a>(buf,<b>sizeof</b>(buf),_var); \
+<a name='L737'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,_name); \
+<a name='L738'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,buf); \
+<a name='L739'>        matches++; \
+<a name='L740'>    <font color='red'>}</font> \
+<a name='L741'><font color='red'>}</font> <b>while</b>(0);
+<a name='L742'>
+<a name='L743'><b>void</b> <a href='../S/96.html#L931' title='Refered from 931 in src/config.c.'>configGetCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L744'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o = c-&gt;argv[2];
+<a name='L745'>    <b>void</b> *replylen = <a href='../S/86.html#L371' title='Defined at 371 in src/networking.c.'>addDeferredMultiBulkLength</a>(c);
+<a name='L746'>    <b>char</b> *pattern = o-&gt;ptr;
+<a name='L747'>    <b>char</b> buf[128];
+<a name='L748'>    <b>int</b> matches = 0;
+<a name='L749'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,o,o-&gt;encoding == <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>);
+<a name='L750'>
+<a name='L751'>    <i><font color='green'>/* String values */</font></i>
+<a name='L752'>    <a href='../S/96.html#L718' title='Defined at 718 in src/config.c.'>config_get_string_field</a>("dbfilename",server.rdb_filename);
+<a name='L753'>    <a href='../S/96.html#L718' title='Defined at 718 in src/config.c.'>config_get_string_field</a>("requirepass",server.requirepass);
+<a name='L754'>    <a href='../S/96.html#L718' title='Defined at 718 in src/config.c.'>config_get_string_field</a>("masterauth",server.requirepass);
+<a name='L755'>    <a href='../S/96.html#L718' title='Defined at 718 in src/config.c.'>config_get_string_field</a>("bind",server.bindaddr);
+<a name='L756'>    <a href='../S/96.html#L718' title='Defined at 718 in src/config.c.'>config_get_string_field</a>("unixsocket",server.unixsocket);
+<a name='L757'>    <a href='../S/96.html#L718' title='Defined at 718 in src/config.c.'>config_get_string_field</a>("logfile",server.logfile);
+<a name='L758'>    <a href='../S/96.html#L718' title='Defined at 718 in src/config.c.'>config_get_string_field</a>("pidfile",server.pidfile);
+<a name='L759'>
+<a name='L760'>    <i><font color='green'>/* Numerical values */</font></i>
+<a name='L761'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("maxmemory",server.maxmemory);
+<a name='L762'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("maxmemory-samples",server.maxmemory_samples);
+<a name='L763'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("timeout",server.maxidletime);
+<a name='L764'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("auto-aof-rewrite-percentage",
+<a name='L765'>            server.aof_rewrite_perc);
+<a name='L766'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("auto-aof-rewrite-min-size",
+<a name='L767'>            server.aof_rewrite_min_size);
+<a name='L768'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("hash-max-ziplist-entries",
+<a name='L769'>            server.hash_max_ziplist_entries);
+<a name='L770'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("hash-max-ziplist-value",
+<a name='L771'>            server.hash_max_ziplist_value);
+<a name='L772'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("list-max-ziplist-entries",
+<a name='L773'>            server.list_max_ziplist_entries);
+<a name='L774'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("list-max-ziplist-value",
+<a name='L775'>            server.list_max_ziplist_value);
+<a name='L776'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("set-max-intset-entries",
+<a name='L777'>            server.set_max_intset_entries);
+<a name='L778'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("zset-max-ziplist-entries",
+<a name='L779'>            server.zset_max_ziplist_entries);
+<a name='L780'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("zset-max-ziplist-value",
+<a name='L781'>            server.zset_max_ziplist_value);
+<a name='L782'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("lua-time-limit",server.lua_time_limit);
+<a name='L783'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("slowlog-log-slower-than",
+<a name='L784'>            server.slowlog_log_slower_than);
+<a name='L785'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("slowlog-max-len",
+<a name='L786'>            server.slowlog_max_len);
+<a name='L787'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("port",server.port);
+<a name='L788'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("databases",server.dbnum);
+<a name='L789'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("repl-ping-slave-period",server.repl_ping_slave_period);
+<a name='L790'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("repl-timeout",server.repl_timeout);
+<a name='L791'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("maxclients",server.maxclients);
+<a name='L792'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("watchdog-period",server.watchdog_period);
+<a name='L793'>    <a href='../S/96.html#L734' title='Defined at 734 in src/config.c.'>config_get_numerical_field</a>("slave-priority",server.slave_priority);
+<a name='L794'>
+<a name='L795'>    <i><font color='green'>/* Bool (yes/no) values */</font></i>
+<a name='L796'>    <a href='../S/96.html#L726' title='Defined at 726 in src/config.c.'>config_get_bool_field</a>("no-appendfsync-on-rewrite",
+<a name='L797'>            server.aof_no_fsync_on_rewrite);
+<a name='L798'>    <a href='../S/96.html#L726' title='Defined at 726 in src/config.c.'>config_get_bool_field</a>("slave-serve-stale-data",
+<a name='L799'>            server.repl_serve_stale_data);
+<a name='L800'>    <a href='../S/96.html#L726' title='Defined at 726 in src/config.c.'>config_get_bool_field</a>("slave-read-only",
+<a name='L801'>            server.repl_slave_ro);
+<a name='L802'>    <a href='../S/96.html#L726' title='Defined at 726 in src/config.c.'>config_get_bool_field</a>("stop-writes-on-bgsave-error",
+<a name='L803'>            server.stop_writes_on_bgsave_err);
+<a name='L804'>    <a href='../S/96.html#L726' title='Defined at 726 in src/config.c.'>config_get_bool_field</a>("daemonize", server.<a href='../S/35.html#L2402' title='Defined at 2402 in src/redis.c.'>daemonize</a>);
+<a name='L805'>    <a href='../S/96.html#L726' title='Defined at 726 in src/config.c.'>config_get_bool_field</a>("rdbcompression", server.rdb_compression);
+<a name='L806'>    <a href='../S/96.html#L726' title='Defined at 726 in src/config.c.'>config_get_bool_field</a>("rdbchecksum", server.rdb_checksum);
+<a name='L807'>    <a href='../S/96.html#L726' title='Defined at 726 in src/config.c.'>config_get_bool_field</a>("activerehashing", server.activerehashing);
+<a name='L808'>
+<a name='L809'>    <i><font color='green'>/* Everything we can't handle with macros follows. */</font></i>
+<a name='L810'>
+<a name='L811'>    <b>if</b> (<a href='../S/74.html#L166' title='Defined at 166 in src/util.c.'>stringmatch</a>(pattern,"appendonly",0)) <font color='red'>{</font>
+<a name='L812'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,"appendonly");
+<a name='L813'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,server.aof_state == <a href='../S/32.html#L167' title='Defined at 167 in src/redis.h.'>REDIS_AOF_OFF</a> ? "no" : "yes");
+<a name='L814'>        matches++;
+<a name='L815'>    <font color='red'>}</font>
+<a name='L816'>    <b>if</b> (<a href='../S/74.html#L166' title='Defined at 166 in src/util.c.'>stringmatch</a>(pattern,"dir",0)) <font color='red'>{</font>
+<a name='L817'>        <b>char</b> buf[1024];
+<a name='L818'>
+<a name='L819'>        <b>if</b> (getcwd(buf,<b>sizeof</b>(buf)) == NULL)
+<a name='L820'>            buf[0] = '\0';
+<a name='L821'>
+<a name='L822'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,"dir");
+<a name='L823'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,buf);
+<a name='L824'>        matches++;
+<a name='L825'>    <font color='red'>}</font>
+<a name='L826'>    <b>if</b> (<a href='../S/74.html#L166' title='Defined at 166 in src/util.c.'>stringmatch</a>(pattern,"maxmemory-policy",0)) <font color='red'>{</font>
+<a name='L827'>        <b>char</b> *s;
+<a name='L828'>
+<a name='L829'>        <b>switch</b>(server.maxmemory_policy) <font color='red'>{</font>
+<a name='L830'>        <b>case</b> <a href='../S/32.html#L261' title='Defined at 261 in src/redis.h.'>REDIS_MAXMEMORY_VOLATILE_LRU</a>: s = "volatile-lru"; <b>break</b>;
+<a name='L831'>        <b>case</b> <a href='../S/32.html#L262' title='Defined at 262 in src/redis.h.'>REDIS_MAXMEMORY_VOLATILE_TTL</a>: s = "volatile-ttl"; <b>break</b>;
+<a name='L832'>        <b>case</b> <a href='../S/32.html#L263' title='Defined at 263 in src/redis.h.'>REDIS_MAXMEMORY_VOLATILE_RANDOM</a>: s = "volatile-random"; <b>break</b>;
+<a name='L833'>        <b>case</b> <a href='../S/32.html#L264' title='Defined at 264 in src/redis.h.'>REDIS_MAXMEMORY_ALLKEYS_LRU</a>: s = "allkeys-lru"; <b>break</b>;
+<a name='L834'>        <b>case</b> <a href='../S/32.html#L265' title='Defined at 265 in src/redis.h.'>REDIS_MAXMEMORY_ALLKEYS_RANDOM</a>: s = "allkeys-random"; <b>break</b>;
+<a name='L835'>        <b>case</b> <a href='../S/32.html#L266' title='Defined at 266 in src/redis.h.'>REDIS_MAXMEMORY_NO_EVICTION</a>: s = "noeviction"; <b>break</b>;
+<a name='L836'>        <b>default</b>: s = "unknown"; <b>break</b>; <i><font color='green'>/* too harmless to panic */</font></i>
+<a name='L837'>        <font color='red'>}</font>
+<a name='L838'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,"maxmemory-policy");
+<a name='L839'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,s);
+<a name='L840'>        matches++;
+<a name='L841'>    <font color='red'>}</font>
+<a name='L842'>    <b>if</b> (<a href='../S/74.html#L166' title='Defined at 166 in src/util.c.'>stringmatch</a>(pattern,"appendfsync",0)) <font color='red'>{</font>
+<a name='L843'>        <b>char</b> *policy;
+<a name='L844'>
+<a name='L845'>        <b>switch</b>(server.<a href='../D/1557.html' title='Multiple defined in 2 places.'>aof_fsync</a>) <font color='red'>{</font>
+<a name='L846'>        <b>case</b> <a href='../S/32.html#L242' title='Defined at 242 in src/redis.h.'>AOF_FSYNC_NO</a>: policy = "no"; <b>break</b>;
+<a name='L847'>        <b>case</b> <a href='../S/32.html#L244' title='Defined at 244 in src/redis.h.'>AOF_FSYNC_EVERYSEC</a>: policy = "everysec"; <b>break</b>;
+<a name='L848'>        <b>case</b> <a href='../S/32.html#L243' title='Defined at 243 in src/redis.h.'>AOF_FSYNC_ALWAYS</a>: policy = "always"; <b>break</b>;
+<a name='L849'>        <b>default</b>: policy = "unknown"; <b>break</b>; <i><font color='green'>/* too harmless to panic */</font></i>
+<a name='L850'>        <font color='red'>}</font>
+<a name='L851'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,"appendfsync");
+<a name='L852'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,policy);
+<a name='L853'>        matches++;
+<a name='L854'>    <font color='red'>}</font>
+<a name='L855'>    <b>if</b> (<a href='../S/74.html#L166' title='Defined at 166 in src/util.c.'>stringmatch</a>(pattern,"save",0)) <font color='red'>{</font>
+<a name='L856'>        <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> buf = <a href='../D/4005.html' title='Multiple defined in 2 places.'>sdsempty</a>();
+<a name='L857'>        <b>int</b> j;
+<a name='L858'>
+<a name='L859'>        <b>for</b> (j = 0; j &lt; server.saveparamslen; j++) <font color='red'>{</font>
+<a name='L860'>            buf = <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(buf,"%ld %d",
+<a name='L861'>                    server.saveparams[j].seconds,
+<a name='L862'>                    server.saveparams[j].changes);
+<a name='L863'>            <b>if</b> (j != server.saveparamslen-1)
+<a name='L864'>                buf = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(buf," ",1);
+<a name='L865'>        <font color='red'>}</font>
+<a name='L866'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,"save");
+<a name='L867'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,buf);
+<a name='L868'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(buf);
+<a name='L869'>        matches++;
+<a name='L870'>    <font color='red'>}</font>
+<a name='L871'>    <b>if</b> (<a href='../S/74.html#L166' title='Defined at 166 in src/util.c.'>stringmatch</a>(pattern,"loglevel",0)) <font color='red'>{</font>
+<a name='L872'>        <b>char</b> *s;
+<a name='L873'>
+<a name='L874'>        <b>switch</b>(server.verbosity) <font color='red'>{</font>
+<a name='L875'>        <b>case</b> <a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>: s = "warning"; <b>break</b>;
+<a name='L876'>        <b>case</b> <a href='../S/32.html#L230' title='Defined at 230 in src/redis.h.'>REDIS_VERBOSE</a>: s = "verbose"; <b>break</b>;
+<a name='L877'>        <b>case</b> <a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>: s = "notice"; <b>break</b>;
+<a name='L878'>        <b>case</b> <a href='../S/32.html#L229' title='Defined at 229 in src/redis.h.'>REDIS_DEBUG</a>: s = "debug"; <b>break</b>;
+<a name='L879'>        <b>default</b>: s = "unknown"; <b>break</b>; <i><font color='green'>/* too harmless to panic */</font></i>
+<a name='L880'>        <font color='red'>}</font>
+<a name='L881'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,"loglevel");
+<a name='L882'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,s);
+<a name='L883'>        matches++;
+<a name='L884'>    <font color='red'>}</font>
+<a name='L885'>    <b>if</b> (<a href='../S/74.html#L166' title='Defined at 166 in src/util.c.'>stringmatch</a>(pattern,"client-output-buffer-limit",0)) <font color='red'>{</font>
+<a name='L886'>        <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> buf = <a href='../D/4005.html' title='Multiple defined in 2 places.'>sdsempty</a>();
+<a name='L887'>        <b>int</b> j;
+<a name='L888'>
+<a name='L889'>        <b>for</b> (j = 0; j &lt; <a href='../S/32.html#L196' title='Defined at 196 in src/redis.h.'>REDIS_CLIENT_LIMIT_NUM_CLASSES</a>; j++) <font color='red'>{</font>
+<a name='L890'>            buf = <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(buf,"%s %llu %llu %ld",
+<a name='L891'>                    <a href='../S/86.html#L1285' title='Defined at 1285 in src/networking.c.'>getClientLimitClassName</a>(j),
+<a name='L892'>                    server.client_obuf_limits[j].hard_limit_bytes,
+<a name='L893'>                    server.client_obuf_limits[j].soft_limit_bytes,
+<a name='L894'>                    (<b>long</b>) server.client_obuf_limits[j].soft_limit_seconds);
+<a name='L895'>            <b>if</b> (j != <a href='../S/32.html#L196' title='Defined at 196 in src/redis.h.'>REDIS_CLIENT_LIMIT_NUM_CLASSES</a>-1)
+<a name='L896'>                buf = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(buf," ",1);
+<a name='L897'>        <font color='red'>}</font>
+<a name='L898'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,"client-output-buffer-limit");
+<a name='L899'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,buf);
+<a name='L900'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(buf);
+<a name='L901'>        matches++;
+<a name='L902'>    <font color='red'>}</font>
+<a name='L903'>    <b>if</b> (<a href='../S/74.html#L166' title='Defined at 166 in src/util.c.'>stringmatch</a>(pattern,"unixsocketperm",0)) <font color='red'>{</font>
+<a name='L904'>        <b>char</b> buf[32];
+<a name='L905'>        snprintf(buf,<b>sizeof</b>(buf),"%o",server.unixsocketperm);
+<a name='L906'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,"unixsocketperm");
+<a name='L907'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,buf);
+<a name='L908'>        matches++;
+<a name='L909'>    <font color='red'>}</font>
+<a name='L910'>    <b>if</b> (<a href='../S/74.html#L166' title='Defined at 166 in src/util.c.'>stringmatch</a>(pattern,"slaveof",0)) <font color='red'>{</font>
+<a name='L911'>        <b>char</b> buf[256];
+<a name='L912'>
+<a name='L913'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,"slaveof");
+<a name='L914'>        <b>if</b> (server.masterhost)
+<a name='L915'>            snprintf(buf,<b>sizeof</b>(buf),"%s %d",
+<a name='L916'>                server.masterhost, server.masterport);
+<a name='L917'>        <b>else</b>
+<a name='L918'>            buf[0] = '\0';
+<a name='L919'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,buf);
+<a name='L920'>        matches++;
+<a name='L921'>    <font color='red'>}</font>
+<a name='L922'>    <a href='../S/86.html#L381' title='Defined at 381 in src/networking.c.'>setDeferredMultiBulkLength</a>(c,replylen,matches*2);
+<a name='L923'><font color='red'>}</font>
+<a name='L924'>
+<a name='L925'><b>void</b> <a href='../R/1670.html' title='Multiple refered from 2 places.'>configCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L926'>    <b>if</b> (!strcasecmp(c-&gt;argv[1]-&gt;ptr,"set")) <font color='red'>{</font>
+<a name='L927'>        <b>if</b> (c-&gt;argc != 4) <b>goto</b> badarity;
+<a name='L928'>        <a href='../S/96.html#L451' title='Defined at 451 in src/config.c.'>configSetCommand</a>(c);
+<a name='L929'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[1]-&gt;ptr,"get")) <font color='red'>{</font>
+<a name='L930'>        <b>if</b> (c-&gt;argc != 3) <b>goto</b> badarity;
+<a name='L931'>        <a href='../S/96.html#L743' title='Defined at 743 in src/config.c.'>configGetCommand</a>(c);
+<a name='L932'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[1]-&gt;ptr,"resetstat")) <font color='red'>{</font>
+<a name='L933'>        <b>if</b> (c-&gt;argc != 2) <b>goto</b> badarity;
+<a name='L934'>        server.stat_keyspace_hits = 0;
+<a name='L935'>        server.stat_keyspace_misses = 0;
+<a name='L936'>        server.stat_numcommands = 0;
+<a name='L937'>        server.stat_numconnections = 0;
+<a name='L938'>        server.stat_expiredkeys = 0;
+<a name='L939'>        server.stat_rejected_conn = 0;
+<a name='L940'>        server.stat_fork_time = 0;
+<a name='L941'>        server.aof_delayed_fsync = 0;
+<a name='L942'>        <a href='../S/35.html#L1397' title='Defined at 1397 in src/redis.c.'>resetCommandTableStats</a>();
+<a name='L943'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L944'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L945'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,
+<a name='L946'>            "CONFIG subcommand must be one of GET, SET, RESETSTAT");
+<a name='L947'>    <font color='red'>}</font>
+<a name='L948'>    <b>return</b>;
+<a name='L949'>
+<a name='L950'>badarity:
+<a name='L951'>    <a href='../S/86.html#L334' title='Defined at 334 in src/networking.c.'>addReplyErrorFormat</a>(c,"Wrong number of arguments for CONFIG %s",
+<a name='L952'>        (<b>char</b>*) c-&gt;argv[1]-&gt;ptr);
+<a name='L953'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L38'>[^]</a><a href='#L925'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

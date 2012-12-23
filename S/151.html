@@ -1,0 +1,472 @@
+<html>
+<head>
+<title>deps/jemalloc/include/jemalloc/internal/tcache.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/391.html'>include</a>/<a href='../files/392.html'>jemalloc</a>/<a href='../files/393.html'>internal</a>/tcache.h</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L125'>[^]</a><a href='#L410'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L125' title='Defined at 125.'>malloc_tsd_protos</a>
+<li><a href='#L166' title='Defined at 166.'>tcache_enabled_get</a>
+<li><a href='#L182' title='Defined at 182.'>tcache_enabled_set</a>
+<li><a href='#L210' title='Defined at 210.'>tcache_get</a>
+<li><a href='#L262' title='Defined at 262.'>tcache_event</a>
+<li><a href='#L275' title='Defined at 275.'>tcache_alloc_easy</a>
+<li><a href='#L291' title='Defined at 291.'>tcache_alloc_small</a>
+<li><a href='#L334' title='Defined at 334.'>tcache_alloc_large</a>
+<li><a href='#L386' title='Defined at 386.'>tcache_dalloc_small</a>
+<li><a href='#L410' title='Defined at 410.'>tcache_dalloc_large</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L2'><font color='darkred'>#ifdef</font> JEMALLOC_H_TYPES
+<a name='L3'>
+<a name='L4'><b>typedef</b> <b>struct</b> <a href='../S/151.html#L58' title='Defined at 58 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_bin_info_s</a> <a href='../R/3924.html' title='Multiple refered from 7 places.'>tcache_bin_info_t</a>;
+<a name='L5'><b>typedef</b> <b>struct</b> <a href='../S/151.html#L62' title='Defined at 62 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_bin_s</a> <a href='../R/3928.html' title='Multiple refered from 21 places.'>tcache_bin_t</a>;
+<a name='L6'><b>typedef</b> <b>struct</b> <a href='../S/151.html#L70' title='Defined at 70 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_s</a> <a href='../R/3957.html' title='Multiple refered from 52 places.'>tcache_t</a>;
+<a name='L7'>
+<a name='L8'><i><font color='green'>/*</font></i>
+<a name='L9'><i><font color='green'> * tcache pointers close to NULL are used to encode state information that is</font></i>
+<a name='L10'><i><font color='green'> * used for two purposes: preventing thread caching on a per thread basis and</font></i>
+<a name='L11'><i><font color='green'> * cleaning up during thread shutdown.</font></i>
+<a name='L12'><i><font color='green'> */</font></i>
+<a name='L13'><font color='darkred'>#define</font> <a href='../R/924.html' title='Multiple refered from 4 places.'>TCACHE_STATE_DISABLED</a>           ((<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *)(<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)1)
+<a name='L14'><font color='darkred'>#define</font> <a href='../R/927.html' title='Multiple refered from 3 places.'>TCACHE_STATE_REINCARNATED</a>       ((<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *)(<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)2)
+<a name='L15'><font color='darkred'>#define</font> <a href='../R/926.html' title='Multiple refered from 6 places.'>TCACHE_STATE_PURGATORY</a>          ((<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *)(<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)3)
+<a name='L16'><font color='darkred'>#define</font> <a href='../R/925.html' title='Multiple refered from 4 places.'>TCACHE_STATE_MAX</a>                <a href='../S/151.html#L15' title='Defined at 15 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>TCACHE_STATE_PURGATORY</a>
+<a name='L17'>
+<a name='L18'><i><font color='green'>/*</font></i>
+<a name='L19'><i><font color='green'> * Absolute maximum number of cache slots for each small bin in the thread</font></i>
+<a name='L20'><i><font color='green'> * cache.  This is an additional constraint beyond that imposed as: twice the</font></i>
+<a name='L21'><i><font color='green'> * number of regions per run for this size class.</font></i>
+<a name='L22'><i><font color='green'> *</font></i>
+<a name='L23'><i><font color='green'> * This constant must be an even number.</font></i>
+<a name='L24'><i><font color='green'> */</font></i>
+<a name='L25'><font color='darkred'>#define</font> <a href='../R/923.html' title='Multiple refered from 3 places.'>TCACHE_NSLOTS_SMALL_MAX</a>         200
+<a name='L26'>
+<a name='L27'><i><font color='green'>/* Number of cache slots for large size classes. */</font></i>
+<a name='L28'><font color='darkred'>#define</font> <a href='../S/198.html#L459' title='Refered from 459 in deps/jemalloc/src/tcache.c.'>TCACHE_NSLOTS_LARGE</a>             20
+<a name='L29'>
+<a name='L30'><i><font color='green'>/* (1U &lt;&lt; opt_lg_tcache_max) is used to compute tcache_maxclass. */</font></i>
+<a name='L31'><font color='darkred'>#define</font> <a href='../S/198.html#L11' title='Refered from 11 in deps/jemalloc/src/tcache.c.'>LG_TCACHE_MAXCLASS_DEFAULT</a>      15
+<a name='L32'>
+<a name='L33'><i><font color='green'>/*</font></i>
+<a name='L34'><i><font color='green'> * TCACHE_GC_SWEEP is the approximate number of allocation events between</font></i>
+<a name='L35'><i><font color='green'> * full GC sweeps.  Integer rounding may cause the actual number to be</font></i>
+<a name='L36'><i><font color='green'> * slightly higher, since GC is performed incrementally.</font></i>
+<a name='L37'><i><font color='green'> */</font></i>
+<a name='L38'><font color='darkred'>#define</font> <a href='../S/151.html#L42' title='Refered from 42 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>TCACHE_GC_SWEEP</a>                 8192
+<a name='L39'>
+<a name='L40'><i><font color='green'>/* Number of tcache allocation/deallocation events between incremental GCs. */</font></i>
+<a name='L41'><font color='darkred'>#define</font> <a href='../R/920.html' title='Multiple refered from 3 places.'>TCACHE_GC_INCR</a>                                                  \
+<a name='L42'>    ((<a href='../S/151.html#L38' title='Defined at 38 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>TCACHE_GC_SWEEP</a> / NBINS) + ((<a href='../S/151.html#L38' title='Defined at 38 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>TCACHE_GC_SWEEP</a> / NBINS == 0) ? 0 : 1))
+<a name='L43'>
+<a name='L44'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_TYPES */</font></i>
+<a name='L45'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L46'><font color='darkred'>#ifdef</font> JEMALLOC_H_STRUCTS
+<a name='L47'>
+<a name='L48'><b>typedef</b> <b>enum</b> <font color='red'>{</font>
+<a name='L49'>        tcache_enabled_false   = 0, <i><font color='green'>/* Enable cast to/from bool. */</font></i>
+<a name='L50'>        tcache_enabled_true    = 1,
+<a name='L51'>        <a href='../S/151.html#L173' title='Refered from 173 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_enabled_default</a> = 2
+<a name='L52'><font color='red'>}</font> <a href='../R/3941.html' title='Multiple refered from 8 places.'>tcache_enabled_t</a>;
+<a name='L53'>
+<a name='L54'><i><font color='green'>/*</font></i>
+<a name='L55'><i><font color='green'> * Read-only information associated with each element of tcache_t's tbins array</font></i>
+<a name='L56'><i><font color='green'> * is stored separately, mainly to reduce memory usage.</font></i>
+<a name='L57'><i><font color='green'> */</font></i>
+<a name='L58'><b>struct</b> <a href='../S/151.html#L4' title='Refered from 4 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_bin_info_s</a> <font color='red'>{</font>
+<a name='L59'>        <b>unsigned</b>        ncached_max;    <i><font color='green'>/* Upper limit on ncached. */</font></i>
+<a name='L60'><font color='red'>}</font>;
+<a name='L61'>
+<a name='L62'><b>struct</b> <a href='../S/151.html#L5' title='Refered from 5 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_bin_s</a> <font color='red'>{</font>
+<a name='L63'>        <a href='../S/137.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/stats.h.'>tcache_bin_stats_t</a> tstats;
+<a name='L64'>        <b>int</b>             low_water;      <i><font color='green'>/* Min # cached since last GC. */</font></i>
+<a name='L65'>        <b>unsigned</b>        lg_fill_div;    <i><font color='green'>/* Fill (ncached_max &gt;&gt; lg_fill_div). */</font></i>
+<a name='L66'>        <b>unsigned</b>        ncached;        <i><font color='green'>/* # of cached objects. */</font></i>
+<a name='L67'>        <b>void</b>            **avail;        <i><font color='green'>/* Stack of available objects. */</font></i>
+<a name='L68'><font color='red'>}</font>;
+<a name='L69'>
+<a name='L70'><b>struct</b> <a href='../S/151.html#L6' title='Refered from 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_s</a> <font color='red'>{</font>
+<a name='L71'>        <a href='../S/136.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_elm</a>(<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a>) link;          <i><font color='green'>/* Used for aggregating stats. */</font></i>
+<a name='L72'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        prof_accumbytes;<i><font color='green'>/* Cleared after arena_prof_accum() */</font></i>
+<a name='L73'>        <a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a>         *arena;         <i><font color='green'>/* This thread's arena. */</font></i>
+<a name='L74'>        <b>unsigned</b>        ev_cnt;         <i><font color='green'>/* Event count since incremental GC. */</font></i>
+<a name='L75'>        <b>unsigned</b>        next_gc_bin;    <i><font color='green'>/* Next bin to GC. */</font></i>
+<a name='L76'>        <a href='../S/151.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_bin_t</a>    tbins[1];       <i><font color='green'>/* Dynamically sized. */</font></i>
+<a name='L77'>        <i><font color='green'>/*</font></i>
+<a name='L78'><i><font color='green'>         * The pointer stacks associated with tbins follow as a contiguous</font></i>
+<a name='L79'><i><font color='green'>         * array.  During tcache initialization, the avail pointer in each</font></i>
+<a name='L80'><i><font color='green'>         * element of tbins is initialized to point to the proper offset within</font></i>
+<a name='L81'><i><font color='green'>         * this array.</font></i>
+<a name='L82'><i><font color='green'>         */</font></i>
+<a name='L83'><font color='red'>}</font>;
+<a name='L84'>
+<a name='L85'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_STRUCTS */</font></i>
+<a name='L86'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L87'><font color='darkred'>#ifdef</font> JEMALLOC_H_EXTERNS
+<a name='L88'>
+<a name='L89'><b>extern</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>     <a href='../S/138.html#L256' title='Defined at 256 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_tcache</a>;
+<a name='L90'><b>extern</b> ssize_t  <a href='../S/138.html#L244' title='Defined at 244 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_lg_tcache_max</a>;
+<a name='L91'>
+<a name='L92'><b>extern</b> <a href='../S/151.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_bin_info_t</a>        *<a href='../S/138.html#L326' title='Defined at 326 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_bin_info</a>;
+<a name='L93'>
+<a name='L94'><i><font color='green'>/*</font></i>
+<a name='L95'><i><font color='green'> * Number of tcache bins.  There are NBINS small-object bins, plus 0 or more</font></i>
+<a name='L96'><i><font color='green'> * large-object bins.</font></i>
+<a name='L97'><i><font color='green'> */</font></i>
+<a name='L98'><b>extern</b> size_t                   <a href='../S/138.html#L237' title='Defined at 237 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>nhbins</a>;
+<a name='L99'>
+<a name='L100'><i><font color='green'>/* Maximum cached size class. */</font></i>
+<a name='L101'><b>extern</b> size_t                   <a href='../S/138.html#L349' title='Defined at 349 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_maxclass</a>;
+<a name='L102'>
+<a name='L103'>size_t  <a href='../D/4331.html' title='Multiple defined in 2 places.'>tcache_salloc</a>(<b>const</b> <b>void</b> *ptr);
+<a name='L104'><b>void</b>    <a href='../D/4325.html' title='Multiple defined in 2 places.'>tcache_event_hard</a>(<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache);
+<a name='L105'><b>void</b>    *<a href='../D/4291.html' title='Multiple defined in 2 places.'>tcache_alloc_small_hard</a>(<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache, <a href='../S/151.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_bin_t</a> *tbin,
+<a name='L106'>    size_t binind);
+<a name='L107'><b>void</b>    <a href='../D/4295.html' title='Multiple defined in 2 places.'>tcache_bin_flush_small</a>(<a href='../S/151.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_bin_t</a> *tbin, size_t binind, <b>unsigned</b> rem,
+<a name='L108'>    <a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache);
+<a name='L109'><b>void</b>    <a href='../D/4294.html' title='Multiple defined in 2 places.'>tcache_bin_flush_large</a>(<a href='../S/151.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_bin_t</a> *tbin, size_t binind, <b>unsigned</b> rem,
+<a name='L110'>    <a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache);
+<a name='L111'><b>void</b>    <a href='../D/4292.html' title='Multiple defined in 2 places.'>tcache_arena_associate</a>(<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache, <a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena);
+<a name='L112'><b>void</b>    <a href='../D/4293.html' title='Multiple defined in 2 places.'>tcache_arena_dissociate</a>(<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache);
+<a name='L113'><a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *<a href='../D/4306.html' title='Multiple defined in 2 places.'>tcache_create</a>(<a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena);
+<a name='L114'><b>void</b>    <a href='../D/4309.html' title='Multiple defined in 2 places.'>tcache_destroy</a>(<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache);
+<a name='L115'><b>void</b>    <a href='../D/4334.html' title='Multiple defined in 2 places.'>tcache_thread_cleanup</a>(<b>void</b> *arg);
+<a name='L116'><b>void</b>    <a href='../D/4332.html' title='Multiple defined in 2 places.'>tcache_stats_merge</a>(<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache, <a href='../S/146.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_t</a> *arena);
+<a name='L117'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>    <a href='../D/4303.html' title='Multiple defined in 2 places.'>tcache_boot0</a>(<b>void</b>);
+<a name='L118'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>    <a href='../D/4304.html' title='Multiple defined in 2 places.'>tcache_boot1</a>(<b>void</b>);
+<a name='L119'>
+<a name='L120'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_EXTERNS */</font></i>
+<a name='L121'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L122'><font color='darkred'>#ifdef</font> JEMALLOC_H_INLINES
+<a name='L123'>
+<a name='L124'><font color='darkred'>#ifndef</font> JEMALLOC_ENABLE_INLINE
+<a name='L125'>malloc_tsd_protos(<a href='../D/250.html' title='Multiple defined in 8 places.'>JEMALLOC_ATTR</a>(unused), tcache, <a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *)
+<a name='L126'>malloc_tsd_protos(<a href='../D/250.html' title='Multiple defined in 8 places.'>JEMALLOC_ATTR</a>(unused), tcache_enabled, <a href='../S/151.html#L52' title='Defined at 52 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_enabled_t</a>)
+<a name='L127'>
+<a name='L128'><b>void</b>    tcache_event(<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache);
+<a name='L129'><b>void</b>    tcache_flush(<b>void</b>);
+<a name='L130'>bool    tcache_enabled_get(<b>void</b>);
+<a name='L131'><a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache_get(bool create);
+<a name='L132'><b>void</b>    tcache_enabled_set(bool enabled);
+<a name='L133'><b>void</b>    *tcache_alloc_easy(<a href='../S/151.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_bin_t</a> *tbin);
+<a name='L134'><b>void</b>    *tcache_alloc_small(<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache, size_t size, bool zero);
+<a name='L135'><b>void</b>    *tcache_alloc_large(<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache, size_t size, bool zero);
+<a name='L136'><b>void</b>    tcache_dalloc_small(<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache, <b>void</b> *ptr, size_t binind);
+<a name='L137'><b>void</b>    tcache_dalloc_large(<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache, <b>void</b> *ptr, size_t size);
+<a name='L138'><font color='darkred'>#endif</font>
+<a name='L139'>
+<a name='L140'><font color='darkred'>#if</font> (<b>defined</b>(JEMALLOC_ENABLE_INLINE) || <b>defined</b>(<a href='../S/198.html#L1' title='Defined at 1 in deps/jemalloc/src/tcache.c.'>JEMALLOC_TCACHE_C_</a>))
+<a name='L141'><i><font color='green'>/* Map of thread-specific caches. */</font></i>
+<a name='L142'>malloc_tsd_externs(tcache, <a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *)
+<a name='L143'>malloc_tsd_funcs(JEMALLOC_INLINE, tcache, <a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *, NULL,
+<a name='L144'>    tcache_thread_cleanup)
+<a name='L145'><i><font color='green'>/* Per thread flag that allows thread caches to be disabled. */</font></i>
+<a name='L146'>malloc_tsd_externs(tcache_enabled, <a href='../S/151.html#L52' title='Defined at 52 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_enabled_t</a>)
+<a name='L147'>malloc_tsd_funcs(JEMALLOC_INLINE, tcache_enabled, <a href='../S/151.html#L52' title='Defined at 52 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_enabled_t</a>,
+<a name='L148'>    tcache_enabled_default, malloc_tsd_no_cleanup)
+<a name='L149'>
+<a name='L150'>JEMALLOC_INLINE <b>void</b>
+<a name='L151'>tcache_flush(<b>void</b>)
+<a name='L152'><font color='red'>{</font>
+<a name='L153'>        <a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache;
+<a name='L154'>
+<a name='L155'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_tcache);
+<a name='L156'>
+<a name='L157'>        tcache = *<a href='../S/138.html#L357' title='Defined at 357 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_tsd_get</a>();
+<a name='L158'>        <b>if</b> ((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)tcache &lt;= (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/151.html#L16' title='Defined at 16 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>TCACHE_STATE_MAX</a>)
+<a name='L159'>                <b>return</b>;
+<a name='L160'>        <a href='../D/4309.html' title='Multiple defined in 2 places.'>tcache_destroy</a>(tcache);
+<a name='L161'>        tcache = NULL;
+<a name='L162'>        <a href='../S/138.html#L358' title='Defined at 358 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_tsd_set</a>(&amp;tcache);
+<a name='L163'><font color='red'>}</font>
+<a name='L164'>
+<a name='L165'>JEMALLOC_INLINE <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L166'><a href='../R/3938.html' title='Multiple refered from 3 places.'>tcache_enabled_get</a>(<b>void</b>)
+<a name='L167'><font color='red'>{</font>
+<a name='L168'>        <a href='../S/151.html#L52' title='Defined at 52 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_enabled_t</a> tcache_enabled;
+<a name='L169'>
+<a name='L170'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_tcache);
+<a name='L171'>
+<a name='L172'>        tcache_enabled = *<a href='../S/138.html#L342' title='Defined at 342 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_enabled_tsd_get</a>();
+<a name='L173'>        <b>if</b> (tcache_enabled == <a href='../S/151.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_enabled_default</a>) <font color='red'>{</font>
+<a name='L174'>                tcache_enabled = (<a href='../S/151.html#L52' title='Defined at 52 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_enabled_t</a>)<a href='../S/138.html#L256' title='Defined at 256 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_tcache</a>;
+<a name='L175'>                <a href='../S/138.html#L343' title='Defined at 343 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_enabled_tsd_set</a>(&amp;tcache_enabled);
+<a name='L176'>        <font color='red'>}</font>
+<a name='L177'>
+<a name='L178'>        <b>return</b> ((<a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>)tcache_enabled);
+<a name='L179'><font color='red'>}</font>
+<a name='L180'>
+<a name='L181'>JEMALLOC_INLINE <b>void</b>
+<a name='L182'><a href='../R/3940.html' title='Multiple refered from 3 places.'>tcache_enabled_set</a>(bool enabled)
+<a name='L183'><font color='red'>{</font>
+<a name='L184'>        <a href='../S/151.html#L52' title='Defined at 52 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_enabled_t</a> tcache_enabled;
+<a name='L185'>        <a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache;
+<a name='L186'>
+<a name='L187'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_tcache);
+<a name='L188'>
+<a name='L189'>        tcache_enabled = (<a href='../S/151.html#L52' title='Defined at 52 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_enabled_t</a>)enabled;
+<a name='L190'>        <a href='../S/138.html#L343' title='Defined at 343 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_enabled_tsd_set</a>(&amp;tcache_enabled);
+<a name='L191'>        tcache = *<a href='../S/138.html#L357' title='Defined at 357 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_tsd_get</a>();
+<a name='L192'>        <b>if</b> (enabled) <font color='red'>{</font>
+<a name='L193'>                <b>if</b> (tcache == <a href='../S/151.html#L13' title='Defined at 13 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>TCACHE_STATE_DISABLED</a>) <font color='red'>{</font>
+<a name='L194'>                        tcache = NULL;
+<a name='L195'>                        <a href='../S/138.html#L358' title='Defined at 358 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_tsd_set</a>(&amp;tcache);
+<a name='L196'>                <font color='red'>}</font>
+<a name='L197'>        <font color='red'>}</font> <b>else</b> <i><font color='green'>/* disabled */</font></i> <font color='red'>{</font>
+<a name='L198'>                <b>if</b> (tcache &gt; <a href='../S/151.html#L16' title='Defined at 16 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>TCACHE_STATE_MAX</a>) <font color='red'>{</font>
+<a name='L199'>                        <a href='../D/4309.html' title='Multiple defined in 2 places.'>tcache_destroy</a>(tcache);
+<a name='L200'>                        tcache = NULL;
+<a name='L201'>                <font color='red'>}</font>
+<a name='L202'>                <b>if</b> (tcache == NULL) <font color='red'>{</font>
+<a name='L203'>                        tcache = <a href='../S/151.html#L13' title='Defined at 13 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>TCACHE_STATE_DISABLED</a>;
+<a name='L204'>                        <a href='../S/138.html#L358' title='Defined at 358 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_tsd_set</a>(&amp;tcache);
+<a name='L205'>                <font color='red'>}</font>
+<a name='L206'>        <font color='red'>}</font>
+<a name='L207'><font color='red'>}</font>
+<a name='L208'>
+<a name='L209'>JEMALLOC_INLINE <a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *
+<a name='L210'><a href='../R/3951.html' title='Multiple refered from 5 places.'>tcache_get</a>(bool create)
+<a name='L211'><font color='red'>{</font>
+<a name='L212'>        <a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache;
+<a name='L213'>
+<a name='L214'>        <b>if</b> (config_tcache == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)
+<a name='L215'>                <b>return</b> (NULL);
+<a name='L216'>        <b>if</b> (config_lazy_lock &amp;&amp; <a href='../D/2573.html' title='Multiple defined in 3 places.'>isthreaded</a> == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)
+<a name='L217'>                <b>return</b> (NULL);
+<a name='L218'>
+<a name='L219'>        tcache = *<a href='../S/138.html#L357' title='Defined at 357 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_tsd_get</a>();
+<a name='L220'>        <b>if</b> ((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)tcache &lt;= (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/151.html#L16' title='Defined at 16 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>TCACHE_STATE_MAX</a>) <font color='red'>{</font>
+<a name='L221'>                <b>if</b> (tcache == <a href='../S/151.html#L13' title='Defined at 13 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>TCACHE_STATE_DISABLED</a>)
+<a name='L222'>                        <b>return</b> (NULL);
+<a name='L223'>                <b>if</b> (tcache == NULL) <font color='red'>{</font>
+<a name='L224'>                        <b>if</b> (create == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>) <font color='red'>{</font>
+<a name='L225'>                                <i><font color='green'>/*</font></i>
+<a name='L226'><i><font color='green'>                                 * Creating a tcache here would cause</font></i>
+<a name='L227'><i><font color='green'>                                 * allocation as a side effect of free().</font></i>
+<a name='L228'><i><font color='green'>                                 * Ordinarily that would be okay since</font></i>
+<a name='L229'><i><font color='green'>                                 * tcache_create() failure is a soft failure</font></i>
+<a name='L230'><i><font color='green'>                                 * that doesn't propagate.  However, if TLS</font></i>
+<a name='L231'><i><font color='green'>                                 * data are freed via free() as in glibc,</font></i>
+<a name='L232'><i><font color='green'>                                 * subtle corruption could result from setting</font></i>
+<a name='L233'><i><font color='green'>                                 * a TLS variable after its backing memory is</font></i>
+<a name='L234'><i><font color='green'>                                 * freed.</font></i>
+<a name='L235'><i><font color='green'>                                 */</font></i>
+<a name='L236'>                                <b>return</b> (NULL);
+<a name='L237'>                        <font color='red'>}</font>
+<a name='L238'>                        <b>if</b> (<a href='../D/4313.html' title='Multiple defined in 2 places.'>tcache_enabled_get</a>() == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>) <font color='red'>{</font>
+<a name='L239'>                                <a href='../D/4315.html' title='Multiple defined in 2 places.'>tcache_enabled_set</a>(<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>); <i><font color='green'>/* Memoize. */</font></i>
+<a name='L240'>                                <b>return</b> (NULL);
+<a name='L241'>                        <font color='red'>}</font>
+<a name='L242'>                        <b>return</b> (<a href='../D/4306.html' title='Multiple defined in 2 places.'>tcache_create</a>(<a href='../S/138.html#L94' title='Defined at 94 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>choose_arena</a>(NULL)));
+<a name='L243'>                <font color='red'>}</font>
+<a name='L244'>                <b>if</b> (tcache == <a href='../S/151.html#L15' title='Defined at 15 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>TCACHE_STATE_PURGATORY</a>) <font color='red'>{</font>
+<a name='L245'>                        <i><font color='green'>/*</font></i>
+<a name='L246'><i><font color='green'>                         * Make a note that an allocator function was called</font></i>
+<a name='L247'><i><font color='green'>                         * after tcache_thread_cleanup() was called.</font></i>
+<a name='L248'><i><font color='green'>                         */</font></i>
+<a name='L249'>                        tcache = <a href='../S/151.html#L14' title='Defined at 14 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>TCACHE_STATE_REINCARNATED</a>;
+<a name='L250'>                        <a href='../S/138.html#L358' title='Defined at 358 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_tsd_set</a>(&amp;tcache);
+<a name='L251'>                        <b>return</b> (NULL);
+<a name='L252'>                <font color='red'>}</font>
+<a name='L253'>                <b>if</b> (tcache == <a href='../S/151.html#L14' title='Defined at 14 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>TCACHE_STATE_REINCARNATED</a>)
+<a name='L254'>                        <b>return</b> (NULL);
+<a name='L255'>                <a href='../D/3428.html' title='Multiple defined in 2 places.'>not_reached</a>();
+<a name='L256'>        <font color='red'>}</font>
+<a name='L257'>
+<a name='L258'>        <b>return</b> (tcache);
+<a name='L259'><font color='red'>}</font>
+<a name='L260'>
+<a name='L261'>JEMALLOC_INLINE <b>void</b>
+<a name='L262'><a href='../R/3948.html' title='Multiple refered from 5 places.'>tcache_event</a>(<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache)
+<a name='L263'><font color='red'>{</font>
+<a name='L264'>
+<a name='L265'>        <b>if</b> (<a href='../S/151.html#L41' title='Defined at 41 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>TCACHE_GC_INCR</a> == 0)
+<a name='L266'>                <b>return</b>;
+<a name='L267'>
+<a name='L268'>        tcache-&gt;ev_cnt++;
+<a name='L269'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(tcache-&gt;ev_cnt &lt;= <a href='../S/151.html#L41' title='Defined at 41 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>TCACHE_GC_INCR</a>);
+<a name='L270'>        <b>if</b> (tcache-&gt;ev_cnt == <a href='../S/151.html#L41' title='Defined at 41 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>TCACHE_GC_INCR</a>)
+<a name='L271'>                <a href='../D/4325.html' title='Multiple defined in 2 places.'>tcache_event_hard</a>(tcache);
+<a name='L272'><font color='red'>}</font>
+<a name='L273'>
+<a name='L274'>JEMALLOC_INLINE <b>void</b> *
+<a name='L275'><a href='../R/3914.html' title='Multiple refered from 4 places.'>tcache_alloc_easy</a>(<a href='../S/151.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_bin_t</a> *tbin)
+<a name='L276'><font color='red'>{</font>
+<a name='L277'>        <b>void</b> *ret;
+<a name='L278'>
+<a name='L279'>        <b>if</b> (tbin-&gt;ncached == 0) <font color='red'>{</font>
+<a name='L280'>                tbin-&gt;low_water = -1;
+<a name='L281'>                <b>return</b> (NULL);
+<a name='L282'>        <font color='red'>}</font>
+<a name='L283'>        tbin-&gt;ncached--;
+<a name='L284'>        <b>if</b> ((<b>int</b>)tbin-&gt;ncached &lt; tbin-&gt;low_water)
+<a name='L285'>                tbin-&gt;low_water = tbin-&gt;ncached;
+<a name='L286'>        ret = tbin-&gt;avail[tbin-&gt;ncached];
+<a name='L287'>        <b>return</b> (ret);
+<a name='L288'><font color='red'>}</font>
+<a name='L289'>
+<a name='L290'>JEMALLOC_INLINE <b>void</b> *
+<a name='L291'><a href='../R/3916.html' title='Multiple refered from 2 places.'>tcache_alloc_small</a>(<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache, size_t size, bool zero)
+<a name='L292'><font color='red'>{</font>
+<a name='L293'>        <b>void</b> *ret;
+<a name='L294'>        size_t binind;
+<a name='L295'>        <a href='../S/151.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_bin_t</a> *tbin;
+<a name='L296'>
+<a name='L297'>        binind = <a href='../S/146.html#L395' title='Defined at 395 in deps/jemalloc/include/jemalloc/internal/arena.h.'>SMALL_SIZE2BIN</a>(size);
+<a name='L298'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(binind &lt; NBINS);
+<a name='L299'>        tbin = &amp;tcache-&gt;tbins[binind];
+<a name='L300'>        ret = <a href='../D/4288.html' title='Multiple defined in 2 places.'>tcache_alloc_easy</a>(tbin);
+<a name='L301'>        <b>if</b> (ret == NULL) <font color='red'>{</font>
+<a name='L302'>                ret = <a href='../D/4291.html' title='Multiple defined in 2 places.'>tcache_alloc_small_hard</a>(tcache, tbin, binind);
+<a name='L303'>                <b>if</b> (ret == NULL)
+<a name='L304'>                        <b>return</b> (NULL);
+<a name='L305'>        <font color='red'>}</font>
+<a name='L306'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/4331.html' title='Multiple defined in 2 places.'>tcache_salloc</a>(ret) == <a href='../S/138.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arena_bin_info</a>[binind].reg_size);
+<a name='L307'>
+<a name='L308'>        <b>if</b> (zero == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>) <font color='red'>{</font>
+<a name='L309'>                <b>if</b> (config_fill) <font color='red'>{</font>
+<a name='L310'>                        <b>if</b> (<a href='../S/138.html#L239' title='Defined at 239 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_junk</a>) <font color='red'>{</font>
+<a name='L311'>                                <a href='../D/1565.html' title='Multiple defined in 2 places.'>arena_alloc_junk_small</a>(ret,
+<a name='L312'>                                    &amp;<a href='../S/138.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arena_bin_info</a>[binind], <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L313'>                        <font color='red'>}</font> <b>else</b> <b>if</b> (<a href='../S/138.html#L260' title='Defined at 260 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_zero</a>)
+<a name='L314'>                                memset(ret, 0, size);
+<a name='L315'>                <font color='red'>}</font>
+<a name='L316'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L317'>                <b>if</b> (config_fill &amp;&amp; <a href='../S/138.html#L239' title='Defined at 239 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_junk</a>) <font color='red'>{</font>
+<a name='L318'>                        <a href='../D/1565.html' title='Multiple defined in 2 places.'>arena_alloc_junk_small</a>(ret, &amp;<a href='../S/138.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arena_bin_info</a>[binind],
+<a name='L319'>                            <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L320'>                <font color='red'>}</font>
+<a name='L321'>                VALGRIND_MAKE_MEM_UNDEFINED(ret, size);
+<a name='L322'>                memset(ret, 0, size);
+<a name='L323'>        <font color='red'>}</font>
+<a name='L324'>
+<a name='L325'>        <b>if</b> (config_stats)
+<a name='L326'>                tbin-&gt;tstats.nrequests++;
+<a name='L327'>        <b>if</b> (config_prof)
+<a name='L328'>                tcache-&gt;prof_accumbytes += <a href='../S/138.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arena_bin_info</a>[binind].reg_size;
+<a name='L329'>        <a href='../D/4324.html' title='Multiple defined in 2 places.'>tcache_event</a>(tcache);
+<a name='L330'>        <b>return</b> (ret);
+<a name='L331'><font color='red'>}</font>
+<a name='L332'>
+<a name='L333'>JEMALLOC_INLINE <b>void</b> *
+<a name='L334'><a href='../R/3915.html' title='Multiple refered from 2 places.'>tcache_alloc_large</a>(<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache, size_t size, bool zero)
+<a name='L335'><font color='red'>{</font>
+<a name='L336'>        <b>void</b> *ret;
+<a name='L337'>        size_t binind;
+<a name='L338'>        <a href='../S/151.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_bin_t</a> *tbin;
+<a name='L339'>
+<a name='L340'>        size = PAGE_CEILING(size);
+<a name='L341'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(size &lt;= <a href='../S/138.html#L349' title='Defined at 349 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_maxclass</a>);
+<a name='L342'>        binind = NBINS + (size &gt;&gt; LG_PAGE) - 1;
+<a name='L343'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(binind &lt; <a href='../S/138.html#L237' title='Defined at 237 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>nhbins</a>);
+<a name='L344'>        tbin = &amp;tcache-&gt;tbins[binind];
+<a name='L345'>        ret = <a href='../D/4288.html' title='Multiple defined in 2 places.'>tcache_alloc_easy</a>(tbin);
+<a name='L346'>        <b>if</b> (ret == NULL) <font color='red'>{</font>
+<a name='L347'>                <i><font color='green'>/*</font></i>
+<a name='L348'><i><font color='green'>                 * Only allocate one large object at a time, because it's quite</font></i>
+<a name='L349'><i><font color='green'>                 * expensive to create one and not use it.</font></i>
+<a name='L350'><i><font color='green'>                 */</font></i>
+<a name='L351'>                ret = <a href='../D/1609.html' title='Multiple defined in 2 places.'>arena_malloc_large</a>(tcache-&gt;arena, size, zero);
+<a name='L352'>                <b>if</b> (ret == NULL)
+<a name='L353'>                        <b>return</b> (NULL);
+<a name='L354'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L355'>                <b>if</b> (config_prof &amp;&amp; <a href='../S/138.html#L280' title='Defined at 280 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_promote</a> &amp;&amp; size == PAGE) <font color='red'>{</font>
+<a name='L356'>                        <a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a> =
+<a name='L357'>                            (<a href='../S/146.html#L47' title='Defined at 47 in deps/jemalloc/include/jemalloc/internal/arena.h.'>arena_chunk_t</a> *)<a href='../S/142.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_ADDR2BASE</a>(ret);
+<a name='L358'>                        size_t pageind = (((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ret - (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>) &gt;&gt;
+<a name='L359'>                            LG_PAGE);
+<a name='L360'>                        <a href='../D/1615.html' title='Multiple defined in 2 places.'>arena_mapbits_large_binind_set</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, pageind,
+<a name='L361'>                            <a href='../S/146.html#L148' title='Defined at 148 in deps/jemalloc/include/jemalloc/internal/arena.h.'>BININD_INVALID</a>);
+<a name='L362'>                <font color='red'>}</font>
+<a name='L363'>                <b>if</b> (zero == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>) <font color='red'>{</font>
+<a name='L364'>                        <b>if</b> (config_fill) <font color='red'>{</font>
+<a name='L365'>                                <b>if</b> (<a href='../S/138.html#L239' title='Defined at 239 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_junk</a>)
+<a name='L366'>                                        memset(ret, 0xa5, size);
+<a name='L367'>                                <b>else</b> <b>if</b> (<a href='../S/138.html#L260' title='Defined at 260 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_zero</a>)
+<a name='L368'>                                        memset(ret, 0, size);
+<a name='L369'>                        <font color='red'>}</font>
+<a name='L370'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L371'>                        VALGRIND_MAKE_MEM_UNDEFINED(ret, size);
+<a name='L372'>                        memset(ret, 0, size);
+<a name='L373'>                <font color='red'>}</font>
+<a name='L374'>
+<a name='L375'>                <b>if</b> (config_stats)
+<a name='L376'>                        tbin-&gt;tstats.nrequests++;
+<a name='L377'>                <b>if</b> (config_prof)
+<a name='L378'>                        tcache-&gt;prof_accumbytes += size;
+<a name='L379'>        <font color='red'>}</font>
+<a name='L380'>
+<a name='L381'>        <a href='../D/4324.html' title='Multiple defined in 2 places.'>tcache_event</a>(tcache);
+<a name='L382'>        <b>return</b> (ret);
+<a name='L383'><font color='red'>}</font>
+<a name='L384'>
+<a name='L385'>JEMALLOC_INLINE <b>void</b>
+<a name='L386'><a href='../R/3934.html' title='Multiple refered from 2 places.'>tcache_dalloc_small</a>(<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache, <b>void</b> *ptr, size_t binind)
+<a name='L387'><font color='red'>{</font>
+<a name='L388'>        <a href='../S/151.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_bin_t</a> *tbin;
+<a name='L389'>        <a href='../S/151.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_bin_info_t</a> *tbin_info;
+<a name='L390'>
+<a name='L391'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/4331.html' title='Multiple defined in 2 places.'>tcache_salloc</a>(ptr) &lt;= SMALL_MAXCLASS);
+<a name='L392'>
+<a name='L393'>        <b>if</b> (config_fill &amp;&amp; <a href='../S/138.html#L239' title='Defined at 239 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_junk</a>)
+<a name='L394'>                <a href='../D/1598.html' title='Multiple defined in 2 places.'>arena_dalloc_junk_small</a>(ptr, &amp;<a href='../S/138.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arena_bin_info</a>[binind]);
+<a name='L395'>
+<a name='L396'>        tbin = &amp;tcache-&gt;tbins[binind];
+<a name='L397'>        tbin_info = &amp;<a href='../S/138.html#L326' title='Defined at 326 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_bin_info</a>[binind];
+<a name='L398'>        <b>if</b> (tbin-&gt;ncached == tbin_info-&gt;ncached_max) <font color='red'>{</font>
+<a name='L399'>                <a href='../D/4295.html' title='Multiple defined in 2 places.'>tcache_bin_flush_small</a>(tbin, binind, (tbin_info-&gt;ncached_max &gt;&gt;
+<a name='L400'>                    1), tcache);
+<a name='L401'>        <font color='red'>}</font>
+<a name='L402'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(tbin-&gt;ncached &lt; tbin_info-&gt;ncached_max);
+<a name='L403'>        tbin-&gt;avail[tbin-&gt;ncached] = ptr;
+<a name='L404'>        tbin-&gt;ncached++;
+<a name='L405'>
+<a name='L406'>        <a href='../D/4324.html' title='Multiple defined in 2 places.'>tcache_event</a>(tcache);
+<a name='L407'><font color='red'>}</font>
+<a name='L408'>
+<a name='L409'>JEMALLOC_INLINE <b>void</b>
+<a name='L410'><a href='../R/3933.html' title='Multiple refered from 2 places.'>tcache_dalloc_large</a>(<a href='../S/151.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_t</a> *tcache, <b>void</b> *ptr, size_t size)
+<a name='L411'><font color='red'>{</font>
+<a name='L412'>        size_t binind;
+<a name='L413'>        <a href='../S/151.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_bin_t</a> *tbin;
+<a name='L414'>        <a href='../S/151.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_bin_info_t</a> *tbin_info;
+<a name='L415'>
+<a name='L416'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((size &amp; PAGE_MASK) == 0);
+<a name='L417'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/4331.html' title='Multiple defined in 2 places.'>tcache_salloc</a>(ptr) &gt; SMALL_MAXCLASS);
+<a name='L418'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/4331.html' title='Multiple defined in 2 places.'>tcache_salloc</a>(ptr) &lt;= <a href='../S/138.html#L349' title='Defined at 349 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_maxclass</a>);
+<a name='L419'>
+<a name='L420'>        binind = NBINS + (size &gt;&gt; LG_PAGE) - 1;
+<a name='L421'>
+<a name='L422'>        <b>if</b> (config_fill &amp;&amp; <a href='../S/138.html#L239' title='Defined at 239 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_junk</a>)
+<a name='L423'>                memset(ptr, 0x5a, size);
+<a name='L424'>
+<a name='L425'>        tbin = &amp;tcache-&gt;tbins[binind];
+<a name='L426'>        tbin_info = &amp;<a href='../S/138.html#L326' title='Defined at 326 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>tcache_bin_info</a>[binind];
+<a name='L427'>        <b>if</b> (tbin-&gt;ncached == tbin_info-&gt;ncached_max) <font color='red'>{</font>
+<a name='L428'>                <a href='../D/4294.html' title='Multiple defined in 2 places.'>tcache_bin_flush_large</a>(tbin, binind, (tbin_info-&gt;ncached_max &gt;&gt;
+<a name='L429'>                    1), tcache);
+<a name='L430'>        <font color='red'>}</font>
+<a name='L431'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(tbin-&gt;ncached &lt; tbin_info-&gt;ncached_max);
+<a name='L432'>        tbin-&gt;avail[tbin-&gt;ncached] = ptr;
+<a name='L433'>        tbin-&gt;ncached++;
+<a name='L434'>
+<a name='L435'>        <a href='../D/4324.html' title='Multiple defined in 2 places.'>tcache_event</a>(tcache);
+<a name='L436'><font color='red'>}</font>
+<a name='L437'><font color='darkred'>#endif</font>
+<a name='L438'>
+<a name='L439'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_INLINES */</font></i>
+<a name='L440'><i><font color='green'>/******************************************************************************/</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L125'>[^]</a><a href='#L410'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

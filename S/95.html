@@ -1,0 +1,160 @@
+<html>
+<head>
+<title>src/ae_kqueue.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/ae_kqueue.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L41'>[^]</a><a href='#L130'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L41' title='Defined at 41.'>aeApiCreate</a>
+<li><a href='#L61' title='Defined at 61.'>aeApiFree</a>
+<li><a href='#L69' title='Defined at 69.'>aeApiAddEvent</a>
+<li><a href='#L84' title='Defined at 84.'>aeApiDelEvent</a>
+<li><a href='#L98' title='Defined at 98.'>aeApiPoll</a>
+<li><a href='#L130' title='Defined at 130.'>aeApiName</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* Kqueue(2)-based ae.c module</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (C) 2009 Harish Mallipeddi - harish.mallipeddi@gmail.com</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'>
+<a name='L32'><font color='darkred'>#include</font> &lt;sys/types.h&gt;
+<a name='L33'><font color='darkred'>#include</font> &lt;sys/event.h&gt;
+<a name='L34'><font color='darkred'>#include</font> &lt;sys/time.h&gt;
+<a name='L35'>
+<a name='L36'><b>typedef</b> <b>struct</b> <a href='../R/1239.html' title='Multiple refered from 19 places.'>aeApiState</a> <font color='red'>{</font>
+<a name='L37'>    <b>int</b> kqfd;
+<a name='L38'>    <b>struct</b> kevent *events;
+<a name='L39'><font color='red'>}</font> <a href='../R/1239.html' title='Multiple refered from 19 places.'>aeApiState</a>;
+<a name='L40'>
+<a name='L41'><b>static</b> <b>int</b> <a href='../S/36.html#L77' title='Refered from 77 in src/ae.c.'>aeApiCreate</a>(aeEventLoop *eventLoop) <font color='red'>{</font>
+<a name='L42'>    <a href='../D/1501.html' title='Multiple defined in 8 places.'>aeApiState</a> *state = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<a href='../D/1501.html' title='Multiple defined in 8 places.'>aeApiState</a>));
+<a name='L43'>
+<a name='L44'>    <b>if</b> (!state) <b>return</b> -1;
+<a name='L45'>    state-&gt;events = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<b>struct</b> kevent)*eventLoop-&gt;setsize);
+<a name='L46'>    <b>if</b> (!state-&gt;events) <font color='red'>{</font>
+<a name='L47'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(state);
+<a name='L48'>        <b>return</b> -1;
+<a name='L49'>    <font color='red'>}</font>
+<a name='L50'>    state-&gt;kqfd = kqueue();
+<a name='L51'>    <b>if</b> (state-&gt;kqfd == -1) <font color='red'>{</font>
+<a name='L52'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(state-&gt;events);
+<a name='L53'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(state);
+<a name='L54'>        <b>return</b> -1;
+<a name='L55'>    <font color='red'>}</font>
+<a name='L56'>    eventLoop-&gt;apidata = state;
+<a name='L57'>    
+<a name='L58'>    <b>return</b> 0;    
+<a name='L59'><font color='red'>}</font>
+<a name='L60'>
+<a name='L61'><b>static</b> <b>void</b> <a href='../S/36.html#L94' title='Refered from 94 in src/ae.c.'>aeApiFree</a>(aeEventLoop *eventLoop) <font color='red'>{</font>
+<a name='L62'>    <a href='../D/1501.html' title='Multiple defined in 8 places.'>aeApiState</a> *state = eventLoop-&gt;apidata;
+<a name='L63'>
+<a name='L64'>    close(state-&gt;kqfd);
+<a name='L65'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(state-&gt;events);
+<a name='L66'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(state);
+<a name='L67'><font color='red'>}</font>
+<a name='L68'>
+<a name='L69'><b>static</b> <b>int</b> <a href='../S/36.html#L110' title='Refered from 110 in src/ae.c.'>aeApiAddEvent</a>(aeEventLoop *eventLoop, <b>int</b> fd, <b>int</b> mask) <font color='red'>{</font>
+<a name='L70'>    <a href='../D/1501.html' title='Multiple defined in 8 places.'>aeApiState</a> *state = eventLoop-&gt;apidata;
+<a name='L71'>    <b>struct</b> kevent ke;
+<a name='L72'>    
+<a name='L73'>    <b>if</b> (mask &amp; <a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>) <font color='red'>{</font>
+<a name='L74'>        EV_SET(&amp;ke, fd, EVFILT_READ, EV_ADD, 0, 0, NULL);
+<a name='L75'>        <b>if</b> (kevent(state-&gt;kqfd, &amp;ke, 1, NULL, 0, NULL) == -1) <b>return</b> -1;
+<a name='L76'>    <font color='red'>}</font>
+<a name='L77'>    <b>if</b> (mask &amp; <a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>) <font color='red'>{</font>
+<a name='L78'>        EV_SET(&amp;ke, fd, EVFILT_WRITE, EV_ADD, 0, 0, NULL);
+<a name='L79'>        <b>if</b> (kevent(state-&gt;kqfd, &amp;ke, 1, NULL, 0, NULL) == -1) <b>return</b> -1;
+<a name='L80'>    <font color='red'>}</font>
+<a name='L81'>    <b>return</b> 0;
+<a name='L82'><font color='red'>}</font>
+<a name='L83'>
+<a name='L84'><b>static</b> <b>void</b> <a href='../S/36.html#L136' title='Refered from 136 in src/ae.c.'>aeApiDelEvent</a>(aeEventLoop *eventLoop, <b>int</b> fd, <b>int</b> mask) <font color='red'>{</font>
+<a name='L85'>    <a href='../D/1501.html' title='Multiple defined in 8 places.'>aeApiState</a> *state = eventLoop-&gt;apidata;
+<a name='L86'>    <b>struct</b> kevent ke;
+<a name='L87'>
+<a name='L88'>    <b>if</b> (mask &amp; <a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>) <font color='red'>{</font>
+<a name='L89'>        EV_SET(&amp;ke, fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
+<a name='L90'>        kevent(state-&gt;kqfd, &amp;ke, 1, NULL, 0, NULL);
+<a name='L91'>    <font color='red'>}</font>
+<a name='L92'>    <b>if</b> (mask &amp; <a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>) <font color='red'>{</font>
+<a name='L93'>        EV_SET(&amp;ke, fd, EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
+<a name='L94'>        kevent(state-&gt;kqfd, &amp;ke, 1, NULL, 0, NULL);
+<a name='L95'>    <font color='red'>}</font>
+<a name='L96'><font color='red'>}</font>
+<a name='L97'>
+<a name='L98'><b>static</b> <b>int</b> <a href='../S/36.html#L366' title='Refered from 366 in src/ae.c.'>aeApiPoll</a>(aeEventLoop *eventLoop, <b>struct</b> timeval *tvp) <font color='red'>{</font>
+<a name='L99'>    <a href='../D/1501.html' title='Multiple defined in 8 places.'>aeApiState</a> *state = eventLoop-&gt;apidata;
+<a name='L100'>    <b>int</b> retval, numevents = 0;
+<a name='L101'>
+<a name='L102'>    <b>if</b> (tvp != NULL) <font color='red'>{</font>
+<a name='L103'>        <b>struct</b> timespec timeout;
+<a name='L104'>        timeout.tv_sec = tvp-&gt;tv_sec;
+<a name='L105'>        timeout.tv_nsec = tvp-&gt;tv_usec * 1000;
+<a name='L106'>        retval = kevent(state-&gt;kqfd, NULL, 0, state-&gt;events, eventLoop-&gt;setsize,
+<a name='L107'>                        &amp;timeout);
+<a name='L108'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L109'>        retval = kevent(state-&gt;kqfd, NULL, 0, state-&gt;events, eventLoop-&gt;setsize,
+<a name='L110'>                        NULL);
+<a name='L111'>    <font color='red'>}</font>
+<a name='L112'>
+<a name='L113'>    <b>if</b> (retval &gt; 0) <font color='red'>{</font>
+<a name='L114'>        <b>int</b> j;
+<a name='L115'>        
+<a name='L116'>        numevents = retval;
+<a name='L117'>        <b>for</b>(j = 0; j &lt; numevents; j++) <font color='red'>{</font>
+<a name='L118'>            <b>int</b> mask = 0;
+<a name='L119'>            <b>struct</b> kevent *e = state-&gt;events+j;
+<a name='L120'>            
+<a name='L121'>            <b>if</b> (e-&gt;filter == EVFILT_READ) mask |= <a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>;
+<a name='L122'>            <b>if</b> (e-&gt;filter == EVFILT_WRITE) mask |= <a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>;
+<a name='L123'>            eventLoop-&gt;fired[j].fd = e-&gt;ident; 
+<a name='L124'>            eventLoop-&gt;fired[j].mask = mask;           
+<a name='L125'>        <font color='red'>}</font>
+<a name='L126'>    <font color='red'>}</font>
+<a name='L127'>    <b>return</b> numevents;
+<a name='L128'><font color='red'>}</font>
+<a name='L129'>
+<a name='L130'><b>static</b> <b>char</b> *<a href='../S/36.html#L426' title='Refered from 426 in src/ae.c.'>aeApiName</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L131'>    <b>return</b> "kqueue";
+<a name='L132'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L41'>[^]</a><a href='#L130'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

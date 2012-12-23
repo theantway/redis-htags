@@ -1,0 +1,149 @@
+<html>
+<head>
+<title>list</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/104.html#L191'>list</a>              191 deps/hiredis/async.c     if (list-&gt;head == NULL)
+<a href='../S/104.html#L192'>list</a>              192 deps/hiredis/async.c         list-&gt;head = cb;
+<a href='../S/104.html#L193'>list</a>              193 deps/hiredis/async.c     if (list-&gt;tail != NULL)
+<a href='../S/104.html#L194'>list</a>              194 deps/hiredis/async.c         list-&gt;tail-&gt;next = cb;
+<a href='../S/104.html#L195'>list</a>              195 deps/hiredis/async.c     list-&gt;tail = cb;
+<a href='../S/104.html#L200'>list</a>              200 deps/hiredis/async.c     redisCallback *cb = list-&gt;head;
+<a href='../S/104.html#L202'>list</a>              202 deps/hiredis/async.c         list-&gt;head = cb-&gt;next;
+<a href='../S/104.html#L203'>list</a>              203 deps/hiredis/async.c         if (cb == list-&gt;tail)
+<a href='../S/104.html#L204'>list</a>              204 deps/hiredis/async.c             list-&gt;tail = NULL;
+<a href='../S/293.html#L123'>list</a>              123 deps/lua/src/lcode.c   for (; list != NO_JUMP; list = getjump(fs, list)) {
+<a href='../S/293.html#L124'>list</a>              124 deps/lua/src/lcode.c     Instruction i = *getjumpcontrol(fs, list);
+<a href='../S/293.html#L145'>list</a>              145 deps/lua/src/lcode.c   for (; list != NO_JUMP; list = getjump(fs, list))
+<a href='../S/293.html#L146'>list</a>              146 deps/lua/src/lcode.c       patchtestreg(fs, list, NO_REG);
+<a href='../S/293.html#L152'>list</a>              152 deps/lua/src/lcode.c   while (list != NO_JUMP) {
+<a href='../S/293.html#L153'>list</a>              153 deps/lua/src/lcode.c     int next = getjump(fs, list);
+<a href='../S/293.html#L154'>list</a>              154 deps/lua/src/lcode.c     if (patchtestreg(fs, list, reg))
+<a href='../S/293.html#L155'>list</a>              155 deps/lua/src/lcode.c       fixjump(fs, list, vtarget);
+<a href='../S/293.html#L157'>list</a>              157 deps/lua/src/lcode.c       fixjump(fs, list, dtarget);  /* jump to default target */
+<a href='../S/293.html#L158'>list</a>              158 deps/lua/src/lcode.c     list = next;
+<a href='../S/293.html#L171'>list</a>              171 deps/lua/src/lcode.c     luaK_patchtohere(fs, list);
+<a href='../S/293.html#L174'>list</a>              174 deps/lua/src/lcode.c     patchlistaux(fs, list, target, NO_REG, target);
+<a href='../S/293.html#L181'>list</a>              181 deps/lua/src/lcode.c   luaK_concat(fs, &amp;fs-&gt;jpc, list);
+<a href='../S/293.html#L190'>list</a>              190 deps/lua/src/lcode.c     int list = *l1;
+<a href='../S/293.html#L192'>list</a>              192 deps/lua/src/lcode.c     while ((next = getjump(fs, list)) != NO_JUMP)  /* find last element */
+<a href='../S/293.html#L193'>list</a>              193 deps/lua/src/lcode.c       list = next;
+<a href='../S/293.html#L194'>list</a>              194 deps/lua/src/lcode.c     fixjump(fs, list, l2);
+<a href='../S/54.html#L41'>list</a>               41 src/adlist.c   list *listCreate(void)
+<a href='../S/54.html#L43'>list</a>               43 src/adlist.c       struct list *list;
+<a href='../S/54.html#L45'>list</a>               45 src/adlist.c       if ((list = zmalloc(sizeof(*list))) == NULL)
+<a href='../S/54.html#L47'>list</a>               47 src/adlist.c       list-&gt;head = list-&gt;tail = NULL;
+<a href='../S/54.html#L48'>list</a>               48 src/adlist.c       list-&gt;len = 0;
+<a href='../S/54.html#L49'>list</a>               49 src/adlist.c       list-&gt;dup = NULL;
+<a href='../S/54.html#L50'>list</a>               50 src/adlist.c       list-&gt;free = NULL;
+<a href='../S/54.html#L51'>list</a>               51 src/adlist.c       list-&gt;match = NULL;
+<a href='../S/54.html#L52'>list</a>               52 src/adlist.c       return list;
+<a href='../S/54.html#L63'>list</a>               63 src/adlist.c       current = list-&gt;head;
+<a href='../S/54.html#L64'>list</a>               64 src/adlist.c       len = list-&gt;len;
+<a href='../S/54.html#L67'>list</a>               67 src/adlist.c           if (list-&gt;free) list-&gt;free(current-&gt;value);
+<a href='../S/54.html#L71'>list</a>               71 src/adlist.c       zfree(list);
+<a href='../S/54.html#L80'>list</a>               80 src/adlist.c   list *listAddNodeHead(list *list, void *value)
+<a href='../S/54.html#L87'>list</a>               87 src/adlist.c       if (list-&gt;len == 0) {
+<a href='../S/54.html#L88'>list</a>               88 src/adlist.c           list-&gt;head = list-&gt;tail = node;
+<a href='../S/54.html#L92'>list</a>               92 src/adlist.c           node-&gt;next = list-&gt;head;
+<a href='../S/54.html#L93'>list</a>               93 src/adlist.c           list-&gt;head-&gt;prev = node;
+<a href='../S/54.html#L94'>list</a>               94 src/adlist.c           list-&gt;head = node;
+<a href='../S/54.html#L96'>list</a>               96 src/adlist.c       list-&gt;len++;
+<a href='../S/54.html#L97'>list</a>               97 src/adlist.c       return list;
+<a href='../S/54.html#L106'>list</a>              106 src/adlist.c   list *listAddNodeTail(list *list, void *value)
+<a href='../S/54.html#L113'>list</a>              113 src/adlist.c       if (list-&gt;len == 0) {
+<a href='../S/54.html#L114'>list</a>              114 src/adlist.c           list-&gt;head = list-&gt;tail = node;
+<a href='../S/54.html#L117'>list</a>              117 src/adlist.c           node-&gt;prev = list-&gt;tail;
+<a href='../S/54.html#L119'>list</a>              119 src/adlist.c           list-&gt;tail-&gt;next = node;
+<a href='../S/54.html#L120'>list</a>              120 src/adlist.c           list-&gt;tail = node;
+<a href='../S/54.html#L122'>list</a>              122 src/adlist.c       list-&gt;len++;
+<a href='../S/54.html#L123'>list</a>              123 src/adlist.c       return list;
+<a href='../S/54.html#L126'>list</a>              126 src/adlist.c   list *listInsertNode(list *list, listNode *old_node, void *value, int after) {
+<a href='../S/54.html#L135'>list</a>              135 src/adlist.c           if (list-&gt;tail == old_node) {
+<a href='../S/54.html#L136'>list</a>              136 src/adlist.c               list-&gt;tail = node;
+<a href='../S/54.html#L141'>list</a>              141 src/adlist.c           if (list-&gt;head == old_node) {
+<a href='../S/54.html#L142'>list</a>              142 src/adlist.c               list-&gt;head = node;
+<a href='../S/54.html#L151'>list</a>              151 src/adlist.c       list-&gt;len++;
+<a href='../S/54.html#L152'>list</a>              152 src/adlist.c       return list;
+<a href='../S/54.html#L164'>list</a>              164 src/adlist.c           list-&gt;head = node-&gt;next;
+<a href='../S/54.html#L168'>list</a>              168 src/adlist.c           list-&gt;tail = node-&gt;prev;
+<a href='../S/54.html#L169'>list</a>              169 src/adlist.c       if (list-&gt;free) list-&gt;free(node-&gt;value);
+<a href='../S/54.html#L171'>list</a>              171 src/adlist.c       list-&gt;len--;
+<a href='../S/54.html#L184'>list</a>              184 src/adlist.c           iter-&gt;next = list-&gt;head;
+<a href='../S/54.html#L186'>list</a>              186 src/adlist.c           iter-&gt;next = list-&gt;tail;
+<a href='../S/54.html#L198'>list</a>              198 src/adlist.c       li-&gt;next = list-&gt;head;
+<a href='../S/54.html#L203'>list</a>              203 src/adlist.c       li-&gt;next = list-&gt;tail;
+<a href='../S/54.html#L242'>list</a>              242 src/adlist.c   list *listDup(list *orig)
+<a href='../S/54.html#L244'>list</a>              244 src/adlist.c       list *copy;
+<a href='../S/54.html#L290'>list</a>              290 src/adlist.c       iter = listGetIterator(list, AL_START_HEAD);
+<a href='../S/54.html#L292'>list</a>              292 src/adlist.c           if (list-&gt;match) {
+<a href='../S/54.html#L293'>list</a>              293 src/adlist.c               if (list-&gt;match(node-&gt;value, key)) {
+<a href='../S/54.html#L318'>list</a>              318 src/adlist.c           n = list-&gt;tail;
+<a href='../S/54.html#L321'>list</a>              321 src/adlist.c           n = list-&gt;head;
+<a href='../S/54.html#L329'>list</a>              329 src/adlist.c       listNode *tail = list-&gt;tail;
+<a href='../S/54.html#L331'>list</a>              331 src/adlist.c       if (listLength(list) &lt;= 1) return;
+<a href='../S/54.html#L334'>list</a>              334 src/adlist.c       list-&gt;tail = tail-&gt;prev;
+<a href='../S/54.html#L335'>list</a>              335 src/adlist.c       list-&gt;tail-&gt;next = NULL;
+<a href='../S/54.html#L337'>list</a>              337 src/adlist.c       list-&gt;head-&gt;prev = tail;
+<a href='../S/54.html#L339'>list</a>              339 src/adlist.c       tail-&gt;next = list-&gt;head;
+<a href='../S/54.html#L340'>list</a>              340 src/adlist.c       list-&gt;head = tail;
+<a href='../S/58.html#L73'>list</a>               73 src/adlist.h   list *listCreate(void);
+<a href='../S/58.html#L75'>list</a>               75 src/adlist.h   list *listAddNodeHead(list *list, void *value);
+<a href='../S/58.html#L76'>list</a>               76 src/adlist.h   list *listAddNodeTail(list *list, void *value);
+<a href='../S/58.html#L77'>list</a>               77 src/adlist.h   list *listInsertNode(list *list, listNode *old_node, void *value, int after);
+<a href='../S/58.html#L82'>list</a>               82 src/adlist.h   list *listDup(list *orig);
+<a href='../S/62.html#L631'>list</a>              631 src/aof.c              list *list = o-&gt;ptr;
+<a href='../S/62.html#L635'>list</a>              635 src/aof.c              listRewind(list,&amp;li);
+<a href='../S/25.html#L66'>list</a>               66 src/bio.c      static list *bio_jobs[REDIS_BIO_NUM_OPS];
+<a href='../S/81.html#L206'>list</a>              206 src/multi.c        list *clients = NULL;
+<a href='../S/81.html#L243'>list</a>              243 src/multi.c            list *clients;
+<a href='../S/81.html#L265'>list</a>              265 src/multi.c        list *clients;
+<a href='../S/86.html#L641'>list</a>              641 src/networking.c         list *l = (c-&gt;flags &amp; REDIS_MONITOR) ? server.monitors : server.slaves;
+<a href='../S/71.html#L98'>list</a>               98 src/object.c       list *l = listCreate();
+<a href='../S/71.html#L160'>list</a>              160 src/object.c           listRelease((list*) o-&gt;ptr);
+<a href='../S/46.html#L54'>list</a>               54 src/pubsub.c       list *clients = NULL;
+<a href='../S/46.html#L84'>list</a>               84 src/pubsub.c       list *clients;
+<a href='../S/46.html#L212'>list</a>              212 src/pubsub.c           list *list = dictGetVal(de);
+<a href='../S/46.html#L216'>list</a>              216 src/pubsub.c           listRewind(list,&amp;li);
+<a href='../S/87.html#L493'>list</a>              493 src/rdb.c                  list *list = o-&gt;ptr;
+<a href='../S/87.html#L497'>list</a>              497 src/rdb.c                  if ((n = rdbSaveLen(rdb,listLength(list))) == -1) return -1;
+<a href='../S/87.html#L500'>list</a>              500 src/rdb.c                  listRewind(list,&amp;li);
+<a href='../S/94.html#L70'>list</a>               70 src/redis-benchmark.c     list *clients;
+<a href='../S/35.html#L379'>list</a>              379 src/redis.c        listRelease((list*)val);
+<a href='../S/32.html#L391'>list</a>              391 src/redis.h        list *reply;
+<a href='../S/32.html#L407'>list</a>              407 src/redis.h        list *io_keys;          /* Keys this client is waiting to be loaded from the
+<a href='../S/32.html#L409'>list</a>              409 src/redis.h        list *watched_keys;     /* Keys WATCHED for MULTI/EXEC CAS */
+<a href='../S/32.html#L411'>list</a>              411 src/redis.h        list *pubsub_patterns;  /* patterns a client is interested in (SUBSCRIBE) */
+<a href='../S/32.html#L516'>list</a>              516 src/redis.h        list *clients;              /* List of active clients */
+<a href='../S/32.html#L517'>list</a>              517 src/redis.h        list *clients_to_close;     /* Clients to close asynchronously */
+<a href='../S/32.html#L518'>list</a>              518 src/redis.h        list *slaves, *monitors;    /* List of slaves and MONITORs */
+<a href='../S/32.html#L540'>list</a>              540 src/redis.h        list *slowlog;                  /* SLOWLOG list of commands */
+<a href='../S/32.html#L568'>list</a>              568 src/redis.h        list *aof_rewrite_buf_blocks;   /* Hold changes during an AOF rewrite. */
+<a href='../S/32.html#L626'>list</a>              626 src/redis.h        list *unblocked_clients; /* list of clients to unblock before next loop */
+<a href='../S/32.html#L627'>list</a>              627 src/redis.h        list *ready_keys;        /* List of readyList structures for BLPOP &amp; co */
+<a href='../S/32.html#L644'>list</a>              644 src/redis.h        list *pubsub_patterns;  /* A list of pubsub_patterns */
+<a href='../S/82.html#L201'>list</a>              201 src/sentinel.c     list *scripts_queue;    /* Queue of user scripts to execute. */
+<a href='../S/57.html#L180'>list</a>              180 src/sort.c         list *operations;
+<a href='../S/60.html#L96'>list</a>               96 src/t_list.c           list *list = subject-&gt;ptr;
+<a href='../S/60.html#L99'>list</a>               99 src/t_list.c               ln = listFirst(list);
+<a href='../S/60.html#L101'>list</a>              101 src/t_list.c               ln = listLast(list);
+<a href='../S/60.html#L106'>list</a>              106 src/t_list.c               listDelNode(list,ln);
+<a href='../S/60.html#L118'>list</a>              118 src/t_list.c           return listLength((list*)subject-&gt;ptr);
+<a href='../S/60.html#L277'>list</a>              277 src/t_list.c           list *l = listCreate();
+<a href='../S/60.html#L577'>list</a>              577 src/t_list.c       list *list;
+<a href='../S/60.html#L609'>list</a>              609 src/t_list.c           list = o-&gt;ptr;
+<a href='../S/60.html#L611'>list</a>              611 src/t_list.c               ln = listFirst(list);
+<a href='../S/60.html#L612'>list</a>              612 src/t_list.c               listDelNode(list,ln);
+<a href='../S/60.html#L615'>list</a>              615 src/t_list.c               ln = listLast(list);
+<a href='../S/60.html#L616'>list</a>              616 src/t_list.c               listDelNode(list,ln);
+<a href='../S/60.html#L757'>list</a>              757 src/t_list.c       list *l;
+<a href='../S/60.html#L795'>list</a>              795 src/t_list.c       list *l;
+<a href='../S/60.html#L936'>list</a>              936 src/t_list.c           list *l;
+<a href='../S/60.html#L963'>list</a>              963 src/t_list.c                       list *clients = dictGetVal(de);
+<a href='../S/89.html#L1454'>list</a>             1454 src/ziplist.c          list *ref;
+</pre>
+</body>
+</html>

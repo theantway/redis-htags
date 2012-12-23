@@ -1,0 +1,721 @@
+<html>
+<head>
+<title>src/redis-benchmark.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/redis-benchmark.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L94'>[^]</a><a href='#L506'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L94' title='Defined at 94.'>ustime</a>
+<li><a href='#L104' title='Defined at 104.'>mstime</a>
+<li><a href='#L114' title='Defined at 114.'>freeClient</a>
+<li><a href='#L127' title='Defined at 127.'>freeAllClients</a>
+<li><a href='#L137' title='Defined at 137.'>resetClient</a>
+<li><a href='#L145' title='Defined at 145.'>randomizeClientKey</a>
+<li><a href='#L156' title='Defined at 156.'>clientDone</a>
+<li><a href='#L172' title='Defined at 172.'>readHandler</a>
+<li><a href='#L215' title='Defined at 215.'>writeHandler</a>
+<li><a href='#L252' title='Defined at 252.'>createClient</a>
+<li><a href='#L296' title='Defined at 296.'>createMissingClients</a>
+<li><a href='#L310' title='Defined at 310.'>compareLatency</a>
+<li><a href='#L314' title='Defined at 314.'>showLatencyReport</a>
+<li><a href='#L344' title='Defined at 344.'>benchmark</a>
+<li><a href='#L363' title='Defined at 363.'>parseOptions</a>
+<li><a href='#L479' title='Defined at 479.'>showThroughput</a>
+<li><a href='#L494' title='Defined at 494.'>test_is_selected</a>
+<li><a href='#L506' title='Defined at 506.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* Redis benchmark utility.</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'><font color='darkred'>#include</font> "<a href='../I/12.html'>fmacros.h</a>"
+<a name='L32'>
+<a name='L33'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L34'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L35'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L36'><font color='darkred'>#include</font> &lt;unistd.h&gt;
+<a name='L37'><font color='darkred'>#include</font> &lt;errno.h&gt;
+<a name='L38'><font color='darkred'>#include</font> &lt;sys/time.h&gt;
+<a name='L39'><font color='darkred'>#include</font> &lt;signal.h&gt;
+<a name='L40'><font color='darkred'>#include</font> &lt;assert.h&gt;
+<a name='L41'>
+<a name='L42'><font color='darkred'>#include</font> "<a href='../I/1.html'>ae.h</a>"
+<a name='L43'><font color='darkred'>#include</font> "<a href='121.html'>hiredis.h</a>"
+<a name='L44'><font color='darkred'>#include</font> "<a href='../I/18.html'>sds.h</a>"
+<a name='L45'><font color='darkred'>#include</font> "<a href='58.html'>adlist.h</a>"
+<a name='L46'><font color='darkred'>#include</font> "<a href='28.html'>zmalloc.h</a>"
+<a name='L47'>
+<a name='L48'><font color='darkred'>#define</font> <a href='../R/708.html' title='Multiple refered from 43 places.'>REDIS_NOTUSED</a>(V) ((<b>void</b>) V)
+<a name='L49'>
+<a name='L50'><b>static</b> <b>struct</b> <a href='../R/1669.html' title='Multiple refered from 239 places.'>config</a> <font color='red'>{</font>
+<a name='L51'>    <a href='../D/1510.html' title='Multiple defined in 2 places.'>aeEventLoop</a> *el;
+<a name='L52'>    <b>const</b> <b>char</b> *hostip;
+<a name='L53'>    <b>int</b> hostport;
+<a name='L54'>    <b>const</b> <b>char</b> *hostsocket;
+<a name='L55'>    <b>int</b> numclients;
+<a name='L56'>    <b>int</b> liveclients;
+<a name='L57'>    <b>int</b> requests;
+<a name='L58'>    <b>int</b> requests_issued;
+<a name='L59'>    <b>int</b> requests_finished;
+<a name='L60'>    <b>int</b> keysize;
+<a name='L61'>    <b>int</b> datasize;
+<a name='L62'>    <b>int</b> randomkeys;
+<a name='L63'>    <b>int</b> randomkeys_keyspacelen;
+<a name='L64'>    <b>int</b> keepalive;
+<a name='L65'>    <b>int</b> pipeline;
+<a name='L66'>    <b>long</b> <b>long</b> start;
+<a name='L67'>    <b>long</b> <b>long</b> totlatency;
+<a name='L68'>    <b>long</b> <b>long</b> *latency;
+<a name='L69'>    <b>const</b> <b>char</b> *title;
+<a name='L70'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *clients;
+<a name='L71'>    <b>int</b> quiet;
+<a name='L72'>    <b>int</b> csv;
+<a name='L73'>    <b>int</b> loop;
+<a name='L74'>    <b>int</b> idlemode;
+<a name='L75'>    <b>char</b> *tests;
+<a name='L76'><font color='red'>}</font> <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>;
+<a name='L77'>
+<a name='L78'><b>typedef</b> <b>struct</b> <a href='../S/94.html#L254' title='Refered from 254 in src/redis-benchmark.c.'>_client</a> <font color='red'>{</font>
+<a name='L79'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> *context;
+<a name='L80'>    <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> obuf;
+<a name='L81'>    <b>char</b> *randptr[32]; <i><font color='green'>/* needed for MSET against 10 keys */</font></i>
+<a name='L82'>    size_t randlen;
+<a name='L83'>    <b>unsigned</b> <b>int</b> written; <i><font color='green'>/* bytes of 'obuf' already written */</font></i>
+<a name='L84'>    <b>long</b> <b>long</b> start; <i><font color='green'>/* start time of a request */</font></i>
+<a name='L85'>    <b>long</b> <b>long</b> latency; <i><font color='green'>/* request latency */</font></i>
+<a name='L86'>    <b>int</b> pending;    <i><font color='green'>/* Number of pending requests (sent but no reply received) */</font></i>
+<a name='L87'><font color='red'>}</font> *<a href='../R/1635.html' title='Multiple refered from 61 places.'>client</a>;
+<a name='L88'>
+<a name='L89'><i><font color='green'>/* Prototypes */</font></i>
+<a name='L90'><b>static</b> <b>void</b> <a href='../S/94.html#L215' title='Defined at 215 in src/redis-benchmark.c.'>writeHandler</a>(aeEventLoop *el, <b>int</b> fd, <b>void</b> *privdata, <b>int</b> mask);
+<a name='L91'><b>static</b> <b>void</b> <a href='../S/94.html#L296' title='Defined at 296 in src/redis-benchmark.c.'>createMissingClients</a>(client c);
+<a name='L92'>
+<a name='L93'><i><font color='green'>/* Implementation */</font></i>
+<a name='L94'><b>static</b> <b>long</b> <b>long</b> <a href='../R/4072.html' title='Multiple refered from 19 places.'>ustime</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L95'>    <b>struct</b> timeval tv;
+<a name='L96'>    <b>long</b> <b>long</b> ust;
+<a name='L97'>
+<a name='L98'>    gettimeofday(&amp;tv, NULL);
+<a name='L99'>    ust = ((<b>long</b>)tv.tv_sec)*1000000;
+<a name='L100'>    ust += tv.tv_usec;
+<a name='L101'>    <b>return</b> ust;
+<a name='L102'><font color='red'>}</font>
+<a name='L103'>
+<a name='L104'><b>static</b> <b>long</b> <b>long</b> <a href='../R/3054.html' title='Multiple refered from 95 places.'>mstime</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L105'>    <b>struct</b> timeval tv;
+<a name='L106'>    <b>long</b> <b>long</b> mst;
+<a name='L107'>
+<a name='L108'>    gettimeofday(&amp;tv, NULL);
+<a name='L109'>    mst = ((<b>long</b>)tv.tv_sec)*1000;
+<a name='L110'>    mst += tv.tv_usec/1000;
+<a name='L111'>    <b>return</b> mst;
+<a name='L112'><font color='red'>}</font>
+<a name='L113'>
+<a name='L114'><b>static</b> <b>void</b> <a href='../R/1993.html' title='Multiple refered from 27 places.'>freeClient</a>(client c) <font color='red'>{</font>
+<a name='L115'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln;
+<a name='L116'>    <a href='../S/36.html#L121' title='Defined at 121 in src/ae.c.'>aeDeleteFileEvent</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.el,c-&gt;context-&gt;fd,<a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>);
+<a name='L117'>    <a href='../S/36.html#L121' title='Defined at 121 in src/ae.c.'>aeDeleteFileEvent</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.el,c-&gt;context-&gt;fd,<a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>);
+<a name='L118'>    <a href='../S/120.html#L1003' title='Defined at 1003 in deps/hiredis/hiredis.c.'>redisFree</a>(c-&gt;context);
+<a name='L119'>    <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(c-&gt;obuf);
+<a name='L120'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(c);
+<a name='L121'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.liveclients--;
+<a name='L122'>    ln = <a href='../S/54.html#L285' title='Defined at 285 in src/adlist.c.'>listSearchKey</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.clients,c);
+<a name='L123'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ln != NULL);
+<a name='L124'>    <a href='../S/54.html#L159' title='Defined at 159 in src/adlist.c.'>listDelNode</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.clients,ln);
+<a name='L125'><font color='red'>}</font>
+<a name='L126'>
+<a name='L127'><b>static</b> <b>void</b> <a href='../S/94.html#L359' title='Refered from 359 in src/redis-benchmark.c.'>freeAllClients</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L128'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln = <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.clients-&gt;head, *<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L129'>
+<a name='L130'>    <b>while</b>(ln) <font color='red'>{</font>
+<a name='L131'>        <a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = ln-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L132'>        <a href='../D/2273.html' title='Multiple defined in 2 places.'>freeClient</a>(ln-&gt;value);
+<a name='L133'>        ln = <a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L134'>    <font color='red'>}</font>
+<a name='L135'><font color='red'>}</font>
+<a name='L136'>
+<a name='L137'><b>static</b> <b>void</b> <a href='../R/3536.html' title='Multiple refered from 4 places.'>resetClient</a>(client c) <font color='red'>{</font>
+<a name='L138'>    <a href='../S/36.html#L121' title='Defined at 121 in src/ae.c.'>aeDeleteFileEvent</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.el,c-&gt;context-&gt;fd,<a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>);
+<a name='L139'>    <a href='../S/36.html#L121' title='Defined at 121 in src/ae.c.'>aeDeleteFileEvent</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.el,c-&gt;context-&gt;fd,<a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>);
+<a name='L140'>    <a href='../S/36.html#L104' title='Defined at 104 in src/ae.c.'>aeCreateFileEvent</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.el,c-&gt;context-&gt;fd,<a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>,<a href='../S/94.html#L215' title='Defined at 215 in src/redis-benchmark.c.'>writeHandler</a>,c);
+<a name='L141'>    c-&gt;written = 0;
+<a name='L142'>    c-&gt;pending = <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.pipeline;
+<a name='L143'><font color='red'>}</font>
+<a name='L144'>
+<a name='L145'><b>static</b> <b>void</b> <a href='../S/94.html#L230' title='Refered from 230 in src/redis-benchmark.c.'>randomizeClientKey</a>(client c) <font color='red'>{</font>
+<a name='L146'>    <b>char</b> buf[32];
+<a name='L147'>    size_t i, r;
+<a name='L148'>
+<a name='L149'>    <b>for</b> (i = 0; i &lt; c-&gt;randlen; i++) <font color='red'>{</font>
+<a name='L150'>        r = random() % <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.randomkeys_keyspacelen;
+<a name='L151'>        snprintf(buf,<b>sizeof</b>(buf),"%012zu",r);
+<a name='L152'>        memcpy(c-&gt;randptr[i],buf,12);
+<a name='L153'>    <font color='red'>}</font>
+<a name='L154'><font color='red'>}</font>
+<a name='L155'>
+<a name='L156'><b>static</b> <b>void</b> <a href='../S/94.html#L205' title='Refered from 205 in src/redis-benchmark.c.'>clientDone</a>(client c) <font color='red'>{</font>
+<a name='L157'>    <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.requests_finished == <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.requests) <font color='red'>{</font>
+<a name='L158'>        <a href='../D/2273.html' title='Multiple defined in 2 places.'>freeClient</a>(c);
+<a name='L159'>        <a href='../S/36.html#L100' title='Defined at 100 in src/ae.c.'>aeStop</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.el);
+<a name='L160'>        <b>return</b>;
+<a name='L161'>    <font color='red'>}</font>
+<a name='L162'>    <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.keepalive) <font color='red'>{</font>
+<a name='L163'>        <a href='../D/3906.html' title='Multiple defined in 2 places.'>resetClient</a>(c);
+<a name='L164'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L165'>        <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.liveclients--;
+<a name='L166'>        <a href='../S/94.html#L296' title='Defined at 296 in src/redis-benchmark.c.'>createMissingClients</a>(c);
+<a name='L167'>        <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.liveclients++;
+<a name='L168'>        <a href='../D/2273.html' title='Multiple defined in 2 places.'>freeClient</a>(c);
+<a name='L169'>    <font color='red'>}</font>
+<a name='L170'><font color='red'>}</font>
+<a name='L171'>
+<a name='L172'><b>static</b> <b>void</b> <a href='../S/94.html#L247' title='Refered from 247 in src/redis-benchmark.c.'>readHandler</a>(aeEventLoop *el, <b>int</b> fd, <b>void</b> *privdata, <b>int</b> mask) <font color='red'>{</font>
+<a name='L173'>    <a href='../S/94.html#L87' title='Defined at 87 in src/redis-benchmark.c.'>client</a> c = privdata;
+<a name='L174'>    <b>void</b> *reply = NULL;
+<a name='L175'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(el);
+<a name='L176'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(fd);
+<a name='L177'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(mask);
+<a name='L178'>
+<a name='L179'>    <i><font color='green'>/* Calculate latency only for the first read event. This means that the</font></i>
+<a name='L180'><i><font color='green'>     * server already sent the reply and we need to parse it. Parsing overhead</font></i>
+<a name='L181'><i><font color='green'>     * is not part of the latency, so calculate it only once, here. */</font></i>
+<a name='L182'>    <b>if</b> (c-&gt;latency &lt; 0) c-&gt;latency = <a href='../D/4460.html' title='Multiple defined in 2 places.'>ustime</a>()-(c-&gt;start);
+<a name='L183'>
+<a name='L184'>    <b>if</b> (<a href='../S/120.html#L1070' title='Defined at 1070 in deps/hiredis/hiredis.c.'>redisBufferRead</a>(c-&gt;context) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L185'>        fprintf(stderr,"Error: %s\n",c-&gt;context-&gt;errstr);
+<a name='L186'>        exit(1);
+<a name='L187'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L188'>        <b>while</b>(c-&gt;pending) <font color='red'>{</font>
+<a name='L189'>            <b>if</b> (<a href='../S/120.html#L1146' title='Defined at 1146 in deps/hiredis/hiredis.c.'>redisGetReply</a>(c-&gt;context,&amp;reply) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L190'>                fprintf(stderr,"Error: %s\n",c-&gt;context-&gt;errstr);
+<a name='L191'>                exit(1);
+<a name='L192'>            <font color='red'>}</font>
+<a name='L193'>            <b>if</b> (reply != NULL) <font color='red'>{</font>
+<a name='L194'>                <b>if</b> (reply == (<b>void</b>*)<a href='../S/121.html#L87' title='Defined at 87 in deps/hiredis/hiredis.h.'>REDIS_REPLY_ERROR</a>) <font color='red'>{</font>
+<a name='L195'>                    fprintf(stderr,"Unexpected error reply, exiting...\n");
+<a name='L196'>                    exit(1);
+<a name='L197'>                <font color='red'>}</font>
+<a name='L198'>
+<a name='L199'>                <a href='../S/120.html#L72' title='Defined at 72 in deps/hiredis/hiredis.c.'>freeReplyObject</a>(reply);
+<a name='L200'>
+<a name='L201'>                <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.requests_finished &lt; <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.requests)
+<a name='L202'>                    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.latency[<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.requests_finished++] = c-&gt;latency;
+<a name='L203'>                c-&gt;pending--;
+<a name='L204'>                <b>if</b> (c-&gt;pending == 0) <font color='red'>{</font>
+<a name='L205'>                    <a href='../S/94.html#L156' title='Defined at 156 in src/redis-benchmark.c.'>clientDone</a>(c);
+<a name='L206'>                    <b>break</b>;
+<a name='L207'>                <font color='red'>}</font>
+<a name='L208'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L209'>                <b>break</b>;
+<a name='L210'>            <font color='red'>}</font>
+<a name='L211'>        <font color='red'>}</font>
+<a name='L212'>    <font color='red'>}</font>
+<a name='L213'><font color='red'>}</font>
+<a name='L214'>
+<a name='L215'><b>static</b> <b>void</b> <a href='../R/4086.html' title='Multiple refered from 3 places.'>writeHandler</a>(aeEventLoop *el, <b>int</b> fd, <b>void</b> *privdata, <b>int</b> mask) <font color='red'>{</font>
+<a name='L216'>    <a href='../S/94.html#L87' title='Defined at 87 in src/redis-benchmark.c.'>client</a> c = privdata;
+<a name='L217'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(el);
+<a name='L218'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(fd);
+<a name='L219'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(mask);
+<a name='L220'>
+<a name='L221'>    <i><font color='green'>/* Initialize request when nothing was written. */</font></i>
+<a name='L222'>    <b>if</b> (c-&gt;written == 0) <font color='red'>{</font>
+<a name='L223'>        <i><font color='green'>/* Enforce upper bound to number of requests. */</font></i>
+<a name='L224'>        <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.requests_issued++ &gt;= <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.requests) <font color='red'>{</font>
+<a name='L225'>            <a href='../D/2273.html' title='Multiple defined in 2 places.'>freeClient</a>(c);
+<a name='L226'>            <b>return</b>;
+<a name='L227'>        <font color='red'>}</font>
+<a name='L228'>
+<a name='L229'>        <i><font color='green'>/* Really initialize: randomize keys and set start time. */</font></i>
+<a name='L230'>        <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.randomkeys) <a href='../S/94.html#L145' title='Defined at 145 in src/redis-benchmark.c.'>randomizeClientKey</a>(c);
+<a name='L231'>        c-&gt;start = <a href='../D/4460.html' title='Multiple defined in 2 places.'>ustime</a>();
+<a name='L232'>        c-&gt;latency = -1;
+<a name='L233'>    <font color='red'>}</font>
+<a name='L234'>
+<a name='L235'>    <b>if</b> (<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(c-&gt;obuf) &gt; c-&gt;written) <font color='red'>{</font>
+<a name='L236'>        <b>void</b> *ptr = c-&gt;obuf+c-&gt;written;
+<a name='L237'>        <b>int</b> nwritten = write(c-&gt;context-&gt;fd,ptr,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(c-&gt;obuf)-c-&gt;written);
+<a name='L238'>        <b>if</b> (nwritten == -1) <font color='red'>{</font>
+<a name='L239'>            <b>if</b> (errno != EPIPE)
+<a name='L240'>                fprintf(stderr, "Writing to socket: %s\n", strerror(errno));
+<a name='L241'>            <a href='../D/2273.html' title='Multiple defined in 2 places.'>freeClient</a>(c);
+<a name='L242'>            <b>return</b>;
+<a name='L243'>        <font color='red'>}</font>
+<a name='L244'>        c-&gt;written += nwritten;
+<a name='L245'>        <b>if</b> (<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(c-&gt;obuf) == c-&gt;written) <font color='red'>{</font>
+<a name='L246'>            <a href='../S/36.html#L121' title='Defined at 121 in src/ae.c.'>aeDeleteFileEvent</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.el,c-&gt;context-&gt;fd,<a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>);
+<a name='L247'>            <a href='../S/36.html#L104' title='Defined at 104 in src/ae.c.'>aeCreateFileEvent</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.el,c-&gt;context-&gt;fd,<a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>,<a href='../S/94.html#L172' title='Defined at 172 in src/redis-benchmark.c.'>readHandler</a>,c);
+<a name='L248'>        <font color='red'>}</font>
+<a name='L249'>    <font color='red'>}</font>
+<a name='L250'><font color='red'>}</font>
+<a name='L251'>
+<a name='L252'><b>static</b> <a href='../S/94.html#L87' title='Defined at 87 in src/redis-benchmark.c.'>client</a> <a href='../R/1691.html' title='Multiple refered from 7 places.'>createClient</a>(<b>char</b> *cmd, size_t len) <font color='red'>{</font>
+<a name='L253'>    <b>int</b> j;
+<a name='L254'>    <a href='../S/94.html#L87' title='Defined at 87 in src/redis-benchmark.c.'>client</a> c = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<b>struct</b> <a href='../S/94.html#L78' title='Defined at 78 in src/redis-benchmark.c.'>_client</a>));
+<a name='L255'>
+<a name='L256'>    <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.hostsocket == NULL) <font color='red'>{</font>
+<a name='L257'>        c-&gt;context = <a href='../S/120.html#L1030' title='Defined at 1030 in deps/hiredis/hiredis.c.'>redisConnectNonBlock</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.hostip,<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.hostport);
+<a name='L258'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L259'>        c-&gt;context = <a href='../S/120.html#L1051' title='Defined at 1051 in deps/hiredis/hiredis.c.'>redisConnectUnixNonBlock</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.hostsocket);
+<a name='L260'>    <font color='red'>}</font>
+<a name='L261'>    <b>if</b> (c-&gt;context-&gt;err) <font color='red'>{</font>
+<a name='L262'>        fprintf(stderr,"Could not connect to Redis at ");
+<a name='L263'>        <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.hostsocket == NULL)
+<a name='L264'>            fprintf(stderr,"%s:%d: %s\n",<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.hostip,<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.hostport,c-&gt;context-&gt;errstr);
+<a name='L265'>        <b>else</b>
+<a name='L266'>            fprintf(stderr,"%s: %s\n",<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.hostsocket,c-&gt;context-&gt;errstr);
+<a name='L267'>        exit(1);
+<a name='L268'>    <font color='red'>}</font>
+<a name='L269'>    <i><font color='green'>/* Suppress hiredis cleanup of unused buffers for max speed. */</font></i>
+<a name='L270'>    c-&gt;context-&gt;reader-&gt;maxbuf = 0;
+<a name='L271'>    <i><font color='green'>/* Queue N requests accordingly to the pipeline size. */</font></i>
+<a name='L272'>    c-&gt;obuf = <a href='../D/4005.html' title='Multiple defined in 2 places.'>sdsempty</a>();
+<a name='L273'>    <b>for</b> (j = 0; j &lt; <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.pipeline; j++)
+<a name='L274'>        c-&gt;obuf = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(c-&gt;obuf,cmd,len);
+<a name='L275'>    c-&gt;randlen = 0;
+<a name='L276'>    c-&gt;written = 0;
+<a name='L277'>    c-&gt;pending = <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.pipeline;
+<a name='L278'>
+<a name='L279'>    <i><font color='green'>/* Find substrings in the output buffer that need to be randomized. */</font></i>
+<a name='L280'>    <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.randomkeys) <font color='red'>{</font>
+<a name='L281'>        <b>char</b> *p = c-&gt;obuf;
+<a name='L282'>        <b>while</b> ((p = strstr(p,":rand:")) != NULL) <font color='red'>{</font>
+<a name='L283'>            <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(c-&gt;randlen &lt; (<b>signed</b>)(<b>sizeof</b>(c-&gt;randptr)/<b>sizeof</b>(<b>char</b>*)));
+<a name='L284'>            c-&gt;randptr[c-&gt;randlen++] = p+6;
+<a name='L285'>            p += 6;
+<a name='L286'>        <font color='red'>}</font>
+<a name='L287'>    <font color='red'>}</font>
+<a name='L288'>
+<a name='L289'><i><font color='green'>/*    redisSetReplyObjectFunctions(c-&gt;context,NULL); */</font></i>
+<a name='L290'>    <a href='../S/36.html#L104' title='Defined at 104 in src/ae.c.'>aeCreateFileEvent</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.el,c-&gt;context-&gt;fd,<a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>,<a href='../S/94.html#L215' title='Defined at 215 in src/redis-benchmark.c.'>writeHandler</a>,c);
+<a name='L291'>    <a href='../S/54.html#L106' title='Defined at 106 in src/adlist.c.'>listAddNodeTail</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.clients,c);
+<a name='L292'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.liveclients++;
+<a name='L293'>    <b>return</b> c;
+<a name='L294'><font color='red'>}</font>
+<a name='L295'>
+<a name='L296'><b>static</b> <b>void</b> <a href='../R/1700.html' title='Multiple refered from 4 places.'>createMissingClients</a>(client c) <font color='red'>{</font>
+<a name='L297'>    <b>int</b> n = 0;
+<a name='L298'>
+<a name='L299'>    <b>while</b>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.liveclients &lt; <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.numclients) <font color='red'>{</font>
+<a name='L300'>        <a href='../D/1966.html' title='Multiple defined in 2 places.'>createClient</a>(c-&gt;obuf,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(c-&gt;obuf)/<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.pipeline);
+<a name='L301'>
+<a name='L302'>        <i><font color='green'>/* Listen backlog is quite limited on most systems */</font></i>
+<a name='L303'>        <b>if</b> (++n &gt; 64) <font color='red'>{</font>
+<a name='L304'>            usleep(50000);
+<a name='L305'>            n = 0;
+<a name='L306'>        <font color='red'>}</font>
+<a name='L307'>    <font color='red'>}</font>
+<a name='L308'><font color='red'>}</font>
+<a name='L309'>
+<a name='L310'><b>static</b> <b>int</b> <a href='../S/94.html#L328' title='Refered from 328 in src/redis-benchmark.c.'>compareLatency</a>(<b>const</b> <b>void</b> *a, <b>const</b> <b>void</b> *b) <font color='red'>{</font>
+<a name='L311'>    <b>return</b> (*(<b>long</b> <b>long</b>*)a)-(*(<b>long</b> <b>long</b>*)b);
+<a name='L312'><font color='red'>}</font>
+<a name='L313'>
+<a name='L314'><b>static</b> <b>void</b> <a href='../S/94.html#L358' title='Refered from 358 in src/redis-benchmark.c.'>showLatencyReport</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L315'>    <b>int</b> i, curlat = 0;
+<a name='L316'>    <b>float</b> perc, reqpersec;
+<a name='L317'>
+<a name='L318'>    reqpersec = (<b>float</b>)<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.requests_finished/((<b>float</b>)<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.totlatency/1000);
+<a name='L319'>    <b>if</b> (!<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.quiet &amp;&amp; !<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.csv) <font color='red'>{</font>
+<a name='L320'>        printf("====== %s ======\n", <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.title);
+<a name='L321'>        printf("  %d requests completed in %.2f seconds\n", <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.requests_finished,
+<a name='L322'>            (<b>float</b>)<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.totlatency/1000);
+<a name='L323'>        printf("  %d parallel clients\n", <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.numclients);
+<a name='L324'>        printf("  %d bytes payload\n", <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.datasize);
+<a name='L325'>        printf("  keep alive: %d\n", <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.keepalive);
+<a name='L326'>        printf("\n");
+<a name='L327'>
+<a name='L328'>        qsort(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.latency,<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.requests,<b>sizeof</b>(<b>long</b> <b>long</b>),<a href='../S/94.html#L310' title='Defined at 310 in src/redis-benchmark.c.'>compareLatency</a>);
+<a name='L329'>        <b>for</b> (i = 0; i &lt; <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.requests; i++) <font color='red'>{</font>
+<a name='L330'>            <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.latency[i]/1000 != curlat || i == (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.requests-1)) <font color='red'>{</font>
+<a name='L331'>                curlat = <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.latency[i]/1000;
+<a name='L332'>                perc = ((<b>float</b>)(i+1)*100)/<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.requests;
+<a name='L333'>                printf("%.2f%% &lt;= %d milliseconds\n", perc, curlat);
+<a name='L334'>            <font color='red'>}</font>
+<a name='L335'>        <font color='red'>}</font>
+<a name='L336'>        printf("%.2f requests per second\n\n", reqpersec);
+<a name='L337'>    <font color='red'>}</font> <b>else</b> <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.csv) <font color='red'>{</font>
+<a name='L338'>        printf("\"%s\",\"%.2f\"\n", <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.title, reqpersec);
+<a name='L339'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L340'>        printf("%s: %.2f requests per second\n", <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.title, reqpersec);
+<a name='L341'>    <font color='red'>}</font>
+<a name='L342'><font color='red'>}</font>
+<a name='L343'>
+<a name='L344'><b>static</b> <b>void</b> <a href='../R/1453.html' title='Multiple refered from 16 places.'>benchmark</a>(<b>char</b> *title, <b>char</b> *cmd, <b>int</b> len) <font color='red'>{</font>
+<a name='L345'>    <a href='../S/94.html#L87' title='Defined at 87 in src/redis-benchmark.c.'>client</a> c;
+<a name='L346'>
+<a name='L347'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.title = title;
+<a name='L348'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.requests_issued = 0;
+<a name='L349'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.requests_finished = 0;
+<a name='L350'>
+<a name='L351'>    c = <a href='../D/1966.html' title='Multiple defined in 2 places.'>createClient</a>(cmd,len);
+<a name='L352'>    <a href='../S/94.html#L296' title='Defined at 296 in src/redis-benchmark.c.'>createMissingClients</a>(c);
+<a name='L353'>
+<a name='L354'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.start = <a href='../D/3402.html' title='Multiple defined in 3 places.'>mstime</a>();
+<a name='L355'>    <a href='../S/36.html#L416' title='Defined at 416 in src/ae.c.'>aeMain</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.el);
+<a name='L356'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.totlatency = <a href='../D/3402.html' title='Multiple defined in 3 places.'>mstime</a>()-<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.start;
+<a name='L357'>
+<a name='L358'>    <a href='../S/94.html#L314' title='Defined at 314 in src/redis-benchmark.c.'>showLatencyReport</a>();
+<a name='L359'>    <a href='../S/94.html#L127' title='Defined at 127 in src/redis-benchmark.c.'>freeAllClients</a>();
+<a name='L360'><font color='red'>}</font>
+<a name='L361'>
+<a name='L362'><i><font color='green'>/* Returns number of consumed options. */</font></i>
+<a name='L363'><b>int</b> <a href='../R/3138.html' title='Multiple refered from 2 places.'>parseOptions</a>(<b>int</b> argc, <b>const</b> <b>char</b> **argv) <font color='red'>{</font>
+<a name='L364'>    <b>int</b> i;
+<a name='L365'>    <b>int</b> lastarg;
+<a name='L366'>    <b>int</b> exit_status = 1;
+<a name='L367'>
+<a name='L368'>    <b>for</b> (i = 1; i &lt; argc; i++) <font color='red'>{</font>
+<a name='L369'>        lastarg = (i == (argc-1));
+<a name='L370'>
+<a name='L371'>        <b>if</b> (!strcmp(argv[i],"-c")) <font color='red'>{</font>
+<a name='L372'>            <b>if</b> (lastarg) <b>goto</b> invalid;
+<a name='L373'>            <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.numclients = atoi(argv[++i]);
+<a name='L374'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcmp(argv[i],"-n")) <font color='red'>{</font>
+<a name='L375'>            <b>if</b> (lastarg) <b>goto</b> invalid;
+<a name='L376'>            <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.requests = atoi(argv[++i]);
+<a name='L377'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcmp(argv[i],"-k")) <font color='red'>{</font>
+<a name='L378'>            <b>if</b> (lastarg) <b>goto</b> invalid;
+<a name='L379'>            <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.keepalive = atoi(argv[++i]);
+<a name='L380'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcmp(argv[i],"-h")) <font color='red'>{</font>
+<a name='L381'>            <b>if</b> (lastarg) <b>goto</b> invalid;
+<a name='L382'>            <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.hostip = strdup(argv[++i]);
+<a name='L383'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcmp(argv[i],"-p")) <font color='red'>{</font>
+<a name='L384'>            <b>if</b> (lastarg) <b>goto</b> invalid;
+<a name='L385'>            <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.hostport = atoi(argv[++i]);
+<a name='L386'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcmp(argv[i],"-s")) <font color='red'>{</font>
+<a name='L387'>            <b>if</b> (lastarg) <b>goto</b> invalid;
+<a name='L388'>            <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.hostsocket = strdup(argv[++i]);
+<a name='L389'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcmp(argv[i],"-d")) <font color='red'>{</font>
+<a name='L390'>            <b>if</b> (lastarg) <b>goto</b> invalid;
+<a name='L391'>            <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.datasize = atoi(argv[++i]);
+<a name='L392'>            <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.datasize &lt; 1) <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.datasize=1;
+<a name='L393'>            <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.datasize &gt; 1024*1024*1024) <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.datasize = 1024*1024*1024;
+<a name='L394'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcmp(argv[i],"-P")) <font color='red'>{</font>
+<a name='L395'>            <b>if</b> (lastarg) <b>goto</b> invalid;
+<a name='L396'>            <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.pipeline = atoi(argv[++i]);
+<a name='L397'>            <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.pipeline &lt;= 0) <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.pipeline=1;
+<a name='L398'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcmp(argv[i],"-r")) <font color='red'>{</font>
+<a name='L399'>            <b>if</b> (lastarg) <b>goto</b> invalid;
+<a name='L400'>            <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.randomkeys = 1;
+<a name='L401'>            <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.randomkeys_keyspacelen = atoi(argv[++i]);
+<a name='L402'>            <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.randomkeys_keyspacelen &lt; 0)
+<a name='L403'>                <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.randomkeys_keyspacelen = 0;
+<a name='L404'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcmp(argv[i],"-q")) <font color='red'>{</font>
+<a name='L405'>            <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.quiet = 1;
+<a name='L406'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcmp(argv[i],"--csv")) <font color='red'>{</font>
+<a name='L407'>            <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.csv = 1;
+<a name='L408'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcmp(argv[i],"-l")) <font color='red'>{</font>
+<a name='L409'>            <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.loop = 1;
+<a name='L410'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcmp(argv[i],"-I")) <font color='red'>{</font>
+<a name='L411'>            <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.idlemode = 1;
+<a name='L412'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcmp(argv[i],"-t")) <font color='red'>{</font>
+<a name='L413'>            <b>if</b> (lastarg) <b>goto</b> invalid;
+<a name='L414'>            <i><font color='green'>/* We get the list of tests to run as a string in the form</font></i>
+<a name='L415'><i><font color='green'>             * get,set,lrange,...,test_N. Then we add a comma before and</font></i>
+<a name='L416'><i><font color='green'>             * after the string in order to make sure that searching</font></i>
+<a name='L417'><i><font color='green'>             * for ",testname," will always get a match if the test is</font></i>
+<a name='L418'><i><font color='green'>             * enabled. */</font></i>
+<a name='L419'>            <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.tests = <a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>(",");
+<a name='L420'>            <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.tests = <a href='../D/3994.html' title='Multiple defined in 2 places.'>sdscat</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.tests,(<b>char</b>*)argv[++i]);
+<a name='L421'>            <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.tests = <a href='../D/3994.html' title='Multiple defined in 2 places.'>sdscat</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.tests,",");
+<a name='L422'>            <a href='../D/4019.html' title='Multiple defined in 2 places.'>sdstolower</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.tests);
+<a name='L423'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcmp(argv[i],"--help")) <font color='red'>{</font>
+<a name='L424'>            exit_status = 0;
+<a name='L425'>            <b>goto</b> <a href='../D/4458.html' title='Multiple defined in 3 places.'>usage</a>;
+<a name='L426'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L427'>            <i><font color='green'>/* Assume the user meant to provide an option when the arg starts</font></i>
+<a name='L428'><i><font color='green'>             * with a dash. We're done otherwise and should use the remainder</font></i>
+<a name='L429'><i><font color='green'>             * as the command and arguments for running the benchmark. */</font></i>
+<a name='L430'>            <b>if</b> (argv[i][0] == '-') <b>goto</b> invalid;
+<a name='L431'>            <b>return</b> i;
+<a name='L432'>        <font color='red'>}</font>
+<a name='L433'>    <font color='red'>}</font>
+<a name='L434'>
+<a name='L435'>    <b>return</b> i;
+<a name='L436'>
+<a name='L437'>invalid:
+<a name='L438'>    printf("Invalid option \"%s\" or option argument missing\n\n",argv[i]);
+<a name='L439'>
+<a name='L440'><a href='../D/4458.html' title='Multiple defined in 3 places.'>usage</a>:
+<a name='L441'>    printf(
+<a name='L442'>"Usage: redis-benchmark [-h &lt;host&gt;] [-p &lt;port&gt;] [-c &lt;clients&gt;] [-n &lt;requests]&gt; [-k &lt;boolean&gt;]\n\n"
+<a name='L443'>" -h &lt;hostname&gt;      Server hostname (default 127.0.0.1)\n"
+<a name='L444'>" -p &lt;port&gt;          Server port (default 6379)\n"
+<a name='L445'>" -s &lt;socket&gt;        Server socket (overrides host and port)\n"
+<a name='L446'>" -c &lt;clients&gt;       Number of parallel connections (default 50)\n"
+<a name='L447'>" -n &lt;requests&gt;      Total number of requests (default 10000)\n"
+<a name='L448'>" -d &lt;size&gt;          Data size of SET/GET value in bytes (default 2)\n"
+<a name='L449'>" -k &lt;boolean&gt;       1=keep alive 0=reconnect (default 1)\n"
+<a name='L450'>" -r &lt;keyspacelen&gt;   Use random keys for SET/GET/INCR, random values for SADD\n"
+<a name='L451'>"  Using this option the benchmark will get/set keys\n"
+<a name='L452'>"  in the form mykey_rand:000000012456 instead of constant\n"
+<a name='L453'>"  keys, the &lt;keyspacelen&gt; argument determines the max\n"
+<a name='L454'>"  number of values for the random number. For instance\n"
+<a name='L455'>"  if set to 10 only rand:000000000000 - rand:000000000009\n"
+<a name='L456'>"  range will be allowed.\n"
+<a name='L457'>" -P &lt;numreq&gt;        Pipeline &lt;numreq&gt; requests. Default 1 (no pipeline).\n"
+<a name='L458'>" -q                 Quiet. Just show query/sec values\n"
+<a name='L459'>" --csv              Output in CSV format\n"
+<a name='L460'>" -l                 Loop. Run the tests forever\n"
+<a name='L461'>" -t &lt;tests&gt;         Only run the comma separated list of tests. The test\n"
+<a name='L462'>"                    names are the same as the ones produced as output.\n"
+<a name='L463'>" -I                 Idle mode. Just open N idle connections and wait.\n\n"
+<a name='L464'>"Examples:\n\n"
+<a name='L465'>" Run the benchmark with the default configuration against 127.0.0.1:6379:\n"
+<a name='L466'>"   $ redis-benchmark\n\n"
+<a name='L467'>" Use 20 parallel clients, for a total of 100k requests, against 192.168.1.1:\n"
+<a name='L468'>"   $ redis-benchmark -h 192.168.1.1 -p 6379 -n 100000 -c 20\n\n"
+<a name='L469'>" Fill 127.0.0.1:6379 with about 1 million keys only using the SET test:\n"
+<a name='L470'>"   $ redis-benchmark -t set -n 1000000 -r 100000000\n\n"
+<a name='L471'>" Benchmark 127.0.0.1:6379 for a few commands producing CSV output:\n"
+<a name='L472'>"   $ redis-benchmark -t ping,set,get -n 100000 --csv\n\n"
+<a name='L473'>" Fill a list with 10000 random elements:\n"
+<a name='L474'>"   $ redis-benchmark -r 10000 -n 10000 lpush mylist ele:rand:000000000000\n\n"
+<a name='L475'>    );
+<a name='L476'>    exit(exit_status);
+<a name='L477'><font color='red'>}</font>
+<a name='L478'>
+<a name='L479'><b>int</b> <a href='../S/94.html#L520' title='Refered from 520 in src/redis-benchmark.c.'>showThroughput</a>(<b>struct</b> aeEventLoop *eventLoop, <b>long</b> <b>long</b> id, <b>void</b> *clientData) <font color='red'>{</font>
+<a name='L480'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(eventLoop);
+<a name='L481'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(id);
+<a name='L482'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(clientData);
+<a name='L483'>
+<a name='L484'>    <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.csv) <b>return</b> 250;
+<a name='L485'>    <b>float</b> dt = (<b>float</b>)(<a href='../D/3402.html' title='Multiple defined in 3 places.'>mstime</a>()-<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.start)/1000.0;
+<a name='L486'>    <b>float</b> rps = (<b>float</b>)<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.requests_finished/dt;
+<a name='L487'>    printf("%s: %.2f\r", <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.title, rps);
+<a name='L488'>    fflush(stdout);
+<a name='L489'>    <b>return</b> 250; <i><font color='green'>/* every 250ms */</font></i>
+<a name='L490'><font color='red'>}</font>
+<a name='L491'>
+<a name='L492'><i><font color='green'>/* Return true if the named test was selected using the -t command line</font></i>
+<a name='L493'><i><font color='green'> * switch, or if all the tests are selected (no -t passed by user). */</font></i>
+<a name='L494'><b>int</b> <a href='../R/3981.html' title='Multiple refered from 19 places.'>test_is_selected</a>(<b>char</b> *name) <font color='red'>{</font>
+<a name='L495'>    <b>char</b> buf[256];
+<a name='L496'>    <b>int</b> l = strlen(name);
+<a name='L497'>
+<a name='L498'>    <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.tests == NULL) <b>return</b> 1;
+<a name='L499'>    buf[0] = ',';
+<a name='L500'>    memcpy(buf+1,name,l);
+<a name='L501'>    buf[l+1] = ',';
+<a name='L502'>    buf[l+2] = '\0';
+<a name='L503'>    <b>return</b> strstr(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.tests,buf) != NULL;
+<a name='L504'><font color='red'>}</font>
+<a name='L505'>
+<a name='L506'><b>int</b> main(<b>int</b> argc, <b>const</b> <b>char</b> **argv) <font color='red'>{</font>
+<a name='L507'>    <b>int</b> i;
+<a name='L508'>    <b>char</b> *data, *cmd;
+<a name='L509'>    <b>int</b> len;
+<a name='L510'>
+<a name='L511'>    <a href='../S/94.html#L87' title='Defined at 87 in src/redis-benchmark.c.'>client</a> c;
+<a name='L512'>
+<a name='L513'>    signal(SIGHUP, SIG_IGN);
+<a name='L514'>    signal(SIGPIPE, SIG_IGN);
+<a name='L515'>
+<a name='L516'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.numclients = 50;
+<a name='L517'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.requests = 10000;
+<a name='L518'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.liveclients = 0;
+<a name='L519'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.el = <a href='../S/36.html#L62' title='Defined at 62 in src/ae.c.'>aeCreateEventLoop</a>(1024*10);
+<a name='L520'>    <a href='../S/36.html#L169' title='Defined at 169 in src/ae.c.'>aeCreateTimeEvent</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.el,1,<a href='../S/94.html#L479' title='Defined at 479 in src/redis-benchmark.c.'>showThroughput</a>,NULL,NULL);
+<a name='L521'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.keepalive = 1;
+<a name='L522'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.datasize = 3;
+<a name='L523'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.pipeline = 1;
+<a name='L524'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.randomkeys = 0;
+<a name='L525'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.randomkeys_keyspacelen = 0;
+<a name='L526'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.quiet = 0;
+<a name='L527'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.csv = 0;
+<a name='L528'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.loop = 0;
+<a name='L529'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.idlemode = 0;
+<a name='L530'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.latency = NULL;
+<a name='L531'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.clients = <a href='../S/54.html#L41' title='Defined at 41 in src/adlist.c.'>listCreate</a>();
+<a name='L532'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.hostip = "127.0.0.1";
+<a name='L533'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.hostport = 6379;
+<a name='L534'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.hostsocket = NULL;
+<a name='L535'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.tests = NULL;
+<a name='L536'>
+<a name='L537'>    i = <a href='../D/3486.html' title='Multiple defined in 2 places.'>parseOptions</a>(argc,argv);
+<a name='L538'>    argc -= i;
+<a name='L539'>    argv += i;
+<a name='L540'>
+<a name='L541'>    <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.latency = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<b>long</b> <b>long</b>)*<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.requests);
+<a name='L542'>
+<a name='L543'>    <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.keepalive == 0) <font color='red'>{</font>
+<a name='L544'>        printf("WARNING: keepalive disabled, you probably need 'echo 1 &gt; /proc/sys/net/ipv4/tcp_tw_reuse' for Linux and 'sudo sysctl -w net.inet.tcp.msl=1000' for Mac OS X in order to use a lot of clients/requests\n");
+<a name='L545'>    <font color='red'>}</font>
+<a name='L546'>
+<a name='L547'>    <b>if</b> (<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.idlemode) <font color='red'>{</font>
+<a name='L548'>        printf("Creating %d idle connections and waiting forever (Ctrl+C when done)\n", <a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.numclients);
+<a name='L549'>        c = <a href='../D/1966.html' title='Multiple defined in 2 places.'>createClient</a>("",0); <i><font color='green'>/* will never receive a reply */</font></i>
+<a name='L550'>        <a href='../S/94.html#L296' title='Defined at 296 in src/redis-benchmark.c.'>createMissingClients</a>(c);
+<a name='L551'>        <a href='../S/36.html#L416' title='Defined at 416 in src/ae.c.'>aeMain</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.el);
+<a name='L552'>        <i><font color='green'>/* and will wait for every */</font></i>
+<a name='L553'>    <font color='red'>}</font>
+<a name='L554'>
+<a name='L555'>    <i><font color='green'>/* Run benchmark with command in the remainder of the arguments. */</font></i>
+<a name='L556'>    <b>if</b> (argc) <font color='red'>{</font>
+<a name='L557'>        <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> title = <a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>(argv[0]);
+<a name='L558'>        <b>for</b> (i = 1; i &lt; argc; i++) <font color='red'>{</font>
+<a name='L559'>            title = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(title, " ", 1);
+<a name='L560'>            title = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(title, (<b>char</b>*)argv[i], strlen(argv[i]));
+<a name='L561'>        <font color='red'>}</font>
+<a name='L562'>
+<a name='L563'>        <b>do</b> <font color='red'>{</font>
+<a name='L564'>            len = <a href='../S/120.html#L939' title='Defined at 939 in deps/hiredis/hiredis.c.'>redisFormatCommandArgv</a>(&amp;cmd,argc,argv,NULL);
+<a name='L565'>            <a href='../S/94.html#L344' title='Defined at 344 in src/redis-benchmark.c.'>benchmark</a>(title,cmd,len);
+<a name='L566'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L567'>        <font color='red'>}</font> <b>while</b>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.loop);
+<a name='L568'>
+<a name='L569'>        <b>return</b> 0;
+<a name='L570'>    <font color='red'>}</font>
+<a name='L571'>
+<a name='L572'>    <i><font color='green'>/* Run default benchmark suite. */</font></i>
+<a name='L573'>    <b>do</b> <font color='red'>{</font>
+<a name='L574'>        data = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.datasize+1);
+<a name='L575'>        memset(data,'x',<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.datasize);
+<a name='L576'>        data[<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.datasize] = '\0';
+<a name='L577'>
+<a name='L578'>        <b>if</b> (<a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("ping_inline") || <a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("ping"))
+<a name='L579'>            <a href='../S/94.html#L344' title='Defined at 344 in src/redis-benchmark.c.'>benchmark</a>("PING_INLINE","PING\r\n",6);
+<a name='L580'>
+<a name='L581'>        <b>if</b> (<a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("ping_mbulk") || <a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("ping")) <font color='red'>{</font>
+<a name='L582'>            len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"PING");
+<a name='L583'>            <a href='../S/94.html#L344' title='Defined at 344 in src/redis-benchmark.c.'>benchmark</a>("PING_BULK",cmd,len);
+<a name='L584'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L585'>        <font color='red'>}</font>
+<a name='L586'>
+<a name='L587'>        <b>if</b> (<a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("set")) <font color='red'>{</font>
+<a name='L588'>            len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"SET foo:rand:000000000000 %s",data);
+<a name='L589'>            <a href='../S/94.html#L344' title='Defined at 344 in src/redis-benchmark.c.'>benchmark</a>("SET",cmd,len);
+<a name='L590'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L591'>        <font color='red'>}</font>
+<a name='L592'>
+<a name='L593'>        <b>if</b> (<a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("get")) <font color='red'>{</font>
+<a name='L594'>            len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"GET foo:rand:000000000000");
+<a name='L595'>            <a href='../S/94.html#L344' title='Defined at 344 in src/redis-benchmark.c.'>benchmark</a>("GET",cmd,len);
+<a name='L596'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L597'>        <font color='red'>}</font>
+<a name='L598'>
+<a name='L599'>        <b>if</b> (<a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("incr")) <font color='red'>{</font>
+<a name='L600'>            len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"INCR counter:rand:000000000000");
+<a name='L601'>            <a href='../S/94.html#L344' title='Defined at 344 in src/redis-benchmark.c.'>benchmark</a>("INCR",cmd,len);
+<a name='L602'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L603'>        <font color='red'>}</font>
+<a name='L604'>
+<a name='L605'>        <b>if</b> (<a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("lpush")) <font color='red'>{</font>
+<a name='L606'>            len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"LPUSH mylist %s",data);
+<a name='L607'>            <a href='../S/94.html#L344' title='Defined at 344 in src/redis-benchmark.c.'>benchmark</a>("LPUSH",cmd,len);
+<a name='L608'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L609'>        <font color='red'>}</font>
+<a name='L610'>
+<a name='L611'>        <b>if</b> (<a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("lpop")) <font color='red'>{</font>
+<a name='L612'>            len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"LPOP mylist");
+<a name='L613'>            <a href='../S/94.html#L344' title='Defined at 344 in src/redis-benchmark.c.'>benchmark</a>("LPOP",cmd,len);
+<a name='L614'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L615'>        <font color='red'>}</font>
+<a name='L616'>
+<a name='L617'>        <b>if</b> (<a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("sadd")) <font color='red'>{</font>
+<a name='L618'>            len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,
+<a name='L619'>                "SADD myset counter:rand:000000000000");
+<a name='L620'>            <a href='../S/94.html#L344' title='Defined at 344 in src/redis-benchmark.c.'>benchmark</a>("SADD",cmd,len);
+<a name='L621'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L622'>        <font color='red'>}</font>
+<a name='L623'>
+<a name='L624'>        <b>if</b> (<a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("spop")) <font color='red'>{</font>
+<a name='L625'>            len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"SPOP myset");
+<a name='L626'>            <a href='../S/94.html#L344' title='Defined at 344 in src/redis-benchmark.c.'>benchmark</a>("SPOP",cmd,len);
+<a name='L627'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L628'>        <font color='red'>}</font>
+<a name='L629'>
+<a name='L630'>        <b>if</b> (<a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("lrange") ||
+<a name='L631'>            <a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("lrange_100") ||
+<a name='L632'>            <a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("lrange_300") ||
+<a name='L633'>            <a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("lrange_500") ||
+<a name='L634'>            <a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("lrange_600"))
+<a name='L635'>        <font color='red'>{</font>
+<a name='L636'>            len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"LPUSH mylist %s",data);
+<a name='L637'>            <a href='../S/94.html#L344' title='Defined at 344 in src/redis-benchmark.c.'>benchmark</a>("LPUSH (needed to benchmark LRANGE)",cmd,len);
+<a name='L638'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L639'>        <font color='red'>}</font>
+<a name='L640'>
+<a name='L641'>        <b>if</b> (<a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("lrange") || <a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("lrange_100")) <font color='red'>{</font>
+<a name='L642'>            len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"LRANGE mylist 0 99");
+<a name='L643'>            <a href='../S/94.html#L344' title='Defined at 344 in src/redis-benchmark.c.'>benchmark</a>("LRANGE_100 (first 100 elements)",cmd,len);
+<a name='L644'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L645'>        <font color='red'>}</font>
+<a name='L646'>
+<a name='L647'>        <b>if</b> (<a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("lrange") || <a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("lrange_300")) <font color='red'>{</font>
+<a name='L648'>            len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"LRANGE mylist 0 299");
+<a name='L649'>            <a href='../S/94.html#L344' title='Defined at 344 in src/redis-benchmark.c.'>benchmark</a>("LRANGE_300 (first 300 elements)",cmd,len);
+<a name='L650'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L651'>        <font color='red'>}</font>
+<a name='L652'>
+<a name='L653'>        <b>if</b> (<a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("lrange") || <a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("lrange_500")) <font color='red'>{</font>
+<a name='L654'>            len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"LRANGE mylist 0 449");
+<a name='L655'>            <a href='../S/94.html#L344' title='Defined at 344 in src/redis-benchmark.c.'>benchmark</a>("LRANGE_500 (first 450 elements)",cmd,len);
+<a name='L656'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L657'>        <font color='red'>}</font>
+<a name='L658'>
+<a name='L659'>        <b>if</b> (<a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("lrange") || <a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("lrange_600")) <font color='red'>{</font>
+<a name='L660'>            len = <a href='../S/120.html#L925' title='Defined at 925 in deps/hiredis/hiredis.c.'>redisFormatCommand</a>(&amp;cmd,"LRANGE mylist 0 599");
+<a name='L661'>            <a href='../S/94.html#L344' title='Defined at 344 in src/redis-benchmark.c.'>benchmark</a>("LRANGE_600 (first 600 elements)",cmd,len);
+<a name='L662'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L663'>        <font color='red'>}</font>
+<a name='L664'>
+<a name='L665'>        <b>if</b> (<a href='../S/94.html#L494' title='Defined at 494 in src/redis-benchmark.c.'>test_is_selected</a>("mset")) <font color='red'>{</font>
+<a name='L666'>            <b>const</b> <b>char</b> *argv[21];
+<a name='L667'>            argv[0] = "MSET";
+<a name='L668'>            <b>for</b> (i = 1; i &lt; 21; i += 2) <font color='red'>{</font>
+<a name='L669'>                argv[i] = "foo:rand:000000000000";
+<a name='L670'>                argv[i+1] = data;
+<a name='L671'>            <font color='red'>}</font>
+<a name='L672'>            len = <a href='../S/120.html#L939' title='Defined at 939 in deps/hiredis/hiredis.c.'>redisFormatCommandArgv</a>(&amp;cmd,21,argv,NULL);
+<a name='L673'>            <a href='../S/94.html#L344' title='Defined at 344 in src/redis-benchmark.c.'>benchmark</a>("MSET (10 keys)",cmd,len);
+<a name='L674'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(cmd);
+<a name='L675'>        <font color='red'>}</font>
+<a name='L676'>
+<a name='L677'>        <b>if</b> (!<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.csv) printf("\n");
+<a name='L678'>    <font color='red'>}</font> <b>while</b>(<a href='../D/1944.html' title='Multiple defined in 3 places.'>config</a>.loop);
+<a name='L679'>
+<a name='L680'>    <b>return</b> 0;
+<a name='L681'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L94'>[^]</a><a href='#L506'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

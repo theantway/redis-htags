@@ -1,0 +1,144 @@
+<html>
+<head>
+<title>deps/hiredis/async.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/388.html'>hiredis</a>/async.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/5.html' title='Multiple included from 8 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2009-2011, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2010-2011, Pieter Noordhuis &lt;pcnoordhuis at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> *</font></i>
+<a name='L5'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L6'><i><font color='green'> *</font></i>
+<a name='L7'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L8'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L9'><i><font color='green'> *</font></i>
+<a name='L10'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L11'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L12'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L13'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L14'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L15'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L16'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L17'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L18'><i><font color='green'> *</font></i>
+<a name='L19'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L20'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L21'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L22'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L23'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L24'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L25'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L26'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L27'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L28'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L29'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L30'><i><font color='green'> */</font></i>
+<a name='L31'>
+<a name='L32'><font color='darkred'>#ifndef</font> <a href='../S/124.html#L33' title='Defined at 33 in deps/hiredis/async.h.'>__HIREDIS_ASYNC_H</a>
+<a name='L33'><font color='darkred'>#define</font> <a href='../S/124.html#L32' title='Refered from 32 in deps/hiredis/async.h.'>__HIREDIS_ASYNC_H</a>
+<a name='L34'><font color='darkred'>#include</font> "<a href='121.html'>hiredis.h</a>"
+<a name='L35'>
+<a name='L36'><font color='darkred'>#ifdef</font> __cplusplus
+<a name='L37'><b>extern</b> "C" <font color='red'>{</font>
+<a name='L38'><font color='darkred'>#endif</font>
+<a name='L39'>
+<a name='L40'><b>struct</b> <a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a>; <i><font color='green'>/* need forward declaration of redisAsyncContext */</font></i>
+<a name='L41'><b>struct</b> <a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>; <i><font color='green'>/* dictionary header is included in async.c */</font></i>
+<a name='L42'>
+<a name='L43'><i><font color='green'>/* Reply callback prototype and container */</font></i>
+<a name='L44'><b>typedef</b> <b>void</b> (redisCallbackFn)(<b>struct</b> redisAsyncContext*, <b>void</b>*, <b>void</b>*);
+<a name='L45'><b>typedef</b> <b>struct</b> <a href='../R/3419.html' title='Multiple refered from 8 places.'>redisCallback</a> <font color='red'>{</font>
+<a name='L46'>    <b>struct</b> <a href='../D/3778.html' title='Multiple defined in 2 places.'>redisCallback</a> *<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>; <i><font color='green'>/* simple singly linked list */</font></i>
+<a name='L47'>    redisCallbackFn *fn;
+<a name='L48'>    <b>void</b> *privdata;
+<a name='L49'><font color='red'>}</font> <a href='../R/3419.html' title='Multiple refered from 8 places.'>redisCallback</a>;
+<a name='L50'>
+<a name='L51'><i><font color='green'>/* List of callbacks for either regular replies or pub/sub */</font></i>
+<a name='L52'><b>typedef</b> <b>struct</b> <a href='../R/3420.html' title='Multiple refered from 2 places.'>redisCallbackList</a> <font color='red'>{</font>
+<a name='L53'>    <a href='../D/3778.html' title='Multiple defined in 2 places.'>redisCallback</a> *head, *tail;
+<a name='L54'><font color='red'>}</font> <a href='../R/3420.html' title='Multiple refered from 2 places.'>redisCallbackList</a>;
+<a name='L55'>
+<a name='L56'><i><font color='green'>/* Connection callback prototypes */</font></i>
+<a name='L57'><b>typedef</b> <b>void</b> (redisDisconnectCallback)(<b>const</b> <b>struct</b> redisAsyncContext*, <b>int</b> status);
+<a name='L58'><b>typedef</b> <b>void</b> (redisConnectCallback)(<b>const</b> <b>struct</b> redisAsyncContext*, <b>int</b> status);
+<a name='L59'>
+<a name='L60'><i><font color='green'>/* Context for an async connection to Redis */</font></i>
+<a name='L61'><b>typedef</b> <b>struct</b> <a href='../R/3409.html' title='Multiple refered from 27 places.'>redisAsyncContext</a> <font color='red'>{</font>
+<a name='L62'>    <i><font color='green'>/* Hold the regular context, so it can be realloc'ed. */</font></i>
+<a name='L63'>    <a href='../D/3791.html' title='Multiple defined in 2 places.'>redisContext</a> c;
+<a name='L64'>
+<a name='L65'>    <i><font color='green'>/* Setup error flags so they can be used directly. */</font></i>
+<a name='L66'>    <b>int</b> err;
+<a name='L67'>    <b>char</b> *errstr;
+<a name='L68'>
+<a name='L69'>    <i><font color='green'>/* Not used by hiredis */</font></i>
+<a name='L70'>    <b>void</b> *data;
+<a name='L71'>
+<a name='L72'>    <i><font color='green'>/* Event library data and hooks */</font></i>
+<a name='L73'>    <b>struct</b> <font color='red'>{</font>
+<a name='L74'>        <b>void</b> *data;
+<a name='L75'>
+<a name='L76'>        <i><font color='green'>/* Hooks that are called when the library expects to start</font></i>
+<a name='L77'><i><font color='green'>         * reading/writing. These functions should be idempotent. */</font></i>
+<a name='L78'>        <b>void</b> (*addRead)(<b>void</b> *privdata);
+<a name='L79'>        <b>void</b> (*delRead)(<b>void</b> *privdata);
+<a name='L80'>        <b>void</b> (*addWrite)(<b>void</b> *privdata);
+<a name='L81'>        <b>void</b> (*delWrite)(<b>void</b> *privdata);
+<a name='L82'>        <b>void</b> (*cleanup)(<b>void</b> *privdata);
+<a name='L83'>    <font color='red'>}</font> ev;
+<a name='L84'>
+<a name='L85'>    <i><font color='green'>/* Called when either the connection is terminated due to an error or per</font></i>
+<a name='L86'><i><font color='green'>     * user request. The status is set accordingly (REDIS_OK, REDIS_ERR). */</font></i>
+<a name='L87'>    redisDisconnectCallback *onDisconnect;
+<a name='L88'>
+<a name='L89'>    <i><font color='green'>/* Called when the first write event was received. */</font></i>
+<a name='L90'>    redisConnectCallback *onConnect;
+<a name='L91'>
+<a name='L92'>    <i><font color='green'>/* Regular command callbacks */</font></i>
+<a name='L93'>    <a href='../D/3779.html' title='Multiple defined in 2 places.'>redisCallbackList</a> replies;
+<a name='L94'>
+<a name='L95'>    <i><font color='green'>/* Subscription callbacks */</font></i>
+<a name='L96'>    <b>struct</b> <font color='red'>{</font>
+<a name='L97'>        <a href='../D/3779.html' title='Multiple defined in 2 places.'>redisCallbackList</a> invalid;
+<a name='L98'>        <b>struct</b> <a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a> *channels;
+<a name='L99'>        <b>struct</b> <a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a> *patterns;
+<a name='L100'>    <font color='red'>}</font> sub;
+<a name='L101'><font color='red'>}</font> <a href='../R/3409.html' title='Multiple refered from 27 places.'>redisAsyncContext</a>;
+<a name='L102'>
+<a name='L103'><i><font color='green'>/* Functions that proxy to hiredis */</font></i>
+<a name='L104'><a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *<a href='../S/104.html#L144' title='Defined at 144 in deps/hiredis/async.c.'>redisAsyncConnect</a>(<b>const</b> <b>char</b> *ip, <b>int</b> port);
+<a name='L105'><a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *<a href='../S/104.html#L151' title='Defined at 151 in deps/hiredis/async.c.'>redisAsyncConnectUnix</a>(<b>const</b> <b>char</b> *path);
+<a name='L106'><b>int</b> <a href='../S/104.html#L158' title='Defined at 158 in deps/hiredis/async.c.'>redisAsyncSetConnectCallback</a>(<a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *ac, redisConnectCallback *fn);
+<a name='L107'><b>int</b> <a href='../S/104.html#L171' title='Defined at 171 in deps/hiredis/async.c.'>redisAsyncSetDisconnectCallback</a>(<a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *ac, redisDisconnectCallback *fn);
+<a name='L108'><b>void</b> <a href='../S/104.html#L307' title='Defined at 307 in deps/hiredis/async.c.'>redisAsyncDisconnect</a>(<a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *ac);
+<a name='L109'><b>void</b> <a href='../S/104.html#L273' title='Defined at 273 in deps/hiredis/async.c.'>redisAsyncFree</a>(<a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *ac);
+<a name='L110'>
+<a name='L111'><i><font color='green'>/* Handle read/write events */</font></i>
+<a name='L112'><b>void</b> <a href='../S/104.html#L464' title='Defined at 464 in deps/hiredis/async.c.'>redisAsyncHandleRead</a>(<a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *ac);
+<a name='L113'><b>void</b> <a href='../S/104.html#L485' title='Defined at 485 in deps/hiredis/async.c.'>redisAsyncHandleWrite</a>(<a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *ac);
+<a name='L114'>
+<a name='L115'><i><font color='green'>/* Command functions for an async context. Write the command to the</font></i>
+<a name='L116'><i><font color='green'> * output buffer and register the provided callback. */</font></i>
+<a name='L117'><b>int</b> <a href='../S/104.html#L595' title='Defined at 595 in deps/hiredis/async.c.'>redisvAsyncCommand</a>(<a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *ac, redisCallbackFn *fn, <b>void</b> *privdata, <b>const</b> <b>char</b> *format, va_list ap);
+<a name='L118'><b>int</b> <a href='../S/104.html#L605' title='Defined at 605 in deps/hiredis/async.c.'>redisAsyncCommand</a>(<a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *ac, redisCallbackFn *fn, <b>void</b> *privdata, <b>const</b> <b>char</b> *format, ...);
+<a name='L119'><b>int</b> <a href='../S/104.html#L614' title='Defined at 614 in deps/hiredis/async.c.'>redisAsyncCommandArgv</a>(<a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *ac, redisCallbackFn *fn, <b>void</b> *privdata, <b>int</b> argc, <b>const</b> <b>char</b> **argv, <b>const</b> size_t *argvlen);
+<a name='L120'>
+<a name='L121'><font color='darkred'>#ifdef</font> __cplusplus
+<a name='L122'><font color='red'>}</font>
+<a name='L123'><font color='darkred'>#endif</font>
+<a name='L124'>
+<a name='L125'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

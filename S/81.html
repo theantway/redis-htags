@@ -1,0 +1,363 @@
+<html>
+<head>
+<title>src/multi.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/multi.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L35'>[^]</a><a href='#L322'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L35' title='Defined at 35.'>initClientMultiState</a>
+<li><a href='#L41' title='Defined at 41.'>freeClientMultiState</a>
+<li><a href='#L56' title='Defined at 56.'>queueMultiCommand</a>
+<li><a href='#L72' title='Defined at 72.'>discardTransaction</a>
+<li><a href='#L81' title='Defined at 81.'>flagTransaction</a>
+<li><a href='#L86' title='Defined at 86.'>multiCommand</a>
+<li><a href='#L95' title='Defined at 95.'>discardCommand</a>
+<li><a href='#L106' title='Defined at 106.'>execCommandReplicateMulti</a>
+<li><a href='#L116' title='Defined at 116.'>execCommand</a>
+<li><a href='#L205' title='Defined at 205.'>watchForKey</a>
+<li><a href='#L236' title='Defined at 236.'>unwatchAllKeys</a>
+<li><a href='#L264' title='Defined at 264.'>touchWatchedKey</a>
+<li><a href='#L287' title='Defined at 287.'>touchWatchedKeysOnFlush</a>
+<li><a href='#L310' title='Defined at 310.'>watchCommand</a>
+<li><a href='#L322' title='Defined at 322.'>unwatchCommand</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L3'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L4'><i><font color='green'> *</font></i>
+<a name='L5'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L6'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L7'><i><font color='green'> *</font></i>
+<a name='L8'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L9'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L10'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L11'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L12'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L13'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L14'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L15'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L16'><i><font color='green'> *</font></i>
+<a name='L17'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L18'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L19'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L20'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L21'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L22'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L23'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L24'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L25'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L26'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L27'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L28'><i><font color='green'> */</font></i>
+<a name='L29'>
+<a name='L30'><font color='darkred'>#include</font> "<a href='32.html'>redis.h</a>"
+<a name='L31'>
+<a name='L32'><i><font color='green'>/* ================================ MULTI/EXEC ============================== */</font></i>
+<a name='L33'>
+<a name='L34'><i><font color='green'>/* Client state initialization for MULTI/EXEC */</font></i>
+<a name='L35'><b>void</b> <a href='../R/2203.html' title='Multiple refered from 6 places.'>initClientMultiState</a>(redisClient *c) <font color='red'>{</font>
+<a name='L36'>    c-&gt;mstate.commands = NULL;
+<a name='L37'>    c-&gt;mstate.count = 0;
+<a name='L38'><font color='red'>}</font>
+<a name='L39'>
+<a name='L40'><i><font color='green'>/* Release all the resources associated with MULTI/EXEC state */</font></i>
+<a name='L41'><b>void</b> <a href='../R/1996.html' title='Multiple refered from 6 places.'>freeClientMultiState</a>(redisClient *c) <font color='red'>{</font>
+<a name='L42'>    <b>int</b> j;
+<a name='L43'>
+<a name='L44'>    <b>for</b> (j = 0; j &lt; c-&gt;mstate.count; j++) <font color='red'>{</font>
+<a name='L45'>        <b>int</b> i;
+<a name='L46'>        <a href='../D/3404.html' title='Multiple defined in 2 places.'>multiCmd</a> *mc = c-&gt;mstate.commands+j;
+<a name='L47'>
+<a name='L48'>        <b>for</b> (i = 0; i &lt; mc-&gt;argc; i++)
+<a name='L49'>            <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(mc-&gt;argv[i]);
+<a name='L50'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(mc-&gt;argv);
+<a name='L51'>    <font color='red'>}</font>
+<a name='L52'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(c-&gt;mstate.commands);
+<a name='L53'><font color='red'>}</font>
+<a name='L54'>
+<a name='L55'><i><font color='green'>/* Add a new command into the MULTI commands queue */</font></i>
+<a name='L56'><b>void</b> <a href='../R/3311.html' title='Multiple refered from 2 places.'>queueMultiCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L57'>    <a href='../D/3404.html' title='Multiple defined in 2 places.'>multiCmd</a> *mc;
+<a name='L58'>    <b>int</b> j;
+<a name='L59'>
+<a name='L60'>    c-&gt;mstate.commands = <a href='../S/39.html#L149' title='Defined at 149 in src/zmalloc.c.'>zrealloc</a>(c-&gt;mstate.commands,
+<a name='L61'>            <b>sizeof</b>(<a href='../D/3404.html' title='Multiple defined in 2 places.'>multiCmd</a>)*(c-&gt;mstate.count+1));
+<a name='L62'>    mc = c-&gt;mstate.commands+c-&gt;mstate.count;
+<a name='L63'>    mc-&gt;cmd = c-&gt;cmd;
+<a name='L64'>    mc-&gt;argc = c-&gt;argc;
+<a name='L65'>    mc-&gt;argv = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a>*)*c-&gt;argc);
+<a name='L66'>    memcpy(mc-&gt;argv,c-&gt;argv,<b>sizeof</b>(<a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a>*)*c-&gt;argc);
+<a name='L67'>    <b>for</b> (j = 0; j &lt; c-&gt;argc; j++)
+<a name='L68'>        <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(mc-&gt;argv[j]);
+<a name='L69'>    c-&gt;mstate.count++;
+<a name='L70'><font color='red'>}</font>
+<a name='L71'>
+<a name='L72'><b>void</b> <a href='../R/1855.html' title='Multiple refered from 2 places.'>discardTransaction</a>(redisClient *c) <font color='red'>{</font>
+<a name='L73'>    <a href='../S/81.html#L41' title='Defined at 41 in src/multi.c.'>freeClientMultiState</a>(c);
+<a name='L74'>    <a href='../S/81.html#L35' title='Defined at 35 in src/multi.c.'>initClientMultiState</a>(c);
+<a name='L75'>    c-&gt;flags &amp;= ~(<a href='../S/32.html#L175' title='Defined at 175 in src/redis.h.'>REDIS_MULTI</a>|<a href='../S/32.html#L177' title='Defined at 177 in src/redis.h.'>REDIS_DIRTY_CAS</a>|<a href='../S/32.html#L185' title='Defined at 185 in src/redis.h.'>REDIS_DIRTY_EXEC</a>);;
+<a name='L76'>    <a href='../S/81.html#L236' title='Defined at 236 in src/multi.c.'>unwatchAllKeys</a>(c);
+<a name='L77'><font color='red'>}</font>
+<a name='L78'>
+<a name='L79'><i><font color='green'>/* Flag the transacation as DIRTY_EXEC so that EXEC will fail.</font></i>
+<a name='L80'><i><font color='green'> * Should be called every time there is an error while queueing a command. */</font></i>
+<a name='L81'><b>void</b> <a href='../R/1980.html' title='Multiple refered from 8 places.'>flagTransaction</a>(redisClient *c) <font color='red'>{</font>
+<a name='L82'>    <b>if</b> (c-&gt;flags &amp; <a href='../S/32.html#L175' title='Defined at 175 in src/redis.h.'>REDIS_MULTI</a>)
+<a name='L83'>        c-&gt;flags |= <a href='../S/32.html#L185' title='Defined at 185 in src/redis.h.'>REDIS_DIRTY_EXEC</a>;
+<a name='L84'><font color='red'>}</font>
+<a name='L85'>
+<a name='L86'><b>void</b> <a href='../R/3057.html' title='Multiple refered from 6 places.'>multiCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L87'>    <b>if</b> (c-&gt;flags &amp; <a href='../S/32.html#L175' title='Defined at 175 in src/redis.h.'>REDIS_MULTI</a>) <font color='red'>{</font>
+<a name='L88'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"MULTI calls can not be nested");
+<a name='L89'>        <b>return</b>;
+<a name='L90'>    <font color='red'>}</font>
+<a name='L91'>    c-&gt;flags |= <a href='../S/32.html#L175' title='Defined at 175 in src/redis.h.'>REDIS_MULTI</a>;
+<a name='L92'>    <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L93'><font color='red'>}</font>
+<a name='L94'>
+<a name='L95'><b>void</b> <a href='../R/1854.html' title='Multiple refered from 3 places.'>discardCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L96'>    <b>if</b> (!(c-&gt;flags &amp; <a href='../S/32.html#L175' title='Defined at 175 in src/redis.h.'>REDIS_MULTI</a>)) <font color='red'>{</font>
+<a name='L97'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"DISCARD without MULTI");
+<a name='L98'>        <b>return</b>;
+<a name='L99'>    <font color='red'>}</font>
+<a name='L100'>    <a href='../S/81.html#L72' title='Defined at 72 in src/multi.c.'>discardTransaction</a>(c);
+<a name='L101'>    <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L102'><font color='red'>}</font>
+<a name='L103'>
+<a name='L104'><i><font color='green'>/* Send a MULTI command to all the slaves and AOF file. Check the execCommand</font></i>
+<a name='L105'><i><font color='green'> * implememntation for more information. */</font></i>
+<a name='L106'><b>void</b> <a href='../S/81.html#L147' title='Refered from 147 in src/multi.c.'>execCommandReplicateMulti</a>(redisClient *c) <font color='red'>{</font>
+<a name='L107'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *multistring = <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>("MULTI",5);
+<a name='L108'>
+<a name='L109'>    <b>if</b> (server.aof_state != <a href='../S/32.html#L167' title='Defined at 167 in src/redis.h.'>REDIS_AOF_OFF</a>)
+<a name='L110'>        <a href='../S/62.html#L384' title='Defined at 384 in src/aof.c.'>feedAppendOnlyFile</a>(server.<a href='../S/81.html#L86' title='Defined at 86 in src/multi.c.'>multiCommand</a>,c-&gt;db-&gt;id,&amp;multistring,1);
+<a name='L111'>    <b>if</b> (<a href='../S/58.html#L57' title='Defined at 57 in src/adlist.h.'>listLength</a>(server.slaves))
+<a name='L112'>        <a href='../S/14.html#L42' title='Defined at 42 in src/replication.c.'>replicationFeedSlaves</a>(server.slaves,c-&gt;db-&gt;id,&amp;multistring,1);
+<a name='L113'>    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(multistring);
+<a name='L114'><font color='red'>}</font>
+<a name='L115'>
+<a name='L116'><b>void</b> <a href='../R/1903.html' title='Multiple refered from 3 places.'>execCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L117'>    <b>int</b> j;
+<a name='L118'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> **orig_argv;
+<a name='L119'>    <b>int</b> orig_argc;
+<a name='L120'>    <b>struct</b> <a href='../D/3782.html' title='Multiple defined in 2 places.'>redisCommand</a> *orig_cmd;
+<a name='L121'>
+<a name='L122'>    <b>if</b> (!(c-&gt;flags &amp; <a href='../S/32.html#L175' title='Defined at 175 in src/redis.h.'>REDIS_MULTI</a>)) <font color='red'>{</font>
+<a name='L123'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"EXEC without MULTI");
+<a name='L124'>        <b>return</b>;
+<a name='L125'>    <font color='red'>}</font>
+<a name='L126'>
+<a name='L127'>    <i><font color='green'>/* Check if we need to abort the EXEC because:</font></i>
+<a name='L128'><i><font color='green'>     * 1) Some WATCHed key was touched.</font></i>
+<a name='L129'><i><font color='green'>     * 2) There was a previous error while queueing commands.</font></i>
+<a name='L130'><i><font color='green'>     * A failed EXEC in the first case returns a multi bulk nil object</font></i>
+<a name='L131'><i><font color='green'>     * (technically it is not an error but a special behavior), while</font></i>
+<a name='L132'><i><font color='green'>     * in the second an EXECABORT error is returned. */</font></i>
+<a name='L133'>    <b>if</b> (c-&gt;flags &amp; (<a href='../S/32.html#L177' title='Defined at 177 in src/redis.h.'>REDIS_DIRTY_CAS</a>|<a href='../S/32.html#L185' title='Defined at 185 in src/redis.h.'>REDIS_DIRTY_EXEC</a>)) <font color='red'>{</font>
+<a name='L134'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c, c-&gt;flags &amp; <a href='../S/32.html#L185' title='Defined at 185 in src/redis.h.'>REDIS_DIRTY_EXEC</a> ? shared.execaborterr :
+<a name='L135'>                                                  shared.nullmultibulk);
+<a name='L136'>        <a href='../S/81.html#L41' title='Defined at 41 in src/multi.c.'>freeClientMultiState</a>(c);
+<a name='L137'>        <a href='../S/81.html#L35' title='Defined at 35 in src/multi.c.'>initClientMultiState</a>(c);
+<a name='L138'>        c-&gt;flags &amp;= ~(<a href='../S/32.html#L175' title='Defined at 175 in src/redis.h.'>REDIS_MULTI</a>|<a href='../S/32.html#L177' title='Defined at 177 in src/redis.h.'>REDIS_DIRTY_CAS</a>|<a href='../S/32.html#L185' title='Defined at 185 in src/redis.h.'>REDIS_DIRTY_EXEC</a>);
+<a name='L139'>        <a href='../S/81.html#L236' title='Defined at 236 in src/multi.c.'>unwatchAllKeys</a>(c);
+<a name='L140'>        <b>goto</b> handle_monitor;
+<a name='L141'>    <font color='red'>}</font>
+<a name='L142'>
+<a name='L143'>    <i><font color='green'>/* Replicate a MULTI request now that we are sure the block is executed.</font></i>
+<a name='L144'><i><font color='green'>     * This way we'll deliver the MULTI/..../EXEC block as a whole and</font></i>
+<a name='L145'><i><font color='green'>     * both the AOF and the replication link will have the same consistency</font></i>
+<a name='L146'><i><font color='green'>     * and atomicity guarantees. */</font></i>
+<a name='L147'>    <a href='../S/81.html#L106' title='Defined at 106 in src/multi.c.'>execCommandReplicateMulti</a>(c);
+<a name='L148'>
+<a name='L149'>    <i><font color='green'>/* Exec all the queued commands */</font></i>
+<a name='L150'>    <a href='../S/81.html#L236' title='Defined at 236 in src/multi.c.'>unwatchAllKeys</a>(c); <i><font color='green'>/* Unwatch ASAP otherwise we'll waste CPU cycles */</font></i>
+<a name='L151'>    orig_argv = c-&gt;argv;
+<a name='L152'>    orig_argc = c-&gt;argc;
+<a name='L153'>    orig_cmd = c-&gt;cmd;
+<a name='L154'>    <a href='../S/86.html#L448' title='Defined at 448 in src/networking.c.'>addReplyMultiBulkLen</a>(c,c-&gt;mstate.count);
+<a name='L155'>    <b>for</b> (j = 0; j &lt; c-&gt;mstate.count; j++) <font color='red'>{</font>
+<a name='L156'>        c-&gt;argc = c-&gt;mstate.commands[j].argc;
+<a name='L157'>        c-&gt;argv = c-&gt;mstate.commands[j].argv;
+<a name='L158'>        c-&gt;cmd = c-&gt;mstate.commands[j].cmd;
+<a name='L159'>        <a href='../S/35.html#L1487' title='Defined at 1487 in src/redis.c.'>call</a>(c,<a href='../S/32.html#L285' title='Defined at 285 in src/redis.h.'>REDIS_CALL_FULL</a>);
+<a name='L160'>
+<a name='L161'>        <i><font color='green'>/* Commands may alter argc/argv, restore mstate. */</font></i>
+<a name='L162'>        c-&gt;mstate.commands[j].argc = c-&gt;argc;
+<a name='L163'>        c-&gt;mstate.commands[j].argv = c-&gt;argv;
+<a name='L164'>        c-&gt;mstate.commands[j].cmd = c-&gt;cmd;
+<a name='L165'>    <font color='red'>}</font>
+<a name='L166'>    c-&gt;argv = orig_argv;
+<a name='L167'>    c-&gt;argc = orig_argc;
+<a name='L168'>    c-&gt;cmd = orig_cmd;
+<a name='L169'>    <a href='../S/81.html#L41' title='Defined at 41 in src/multi.c.'>freeClientMultiState</a>(c);
+<a name='L170'>    <a href='../S/81.html#L35' title='Defined at 35 in src/multi.c.'>initClientMultiState</a>(c);
+<a name='L171'>    c-&gt;flags &amp;= ~(<a href='../S/32.html#L175' title='Defined at 175 in src/redis.h.'>REDIS_MULTI</a>|<a href='../S/32.html#L177' title='Defined at 177 in src/redis.h.'>REDIS_DIRTY_CAS</a>|<a href='../S/32.html#L185' title='Defined at 185 in src/redis.h.'>REDIS_DIRTY_EXEC</a>);
+<a name='L172'>    <i><font color='green'>/* Make sure the EXEC command is always replicated / AOF, since we</font></i>
+<a name='L173'><i><font color='green'>     * always send the MULTI command (we can't know beforehand if the</font></i>
+<a name='L174'><i><font color='green'>     * next operations will contain at least a modification to the DB). */</font></i>
+<a name='L175'>    server.dirty++;
+<a name='L176'>
+<a name='L177'>handle_monitor:
+<a name='L178'>    <i><font color='green'>/* Send EXEC to clients waiting data from MONITOR. We do it here</font></i>
+<a name='L179'><i><font color='green'>     * since the natural order of commands execution is actually:</font></i>
+<a name='L180'><i><font color='green'>     * MUTLI, EXEC, ... commands inside transaction ...</font></i>
+<a name='L181'><i><font color='green'>     * Instead EXEC is flagged as REDIS_CMD_SKIP_MONITOR in the command</font></i>
+<a name='L182'><i><font color='green'>     * table, and we do it here with correct ordering. */</font></i>
+<a name='L183'>    <b>if</b> (<a href='../S/58.html#L57' title='Defined at 57 in src/adlist.h.'>listLength</a>(server.monitors) &amp;&amp; !server.loading)
+<a name='L184'>        <a href='../S/14.html#L76' title='Defined at 76 in src/replication.c.'>replicationFeedMonitors</a>(c,server.monitors,c-&gt;db-&gt;id,c-&gt;argv,c-&gt;argc);
+<a name='L185'><font color='red'>}</font>
+<a name='L186'>
+<a name='L187'><i><font color='green'>/* ===================== WATCH (CAS alike for MULTI/EXEC) ===================</font></i>
+<a name='L188'><i><font color='green'> *</font></i>
+<a name='L189'><i><font color='green'> * The implementation uses a per-DB hash table mapping keys to list of clients</font></i>
+<a name='L190'><i><font color='green'> * WATCHing those keys, so that given a key that is going to be modified</font></i>
+<a name='L191'><i><font color='green'> * we can mark all the associated clients as dirty.</font></i>
+<a name='L192'><i><font color='green'> *</font></i>
+<a name='L193'><i><font color='green'> * Also every client contains a list of WATCHed keys so that's possible to</font></i>
+<a name='L194'><i><font color='green'> * un-watch such keys when the client is freed or when UNWATCH is called. */</font></i>
+<a name='L195'>
+<a name='L196'><i><font color='green'>/* In the client-&gt;watched_keys list we need to use watchedKey structures</font></i>
+<a name='L197'><i><font color='green'> * as in order to identify a key in Redis we need both the key name and the</font></i>
+<a name='L198'><i><font color='green'> * DB */</font></i>
+<a name='L199'><b>typedef</b> <b>struct</b> <a href='../R/4083.html' title='Multiple refered from 3 places.'>watchedKey</a> <font color='red'>{</font>
+<a name='L200'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *key;
+<a name='L201'>    <a href='../D/3798.html' title='Multiple defined in 2 places.'>redisDb</a> *db;
+<a name='L202'><font color='red'>}</font> <a href='../R/4083.html' title='Multiple refered from 3 places.'>watchedKey</a>;
+<a name='L203'>
+<a name='L204'><i><font color='green'>/* Watch for the specified key */</font></i>
+<a name='L205'><b>void</b> <a href='../S/81.html#L318' title='Refered from 318 in src/multi.c.'>watchForKey</a>(redisClient *c, robj *key) <font color='red'>{</font>
+<a name='L206'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *clients = NULL;
+<a name='L207'>    <a href='../D/2703.html' title='Multiple defined in 2 places.'>listIter</a> li;
+<a name='L208'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln;
+<a name='L209'>    <a href='../D/4471.html' title='Multiple defined in 2 places.'>watchedKey</a> *wk;
+<a name='L210'>
+<a name='L211'>    <i><font color='green'>/* Check if we are already watching for this key */</font></i>
+<a name='L212'>    <a href='../S/54.html#L197' title='Defined at 197 in src/adlist.c.'>listRewind</a>(c-&gt;watched_keys,&amp;li);
+<a name='L213'>    <b>while</b>((ln = <a href='../S/54.html#L221' title='Defined at 221 in src/adlist.c.'>listNext</a>(&amp;li))) <font color='red'>{</font>
+<a name='L214'>        wk = <a href='../S/58.html#L62' title='Defined at 62 in src/adlist.h.'>listNodeValue</a>(ln);
+<a name='L215'>        <b>if</b> (wk-&gt;db == c-&gt;db &amp;&amp; <a href='../S/71.html#L365' title='Defined at 365 in src/object.c.'>equalStringObjects</a>(key,wk-&gt;key))
+<a name='L216'>            <b>return</b>; <i><font color='green'>/* Key already watched */</font></i>
+<a name='L217'>    <font color='red'>}</font>
+<a name='L218'>    <i><font color='green'>/* This key is not already watched in this DB. Let's add it */</font></i>
+<a name='L219'>    clients = <a href='../S/29.html#L501' title='Defined at 501 in src/dict.c.'>dictFetchValue</a>(c-&gt;db-&gt;watched_keys,key);
+<a name='L220'>    <b>if</b> (!clients) <font color='red'>{</font> 
+<a name='L221'>        clients = <a href='../S/54.html#L41' title='Defined at 41 in src/adlist.c.'>listCreate</a>();
+<a name='L222'>        <a href='../D/2061.html' title='Multiple defined in 2 places.'>dictAdd</a>(c-&gt;db-&gt;watched_keys,key,clients);
+<a name='L223'>        <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(key);
+<a name='L224'>    <font color='red'>}</font>
+<a name='L225'>    <a href='../S/54.html#L106' title='Defined at 106 in src/adlist.c.'>listAddNodeTail</a>(clients,c);
+<a name='L226'>    <i><font color='green'>/* Add the new key to the lits of keys watched by this client */</font></i>
+<a name='L227'>    wk = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(*wk));
+<a name='L228'>    wk-&gt;key = key;
+<a name='L229'>    wk-&gt;db = c-&gt;db;
+<a name='L230'>    <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(key);
+<a name='L231'>    <a href='../S/54.html#L106' title='Defined at 106 in src/adlist.c.'>listAddNodeTail</a>(c-&gt;watched_keys,wk);
+<a name='L232'><font color='red'>}</font>
+<a name='L233'>
+<a name='L234'><i><font color='green'>/* Unwatch all the keys watched by this client. To clean the EXEC dirty</font></i>
+<a name='L235'><i><font color='green'> * flag is up to the caller. */</font></i>
+<a name='L236'><b>void</b> <a href='../R/4060.html' title='Multiple refered from 6 places.'>unwatchAllKeys</a>(redisClient *c) <font color='red'>{</font>
+<a name='L237'>    <a href='../D/2703.html' title='Multiple defined in 2 places.'>listIter</a> li;
+<a name='L238'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln;
+<a name='L239'>
+<a name='L240'>    <b>if</b> (<a href='../S/58.html#L57' title='Defined at 57 in src/adlist.h.'>listLength</a>(c-&gt;watched_keys) == 0) <b>return</b>;
+<a name='L241'>    <a href='../S/54.html#L197' title='Defined at 197 in src/adlist.c.'>listRewind</a>(c-&gt;watched_keys,&amp;li);
+<a name='L242'>    <b>while</b>((ln = <a href='../S/54.html#L221' title='Defined at 221 in src/adlist.c.'>listNext</a>(&amp;li))) <font color='red'>{</font>
+<a name='L243'>        <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *clients;
+<a name='L244'>        <a href='../D/4471.html' title='Multiple defined in 2 places.'>watchedKey</a> *wk;
+<a name='L245'>
+<a name='L246'>        <i><font color='green'>/* Lookup the watched key -&gt; clients list and remove the client</font></i>
+<a name='L247'><i><font color='green'>         * from the list */</font></i>
+<a name='L248'>        wk = <a href='../S/58.html#L62' title='Defined at 62 in src/adlist.h.'>listNodeValue</a>(ln);
+<a name='L249'>        clients = <a href='../S/29.html#L501' title='Defined at 501 in src/dict.c.'>dictFetchValue</a>(wk-&gt;db-&gt;watched_keys, wk-&gt;key);
+<a name='L250'>        <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,NULL,clients != NULL);
+<a name='L251'>        <a href='../S/54.html#L159' title='Defined at 159 in src/adlist.c.'>listDelNode</a>(clients,<a href='../S/54.html#L285' title='Defined at 285 in src/adlist.c.'>listSearchKey</a>(clients,c));
+<a name='L252'>        <i><font color='green'>/* Kill the entry at all if this was the only client */</font></i>
+<a name='L253'>        <b>if</b> (<a href='../S/58.html#L57' title='Defined at 57 in src/adlist.h.'>listLength</a>(clients) == 0)
+<a name='L254'>            <a href='../D/2066.html' title='Multiple defined in 2 places.'>dictDelete</a>(wk-&gt;db-&gt;watched_keys, wk-&gt;key);
+<a name='L255'>        <i><font color='green'>/* Remove this watched key from the client-&gt;watched list */</font></i>
+<a name='L256'>        <a href='../S/54.html#L159' title='Defined at 159 in src/adlist.c.'>listDelNode</a>(c-&gt;watched_keys,ln);
+<a name='L257'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(wk-&gt;key);
+<a name='L258'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(wk);
+<a name='L259'>    <font color='red'>}</font>
+<a name='L260'><font color='red'>}</font>
+<a name='L261'>
+<a name='L262'><i><font color='green'>/* "Touch" a key, so that if this key is being WATCHed by some client the</font></i>
+<a name='L263'><i><font color='green'> * next EXEC will fail. */</font></i>
+<a name='L264'><b>void</b> <a href='../R/4010.html' title='Multiple refered from 2 places.'>touchWatchedKey</a>(redisDb *db, robj *key) <font color='red'>{</font>
+<a name='L265'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *clients;
+<a name='L266'>    <a href='../D/2703.html' title='Multiple defined in 2 places.'>listIter</a> li;
+<a name='L267'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln;
+<a name='L268'>
+<a name='L269'>    <b>if</b> (<a href='../D/2125.html' title='Multiple defined in 2 places.'>dictSize</a>(db-&gt;watched_keys) == 0) <b>return</b>;
+<a name='L270'>    clients = <a href='../S/29.html#L501' title='Defined at 501 in src/dict.c.'>dictFetchValue</a>(db-&gt;watched_keys, key);
+<a name='L271'>    <b>if</b> (!clients) <b>return</b>;
+<a name='L272'>
+<a name='L273'>    <i><font color='green'>/* Mark all the clients watching this key as REDIS_DIRTY_CAS */</font></i>
+<a name='L274'>    <i><font color='green'>/* Check if we are already watching for this key */</font></i>
+<a name='L275'>    <a href='../S/54.html#L197' title='Defined at 197 in src/adlist.c.'>listRewind</a>(clients,&amp;li);
+<a name='L276'>    <b>while</b>((ln = <a href='../S/54.html#L221' title='Defined at 221 in src/adlist.c.'>listNext</a>(&amp;li))) <font color='red'>{</font>
+<a name='L277'>        <a href='../D/3781.html' title='Multiple defined in 2 places.'>redisClient</a> *c = <a href='../S/58.html#L62' title='Defined at 62 in src/adlist.h.'>listNodeValue</a>(ln);
+<a name='L278'>
+<a name='L279'>        c-&gt;flags |= <a href='../S/32.html#L177' title='Defined at 177 in src/redis.h.'>REDIS_DIRTY_CAS</a>;
+<a name='L280'>    <font color='red'>}</font>
+<a name='L281'><font color='red'>}</font>
+<a name='L282'>
+<a name='L283'><i><font color='green'>/* On FLUSHDB or FLUSHALL all the watched keys that are present before the</font></i>
+<a name='L284'><i><font color='green'> * flush but will be deleted as effect of the flushing operation should</font></i>
+<a name='L285'><i><font color='green'> * be touched. "dbid" is the DB that's getting the flush. -1 if it is</font></i>
+<a name='L286'><i><font color='green'> * a FLUSHALL operation (all the DBs flushed). */</font></i>
+<a name='L287'><b>void</b> <a href='../R/4011.html' title='Multiple refered from 2 places.'>touchWatchedKeysOnFlush</a>(<b>int</b> dbid) <font color='red'>{</font>
+<a name='L288'>    <a href='../D/2703.html' title='Multiple defined in 2 places.'>listIter</a> li1, li2;
+<a name='L289'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln;
+<a name='L290'>
+<a name='L291'>    <i><font color='green'>/* For every client, check all the waited keys */</font></i>
+<a name='L292'>    <a href='../S/54.html#L197' title='Defined at 197 in src/adlist.c.'>listRewind</a>(server.clients,&amp;li1);
+<a name='L293'>    <b>while</b>((ln = <a href='../S/54.html#L221' title='Defined at 221 in src/adlist.c.'>listNext</a>(&amp;li1))) <font color='red'>{</font>
+<a name='L294'>        <a href='../D/3781.html' title='Multiple defined in 2 places.'>redisClient</a> *c = <a href='../S/58.html#L62' title='Defined at 62 in src/adlist.h.'>listNodeValue</a>(ln);
+<a name='L295'>        <a href='../S/54.html#L197' title='Defined at 197 in src/adlist.c.'>listRewind</a>(c-&gt;watched_keys,&amp;li2);
+<a name='L296'>        <b>while</b>((ln = <a href='../S/54.html#L221' title='Defined at 221 in src/adlist.c.'>listNext</a>(&amp;li2))) <font color='red'>{</font>
+<a name='L297'>            <a href='../D/4471.html' title='Multiple defined in 2 places.'>watchedKey</a> *wk = <a href='../S/58.html#L62' title='Defined at 62 in src/adlist.h.'>listNodeValue</a>(ln);
+<a name='L298'>
+<a name='L299'>            <i><font color='green'>/* For every watched key matching the specified DB, if the</font></i>
+<a name='L300'><i><font color='green'>             * key exists, mark the client as dirty, as the key will be</font></i>
+<a name='L301'><i><font color='green'>             * removed. */</font></i>
+<a name='L302'>            <b>if</b> (dbid == -1 || wk-&gt;db-&gt;id == dbid) <font color='red'>{</font>
+<a name='L303'>                <b>if</b> (<a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(wk-&gt;db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>, wk-&gt;key-&gt;ptr) != NULL)
+<a name='L304'>                    c-&gt;flags |= <a href='../S/32.html#L177' title='Defined at 177 in src/redis.h.'>REDIS_DIRTY_CAS</a>;
+<a name='L305'>            <font color='red'>}</font>
+<a name='L306'>        <font color='red'>}</font>
+<a name='L307'>    <font color='red'>}</font>
+<a name='L308'><font color='red'>}</font>
+<a name='L309'>
+<a name='L310'><b>void</b> <a href='../R/4079.html' title='Multiple refered from 3 places.'>watchCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L311'>    <b>int</b> j;
+<a name='L312'>
+<a name='L313'>    <b>if</b> (c-&gt;flags &amp; <a href='../S/32.html#L175' title='Defined at 175 in src/redis.h.'>REDIS_MULTI</a>) <font color='red'>{</font>
+<a name='L314'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"WATCH inside MULTI is not allowed");
+<a name='L315'>        <b>return</b>;
+<a name='L316'>    <font color='red'>}</font>
+<a name='L317'>    <b>for</b> (j = 1; j &lt; c-&gt;argc; j++)
+<a name='L318'>        <a href='../S/81.html#L205' title='Defined at 205 in src/multi.c.'>watchForKey</a>(c,c-&gt;argv[j]);
+<a name='L319'>    <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L320'><font color='red'>}</font>
+<a name='L321'>
+<a name='L322'><b>void</b> <a href='../R/4061.html' title='Multiple refered from 2 places.'>unwatchCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L323'>    <a href='../S/81.html#L236' title='Defined at 236 in src/multi.c.'>unwatchAllKeys</a>(c);
+<a name='L324'>    c-&gt;flags &amp;= (~<a href='../S/32.html#L177' title='Defined at 177 in src/redis.h.'>REDIS_DIRTY_CAS</a>);
+<a name='L325'>    <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L326'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L35'>[^]</a><a href='#L322'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

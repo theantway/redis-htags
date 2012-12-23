@@ -1,0 +1,862 @@
+<html>
+<head>
+<title>src/debug.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/debug.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L50'>[^]</a><a href='#L804'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L50' title='Defined at 50.'>xorDigest</a>
+<li><a href='#L63' title='Defined at 63.'>xorObjectDigest</a>
+<li><a href='#L83' title='Defined at 83.'>mixDigest</a>
+<li><a href='#L93' title='Defined at 93.'>mixObjectDigest</a>
+<li><a href='#L105' title='Defined at 105.'>computeDatasetDigest</a>
+<li><a href='#L247' title='Defined at 247.'>debugCommand</a>
+<li><a href='#L341' title='Defined at 341.'>_redisAssert</a>
+<li><a href='#L354' title='Defined at 354.'>_redisAssertPrintClientInfo</a>
+<li><a href='#L380' title='Defined at 380.'>redisLogObjectDebugInfo</a>
+<li><a href='#L401' title='Defined at 401.'>_redisAssertPrintObject</a>
+<li><a href='#L407' title='Defined at 407.'>_redisAssertWithInfo</a>
+<li><a href='#L413' title='Defined at 413.'>_redisPanic</a>
+<li><a href='#L425' title='Defined at 425.'>bugReportStart</a>
+<li><a href='#L434' title='Defined at 434.'>getMcontextEip</a>
+<li><a href='#L465' title='Defined at 465.'>logStackContent</a>
+<li><a href='#L475' title='Defined at 475.'>logRegisters</a>
+<li><a href='#L606' title='Defined at 606.'>logStackTrace</a>
+<li><a href='#L633' title='Defined at 633.'>logCurrentClient</a>
+<li><a href='#L668' title='Defined at 668.'>sigsegvHandler</a>
+<li><a href='#L724' title='Defined at 724.'>redisLogHexDump</a>
+<li><a href='#L749' title='Defined at 749.'>watchdogSignalHandler</a>
+<li><a href='#L768' title='Defined at 768.'>watchdogScheduleSignal</a>
+<li><a href='#L781' title='Defined at 781.'>enableWatchdog</a>
+<li><a href='#L804' title='Defined at 804.'>disableWatchdog</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L3'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L4'><i><font color='green'> *</font></i>
+<a name='L5'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L6'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L7'><i><font color='green'> *</font></i>
+<a name='L8'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L9'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L10'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L11'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L12'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L13'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L14'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L15'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L16'><i><font color='green'> *</font></i>
+<a name='L17'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L18'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L19'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L20'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L21'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L22'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L23'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L24'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L25'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L26'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L27'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L28'><i><font color='green'> */</font></i>
+<a name='L29'>
+<a name='L30'><font color='darkred'>#include</font> "<a href='32.html'>redis.h</a>"
+<a name='L31'><font color='darkred'>#include</font> "<a href='30.html'>sha1.h</a>"   <i><font color='green'>/* SHA1 is used for DEBUG DIGEST */</font></i>
+<a name='L32'>
+<a name='L33'><font color='darkred'>#include</font> &lt;arpa/inet.h&gt;
+<a name='L34'><font color='darkred'>#include</font> &lt;signal.h&gt;
+<a name='L35'>
+<a name='L36'><font color='darkred'>#ifdef</font> <a href='../S/53.html#L58' title='Defined at 58 in src/config.h.'>HAVE_BACKTRACE</a>
+<a name='L37'><font color='darkred'>#include</font> &lt;execinfo.h&gt;
+<a name='L38'><font color='darkred'>#include</font> &lt;ucontext.h&gt;
+<a name='L39'><font color='darkred'>#include</font> &lt;fcntl.h&gt;
+<a name='L40'><font color='darkred'>#endif</font> <i><font color='green'>/* HAVE_BACKTRACE */</font></i>
+<a name='L41'>
+<a name='L42'><i><font color='green'>/* ================================= Debugging ============================== */</font></i>
+<a name='L43'>
+<a name='L44'><i><font color='green'>/* Compute the sha1 of string at 's' with 'len' bytes long.</font></i>
+<a name='L45'><i><font color='green'> * The SHA1 is then xored againt the string pointed by digest.</font></i>
+<a name='L46'><i><font color='green'> * Since xor is commutative, this operation is used in order to</font></i>
+<a name='L47'><i><font color='green'> * "add" digests relative to unordered elements.</font></i>
+<a name='L48'><i><font color='green'> *</font></i>
+<a name='L49'><i><font color='green'> * So digest(a,b,c,d) will be the same of digest(b,a,c,d) */</font></i>
+<a name='L50'><b>void</b> <a href='../R/4093.html' title='Multiple refered from 7 places.'>xorDigest</a>(<b>unsigned</b> <b>char</b> *digest, <b>void</b> *ptr, size_t len) <font color='red'>{</font>
+<a name='L51'>    <a href='../S/30.html#L12' title='Defined at 12 in src/sha1.h.'>SHA1_CTX</a> ctx;
+<a name='L52'>    <b>unsigned</b> <b>char</b> <a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a>[20], *s = ptr;
+<a name='L53'>    <b>int</b> j;
+<a name='L54'>
+<a name='L55'>    <a href='../S/80.html#L119' title='Defined at 119 in src/sha1.c.'>SHA1Init</a>(&amp;ctx);
+<a name='L56'>    <a href='../S/80.html#L133' title='Defined at 133 in src/sha1.c.'>SHA1Update</a>(&amp;ctx,s,len);
+<a name='L57'>    <a href='../S/80.html#L158' title='Defined at 158 in src/sha1.c.'>SHA1Final</a>(<a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a>,&amp;ctx);
+<a name='L58'>
+<a name='L59'>    <b>for</b> (j = 0; j &lt; 20; j++)
+<a name='L60'>        digest[j] ^= <a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a>[j];
+<a name='L61'><font color='red'>}</font>
+<a name='L62'>
+<a name='L63'><b>void</b> <a href='../S/69.html#L160' title='Refered from 160 in src/debug.c.'>xorObjectDigest</a>(<b>unsigned</b> <b>char</b> *digest, robj *o) <font color='red'>{</font>
+<a name='L64'>    o = <a href='../S/71.html#L312' title='Defined at 312 in src/object.c.'>getDecodedObject</a>(o);
+<a name='L65'>    <a href='../S/69.html#L50' title='Defined at 50 in src/debug.c.'>xorDigest</a>(digest,o-&gt;ptr,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(o-&gt;ptr));
+<a name='L66'>    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(o);
+<a name='L67'><font color='red'>}</font>
+<a name='L68'>
+<a name='L69'><i><font color='green'>/* This function instead of just computing the SHA1 and xoring it</font></i>
+<a name='L70'><i><font color='green'> * against diget, also perform the digest of "digest" itself and</font></i>
+<a name='L71'><i><font color='green'> * replace the old value with the new one.</font></i>
+<a name='L72'><i><font color='green'> *</font></i>
+<a name='L73'><i><font color='green'> * So the final digest will be:</font></i>
+<a name='L74'><i><font color='green'> *</font></i>
+<a name='L75'><i><font color='green'> * digest = SHA1(digest xor SHA1(data))</font></i>
+<a name='L76'><i><font color='green'> *</font></i>
+<a name='L77'><i><font color='green'> * This function is used every time we want to preserve the order so</font></i>
+<a name='L78'><i><font color='green'> * that digest(a,b,c,d) will be different than digest(b,c,d,a)</font></i>
+<a name='L79'><i><font color='green'> *</font></i>
+<a name='L80'><i><font color='green'> * Also note that mixdigest("foo") followed by mixdigest("bar")</font></i>
+<a name='L81'><i><font color='green'> * will lead to a different digest compared to "fo", "obar".</font></i>
+<a name='L82'><i><font color='green'> */</font></i>
+<a name='L83'><b>void</b> <a href='../R/3017.html' title='Multiple refered from 8 places.'>mixDigest</a>(<b>unsigned</b> <b>char</b> *digest, <b>void</b> *ptr, size_t len) <font color='red'>{</font>
+<a name='L84'>    <a href='../S/30.html#L12' title='Defined at 12 in src/sha1.h.'>SHA1_CTX</a> ctx;
+<a name='L85'>    <b>char</b> *s = ptr;
+<a name='L86'>
+<a name='L87'>    <a href='../S/69.html#L50' title='Defined at 50 in src/debug.c.'>xorDigest</a>(digest,s,len);
+<a name='L88'>    <a href='../S/80.html#L119' title='Defined at 119 in src/sha1.c.'>SHA1Init</a>(&amp;ctx);
+<a name='L89'>    <a href='../S/80.html#L133' title='Defined at 133 in src/sha1.c.'>SHA1Update</a>(&amp;ctx,digest,20);
+<a name='L90'>    <a href='../S/80.html#L158' title='Defined at 158 in src/sha1.c.'>SHA1Final</a>(digest,&amp;ctx);
+<a name='L91'><font color='red'>}</font>
+<a name='L92'>
+<a name='L93'><b>void</b> <a href='../R/3018.html' title='Multiple refered from 5 places.'>mixObjectDigest</a>(<b>unsigned</b> <b>char</b> *digest, robj *o) <font color='red'>{</font>
+<a name='L94'>    o = <a href='../S/71.html#L312' title='Defined at 312 in src/object.c.'>getDecodedObject</a>(o);
+<a name='L95'>    <a href='../S/69.html#L83' title='Defined at 83 in src/debug.c.'>mixDigest</a>(digest,o-&gt;ptr,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(o-&gt;ptr));
+<a name='L96'>    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(o);
+<a name='L97'><font color='red'>}</font>
+<a name='L98'>
+<a name='L99'><i><font color='green'>/* Compute the dataset digest. Since keys, sets elements, hashes elements</font></i>
+<a name='L100'><i><font color='green'> * are not ordered, we use a trick: every aggregate digest is the xor</font></i>
+<a name='L101'><i><font color='green'> * of the digests of their elements. This way the order will not change</font></i>
+<a name='L102'><i><font color='green'> * the result. For list instead we use a feedback entering the output digest</font></i>
+<a name='L103'><i><font color='green'> * as input in order to ensure that a different ordered list will result in</font></i>
+<a name='L104'><i><font color='green'> * a different digest. */</font></i>
+<a name='L105'><b>void</b> <a href='../S/69.html#L322' title='Refered from 322 in src/debug.c.'>computeDatasetDigest</a>(<b>unsigned</b> <b>char</b> *final) <font color='red'>{</font>
+<a name='L106'>    <b>unsigned</b> <b>char</b> digest[20];
+<a name='L107'>    <b>char</b> buf[128];
+<a name='L108'>    <a href='../D/2099.html' title='Multiple defined in 4 places.'>dictIterator</a> *di = NULL;
+<a name='L109'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *de;
+<a name='L110'>    <b>int</b> j;
+<a name='L111'>    <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> aux;
+<a name='L112'>
+<a name='L113'>    memset(final,0,20); <i><font color='green'>/* Start with a clean result */</font></i>
+<a name='L114'>
+<a name='L115'>    <b>for</b> (j = 0; j &lt; server.dbnum; j++) <font color='red'>{</font>
+<a name='L116'>        <a href='../D/3798.html' title='Multiple defined in 2 places.'>redisDb</a> *db = server.db+j;
+<a name='L117'>
+<a name='L118'>        <b>if</b> (<a href='../D/2125.html' title='Multiple defined in 2 places.'>dictSize</a>(db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>) == 0) <b>continue</b>;
+<a name='L119'>        di = <a href='../D/2087.html' title='Multiple defined in 2 places.'>dictGetIterator</a>(db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>);
+<a name='L120'>
+<a name='L121'>        <i><font color='green'>/* hash the DB id, so the same dataset moved in a different</font></i>
+<a name='L122'><i><font color='green'>         * DB will lead to a different digest */</font></i>
+<a name='L123'>        aux = htonl(j);
+<a name='L124'>        <a href='../S/69.html#L83' title='Defined at 83 in src/debug.c.'>mixDigest</a>(final,&amp;aux,<b>sizeof</b>(aux));
+<a name='L125'>
+<a name='L126'>        <i><font color='green'>/* Iterate this DB writing every entry */</font></i>
+<a name='L127'>        <b>while</b>((de = <a href='../D/2101.html' title='Multiple defined in 2 places.'>dictNext</a>(di)) != NULL) <font color='red'>{</font>
+<a name='L128'>            <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> key;
+<a name='L129'>            <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *keyobj, *o;
+<a name='L130'>            <b>long</b> <b>long</b> expiretime;
+<a name='L131'>
+<a name='L132'>            memset(digest,0,20); <i><font color='green'>/* This key-val digest */</font></i>
+<a name='L133'>            key = <a href='../S/88.html#L131' title='Defined at 131 in src/dict.h.'>dictGetKey</a>(de);
+<a name='L134'>            keyobj = <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>(key,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(key));
+<a name='L135'>
+<a name='L136'>            <a href='../S/69.html#L83' title='Defined at 83 in src/debug.c.'>mixDigest</a>(digest,key,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(key));
+<a name='L137'>
+<a name='L138'>            o = <a href='../S/88.html#L132' title='Defined at 132 in src/dict.h.'>dictGetVal</a>(de);
+<a name='L139'>
+<a name='L140'>            aux = htonl(o-&gt;type);
+<a name='L141'>            <a href='../S/69.html#L83' title='Defined at 83 in src/debug.c.'>mixDigest</a>(digest,&amp;aux,<b>sizeof</b>(aux));
+<a name='L142'>            expiretime = <a href='../S/31.html#L465' title='Defined at 465 in src/db.c.'>getExpire</a>(db,keyobj);
+<a name='L143'>
+<a name='L144'>            <i><font color='green'>/* Save the key and associated value */</font></i>
+<a name='L145'>            <b>if</b> (o-&gt;type == <a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>) <font color='red'>{</font>
+<a name='L146'>                <a href='../S/69.html#L93' title='Defined at 93 in src/debug.c.'>mixObjectDigest</a>(digest,o);
+<a name='L147'>            <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;type == <a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>) <font color='red'>{</font>
+<a name='L148'>                <a href='../S/32.html#L714' title='Defined at 714 in src/redis.h.'>listTypeIterator</a> *li = <a href='../S/60.html#L125' title='Defined at 125 in src/t_list.c.'>listTypeInitIterator</a>(o,0,<a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>);
+<a name='L149'>                <a href='../S/32.html#L721' title='Defined at 721 in src/redis.h.'>listTypeEntry</a> <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>;
+<a name='L150'>                <b>while</b>(<a href='../S/60.html#L148' title='Defined at 148 in src/t_list.c.'>listTypeNext</a>(li,&amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>)) <font color='red'>{</font>
+<a name='L151'>                    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *eleobj = <a href='../S/60.html#L178' title='Defined at 178 in src/t_list.c.'>listTypeGet</a>(&amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>);
+<a name='L152'>                    <a href='../S/69.html#L93' title='Defined at 93 in src/debug.c.'>mixObjectDigest</a>(digest,eleobj);
+<a name='L153'>                    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(eleobj);
+<a name='L154'>                <font color='red'>}</font>
+<a name='L155'>                <a href='../S/60.html#L141' title='Defined at 141 in src/t_list.c.'>listTypeReleaseIterator</a>(li);
+<a name='L156'>            <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;type == <a href='../D/908.html' title='Multiple defined in 2 places.'>REDIS_SET</a>) <font color='red'>{</font>
+<a name='L157'>                <a href='../S/32.html#L729' title='Defined at 729 in src/redis.h.'>setTypeIterator</a> *si = <a href='../S/92.html#L114' title='Defined at 114 in src/t_set.c.'>setTypeInitIterator</a>(o);
+<a name='L158'>                <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *ele;
+<a name='L159'>                <b>while</b>((ele = <a href='../S/92.html#L164' title='Defined at 164 in src/t_set.c.'>setTypeNextObject</a>(si)) != NULL) <font color='red'>{</font>
+<a name='L160'>                    <a href='../S/69.html#L63' title='Defined at 63 in src/debug.c.'>xorObjectDigest</a>(digest,ele);
+<a name='L161'>                    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(ele);
+<a name='L162'>                <font color='red'>}</font>
+<a name='L163'>                <a href='../S/92.html#L128' title='Defined at 128 in src/t_set.c.'>setTypeReleaseIterator</a>(si);
+<a name='L164'>            <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;type == <a href='../D/933.html' title='Multiple defined in 2 places.'>REDIS_ZSET</a>) <font color='red'>{</font>
+<a name='L165'>                <b>unsigned</b> <b>char</b> eledigest[20];
+<a name='L166'>
+<a name='L167'>                <b>if</b> (o-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L168'>                    <b>unsigned</b> <b>char</b> *zl = o-&gt;ptr;
+<a name='L169'>                    <b>unsigned</b> <b>char</b> *eptr, *sptr;
+<a name='L170'>                    <b>unsigned</b> <b>char</b> *vstr;
+<a name='L171'>                    <b>unsigned</b> <b>int</b> vlen;
+<a name='L172'>                    <b>long</b> <b>long</b> vll;
+<a name='L173'>                    <b>double</b> score;
+<a name='L174'>
+<a name='L175'>                    eptr = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl,0);
+<a name='L176'>                    <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(eptr != NULL);
+<a name='L177'>                    sptr = <a href='../S/89.html#L705' title='Defined at 705 in src/ziplist.c.'>ziplistNext</a>(zl,eptr);
+<a name='L178'>                    <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(sptr != NULL);
+<a name='L179'>
+<a name='L180'>                    <b>while</b> (eptr != NULL) <font color='red'>{</font>
+<a name='L181'>                        <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(eptr,&amp;vstr,&amp;vlen,&amp;vll));
+<a name='L182'>                        score = <a href='../S/59.html#L438' title='Defined at 438 in src/t_zset.c.'>zzlGetScore</a>(sptr);
+<a name='L183'>
+<a name='L184'>                        memset(eledigest,0,20);
+<a name='L185'>                        <b>if</b> (vstr != NULL) <font color='red'>{</font>
+<a name='L186'>                            <a href='../S/69.html#L83' title='Defined at 83 in src/debug.c.'>mixDigest</a>(eledigest,vstr,vlen);
+<a name='L187'>                        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L188'>                            <a href='../S/74.html#L220' title='Defined at 220 in src/util.c.'>ll2string</a>(buf,<b>sizeof</b>(buf),vll);
+<a name='L189'>                            <a href='../S/69.html#L83' title='Defined at 83 in src/debug.c.'>mixDigest</a>(eledigest,buf,strlen(buf));
+<a name='L190'>                        <font color='red'>}</font>
+<a name='L191'>
+<a name='L192'>                        snprintf(buf,<b>sizeof</b>(buf),"%.17g",score);
+<a name='L193'>                        <a href='../S/69.html#L83' title='Defined at 83 in src/debug.c.'>mixDigest</a>(eledigest,buf,strlen(buf));
+<a name='L194'>                        <a href='../S/69.html#L50' title='Defined at 50 in src/debug.c.'>xorDigest</a>(digest,eledigest,20);
+<a name='L195'>                        <a href='../S/59.html#L486' title='Defined at 486 in src/t_zset.c.'>zzlNext</a>(zl,&amp;eptr,&amp;sptr);
+<a name='L196'>                    <font color='red'>}</font>
+<a name='L197'>                <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;encoding == <a href='../S/32.html#L137' title='Defined at 137 in src/redis.h.'>REDIS_ENCODING_SKIPLIST</a>) <font color='red'>{</font>
+<a name='L198'>                    <a href='../D/4576.html' title='Multiple defined in 2 places.'>zset</a> *zs = o-&gt;ptr;
+<a name='L199'>                    <a href='../D/2099.html' title='Multiple defined in 4 places.'>dictIterator</a> *di = <a href='../D/2087.html' title='Multiple defined in 2 places.'>dictGetIterator</a>(zs-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>);
+<a name='L200'>                    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *de;
+<a name='L201'>
+<a name='L202'>                    <b>while</b>((de = <a href='../D/2101.html' title='Multiple defined in 2 places.'>dictNext</a>(di)) != NULL) <font color='red'>{</font>
+<a name='L203'>                        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *eleobj = <a href='../S/88.html#L131' title='Defined at 131 in src/dict.h.'>dictGetKey</a>(de);
+<a name='L204'>                        <b>double</b> *score = <a href='../S/88.html#L132' title='Defined at 132 in src/dict.h.'>dictGetVal</a>(de);
+<a name='L205'>
+<a name='L206'>                        snprintf(buf,<b>sizeof</b>(buf),"%.17g",*score);
+<a name='L207'>                        memset(eledigest,0,20);
+<a name='L208'>                        <a href='../S/69.html#L93' title='Defined at 93 in src/debug.c.'>mixObjectDigest</a>(eledigest,eleobj);
+<a name='L209'>                        <a href='../S/69.html#L83' title='Defined at 83 in src/debug.c.'>mixDigest</a>(eledigest,buf,strlen(buf));
+<a name='L210'>                        <a href='../S/69.html#L50' title='Defined at 50 in src/debug.c.'>xorDigest</a>(digest,eledigest,20);
+<a name='L211'>                    <font color='red'>}</font>
+<a name='L212'>                    <a href='../D/2109.html' title='Multiple defined in 2 places.'>dictReleaseIterator</a>(di);
+<a name='L213'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L214'>                    <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown sorted set encoding");
+<a name='L215'>                <font color='red'>}</font>
+<a name='L216'>            <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;type == <a href='../D/807.html' title='Multiple defined in 2 places.'>REDIS_HASH</a>) <font color='red'>{</font>
+<a name='L217'>                <a href='../S/32.html#L743' title='Defined at 743 in src/redis.h.'>hashTypeIterator</a> *hi;
+<a name='L218'>                <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *obj;
+<a name='L219'>
+<a name='L220'>                hi = <a href='../S/97.html#L276' title='Defined at 276 in src/t_hash.c.'>hashTypeInitIterator</a>(o);
+<a name='L221'>                <b>while</b> (<a href='../S/97.html#L303' title='Defined at 303 in src/t_hash.c.'>hashTypeNext</a>(hi) != <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>) <font color='red'>{</font>
+<a name='L222'>                    <b>unsigned</b> <b>char</b> eledigest[20];
+<a name='L223'>
+<a name='L224'>                    memset(eledigest,0,20);
+<a name='L225'>                    obj = <a href='../S/97.html#L373' title='Defined at 373 in src/t_hash.c.'>hashTypeCurrentObject</a>(hi,<a href='../S/32.html#L745' title='Defined at 745 in src/redis.h.'>REDIS_HASH_KEY</a>);
+<a name='L226'>                    <a href='../S/69.html#L93' title='Defined at 93 in src/debug.c.'>mixObjectDigest</a>(eledigest,obj);
+<a name='L227'>                    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(obj);
+<a name='L228'>                    obj = <a href='../S/97.html#L373' title='Defined at 373 in src/t_hash.c.'>hashTypeCurrentObject</a>(hi,<a href='../S/32.html#L746' title='Defined at 746 in src/redis.h.'>REDIS_HASH_VALUE</a>);
+<a name='L229'>                    <a href='../S/69.html#L93' title='Defined at 93 in src/debug.c.'>mixObjectDigest</a>(eledigest,obj);
+<a name='L230'>                    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(obj);
+<a name='L231'>                    <a href='../S/69.html#L50' title='Defined at 50 in src/debug.c.'>xorDigest</a>(digest,eledigest,20);
+<a name='L232'>                <font color='red'>}</font>
+<a name='L233'>                <a href='../S/97.html#L293' title='Defined at 293 in src/t_hash.c.'>hashTypeReleaseIterator</a>(hi);
+<a name='L234'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L235'>                <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown object type");
+<a name='L236'>            <font color='red'>}</font>
+<a name='L237'>            <i><font color='green'>/* If the key has an expire, add it to the mix */</font></i>
+<a name='L238'>            <b>if</b> (expiretime != -1) <a href='../S/69.html#L50' title='Defined at 50 in src/debug.c.'>xorDigest</a>(digest,"!!expire!!",10);
+<a name='L239'>            <i><font color='green'>/* We can finally xor the key-val digest to the final digest */</font></i>
+<a name='L240'>            <a href='../S/69.html#L50' title='Defined at 50 in src/debug.c.'>xorDigest</a>(final,digest,20);
+<a name='L241'>            <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(keyobj);
+<a name='L242'>        <font color='red'>}</font>
+<a name='L243'>        <a href='../D/2109.html' title='Multiple defined in 2 places.'>dictReleaseIterator</a>(di);
+<a name='L244'>    <font color='red'>}</font>
+<a name='L245'><font color='red'>}</font>
+<a name='L246'>
+<a name='L247'><b>void</b> <a href='../R/1777.html' title='Multiple refered from 2 places.'>debugCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L248'>    <b>if</b> (!strcasecmp(c-&gt;argv[1]-&gt;ptr,"segfault")) <font color='red'>{</font>
+<a name='L249'>        *((<b>char</b>*)-1) = 'x';
+<a name='L250'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[1]-&gt;ptr,"oom")) <font color='red'>{</font>
+<a name='L251'>        <b>void</b> *ptr = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(ULONG_MAX); <i><font color='green'>/* Should trigger an out of memory. */</font></i>
+<a name='L252'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(ptr);
+<a name='L253'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L254'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[1]-&gt;ptr,"assert")) <font color='red'>{</font>
+<a name='L255'>        <b>if</b> (c-&gt;argc &gt;= 3) c-&gt;argv[2] = <a href='../S/71.html#L273' title='Defined at 273 in src/object.c.'>tryObjectEncoding</a>(c-&gt;argv[2]);
+<a name='L256'>        <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,c-&gt;argv[0],1 == 2);
+<a name='L257'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[1]-&gt;ptr,"reload")) <font color='red'>{</font>
+<a name='L258'>        <b>if</b> (<a href='../S/87.html#L630' title='Defined at 630 in src/rdb.c.'>rdbSave</a>(server.rdb_filename) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L259'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.err);
+<a name='L260'>            <b>return</b>;
+<a name='L261'>        <font color='red'>}</font>
+<a name='L262'>        <a href='../S/31.html#L169' title='Defined at 169 in src/db.c.'>emptyDb</a>();
+<a name='L263'>        <b>if</b> (<a href='../S/87.html#L1060' title='Defined at 1060 in src/rdb.c.'>rdbLoad</a>(server.rdb_filename) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L264'>            <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"Error trying to load the RDB dump");
+<a name='L265'>            <b>return</b>;
+<a name='L266'>        <font color='red'>}</font>
+<a name='L267'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"DB reloaded by DEBUG RELOAD");
+<a name='L268'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L269'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[1]-&gt;ptr,"loadaof")) <font color='red'>{</font>
+<a name='L270'>        <a href='../S/31.html#L169' title='Defined at 169 in src/db.c.'>emptyDb</a>();
+<a name='L271'>        <b>if</b> (<a href='../S/62.html#L475' title='Defined at 475 in src/aof.c.'>loadAppendOnlyFile</a>(server.aof_filename) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L272'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.err);
+<a name='L273'>            <b>return</b>;
+<a name='L274'>        <font color='red'>}</font>
+<a name='L275'>        server.dirty = 0; <i><font color='green'>/* Prevent AOF / replication */</font></i>
+<a name='L276'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Append Only File loaded by DEBUG LOADAOF");
+<a name='L277'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L278'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[1]-&gt;ptr,"object") &amp;&amp; c-&gt;argc == 3) <font color='red'>{</font>
+<a name='L279'>        <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *de;
+<a name='L280'>        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *val;
+<a name='L281'>        <b>char</b> *strenc;
+<a name='L282'>
+<a name='L283'>        <b>if</b> ((de = <a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(c-&gt;db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>,c-&gt;argv[2]-&gt;ptr)) == NULL) <font color='red'>{</font>
+<a name='L284'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.nokeyerr);
+<a name='L285'>            <b>return</b>;
+<a name='L286'>        <font color='red'>}</font>
+<a name='L287'>        val = <a href='../S/88.html#L132' title='Defined at 132 in src/dict.h.'>dictGetVal</a>(de);
+<a name='L288'>        strenc = <a href='../S/71.html#L514' title='Defined at 514 in src/object.c.'>strEncoding</a>(val-&gt;encoding);
+<a name='L289'>
+<a name='L290'>        <a href='../S/86.html#L360' title='Defined at 360 in src/networking.c.'>addReplyStatusFormat</a>(c,
+<a name='L291'>            "Value at:%p refcount:%d "
+<a name='L292'>            "encoding:%s serializedlength:%lld "
+<a name='L293'>            "lru:%d lru_seconds_idle:%lu",
+<a name='L294'>            (<b>void</b>*)val, val-&gt;refcount,
+<a name='L295'>            strenc, (<b>long</b> <b>long</b>) <a href='../S/87.html#L601' title='Defined at 601 in src/rdb.c.'>rdbSavedObjectLen</a>(val),
+<a name='L296'>            val-&gt;lru, <a href='../S/71.html#L529' title='Defined at 529 in src/object.c.'>estimateObjectIdleTime</a>(val));
+<a name='L297'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[1]-&gt;ptr,"populate") &amp;&amp; c-&gt;argc == 3) <font color='red'>{</font>
+<a name='L298'>        <b>long</b> keys, j;
+<a name='L299'>        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *key, *val;
+<a name='L300'>        <b>char</b> buf[128];
+<a name='L301'>
+<a name='L302'>        <b>if</b> (<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c, c-&gt;argv[2], &amp;keys, NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L303'>            <b>return</b>;
+<a name='L304'>        <b>for</b> (j = 0; j &lt; keys; j++) <font color='red'>{</font>
+<a name='L305'>            snprintf(buf,<b>sizeof</b>(buf),"key:%lu",j);
+<a name='L306'>            key = <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>(buf,strlen(buf));
+<a name='L307'>            <b>if</b> (<a href='../S/31.html#L58' title='Defined at 58 in src/db.c.'>lookupKeyRead</a>(c-&gt;db,key) != NULL) <font color='red'>{</font>
+<a name='L308'>                <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(key);
+<a name='L309'>                <b>continue</b>;
+<a name='L310'>            <font color='red'>}</font>
+<a name='L311'>            snprintf(buf,<b>sizeof</b>(buf),"value:%lu",j);
+<a name='L312'>            val = <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>(buf,strlen(buf));
+<a name='L313'>            <a href='../S/31.html#L91' title='Defined at 91 in src/db.c.'>dbAdd</a>(c-&gt;db,key,val);
+<a name='L314'>            <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(key);
+<a name='L315'>        <font color='red'>}</font>
+<a name='L316'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L317'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[1]-&gt;ptr,"digest") &amp;&amp; c-&gt;argc == 2) <font color='red'>{</font>
+<a name='L318'>        <b>unsigned</b> <b>char</b> digest[20];
+<a name='L319'>        <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> d = <a href='../D/4005.html' title='Multiple defined in 2 places.'>sdsempty</a>();
+<a name='L320'>        <b>int</b> j;
+<a name='L321'>
+<a name='L322'>        <a href='../S/69.html#L105' title='Defined at 105 in src/debug.c.'>computeDatasetDigest</a>(digest);
+<a name='L323'>        <b>for</b> (j = 0; j &lt; 20; j++)
+<a name='L324'>            d = <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(d, "%02x",digest[j]);
+<a name='L325'>        <a href='../S/86.html#L356' title='Defined at 356 in src/networking.c.'>addReplyStatus</a>(c,d);
+<a name='L326'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(d);
+<a name='L327'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[1]-&gt;ptr,"sleep") &amp;&amp; c-&gt;argc == 3) <font color='red'>{</font>
+<a name='L328'>        <b>double</b> dtime = strtod(c-&gt;argv[2]-&gt;ptr,NULL);
+<a name='L329'>        <b>long</b> <b>long</b> utime = dtime*1000000;
+<a name='L330'>
+<a name='L331'>        usleep(utime);
+<a name='L332'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L333'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L334'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,
+<a name='L335'>            "Syntax error, try DEBUG [SEGFAULT|OBJECT &lt;key&gt;|SWAPIN &lt;key&gt;|SWAPOUT &lt;key&gt;|RELOAD]");
+<a name='L336'>    <font color='red'>}</font>
+<a name='L337'><font color='red'>}</font>
+<a name='L338'>
+<a name='L339'><i><font color='green'>/* =========================== Crash handling  ============================== */</font></i>
+<a name='L340'>
+<a name='L341'><b>void</b> <a href='../R/1177.html' title='Multiple refered from 3 places.'>_redisAssert</a>(<b>char</b> *estr, <b>char</b> *file, <b>int</b> line) <font color='red'>{</font>
+<a name='L342'>    <a href='../S/69.html#L425' title='Defined at 425 in src/debug.c.'>bugReportStart</a>();
+<a name='L343'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"=== ASSERTION FAILED ===");
+<a name='L344'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"==&gt; %s:%d '%s' is not true",file,line,estr);
+<a name='L345'><font color='darkred'>#ifdef</font> <a href='../S/53.html#L58' title='Defined at 58 in src/config.h.'>HAVE_BACKTRACE</a>
+<a name='L346'>    server.assert_failed = estr;
+<a name='L347'>    server.assert_file = file;
+<a name='L348'>    server.assert_line = line;
+<a name='L349'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"(forcing SIGSEGV to print the bug report.)");
+<a name='L350'><font color='darkred'>#endif</font>
+<a name='L351'>    *((<b>char</b>*)-1) = 'x';
+<a name='L352'><font color='red'>}</font>
+<a name='L353'>
+<a name='L354'><b>void</b> <a href='../S/69.html#L408' title='Refered from 408 in src/debug.c.'>_redisAssertPrintClientInfo</a>(redisClient *c) <font color='red'>{</font>
+<a name='L355'>    <b>int</b> j;
+<a name='L356'>
+<a name='L357'>    <a href='../S/69.html#L425' title='Defined at 425 in src/debug.c.'>bugReportStart</a>();
+<a name='L358'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"=== ASSERTION FAILED CLIENT CONTEXT ===");
+<a name='L359'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"client-&gt;flags = %d", c-&gt;flags);
+<a name='L360'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"client-&gt;fd = %d", c-&gt;fd);
+<a name='L361'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"client-&gt;argc = %d", c-&gt;argc);
+<a name='L362'>    <b>for</b> (j=0; j &lt; c-&gt;argc; j++) <font color='red'>{</font>
+<a name='L363'>        <b>char</b> buf[128];
+<a name='L364'>        <b>char</b> *arg;
+<a name='L365'>
+<a name='L366'>        <b>if</b> (c-&gt;argv[j]-&gt;type == <a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a> &amp;&amp;
+<a name='L367'>            c-&gt;argv[j]-&gt;encoding == <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>)
+<a name='L368'>        <font color='red'>{</font>
+<a name='L369'>            arg = (<b>char</b>*) c-&gt;argv[j]-&gt;ptr;
+<a name='L370'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L371'>            snprintf(buf,<b>sizeof</b>(buf),"Object type: %d, encoding: %d",
+<a name='L372'>                c-&gt;argv[j]-&gt;type, c-&gt;argv[j]-&gt;encoding);
+<a name='L373'>            arg = buf;
+<a name='L374'>        <font color='red'>}</font>
+<a name='L375'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"client-&gt;argv[%d] = \"%s\" (refcount: %d)",
+<a name='L376'>            j, arg, c-&gt;argv[j]-&gt;refcount);
+<a name='L377'>    <font color='red'>}</font>
+<a name='L378'><font color='red'>}</font>
+<a name='L379'>
+<a name='L380'><b>void</b> <a href='../R/3469.html' title='Multiple refered from 3 places.'>redisLogObjectDebugInfo</a>(robj *o) <font color='red'>{</font>
+<a name='L381'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Object type: %d", o-&gt;type);
+<a name='L382'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Object encoding: %d", o-&gt;encoding);
+<a name='L383'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Object refcount: %d", o-&gt;refcount);
+<a name='L384'>    <b>if</b> (o-&gt;type == <a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a> &amp;&amp; o-&gt;encoding == <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>) <font color='red'>{</font>
+<a name='L385'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Object raw string len: %d", <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(o-&gt;ptr));
+<a name='L386'>        <b>if</b> (<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(o-&gt;ptr) &lt; 4096)
+<a name='L387'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Object raw string content: \"%s\"", (<b>char</b>*)o-&gt;ptr);
+<a name='L388'>    <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;type == <a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>) <font color='red'>{</font>
+<a name='L389'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"List length: %d", (<b>int</b>) <a href='../S/60.html#L114' title='Defined at 114 in src/t_list.c.'>listTypeLength</a>(o));
+<a name='L390'>    <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;type == <a href='../D/908.html' title='Multiple defined in 2 places.'>REDIS_SET</a>) <font color='red'>{</font>
+<a name='L391'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Set size: %d", (<b>int</b>) <a href='../S/92.html#L208' title='Defined at 208 in src/t_set.c.'>setTypeSize</a>(o));
+<a name='L392'>    <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;type == <a href='../D/807.html' title='Multiple defined in 2 places.'>REDIS_HASH</a>) <font color='red'>{</font>
+<a name='L393'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Hash size: %d", (<b>int</b>) <a href='../S/97.html#L262' title='Defined at 262 in src/t_hash.c.'>hashTypeLength</a>(o));
+<a name='L394'>    <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;type == <a href='../D/933.html' title='Multiple defined in 2 places.'>REDIS_ZSET</a>) <font color='red'>{</font>
+<a name='L395'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Sorted set size: %d", (<b>int</b>) <a href='../S/59.html#L748' title='Defined at 748 in src/t_zset.c.'>zsetLength</a>(o));
+<a name='L396'>        <b>if</b> (o-&gt;encoding == <a href='../S/32.html#L137' title='Defined at 137 in src/redis.h.'>REDIS_ENCODING_SKIPLIST</a>)
+<a name='L397'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Skiplist level: %d", (<b>int</b>) ((<a href='../D/4576.html' title='Multiple defined in 2 places.'>zset</a>*)o-&gt;ptr)-&gt;zsl-&gt;level);
+<a name='L398'>    <font color='red'>}</font>
+<a name='L399'><font color='red'>}</font>
+<a name='L400'>
+<a name='L401'><b>void</b> <a href='../S/69.html#L409' title='Refered from 409 in src/debug.c.'>_redisAssertPrintObject</a>(robj *o) <font color='red'>{</font>
+<a name='L402'>    <a href='../S/69.html#L425' title='Defined at 425 in src/debug.c.'>bugReportStart</a>();
+<a name='L403'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"=== ASSERTION FAILED OBJECT CONTEXT ===");
+<a name='L404'>    <a href='../S/69.html#L380' title='Defined at 380 in src/debug.c.'>redisLogObjectDebugInfo</a>(o);
+<a name='L405'><font color='red'>}</font>
+<a name='L406'>
+<a name='L407'><b>void</b> <a href='../R/1180.html' title='Multiple refered from 2 places.'>_redisAssertWithInfo</a>(redisClient *c, robj *o, <b>char</b> *estr, <b>char</b> *file, <b>int</b> line) <font color='red'>{</font>
+<a name='L408'>    <b>if</b> (c) <a href='../S/69.html#L354' title='Defined at 354 in src/debug.c.'>_redisAssertPrintClientInfo</a>(c);
+<a name='L409'>    <b>if</b> (o) <a href='../S/69.html#L401' title='Defined at 401 in src/debug.c.'>_redisAssertPrintObject</a>(o);
+<a name='L410'>    <a href='../S/69.html#L341' title='Defined at 341 in src/debug.c.'>_redisAssert</a>(estr,file,line);
+<a name='L411'><font color='red'>}</font>
+<a name='L412'>
+<a name='L413'><b>void</b> <a href='../R/1181.html' title='Multiple refered from 2 places.'>_redisPanic</a>(<b>char</b> *msg, <b>char</b> *file, <b>int</b> line) <font color='red'>{</font>
+<a name='L414'>    <a href='../S/69.html#L425' title='Defined at 425 in src/debug.c.'>bugReportStart</a>();
+<a name='L415'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"------------------------------------------------");
+<a name='L416'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"!!! Software Failure. Press left mouse button to continue");
+<a name='L417'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Guru Meditation: %s #%s:%d",msg,file,line);
+<a name='L418'><font color='darkred'>#ifdef</font> <a href='../S/53.html#L58' title='Defined at 58 in src/config.h.'>HAVE_BACKTRACE</a>
+<a name='L419'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"(forcing SIGSEGV in order to print the stack trace)");
+<a name='L420'><font color='darkred'>#endif</font>
+<a name='L421'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"------------------------------------------------");
+<a name='L422'>    *((<b>char</b>*)-1) = 'x';
+<a name='L423'><font color='red'>}</font>
+<a name='L424'>
+<a name='L425'><b>void</b> <a href='../R/1506.html' title='Multiple refered from 6 places.'>bugReportStart</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L426'>    <b>if</b> (server.bug_report_start == 0) <font color='red'>{</font>
+<a name='L427'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,
+<a name='L428'>            "\n\n=== REDIS BUG REPORT START: Cut &amp; paste starting from here ===");
+<a name='L429'>        server.bug_report_start = 1;
+<a name='L430'>    <font color='red'>}</font>
+<a name='L431'><font color='red'>}</font>
+<a name='L432'>
+<a name='L433'><font color='darkred'>#ifdef</font> <a href='../S/53.html#L58' title='Defined at 58 in src/config.h.'>HAVE_BACKTRACE</a>
+<a name='L434'><b>static</b> <b>void</b> *<a href='../R/2061.html' title='Multiple refered from 2 places.'>getMcontextEip</a>(ucontext_t *uc) <font color='red'>{</font>
+<a name='L435'><font color='darkred'>#if</font> <b>defined</b>(__APPLE__) &amp;&amp; !<b>defined</b>(MAC_OS_X_VERSION_10_6)
+<a name='L436'>    <i><font color='green'>/* OSX &lt; 10.6 */</font></i>
+<a name='L437'><font color='darkred'>    #if</font> <b>defined</b>(__x86_64__)
+<a name='L438'>    <b>return</b> (<b>void</b>*) uc-&gt;uc_mcontext-&gt;__ss.__rip;
+<a name='L439'><font color='darkred'>    #elif</font> <b>defined</b>(__i386__)
+<a name='L440'>    <b>return</b> (<b>void</b>*) uc-&gt;uc_mcontext-&gt;__ss.__eip;
+<a name='L441'><font color='darkred'>    #else</font>
+<a name='L442'>    <b>return</b> (<b>void</b>*) uc-&gt;uc_mcontext-&gt;__ss.__srr0;
+<a name='L443'><font color='darkred'>    #endif</font>
+<a name='L444'><font color='darkred'>#elif</font> <b>defined</b>(__APPLE__) &amp;&amp; <b>defined</b>(MAC_OS_X_VERSION_10_6)
+<a name='L445'>    <i><font color='green'>/* OSX &gt;= 10.6 */</font></i>
+<a name='L446'><font color='darkred'>    #if</font> <b>defined</b>(_STRUCT_X86_THREAD_STATE64) &amp;&amp; !<b>defined</b>(__i386__)
+<a name='L447'>    <b>return</b> (<b>void</b>*) uc-&gt;uc_mcontext-&gt;__ss.__rip;
+<a name='L448'><font color='darkred'>    #else</font>
+<a name='L449'>    <b>return</b> (<b>void</b>*) uc-&gt;uc_mcontext-&gt;__ss.__eip;
+<a name='L450'><font color='darkred'>    #endif</font>
+<a name='L451'><font color='darkred'>#elif</font> <b>defined</b>(__linux__)
+<a name='L452'>    <i><font color='green'>/* Linux */</font></i>
+<a name='L453'><font color='darkred'>    #if</font> <b>defined</b>(__i386__)
+<a name='L454'>    <b>return</b> (<b>void</b>*) uc-&gt;uc_mcontext.gregs[14]; <i><font color='green'>/* Linux 32 */</font></i>
+<a name='L455'><font color='darkred'>    #elif</font> <b>defined</b>(__X86_64__) || <b>defined</b>(__x86_64__)
+<a name='L456'>    <b>return</b> (<b>void</b>*) uc-&gt;uc_mcontext.gregs[16]; <i><font color='green'>/* Linux 64 */</font></i>
+<a name='L457'><font color='darkred'>    #elif</font> <b>defined</b>(__ia64__) <i><font color='green'>/* Linux IA64 */</font></i>
+<a name='L458'>    <b>return</b> (<b>void</b>*) uc-&gt;uc_mcontext.sc_ip;
+<a name='L459'><font color='darkred'>    #endif</font>
+<a name='L460'><font color='darkred'>#else</font>
+<a name='L461'>    <b>return</b> NULL;
+<a name='L462'><font color='darkred'>#endif</font>
+<a name='L463'><font color='red'>}</font>
+<a name='L464'>
+<a name='L465'><b>void</b> <a href='../R/2463.html' title='Multiple refered from 4 places.'>logStackContent</a>(<b>void</b> **sp) <font color='red'>{</font>
+<a name='L466'>    <b>int</b> i;
+<a name='L467'>    <b>for</b> (i = 15; i &gt;= 0; i--) <font color='red'>{</font>
+<a name='L468'>        <b>if</b> (<b>sizeof</b>(<b>long</b>) == 4)
+<a name='L469'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>, "(%08lx) -&gt; %08lx", sp+i, sp[i]);
+<a name='L470'>        <b>else</b>
+<a name='L471'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>, "(%016lx) -&gt; %016lx", sp+i, sp[i]);
+<a name='L472'>    <font color='red'>}</font>
+<a name='L473'><font color='red'>}</font>
+<a name='L474'>
+<a name='L475'><b>void</b> <a href='../S/69.html#L701' title='Refered from 701 in src/debug.c.'>logRegisters</a>(ucontext_t *uc) <font color='red'>{</font>
+<a name='L476'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>, "--- REGISTERS");
+<a name='L477'>
+<a name='L478'><i><font color='green'>/* OSX */</font></i>
+<a name='L479'><font color='darkred'>#if</font> <b>defined</b>(__APPLE__) &amp;&amp; <b>defined</b>(MAC_OS_X_VERSION_10_6)
+<a name='L480'>  <i><font color='green'>/* OSX AMD64 */</font></i>
+<a name='L481'><font color='darkred'>    #if</font> <b>defined</b>(_STRUCT_X86_THREAD_STATE64) &amp;&amp; !<b>defined</b>(__i386__)
+<a name='L482'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,
+<a name='L483'>    "\n"
+<a name='L484'>    "RAX:%016lx RBX:%016lx\nRCX:%016lx RDX:%016lx\n"
+<a name='L485'>    "RDI:%016lx RSI:%016lx\nRBP:%016lx RSP:%016lx\n"
+<a name='L486'>    "R8 :%016lx R9 :%016lx\nR10:%016lx R11:%016lx\n"
+<a name='L487'>    "R12:%016lx R13:%016lx\nR14:%016lx R15:%016lx\n"
+<a name='L488'>    "RIP:%016lx EFL:%016lx\nCS :%016lx FS:%016lx  GS:%016lx",
+<a name='L489'>        uc-&gt;uc_mcontext-&gt;__ss.__rax,
+<a name='L490'>        uc-&gt;uc_mcontext-&gt;__ss.__rbx,
+<a name='L491'>        uc-&gt;uc_mcontext-&gt;__ss.__rcx,
+<a name='L492'>        uc-&gt;uc_mcontext-&gt;__ss.__rdx,
+<a name='L493'>        uc-&gt;uc_mcontext-&gt;__ss.__rdi,
+<a name='L494'>        uc-&gt;uc_mcontext-&gt;__ss.__rsi,
+<a name='L495'>        uc-&gt;uc_mcontext-&gt;__ss.__rbp,
+<a name='L496'>        uc-&gt;uc_mcontext-&gt;__ss.__rsp,
+<a name='L497'>        uc-&gt;uc_mcontext-&gt;__ss.__r8,
+<a name='L498'>        uc-&gt;uc_mcontext-&gt;__ss.__r9,
+<a name='L499'>        uc-&gt;uc_mcontext-&gt;__ss.__r10,
+<a name='L500'>        uc-&gt;uc_mcontext-&gt;__ss.__r11,
+<a name='L501'>        uc-&gt;uc_mcontext-&gt;__ss.__r12,
+<a name='L502'>        uc-&gt;uc_mcontext-&gt;__ss.__r13,
+<a name='L503'>        uc-&gt;uc_mcontext-&gt;__ss.__r14,
+<a name='L504'>        uc-&gt;uc_mcontext-&gt;__ss.__r15,
+<a name='L505'>        uc-&gt;uc_mcontext-&gt;__ss.__rip,
+<a name='L506'>        uc-&gt;uc_mcontext-&gt;__ss.__rflags,
+<a name='L507'>        uc-&gt;uc_mcontext-&gt;__ss.__cs,
+<a name='L508'>        uc-&gt;uc_mcontext-&gt;__ss.__fs,
+<a name='L509'>        uc-&gt;uc_mcontext-&gt;__ss.__gs
+<a name='L510'>    );
+<a name='L511'>    <a href='../S/69.html#L465' title='Defined at 465 in src/debug.c.'>logStackContent</a>((<b>void</b>**)uc-&gt;uc_mcontext-&gt;__ss.__rsp);
+<a name='L512'><font color='darkred'>    #else</font>
+<a name='L513'>    <i><font color='green'>/* OSX x86 */</font></i>
+<a name='L514'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,
+<a name='L515'>    "\n"
+<a name='L516'>    "EAX:%08lx EBX:%08lx ECX:%08lx EDX:%08lx\n"
+<a name='L517'>    "EDI:%08lx ESI:%08lx EBP:%08lx ESP:%08lx\n"
+<a name='L518'>    "SS:%08lx  EFL:%08lx EIP:%08lx CS :%08lx\n"
+<a name='L519'>    "DS:%08lx  ES:%08lx  FS :%08lx GS :%08lx",
+<a name='L520'>        uc-&gt;uc_mcontext-&gt;__ss.__eax,
+<a name='L521'>        uc-&gt;uc_mcontext-&gt;__ss.__ebx,
+<a name='L522'>        uc-&gt;uc_mcontext-&gt;__ss.__ecx,
+<a name='L523'>        uc-&gt;uc_mcontext-&gt;__ss.__edx,
+<a name='L524'>        uc-&gt;uc_mcontext-&gt;__ss.__edi,
+<a name='L525'>        uc-&gt;uc_mcontext-&gt;__ss.__esi,
+<a name='L526'>        uc-&gt;uc_mcontext-&gt;__ss.__ebp,
+<a name='L527'>        uc-&gt;uc_mcontext-&gt;__ss.__esp,
+<a name='L528'>        uc-&gt;uc_mcontext-&gt;__ss.__ss,
+<a name='L529'>        uc-&gt;uc_mcontext-&gt;__ss.__eflags,
+<a name='L530'>        uc-&gt;uc_mcontext-&gt;__ss.__eip,
+<a name='L531'>        uc-&gt;uc_mcontext-&gt;__ss.__cs,
+<a name='L532'>        uc-&gt;uc_mcontext-&gt;__ss.__ds,
+<a name='L533'>        uc-&gt;uc_mcontext-&gt;__ss.__es,
+<a name='L534'>        uc-&gt;uc_mcontext-&gt;__ss.__fs,
+<a name='L535'>        uc-&gt;uc_mcontext-&gt;__ss.__gs
+<a name='L536'>    );
+<a name='L537'>    <a href='../S/69.html#L465' title='Defined at 465 in src/debug.c.'>logStackContent</a>((<b>void</b>**)uc-&gt;uc_mcontext-&gt;__ss.__esp);
+<a name='L538'><font color='darkred'>    #endif</font>
+<a name='L539'><i><font color='green'>/* Linux */</font></i>
+<a name='L540'><font color='darkred'>#elif</font> <b>defined</b>(__linux__)
+<a name='L541'>    <i><font color='green'>/* Linux x86 */</font></i>
+<a name='L542'><font color='darkred'>    #if</font> <b>defined</b>(__i386__)
+<a name='L543'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,
+<a name='L544'>    "\n"
+<a name='L545'>    "EAX:%08lx EBX:%08lx ECX:%08lx EDX:%08lx\n"
+<a name='L546'>    "EDI:%08lx ESI:%08lx EBP:%08lx ESP:%08lx\n"
+<a name='L547'>    "SS :%08lx EFL:%08lx EIP:%08lx CS:%08lx\n"
+<a name='L548'>    "DS :%08lx ES :%08lx FS :%08lx GS:%08lx",
+<a name='L549'>        uc-&gt;uc_mcontext.gregs[11],
+<a name='L550'>        uc-&gt;uc_mcontext.gregs[8],
+<a name='L551'>        uc-&gt;uc_mcontext.gregs[10],
+<a name='L552'>        uc-&gt;uc_mcontext.gregs[9],
+<a name='L553'>        uc-&gt;uc_mcontext.gregs[4],
+<a name='L554'>        uc-&gt;uc_mcontext.gregs[5],
+<a name='L555'>        uc-&gt;uc_mcontext.gregs[6],
+<a name='L556'>        uc-&gt;uc_mcontext.gregs[7],
+<a name='L557'>        uc-&gt;uc_mcontext.gregs[18],
+<a name='L558'>        uc-&gt;uc_mcontext.gregs[17],
+<a name='L559'>        uc-&gt;uc_mcontext.gregs[14],
+<a name='L560'>        uc-&gt;uc_mcontext.gregs[15],
+<a name='L561'>        uc-&gt;uc_mcontext.gregs[3],
+<a name='L562'>        uc-&gt;uc_mcontext.gregs[2],
+<a name='L563'>        uc-&gt;uc_mcontext.gregs[1],
+<a name='L564'>        uc-&gt;uc_mcontext.gregs[0]
+<a name='L565'>    );
+<a name='L566'>    <a href='../S/69.html#L465' title='Defined at 465 in src/debug.c.'>logStackContent</a>((<b>void</b>**)uc-&gt;uc_mcontext.gregs[7]);
+<a name='L567'><font color='darkred'>    #elif</font> <b>defined</b>(__X86_64__) || <b>defined</b>(__x86_64__)
+<a name='L568'>    <i><font color='green'>/* Linux AMD64 */</font></i>
+<a name='L569'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,
+<a name='L570'>    "\n"
+<a name='L571'>    "RAX:%016lx RBX:%016lx\nRCX:%016lx RDX:%016lx\n"
+<a name='L572'>    "RDI:%016lx RSI:%016lx\nRBP:%016lx RSP:%016lx\n"
+<a name='L573'>    "R8 :%016lx R9 :%016lx\nR10:%016lx R11:%016lx\n"
+<a name='L574'>    "R12:%016lx R13:%016lx\nR14:%016lx R15:%016lx\n"
+<a name='L575'>    "RIP:%016lx EFL:%016lx\nCSGSFS:%016lx",
+<a name='L576'>        uc-&gt;uc_mcontext.gregs[13],
+<a name='L577'>        uc-&gt;uc_mcontext.gregs[11],
+<a name='L578'>        uc-&gt;uc_mcontext.gregs[14],
+<a name='L579'>        uc-&gt;uc_mcontext.gregs[12],
+<a name='L580'>        uc-&gt;uc_mcontext.gregs[8],
+<a name='L581'>        uc-&gt;uc_mcontext.gregs[9],
+<a name='L582'>        uc-&gt;uc_mcontext.gregs[10],
+<a name='L583'>        uc-&gt;uc_mcontext.gregs[15],
+<a name='L584'>        uc-&gt;uc_mcontext.gregs[0],
+<a name='L585'>        uc-&gt;uc_mcontext.gregs[1],
+<a name='L586'>        uc-&gt;uc_mcontext.gregs[2],
+<a name='L587'>        uc-&gt;uc_mcontext.gregs[3],
+<a name='L588'>        uc-&gt;uc_mcontext.gregs[4],
+<a name='L589'>        uc-&gt;uc_mcontext.gregs[5],
+<a name='L590'>        uc-&gt;uc_mcontext.gregs[6],
+<a name='L591'>        uc-&gt;uc_mcontext.gregs[7],
+<a name='L592'>        uc-&gt;uc_mcontext.gregs[16],
+<a name='L593'>        uc-&gt;uc_mcontext.gregs[17],
+<a name='L594'>        uc-&gt;uc_mcontext.gregs[18]
+<a name='L595'>    );
+<a name='L596'>    <a href='../S/69.html#L465' title='Defined at 465 in src/debug.c.'>logStackContent</a>((<b>void</b>**)uc-&gt;uc_mcontext.gregs[15]);
+<a name='L597'><font color='darkred'>    #endif</font>
+<a name='L598'><font color='darkred'>#else</font>
+<a name='L599'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,
+<a name='L600'>        "  Dumping of registers not supported for this OS/arch");
+<a name='L601'><font color='darkred'>#endif</font>
+<a name='L602'><font color='red'>}</font>
+<a name='L603'>
+<a name='L604'><i><font color='green'>/* Logs the stack trace using the backtrace() call. This function is designed</font></i>
+<a name='L605'><i><font color='green'> * to be called from signal handlers safely. */</font></i>
+<a name='L606'><b>void</b> <a href='../R/2464.html' title='Multiple refered from 2 places.'>logStackTrace</a>(ucontext_t *uc) <font color='red'>{</font>
+<a name='L607'>    <b>void</b> *trace[100];
+<a name='L608'>    <b>int</b> trace_size = 0, fd;
+<a name='L609'>
+<a name='L610'>    <i><font color='green'>/* Open the log file in append mode. */</font></i>
+<a name='L611'>    fd = server.logfile ?
+<a name='L612'>        open(server.logfile, O_APPEND|O_CREAT|O_WRONLY, 0644) :
+<a name='L613'>        STDOUT_FILENO;
+<a name='L614'>    <b>if</b> (fd == -1) <b>return</b>;
+<a name='L615'>
+<a name='L616'>    <i><font color='green'>/* Generate the stack trace */</font></i>
+<a name='L617'>    trace_size = backtrace(trace, 100);
+<a name='L618'>
+<a name='L619'>    <i><font color='green'>/* overwrite sigaction with caller's address */</font></i>
+<a name='L620'>    <b>if</b> (<a href='../S/69.html#L434' title='Defined at 434 in src/debug.c.'>getMcontextEip</a>(uc) != NULL)
+<a name='L621'>        trace[1] = <a href='../S/69.html#L434' title='Defined at 434 in src/debug.c.'>getMcontextEip</a>(uc);
+<a name='L622'>
+<a name='L623'>    <i><font color='green'>/* Write symbols to log file */</font></i>
+<a name='L624'>    backtrace_symbols_fd(trace, trace_size, fd);
+<a name='L625'>
+<a name='L626'>    <i><font color='green'>/* Cleanup */</font></i>
+<a name='L627'>    <b>if</b> (server.logfile) close(fd);
+<a name='L628'><font color='red'>}</font>
+<a name='L629'>
+<a name='L630'><i><font color='green'>/* Log information about the "current" client, that is, the client that is</font></i>
+<a name='L631'><i><font color='green'> * currently being served by Redis. May be NULL if Redis is not serving a</font></i>
+<a name='L632'><i><font color='green'> * client right now. */</font></i>
+<a name='L633'><b>void</b> <a href='../S/69.html#L698' title='Refered from 698 in src/debug.c.'>logCurrentClient</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L634'>    <b>if</b> (server.current_client == NULL) <b>return</b>;
+<a name='L635'>
+<a name='L636'>    <a href='../D/3781.html' title='Multiple defined in 2 places.'>redisClient</a> *cc = server.current_client;
+<a name='L637'>    <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../S/94.html#L87' title='Defined at 87 in src/redis-benchmark.c.'>client</a>;
+<a name='L638'>    <b>int</b> j;
+<a name='L639'>
+<a name='L640'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>, "--- CURRENT CLIENT INFO");
+<a name='L641'>    <a href='../S/94.html#L87' title='Defined at 87 in src/redis-benchmark.c.'>client</a> = <a href='../S/86.html#L1093' title='Defined at 1093 in src/networking.c.'>getClientInfoString</a>(cc);
+<a name='L642'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"client: %s", <a href='../S/94.html#L87' title='Defined at 87 in src/redis-benchmark.c.'>client</a>);
+<a name='L643'>    <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(<a href='../S/94.html#L87' title='Defined at 87 in src/redis-benchmark.c.'>client</a>);
+<a name='L644'>    <b>for</b> (j = 0; j &lt; cc-&gt;argc; j++) <font color='red'>{</font>
+<a name='L645'>        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *decoded;
+<a name='L646'>
+<a name='L647'>        decoded = <a href='../S/71.html#L312' title='Defined at 312 in src/object.c.'>getDecodedObject</a>(cc-&gt;argv[j]);
+<a name='L648'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"argv[%d]: '%s'", j, (<b>char</b>*)decoded-&gt;ptr);
+<a name='L649'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(decoded);
+<a name='L650'>    <font color='red'>}</font>
+<a name='L651'>    <i><font color='green'>/* Check if the first argument, usually a key, is found inside the</font></i>
+<a name='L652'><i><font color='green'>     * selected DB, and if so print info about the associated object. */</font></i>
+<a name='L653'>    <b>if</b> (cc-&gt;argc &gt;= 1) <font color='red'>{</font>
+<a name='L654'>        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *val, *key;
+<a name='L655'>        <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *de;
+<a name='L656'>
+<a name='L657'>        key = <a href='../S/71.html#L312' title='Defined at 312 in src/object.c.'>getDecodedObject</a>(cc-&gt;argv[1]);
+<a name='L658'>        de = <a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(cc-&gt;db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>, key-&gt;ptr);
+<a name='L659'>        <b>if</b> (de) <font color='red'>{</font>
+<a name='L660'>            val = <a href='../S/88.html#L132' title='Defined at 132 in src/dict.h.'>dictGetVal</a>(de);
+<a name='L661'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"key '%s' found in DB containing the following object:", key-&gt;ptr);
+<a name='L662'>            <a href='../S/69.html#L380' title='Defined at 380 in src/debug.c.'>redisLogObjectDebugInfo</a>(val);
+<a name='L663'>        <font color='red'>}</font>
+<a name='L664'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(key);
+<a name='L665'>    <font color='red'>}</font>
+<a name='L666'><font color='red'>}</font>
+<a name='L667'>
+<a name='L668'><b>void</b> <a href='../R/3794.html' title='Multiple refered from 2 places.'>sigsegvHandler</a>(<b>int</b> sig, siginfo_t *info, <b>void</b> *secret) <font color='red'>{</font>
+<a name='L669'>    ucontext_t *uc = (ucontext_t*) secret;
+<a name='L670'>    <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> infostring, clients;
+<a name='L671'>    <b>struct</b> sigaction act;
+<a name='L672'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(info);
+<a name='L673'>
+<a name='L674'>    <a href='../S/69.html#L425' title='Defined at 425 in src/debug.c.'>bugReportStart</a>();
+<a name='L675'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,
+<a name='L676'>        "    Redis %s crashed by signal: %d", <a href='../S/43.html#L1' title='Defined at 1 in src/version.h.'>REDIS_VERSION</a>, sig);
+<a name='L677'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,
+<a name='L678'>        "    Failed assertion: %s (%s:%d)", server.assert_failed,
+<a name='L679'>                        server.assert_file, server.assert_line);
+<a name='L680'>
+<a name='L681'>    <i><font color='green'>/* Log the stack trace */</font></i>
+<a name='L682'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>, "--- STACK TRACE");
+<a name='L683'>    <a href='../S/69.html#L606' title='Defined at 606 in src/debug.c.'>logStackTrace</a>(uc);
+<a name='L684'>
+<a name='L685'>    <i><font color='green'>/* Log INFO and CLIENT LIST */</font></i>
+<a name='L686'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>, "--- INFO OUTPUT");
+<a name='L687'>    infostring = <a href='../S/35.html#L1838' title='Defined at 1838 in src/redis.c.'>genRedisInfoString</a>("all");
+<a name='L688'>    infostring = <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(infostring, "hash_init_value: %u\n",
+<a name='L689'>        <a href='../S/29.html#L94' title='Defined at 94 in src/dict.c.'>dictGetHashFunctionSeed</a>());
+<a name='L690'>    <a href='../S/35.html#L260' title='Defined at 260 in src/redis.c.'>redisLogRaw</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>, infostring);
+<a name='L691'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>, "--- CLIENT LIST OUTPUT");
+<a name='L692'>    clients = <a href='../S/86.html#L1143' title='Defined at 1143 in src/networking.c.'>getAllClientsInfoString</a>();
+<a name='L693'>    <a href='../S/35.html#L260' title='Defined at 260 in src/redis.c.'>redisLogRaw</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>, clients);
+<a name='L694'>    <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(infostring);
+<a name='L695'>    <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(clients);
+<a name='L696'>
+<a name='L697'>    <i><font color='green'>/* Log the current client */</font></i>
+<a name='L698'>    <a href='../S/69.html#L633' title='Defined at 633 in src/debug.c.'>logCurrentClient</a>();
+<a name='L699'>
+<a name='L700'>    <i><font color='green'>/* Log dump of processor registers */</font></i>
+<a name='L701'>    <a href='../S/69.html#L475' title='Defined at 475 in src/debug.c.'>logRegisters</a>(uc);
+<a name='L702'>
+<a name='L703'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,
+<a name='L704'>"\n=== REDIS BUG REPORT END. Make sure to include from START to END. ===\n\n"
+<a name='L705'>"       Please report the crash opening an issue on github:\n\n"
+<a name='L706'>"           http://github.com/antirez/redis/issues\n\n"
+<a name='L707'>"  Suspect RAM error? Use redis-server --test-memory to veryfy it.\n\n"
+<a name='L708'>);
+<a name='L709'>    <i><font color='green'>/* free(messages); Don't call free() with possibly corrupted memory. */</font></i>
+<a name='L710'>    <b>if</b> (server.<a href='../S/35.html#L2402' title='Defined at 2402 in src/redis.c.'>daemonize</a>) unlink(server.pidfile);
+<a name='L711'>
+<a name='L712'>    <i><font color='green'>/* Make sure we exit with the right signal at the end. So for instance</font></i>
+<a name='L713'><i><font color='green'>     * the core will be dumped if enabled. */</font></i>
+<a name='L714'>    sigemptyset (&amp;act.sa_mask);
+<a name='L715'>    act.sa_flags = SA_NODEFER | SA_ONSTACK | SA_RESETHAND;
+<a name='L716'>    act.sa_handler = SIG_DFL;
+<a name='L717'>    sigaction (sig, &amp;act, NULL);
+<a name='L718'>    kill(getpid(),sig);
+<a name='L719'><font color='red'>}</font>
+<a name='L720'><font color='darkred'>#endif</font> <i><font color='green'>/* HAVE_BACKTRACE */</font></i>
+<a name='L721'>
+<a name='L722'><i><font color='green'>/* ==================== Logging functions for debugging ===================== */</font></i>
+<a name='L723'>
+<a name='L724'><b>void</b> <a href='../R/3468.html' title='Multiple refered from 2 places.'>redisLogHexDump</a>(<b>int</b> level, <b>char</b> *descr, <b>void</b> *value, size_t len) <font color='red'>{</font>
+<a name='L725'>    <b>char</b> buf[65], *b;
+<a name='L726'>    <b>unsigned</b> <b>char</b> *v = value;
+<a name='L727'>    <b>char</b> charset[] = "0123456789abcdef";
+<a name='L728'>
+<a name='L729'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(level,"%s (hexdump):", descr);
+<a name='L730'>    b = buf;
+<a name='L731'>    <b>while</b>(len) <font color='red'>{</font>
+<a name='L732'>        b[0] = charset[(*v)&gt;&gt;4];
+<a name='L733'>        b[1] = charset[(*v)&amp;0xf];
+<a name='L734'>        b[2] = '\0';
+<a name='L735'>        b += 2;
+<a name='L736'>        len--;
+<a name='L737'>        v++;
+<a name='L738'>        <b>if</b> (b-buf == 64 || len == 0) <font color='red'>{</font>
+<a name='L739'>            <a href='../S/35.html#L260' title='Defined at 260 in src/redis.c.'>redisLogRaw</a>(level|<a href='../S/32.html#L233' title='Defined at 233 in src/redis.h.'>REDIS_LOG_RAW</a>,buf);
+<a name='L740'>            b = buf;
+<a name='L741'>        <font color='red'>}</font>
+<a name='L742'>    <font color='red'>}</font>
+<a name='L743'>    <a href='../S/35.html#L260' title='Defined at 260 in src/redis.c.'>redisLogRaw</a>(level|<a href='../S/32.html#L233' title='Defined at 233 in src/redis.h.'>REDIS_LOG_RAW</a>,"\n");
+<a name='L744'><font color='red'>}</font>
+<a name='L745'>
+<a name='L746'><i><font color='green'>/* =========================== Software Watchdog ============================ */</font></i>
+<a name='L747'><font color='darkred'>#include</font> &lt;sys/time.h&gt;
+<a name='L748'>
+<a name='L749'><b>void</b> <a href='../S/69.html#L791' title='Refered from 791 in src/debug.c.'>watchdogSignalHandler</a>(<b>int</b> sig, siginfo_t *info, <b>void</b> *secret) <font color='red'>{</font>
+<a name='L750'><font color='darkred'>#ifdef</font> <a href='../S/53.html#L58' title='Defined at 58 in src/config.h.'>HAVE_BACKTRACE</a>
+<a name='L751'>    ucontext_t *uc = (ucontext_t*) secret;
+<a name='L752'><font color='darkred'>#endif</font>
+<a name='L753'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(info);
+<a name='L754'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(sig);
+<a name='L755'>
+<a name='L756'>    <a href='../S/35.html#L313' title='Defined at 313 in src/redis.c.'>redisLogFromHandler</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"\n--- WATCHDOG TIMER EXPIRED ---");
+<a name='L757'><font color='darkred'>#ifdef</font> <a href='../S/53.html#L58' title='Defined at 58 in src/config.h.'>HAVE_BACKTRACE</a>
+<a name='L758'>    <a href='../S/69.html#L606' title='Defined at 606 in src/debug.c.'>logStackTrace</a>(uc);
+<a name='L759'><font color='darkred'>#else</font>
+<a name='L760'>    <a href='../S/35.html#L313' title='Defined at 313 in src/redis.c.'>redisLogFromHandler</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Sorry: no support for backtrace().");
+<a name='L761'><font color='darkred'>#endif</font>
+<a name='L762'>    <a href='../S/35.html#L313' title='Defined at 313 in src/redis.c.'>redisLogFromHandler</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"--------\n");
+<a name='L763'><font color='red'>}</font>
+<a name='L764'>
+<a name='L765'><i><font color='green'>/* Schedule a SIGALRM delivery after the specified period in milliseconds.</font></i>
+<a name='L766'><i><font color='green'> * If a timer is already scheduled, this function will re-schedule it to the</font></i>
+<a name='L767'><i><font color='green'> * specified time. If period is 0 the current timer is disabled. */</font></i>
+<a name='L768'><b>void</b> <a href='../R/4081.html' title='Multiple refered from 4 places.'>watchdogScheduleSignal</a>(<b>int</b> period) <font color='red'>{</font>
+<a name='L769'>    <b>struct</b> itimerval it;
+<a name='L770'>
+<a name='L771'>    <i><font color='green'>/* Will stop the timer if period is 0. */</font></i>
+<a name='L772'>    it.it_value.tv_sec = period/1000;
+<a name='L773'>    it.it_value.tv_usec = (period%1000)*1000;
+<a name='L774'>    <i><font color='green'>/* Don't automatically restart. */</font></i>
+<a name='L775'>    it.it_interval.tv_sec = 0;
+<a name='L776'>    it.it_interval.tv_usec = 0;
+<a name='L777'>    setitimer(ITIMER_REAL, &amp;it, NULL);
+<a name='L778'><font color='red'>}</font>
+<a name='L779'>
+<a name='L780'><i><font color='green'>/* Enable the software watchdong with the specified period in milliseconds. */</font></i>
+<a name='L781'><b>void</b> <a href='../R/1885.html' title='Multiple refered from 2 places.'>enableWatchdog</a>(<b>int</b> period) <font color='red'>{</font>
+<a name='L782'>    <b>int</b> min_period;
+<a name='L783'>
+<a name='L784'>    <b>if</b> (server.watchdog_period == 0) <font color='red'>{</font>
+<a name='L785'>        <b>struct</b> sigaction act;
+<a name='L786'>
+<a name='L787'>        <i><font color='green'>/* Watchdog was actually disabled, so we have to setup the signal</font></i>
+<a name='L788'><i><font color='green'>         * handler. */</font></i>
+<a name='L789'>        sigemptyset(&amp;act.sa_mask);
+<a name='L790'>        act.sa_flags = SA_NODEFER | SA_ONSTACK | SA_SIGINFO;
+<a name='L791'>        act.sa_sigaction = <a href='../S/69.html#L749' title='Defined at 749 in src/debug.c.'>watchdogSignalHandler</a>;
+<a name='L792'>        sigaction(SIGALRM, &amp;act, NULL);
+<a name='L793'>    <font color='red'>}</font>
+<a name='L794'>    <i><font color='green'>/* If the configured period is smaller than twice the timer period, it is</font></i>
+<a name='L795'><i><font color='green'>     * too short for the software watchdog to work reliably. Fix it now</font></i>
+<a name='L796'><i><font color='green'>     * if needed. */</font></i>
+<a name='L797'>    min_period = (1000/<a href='../S/32.html#L70' title='Defined at 70 in src/redis.h.'>REDIS_HZ</a>)*2;
+<a name='L798'>    <b>if</b> (period &lt; min_period) period = min_period;
+<a name='L799'>    <a href='../S/69.html#L768' title='Defined at 768 in src/debug.c.'>watchdogScheduleSignal</a>(period); <i><font color='green'>/* Adjust the current timer. */</font></i>
+<a name='L800'>    server.watchdog_period = period;
+<a name='L801'><font color='red'>}</font>
+<a name='L802'>
+<a name='L803'><i><font color='green'>/* Disable the software watchdog. */</font></i>
+<a name='L804'><b>void</b> <a href='../R/1853.html' title='Multiple refered from 2 places.'>disableWatchdog</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L805'>    <b>struct</b> sigaction act;
+<a name='L806'>    <b>if</b> (server.watchdog_period == 0) <b>return</b>; <i><font color='green'>/* Already disabled. */</font></i>
+<a name='L807'>    <a href='../S/69.html#L768' title='Defined at 768 in src/debug.c.'>watchdogScheduleSignal</a>(0); <i><font color='green'>/* Stop the current timer. */</font></i>
+<a name='L808'>
+<a name='L809'>    <i><font color='green'>/* Set the signal handler to SIG_IGN, this will also remove pending</font></i>
+<a name='L810'><i><font color='green'>     * signals from the queue. */</font></i>
+<a name='L811'>    sigemptyset(&amp;act.sa_mask);
+<a name='L812'>    act.sa_flags = 0;
+<a name='L813'>    act.sa_handler = SIG_IGN;
+<a name='L814'>    sigaction(SIGALRM, &amp;act, NULL);
+<a name='L815'>    server.watchdog_period = 0;
+<a name='L816'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L50'>[^]</a><a href='#L804'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

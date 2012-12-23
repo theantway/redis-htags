@@ -1,0 +1,48 @@
+<html>
+<head>
+<title>block</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/300.html#L60'>block</a>              60 deps/lua/src/lmem.c   newblock = luaM_reallocv(L, block, *size, newsize, size_elems);
+<a href='../S/300.html#L78'>block</a>              78 deps/lua/src/lmem.c   lua_assert((osize == 0) == (block == NULL));
+<a href='../S/300.html#L79'>block</a>              79 deps/lua/src/lmem.c   block = (*g-&gt;frealloc)(g-&gt;ud, block, osize, nsize);
+<a href='../S/300.html#L80'>block</a>              80 deps/lua/src/lmem.c   if (block == NULL &amp;&amp; nsize &gt; 0)
+<a href='../S/300.html#L82'>block</a>              82 deps/lua/src/lmem.c   lua_assert((nsize == 0) == (block == NULL));
+<a href='../S/300.html#L84'>block</a>              84 deps/lua/src/lmem.c   return block;
+<a href='../S/304.html#L1002'>block</a>            1002 deps/lua/src/lparser.c   block(ls);
+<a href='../S/304.html#L1057'>block</a>            1057 deps/lua/src/lparser.c   block(ls);
+<a href='../S/304.html#L1136'>block</a>            1136 deps/lua/src/lparser.c   block(ls);  /* `then' part */
+<a href='../S/304.html#L1156'>block</a>            1156 deps/lua/src/lparser.c     block(ls);  /* `else' part */
+<a href='../S/304.html#L1284'>block</a>            1284 deps/lua/src/lparser.c       block(ls);
+<a href='../S/62.html#L79'>block</a>              79 src/aof.c          aofrwblock *block = ln ? ln-&gt;value : NULL;
+<a href='../S/62.html#L81'>block</a>              81 src/aof.c          if (block == NULL) return 0;
+<a href='../S/62.html#L84'>block</a>              84 src/aof.c          size += block-&gt;used;
+<a href='../S/62.html#L91'>block</a>              91 src/aof.c          aofrwblock *block = ln ? ln-&gt;value : NULL;
+<a href='../S/62.html#L96'>block</a>              96 src/aof.c              if (block) {
+<a href='../S/62.html#L97'>block</a>              97 src/aof.c                  unsigned long thislen = (block-&gt;free &lt; len) ? block-&gt;free : len;
+<a href='../S/62.html#L99'>block</a>              99 src/aof.c                      memcpy(block-&gt;buf+block-&gt;used, s, thislen);
+<a href='../S/62.html#L100'>block</a>             100 src/aof.c                      block-&gt;used += thislen;
+<a href='../S/62.html#L101'>block</a>             101 src/aof.c                      block-&gt;free -= thislen;
+<a href='../S/62.html#L110'>block</a>             110 src/aof.c                  block = zmalloc(sizeof(*block));
+<a href='../S/62.html#L111'>block</a>             111 src/aof.c                  block-&gt;free = AOF_RW_BUF_BLOCK_SIZE;
+<a href='../S/62.html#L112'>block</a>             112 src/aof.c                  block-&gt;used = 0;
+<a href='../S/62.html#L113'>block</a>             113 src/aof.c                  listAddNodeTail(server.aof_rewrite_buf_blocks,block);
+<a href='../S/62.html#L138'>block</a>             138 src/aof.c              aofrwblock *block = listNodeValue(ln);
+<a href='../S/62.html#L141'>block</a>             141 src/aof.c              if (block-&gt;used) {
+<a href='../S/62.html#L142'>block</a>             142 src/aof.c                  nwritten = write(fd,block-&gt;buf,block-&gt;used);
+<a href='../S/62.html#L143'>block</a>             143 src/aof.c                  if (nwritten != block-&gt;used) {
+<a href='../S/80.html#L38'>block</a>              38 src/sha1.c     #define blk0(i) (block-&gt;l[i] = (rol(block-&gt;l[i],24)&amp;0xFF00FF00) \
+<a href='../S/80.html#L39'>block</a>              39 src/sha1.c         |(rol(block-&gt;l[i],8)&amp;0x00FF00FF))
+<a href='../S/80.html#L41'>block</a>              41 src/sha1.c     #define blk0(i) block-&gt;l[i]
+<a href='../S/80.html#L45'>block</a>              45 src/sha1.c     #define blk(i) (block-&gt;l[i&amp;15] = rol(block-&gt;l[(i+13)&amp;15]^block-&gt;l[(i+8)&amp;15] \
+<a href='../S/80.html#L46'>block</a>              46 src/sha1.c         ^block-&gt;l[(i+2)&amp;15]^block-&gt;l[i&amp;15],1))
+<a href='../S/80.html#L66'>block</a>              66 src/sha1.c     CHAR64LONG16 block[1];  /* use array to appear as a pointer */
+<a href='../S/80.html#L67'>block</a>              67 src/sha1.c         memcpy(block, buffer, 64);
+<a href='../S/80.html#L74'>block</a>              74 src/sha1.c     CHAR64LONG16* block = (const CHAR64LONG16*)buffer;
+<a href='../S/80.html#L112'>block</a>             112 src/sha1.c         memset(block, '\0', sizeof(block));
+</pre>
+</body>
+</html>

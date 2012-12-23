@@ -1,0 +1,676 @@
+<html>
+<head>
+<title>deps/jemalloc/src/util.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/395.html'>src</a>/util.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L44'>[^]</a><a href='#L632'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L44' title='Defined at 44.'>wrtmessage</a>
+<li><a href='#L66' title='Defined at 66.'>malloc_write</a>
+<li><a href='#L80' title='Defined at 80.'>buferror</a>
+<li><a href='#L100' title='Defined at 100.'>malloc_strtoumax</a>
+<li><a href='#L203' title='Defined at 203.'>u2s</a>
+<li><a href='#L246' title='Defined at 246.'>d2s</a>
+<li><a href='#L272' title='Defined at 272.'>o2s</a>
+<li><a href='#L285' title='Defined at 285.'>x2s</a>
+<li><a href='#L298' title='Defined at 298.'>malloc_vsnprintf</a>
+<li><a href='#L580' title='Defined at 580.'>JEMALLOC_ATTR</a>
+<li><a href='#L595' title='Defined at 595.'>malloc_vcprintf</a>
+<li><a href='#L619' title='Defined at 619.'>JEMALLOC_ATTR</a>
+<li><a href='#L632' title='Defined at 632.'>JEMALLOC_ATTR</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> <a href='../R/1413.html' title='Multiple refered from 580 places.'>assert</a>(e) <b>do</b> <font color='red'>{</font>                                                  \
+<a name='L2'>        <b>if</b> (config_debug &amp;&amp; !(e)) <font color='red'>{</font>                                     \
+<a name='L3'>                <a href='../D/3296.html' title='Multiple defined in 2 places.'>malloc_write</a>("&lt;jemalloc&gt;: Failed assertion\n");         \
+<a name='L4'>                abort();                                                \
+<a name='L5'>        <font color='red'>}</font>                                                               \
+<a name='L6'><font color='red'>}</font> <b>while</b> (0)
+<a name='L7'>
+<a name='L8'><font color='darkred'>#define</font> <a href='../R/3080.html' title='Multiple refered from 5 places.'>not_reached</a>() <b>do</b> <font color='red'>{</font>                                              \
+<a name='L9'>        <b>if</b> (config_debug) <font color='red'>{</font>                                             \
+<a name='L10'>                <a href='../D/3296.html' title='Multiple defined in 2 places.'>malloc_write</a>("&lt;jemalloc&gt;: Unreachable code reached\n"); \
+<a name='L11'>                abort();                                                \
+<a name='L12'>        <font color='red'>}</font>                                                               \
+<a name='L13'><font color='red'>}</font> <b>while</b> (0)
+<a name='L14'>
+<a name='L15'><font color='darkred'>#define</font> <a href='../R/3079.html' title='Multiple refered from 4 places.'>not_implemented</a>() <b>do</b> <font color='red'>{</font>                                          \
+<a name='L16'>        <b>if</b> (config_debug) <font color='red'>{</font>                                             \
+<a name='L17'>                <a href='../D/3296.html' title='Multiple defined in 2 places.'>malloc_write</a>("&lt;jemalloc&gt;: Not implemented\n");          \
+<a name='L18'>                abort();                                                \
+<a name='L19'>        <font color='red'>}</font>                                                               \
+<a name='L20'><font color='red'>}</font> <b>while</b> (0)
+<a name='L21'>
+<a name='L22'><font color='darkred'>#define</font> <a href='../S/149.html#L115' title='Refered from 115 in deps/jemalloc/include/jemalloc/internal/util.h.'>JEMALLOC_UTIL_C_</a>
+<a name='L23'><font color='darkred'>#include</font> "jemalloc/internal/jemalloc_internal.h"
+<a name='L24'>
+<a name='L25'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L26'><i><font color='green'>/* Function prototypes for non-inline static functions. */</font></i>
+<a name='L27'>
+<a name='L28'><b>static</b> <b>void</b>     <a href='../S/212.html#L44' title='Defined at 44 in deps/jemalloc/src/util.c.'>wrtmessage</a>(<b>void</b> *cbopaque, <b>const</b> <b>char</b> *s);
+<a name='L29'><font color='darkred'>#define</font> <a href='../R/1004.html' title='Multiple refered from 6 places.'>U2S_BUFSIZE</a>     ((1U &lt;&lt; (LG_SIZEOF_INTMAX_T + 3)) + 1)
+<a name='L30'><b>static</b> <b>char</b>     *<a href='../S/212.html#L203' title='Defined at 203 in deps/jemalloc/src/util.c.'>u2s</a>(<a href='../S/160.html#L124' title='Defined at 124 in deps/jemalloc/include/msvc_compat/stdint.h.'>uintmax_t</a> x, <b>unsigned</b> base, bool uppercase, <b>char</b> *s,
+<a name='L31'>    size_t *slen_p);
+<a name='L32'><font color='darkred'>#define</font> <a href='../S/212.html#L492' title='Refered from 492 in deps/jemalloc/src/util.c.'>D2S_BUFSIZE</a>     (1 + <a href='../S/212.html#L29' title='Defined at 29 in deps/jemalloc/src/util.c.'>U2S_BUFSIZE</a>)
+<a name='L33'><b>static</b> <b>char</b>     *<a href='../S/212.html#L246' title='Defined at 246 in deps/jemalloc/src/util.c.'>d2s</a>(<a href='../S/160.html#L123' title='Defined at 123 in deps/jemalloc/include/msvc_compat/stdint.h.'>intmax_t</a> x, <b>char</b> sign, <b>char</b> *s, size_t *slen_p);
+<a name='L34'><font color='darkred'>#define</font> <a href='../S/212.html#L502' title='Refered from 502 in deps/jemalloc/src/util.c.'>O2S_BUFSIZE</a>     (1 + <a href='../S/212.html#L29' title='Defined at 29 in deps/jemalloc/src/util.c.'>U2S_BUFSIZE</a>)
+<a name='L35'><b>static</b> <b>char</b>     *<a href='../S/212.html#L272' title='Defined at 272 in deps/jemalloc/src/util.c.'>o2s</a>(<a href='../S/160.html#L124' title='Defined at 124 in deps/jemalloc/include/msvc_compat/stdint.h.'>uintmax_t</a> x, bool alt_form, <b>char</b> *s, size_t *slen_p);
+<a name='L36'><font color='darkred'>#define</font> <a href='../R/1056.html' title='Multiple refered from 2 places.'>X2S_BUFSIZE</a>     (2 + <a href='../S/212.html#L29' title='Defined at 29 in deps/jemalloc/src/util.c.'>U2S_BUFSIZE</a>)
+<a name='L37'><b>static</b> <b>char</b>     *<a href='../S/212.html#L285' title='Defined at 285 in deps/jemalloc/src/util.c.'>x2s</a>(<a href='../S/160.html#L124' title='Defined at 124 in deps/jemalloc/include/msvc_compat/stdint.h.'>uintmax_t</a> x, bool alt_form, bool uppercase, <b>char</b> *s,
+<a name='L38'>    size_t *slen_p);
+<a name='L39'>
+<a name='L40'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L41'>
+<a name='L42'><i><font color='green'>/* malloc_message() setup. */</font></i>
+<a name='L43'><b>static</b> <b>void</b>
+<a name='L44'><a href='../R/4088.html' title='Multiple refered from 3 places.'>wrtmessage</a>(<b>void</b> *cbopaque, <b>const</b> <b>char</b> *s)
+<a name='L45'><font color='red'>{</font>
+<a name='L46'>
+<a name='L47'><font color='darkred'>#ifdef</font> SYS_write
+<a name='L48'>        <i><font color='green'>/*</font></i>
+<a name='L49'><i><font color='green'>         * Use syscall(2) rather than write(2) when possible in order to avoid</font></i>
+<a name='L50'><i><font color='green'>         * the possibility of memory allocation within libc.  This is necessary</font></i>
+<a name='L51'><i><font color='green'>         * on FreeBSD; most operating systems do not have this problem though.</font></i>
+<a name='L52'><i><font color='green'>         */</font></i>
+<a name='L53'>        <a href='../S/310.html#L70' title='Defined at 70 in deps/lua/src/llimits.h.'>UNUSED</a> <b>int</b> result = syscall(SYS_write, STDERR_FILENO, s, strlen(s));
+<a name='L54'><font color='darkred'>#else</font>
+<a name='L55'>        <a href='../S/310.html#L70' title='Defined at 70 in deps/lua/src/llimits.h.'>UNUSED</a> <b>int</b> result = write(STDERR_FILENO, s, strlen(s));
+<a name='L56'><font color='darkred'>#endif</font>
+<a name='L57'><font color='red'>}</font>
+<a name='L58'>
+<a name='L59'>JEMALLOC_EXPORT <b>void</b>    (*je_malloc_message)(<b>void</b> *, <b>const</b> <b>char</b> *s);
+<a name='L60'>
+<a name='L61'><i><font color='green'>/*</font></i>
+<a name='L62'><i><font color='green'> * Wrapper around malloc_message() that avoids the need for</font></i>
+<a name='L63'><i><font color='green'> * je_malloc_message(...) throughout the code.</font></i>
+<a name='L64'><i><font color='green'> */</font></i>
+<a name='L65'><b>void</b>
+<a name='L66'><a href='../R/2948.html' title='Multiple refered from 32 places.'>malloc_write</a>(<b>const</b> <b>char</b> *s)
+<a name='L67'><font color='red'>{</font>
+<a name='L68'>
+<a name='L69'>        <b>if</b> (je_malloc_message != NULL)
+<a name='L70'>                je_malloc_message(NULL, s);
+<a name='L71'>        <b>else</b>
+<a name='L72'>                <a href='../S/212.html#L44' title='Defined at 44 in deps/jemalloc/src/util.c.'>wrtmessage</a>(NULL, s);
+<a name='L73'><font color='red'>}</font>
+<a name='L74'>
+<a name='L75'><i><font color='green'>/*</font></i>
+<a name='L76'><i><font color='green'> * glibc provides a non-standard strerror_r() when _GNU_SOURCE is defined, so</font></i>
+<a name='L77'><i><font color='green'> * provide a wrapper.</font></i>
+<a name='L78'><i><font color='green'> */</font></i>
+<a name='L79'><b>int</b>
+<a name='L80'><a href='../R/1502.html' title='Multiple refered from 6 places.'>buferror</a>(<b>char</b> *buf, size_t buflen)
+<a name='L81'><font color='red'>{</font>
+<a name='L82'>
+<a name='L83'><font color='darkred'>#ifdef</font> _WIN32
+<a name='L84'>        FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(), 0,
+<a name='L85'>            (LPSTR)buf, buflen, NULL);
+<a name='L86'>        <b>return</b> (0);
+<a name='L87'><font color='darkred'>#elif</font> <b>defined</b>(<a href='../S/26.html#L36' title='Defined at 36 in src/fmacros.h.'>_GNU_SOURCE</a>)
+<a name='L88'>        <b>char</b> *b = strerror_r(errno, buf, buflen);
+<a name='L89'>        <b>if</b> (b != buf) <font color='red'>{</font>
+<a name='L90'>                strncpy(buf, b, buflen);
+<a name='L91'>                buf[buflen-1] = '\0';
+<a name='L92'>        <font color='red'>}</font>
+<a name='L93'>        <b>return</b> (0);
+<a name='L94'><font color='darkred'>#else</font>
+<a name='L95'>        <b>return</b> (strerror_r(errno, buf, buflen));
+<a name='L96'><font color='darkred'>#endif</font>
+<a name='L97'><font color='red'>}</font>
+<a name='L98'>
+<a name='L99'><a href='../S/160.html#L124' title='Defined at 124 in deps/jemalloc/include/msvc_compat/stdint.h.'>uintmax_t</a>
+<a name='L100'><a href='../R/2938.html' title='Multiple refered from 6 places.'>malloc_strtoumax</a>(<b>const</b> <b>char</b> *nptr, <b>char</b> **endptr, <b>int</b> base)
+<a name='L101'><font color='red'>{</font>
+<a name='L102'>        <a href='../S/160.html#L124' title='Defined at 124 in deps/jemalloc/include/msvc_compat/stdint.h.'>uintmax_t</a> ret, digit;
+<a name='L103'>        <b>int</b> b;
+<a name='L104'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> neg;
+<a name='L105'>        <b>const</b> <b>char</b> *p, *ns;
+<a name='L106'>
+<a name='L107'>        <b>if</b> (base &lt; 0 || base == 1 || base &gt; 36) <font color='red'>{</font>
+<a name='L108'>                <a href='../D/4119.html' title='Multiple defined in 2 places.'>set_errno</a>(EINVAL);
+<a name='L109'>                <b>return</b> (<a href='../S/160.html#L187' title='Defined at 187 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINTMAX_MAX</a>);
+<a name='L110'>        <font color='red'>}</font>
+<a name='L111'>        b = base;
+<a name='L112'>
+<a name='L113'>        <i><font color='green'>/* Swallow leading whitespace and get sign, if any. */</font></i>
+<a name='L114'>        neg = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L115'>        p = nptr;
+<a name='L116'>        <b>while</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>) <font color='red'>{</font>
+<a name='L117'>                <b>switch</b> (*p) <font color='red'>{</font>
+<a name='L118'>                <b>case</b> '\t': <b>case</b> '\n': <b>case</b> '\v': <b>case</b> '\f': <b>case</b> '\r': <b>case</b> ' ':
+<a name='L119'>                        p++;
+<a name='L120'>                        <b>break</b>;
+<a name='L121'>                <b>case</b> '-':
+<a name='L122'>                        neg = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L123'>                        <i><font color='green'>/* Fall through. */</font></i>
+<a name='L124'>                <b>case</b> '+':
+<a name='L125'>                        p++;
+<a name='L126'>                        <i><font color='green'>/* Fall through. */</font></i>
+<a name='L127'>                <b>default</b>:
+<a name='L128'>                        <b>goto</b> label_prefix;
+<a name='L129'>                <font color='red'>}</font>
+<a name='L130'>        <font color='red'>}</font>
+<a name='L131'>
+<a name='L132'>        <i><font color='green'>/* Get prefix, if any. */</font></i>
+<a name='L133'>        label_prefix:
+<a name='L134'>        <i><font color='green'>/*</font></i>
+<a name='L135'><i><font color='green'>         * Note where the first non-whitespace/sign character is so that it is</font></i>
+<a name='L136'><i><font color='green'>         * possible to tell whether any digits are consumed (e.g., "  0" vs.</font></i>
+<a name='L137'><i><font color='green'>         * "  -x").</font></i>
+<a name='L138'><i><font color='green'>         */</font></i>
+<a name='L139'>        ns = p;
+<a name='L140'>        <b>if</b> (*p == '0') <font color='red'>{</font>
+<a name='L141'>                <b>switch</b> (p[1]) <font color='red'>{</font>
+<a name='L142'>                <b>case</b> '0': <b>case</b> '1': <b>case</b> '2': <b>case</b> '3': <b>case</b> '4': <b>case</b> '5':
+<a name='L143'>                <b>case</b> '6': <b>case</b> '7':
+<a name='L144'>                        <b>if</b> (b == 0)
+<a name='L145'>                                b = 8;
+<a name='L146'>                        <b>if</b> (b == 8)
+<a name='L147'>                                p++;
+<a name='L148'>                        <b>break</b>;
+<a name='L149'>                <b>case</b> 'x':
+<a name='L150'>                        <b>switch</b> (p[2]) <font color='red'>{</font>
+<a name='L151'>                        <b>case</b> '0': <b>case</b> '1': <b>case</b> '2': <b>case</b> '3': <b>case</b> '4':
+<a name='L152'>                        <b>case</b> '5': <b>case</b> '6': <b>case</b> '7': <b>case</b> '8': <b>case</b> '9':
+<a name='L153'>                        <b>case</b> 'A': <b>case</b> 'B': <b>case</b> 'C': <b>case</b> 'D': <b>case</b> 'E':
+<a name='L154'>                        <b>case</b> 'F':
+<a name='L155'>                        <b>case</b> 'a': <b>case</b> 'b': <b>case</b> 'c': <b>case</b> 'd': <b>case</b> 'e':
+<a name='L156'>                        <b>case</b> 'f':
+<a name='L157'>                                <b>if</b> (b == 0)
+<a name='L158'>                                        b = 16;
+<a name='L159'>                                <b>if</b> (b == 16)
+<a name='L160'>                                        p += 2;
+<a name='L161'>                                <b>break</b>;
+<a name='L162'>                        <b>default</b>:
+<a name='L163'>                                <b>break</b>;
+<a name='L164'>                        <font color='red'>}</font>
+<a name='L165'>                        <b>break</b>;
+<a name='L166'>                <b>default</b>:
+<a name='L167'>                        <b>break</b>;
+<a name='L168'>                <font color='red'>}</font>
+<a name='L169'>        <font color='red'>}</font>
+<a name='L170'>        <b>if</b> (b == 0)
+<a name='L171'>                b = 10;
+<a name='L172'>
+<a name='L173'>        <i><font color='green'>/* Convert. */</font></i>
+<a name='L174'>        ret = 0;
+<a name='L175'>        <b>while</b> ((*p &gt;= '0' &amp;&amp; *p &lt;= '9' &amp;&amp; (digit = *p - '0') &lt; b)
+<a name='L176'>            || (*p &gt;= 'A' &amp;&amp; *p &lt;= 'Z' &amp;&amp; (digit = 10 + *p - 'A') &lt; b)
+<a name='L177'>            || (*p &gt;= 'a' &amp;&amp; *p &lt;= 'z' &amp;&amp; (digit = 10 + *p - 'a') &lt; b)) <font color='red'>{</font>
+<a name='L178'>                <a href='../S/160.html#L124' title='Defined at 124 in deps/jemalloc/include/msvc_compat/stdint.h.'>uintmax_t</a> pret = ret;
+<a name='L179'>                ret *= b;
+<a name='L180'>                ret += digit;
+<a name='L181'>                <b>if</b> (ret &lt; pret) <font color='red'>{</font>
+<a name='L182'>                        <i><font color='green'>/* Overflow. */</font></i>
+<a name='L183'>                        <a href='../D/4119.html' title='Multiple defined in 2 places.'>set_errno</a>(ERANGE);
+<a name='L184'>                        <b>return</b> (<a href='../S/160.html#L187' title='Defined at 187 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINTMAX_MAX</a>);
+<a name='L185'>                <font color='red'>}</font>
+<a name='L186'>                p++;
+<a name='L187'>        <font color='red'>}</font>
+<a name='L188'>        <b>if</b> (neg)
+<a name='L189'>                ret = -ret;
+<a name='L190'>
+<a name='L191'>        <b>if</b> (endptr != NULL) <font color='red'>{</font>
+<a name='L192'>                <b>if</b> (p == ns) <font color='red'>{</font>
+<a name='L193'>                        <i><font color='green'>/* No characters were converted. */</font></i>
+<a name='L194'>                        *endptr = (<b>char</b> *)nptr;
+<a name='L195'>                <font color='red'>}</font> <b>else</b>
+<a name='L196'>                        *endptr = (<b>char</b> *)p;
+<a name='L197'>        <font color='red'>}</font>
+<a name='L198'>
+<a name='L199'>        <b>return</b> (ret);
+<a name='L200'><font color='red'>}</font>
+<a name='L201'>
+<a name='L202'><b>static</b> <b>char</b> *
+<a name='L203'><a href='../R/4044.html' title='Multiple refered from 5 places.'>u2s</a>(<a href='../S/160.html#L124' title='Defined at 124 in deps/jemalloc/include/msvc_compat/stdint.h.'>uintmax_t</a> x, <b>unsigned</b> base, bool uppercase, <b>char</b> *s, size_t *slen_p)
+<a name='L204'><font color='red'>{</font>
+<a name='L205'>        <b>unsigned</b> i;
+<a name='L206'>
+<a name='L207'>        i = <a href='../S/212.html#L29' title='Defined at 29 in deps/jemalloc/src/util.c.'>U2S_BUFSIZE</a> - 1;
+<a name='L208'>        s[i] = '\0';
+<a name='L209'>        <b>switch</b> (base) <font color='red'>{</font>
+<a name='L210'>        <b>case</b> 10:
+<a name='L211'>                <b>do</b> <font color='red'>{</font>
+<a name='L212'>                        i--;
+<a name='L213'>                        s[i] = "0123456789"[x % (<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)10];
+<a name='L214'>                        x /= (<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)10;
+<a name='L215'>                <font color='red'>}</font> <b>while</b> (x &gt; 0);
+<a name='L216'>                <b>break</b>;
+<a name='L217'>        <b>case</b> 16: <font color='red'>{</font>
+<a name='L218'>                <b>const</b> <b>char</b> *digits = (uppercase)
+<a name='L219'>                    ? "0123456789ABCDEF"
+<a name='L220'>                    : "0123456789abcdef";
+<a name='L221'>
+<a name='L222'>                <b>do</b> <font color='red'>{</font>
+<a name='L223'>                        i--;
+<a name='L224'>                        s[i] = digits[x &amp; 0xf];
+<a name='L225'>                        x &gt;&gt;= 4;
+<a name='L226'>                <font color='red'>}</font> <b>while</b> (x &gt; 0);
+<a name='L227'>                <b>break</b>;
+<a name='L228'>        <font color='red'>}</font> <b>default</b>: <font color='red'>{</font>
+<a name='L229'>                <b>const</b> <b>char</b> *digits = (uppercase)
+<a name='L230'>                    ? "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+<a name='L231'>                    : "0123456789abcdefghijklmnopqrstuvwxyz";
+<a name='L232'>
+<a name='L233'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(base &gt;= 2 &amp;&amp; base &lt;= 36);
+<a name='L234'>                <b>do</b> <font color='red'>{</font>
+<a name='L235'>                        i--;
+<a name='L236'>                        s[i] = digits[x % (<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)base];
+<a name='L237'>                        x /= (<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)base;
+<a name='L238'>                <font color='red'>}</font> <b>while</b> (x &gt; 0);
+<a name='L239'>        <font color='red'>}</font><font color='red'>}</font>
+<a name='L240'>
+<a name='L241'>        *slen_p = <a href='../S/212.html#L29' title='Defined at 29 in deps/jemalloc/src/util.c.'>U2S_BUFSIZE</a> - 1 - i;
+<a name='L242'>        <b>return</b> (&amp;s[i]);
+<a name='L243'><font color='red'>}</font>
+<a name='L244'>
+<a name='L245'><b>static</b> <b>char</b> *
+<a name='L246'><a href='../R/1753.html' title='Multiple refered from 2 places.'>d2s</a>(<a href='../S/160.html#L123' title='Defined at 123 in deps/jemalloc/include/msvc_compat/stdint.h.'>intmax_t</a> x, <b>char</b> sign, <b>char</b> *s, size_t *slen_p)
+<a name='L247'><font color='red'>{</font>
+<a name='L248'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> neg;
+<a name='L249'>
+<a name='L250'>        <b>if</b> ((neg = (x &lt; 0)))
+<a name='L251'>                x = -x;
+<a name='L252'>        s = <a href='../S/212.html#L203' title='Defined at 203 in deps/jemalloc/src/util.c.'>u2s</a>(x, 10, <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>, s, slen_p);
+<a name='L253'>        <b>if</b> (neg)
+<a name='L254'>                sign = '-';
+<a name='L255'>        <b>switch</b> (sign) <font color='red'>{</font>
+<a name='L256'>        <b>case</b> '-':
+<a name='L257'>                <b>if</b> (neg == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)
+<a name='L258'>                        <b>break</b>;
+<a name='L259'>                <i><font color='green'>/* Fall through. */</font></i>
+<a name='L260'>        <b>case</b> ' ':
+<a name='L261'>        <b>case</b> '+':
+<a name='L262'>                s--;
+<a name='L263'>                (*slen_p)++;
+<a name='L264'>                *s = sign;
+<a name='L265'>                <b>break</b>;
+<a name='L266'>        <b>default</b>: <a href='../D/3428.html' title='Multiple defined in 2 places.'>not_reached</a>();
+<a name='L267'>        <font color='red'>}</font>
+<a name='L268'>        <b>return</b> (s);
+<a name='L269'><font color='red'>}</font>
+<a name='L270'>
+<a name='L271'><b>static</b> <b>char</b> *
+<a name='L272'><a href='../R/3086.html' title='Multiple refered from 2 places.'>o2s</a>(<a href='../S/160.html#L124' title='Defined at 124 in deps/jemalloc/include/msvc_compat/stdint.h.'>uintmax_t</a> x, bool alt_form, <b>char</b> *s, size_t *slen_p)
+<a name='L273'><font color='red'>{</font>
+<a name='L274'>
+<a name='L275'>        s = <a href='../S/212.html#L203' title='Defined at 203 in deps/jemalloc/src/util.c.'>u2s</a>(x, 8, <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>, s, slen_p);
+<a name='L276'>        <b>if</b> (alt_form &amp;&amp; *s != '0') <font color='red'>{</font>
+<a name='L277'>                s--;
+<a name='L278'>                (*slen_p)++;
+<a name='L279'>                *s = '0';
+<a name='L280'>        <font color='red'>}</font>
+<a name='L281'>        <b>return</b> (s);
+<a name='L282'><font color='red'>}</font>
+<a name='L283'>
+<a name='L284'><b>static</b> <b>char</b> *
+<a name='L285'><a href='../R/4089.html' title='Multiple refered from 3 places.'>x2s</a>(<a href='../S/160.html#L124' title='Defined at 124 in deps/jemalloc/include/msvc_compat/stdint.h.'>uintmax_t</a> x, bool alt_form, bool uppercase, <b>char</b> *s, size_t *slen_p)
+<a name='L286'><font color='red'>{</font>
+<a name='L287'>
+<a name='L288'>        s = <a href='../S/212.html#L203' title='Defined at 203 in deps/jemalloc/src/util.c.'>u2s</a>(x, 16, uppercase, s, slen_p);
+<a name='L289'>        <b>if</b> (alt_form) <font color='red'>{</font>
+<a name='L290'>                s -= 2;
+<a name='L291'>                (*slen_p) += 2;
+<a name='L292'>                memcpy(s, uppercase ? "0X" : "0x", 2);
+<a name='L293'>        <font color='red'>}</font>
+<a name='L294'>        <b>return</b> (s);
+<a name='L295'><font color='red'>}</font>
+<a name='L296'>
+<a name='L297'><b>int</b>
+<a name='L298'><a href='../R/2947.html' title='Multiple refered from 5 places.'>malloc_vsnprintf</a>(<b>char</b> *str, size_t size, <b>const</b> <b>char</b> *format, va_list ap)
+<a name='L299'><font color='red'>{</font>
+<a name='L300'>        <b>int</b> ret;
+<a name='L301'>        size_t i;
+<a name='L302'>        <b>const</b> <b>char</b> *f;
+<a name='L303'>
+<a name='L304'><font color='darkred'>#define</font> <a href='../R/28.html' title='Multiple refered from 4 places.'>APPEND_C</a>(c) <b>do</b> <font color='red'>{</font>                                                \
+<a name='L305'>        <b>if</b> (i &lt; size)                                                   \
+<a name='L306'>                str[i] = (c);                                           \
+<a name='L307'>        i++;                                                            \
+<a name='L308'><font color='red'>}</font> <b>while</b> (0)
+<a name='L309'><font color='darkred'>#define</font> <a href='../S/212.html#L326' title='Refered from 326 in deps/jemalloc/src/util.c.'>APPEND_S</a>(s, slen) <b>do</b> <font color='red'>{</font>                                          \
+<a name='L310'>        <b>if</b> (i &lt; size) <font color='red'>{</font>                                                 \
+<a name='L311'>                size_t cpylen = (slen &lt;= size - i) ? slen : size - i;   \
+<a name='L312'>                memcpy(&amp;str[i], s, cpylen);                             \
+<a name='L313'>        <font color='red'>}</font>                                                               \
+<a name='L314'>        i += slen;                                                      \
+<a name='L315'><font color='red'>}</font> <b>while</b> (0)
+<a name='L316'><font color='darkred'>#define</font> <a href='../R/29.html' title='Multiple refered from 7 places.'>APPEND_PADDED_S</a>(s, slen, width, left_justify) <b>do</b> <font color='red'>{</font>              \
+<a name='L317'>        <i><font color='green'>/* Left padding. */</font></i>                                             \
+<a name='L318'>        size_t pad_len = (width == -1) ? 0 : ((slen &lt; (size_t)width) ?  \
+<a name='L319'>            (size_t)width - slen : 0);                                  \
+<a name='L320'>        <b>if</b> (left_justify == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a> &amp;&amp; pad_len != 0) <font color='red'>{</font>                    \
+<a name='L321'>                size_t j;                                               \
+<a name='L322'>                <b>for</b> (j = 0; j &lt; pad_len; j++)                           \
+<a name='L323'>                        <a href='../D/29.html' title='Multiple defined in 2 places.'>APPEND_C</a>(' ');                                  \
+<a name='L324'>        <font color='red'>}</font>                                                               \
+<a name='L325'>        <i><font color='green'>/* Value. */</font></i>                                                    \
+<a name='L326'>        <a href='../D/31.html' title='Multiple defined in 2 places.'>APPEND_S</a>(s, slen);                                              \
+<a name='L327'>        <i><font color='green'>/* Right padding. */</font></i>                                            \
+<a name='L328'>        <b>if</b> (left_justify &amp;&amp; pad_len != 0) <font color='red'>{</font>                             \
+<a name='L329'>                size_t j;                                               \
+<a name='L330'>                <b>for</b> (j = 0; j &lt; pad_len; j++)                           \
+<a name='L331'>                        <a href='../D/29.html' title='Multiple defined in 2 places.'>APPEND_C</a>(' ');                                  \
+<a name='L332'>        <font color='red'>}</font>                                                               \
+<a name='L333'><font color='red'>}</font> <b>while</b> (0)
+<a name='L334'><font color='darkred'>#define</font> <a href='../R/172.html' title='Multiple refered from 5 places.'>GET_ARG_NUMERIC</a>(val, len) <b>do</b> <font color='red'>{</font>                                  \
+<a name='L335'>        <b>switch</b> (len) <font color='red'>{</font>                                                  \
+<a name='L336'>        <b>case</b> '?':                                                       \
+<a name='L337'>                val = va_arg(ap, <b>int</b>);                                  \
+<a name='L338'>                <b>break</b>;                                                  \
+<a name='L339'>        <b>case</b> '?' | 0x80:                                                \
+<a name='L340'>                val = va_arg(ap, <b>unsigned</b> <b>int</b>);                         \
+<a name='L341'>                <b>break</b>;                                                  \
+<a name='L342'>        <b>case</b> 'l':                                                       \
+<a name='L343'>                val = va_arg(ap, <b>long</b>);                                 \
+<a name='L344'>                <b>break</b>;                                                  \
+<a name='L345'>        <b>case</b> 'l' | 0x80:                                                \
+<a name='L346'>                val = va_arg(ap, <b>unsigned</b> <b>long</b>);                        \
+<a name='L347'>                <b>break</b>;                                                  \
+<a name='L348'>        <b>case</b> 'q':                                                       \
+<a name='L349'>                val = va_arg(ap, <b>long</b> <b>long</b>);                            \
+<a name='L350'>                <b>break</b>;                                                  \
+<a name='L351'>        <b>case</b> 'q' | 0x80:                                                \
+<a name='L352'>                val = va_arg(ap, <b>unsigned</b> <b>long</b> <b>long</b>);                   \
+<a name='L353'>                <b>break</b>;                                                  \
+<a name='L354'>        <b>case</b> 'j':                                                       \
+<a name='L355'>                val = va_arg(ap, <a href='../S/160.html#L123' title='Defined at 123 in deps/jemalloc/include/msvc_compat/stdint.h.'>intmax_t</a>);                             \
+<a name='L356'>                <b>break</b>;                                                  \
+<a name='L357'>        <b>case</b> 't':                                                       \
+<a name='L358'>                val = va_arg(ap, ptrdiff_t);                            \
+<a name='L359'>                <b>break</b>;                                                  \
+<a name='L360'>        <b>case</b> 'z':                                                       \
+<a name='L361'>                val = va_arg(ap, ssize_t);                              \
+<a name='L362'>                <b>break</b>;                                                  \
+<a name='L363'>        <b>case</b> 'z' | 0x80:                                                \
+<a name='L364'>                val = va_arg(ap, size_t);                               \
+<a name='L365'>                <b>break</b>;                                                  \
+<a name='L366'>        <b>case</b> 'p': <i><font color='green'>/* Synthetic; used for %p. */</font></i>                         \
+<a name='L367'>                val = va_arg(ap, <a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>);                            \
+<a name='L368'>                <b>break</b>;                                                  \
+<a name='L369'>        <b>default</b>: <a href='../D/3428.html' title='Multiple defined in 2 places.'>not_reached</a>();                                         \
+<a name='L370'>        <font color='red'>}</font>                                                               \
+<a name='L371'><font color='red'>}</font> <b>while</b> (0)
+<a name='L372'>
+<a name='L373'>        i = 0;
+<a name='L374'>        f = format;
+<a name='L375'>        <b>while</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>) <font color='red'>{</font>
+<a name='L376'>                <b>switch</b> (*f) <font color='red'>{</font>
+<a name='L377'>                <b>case</b> '\0': <b>goto</b> label_out;
+<a name='L378'>                <b>case</b> '%': <font color='red'>{</font>
+<a name='L379'>                        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> alt_form = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L380'>                        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> left_justify = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L381'>                        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> plus_space = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L382'>                        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> plus_plus = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L383'>                        <b>int</b> prec = -1;
+<a name='L384'>                        <b>int</b> width = -1;
+<a name='L385'>                        <b>unsigned</b> <b>char</b> len = '?';
+<a name='L386'>
+<a name='L387'>                        f++;
+<a name='L388'>                        <b>if</b> (*f == '%') <font color='red'>{</font>
+<a name='L389'>                                <i><font color='green'>/* %% */</font></i>
+<a name='L390'>                                <a href='../D/29.html' title='Multiple defined in 2 places.'>APPEND_C</a>(*f);
+<a name='L391'>                                <b>break</b>;
+<a name='L392'>                        <font color='red'>}</font>
+<a name='L393'>                        <i><font color='green'>/* Flags. */</font></i>
+<a name='L394'>                        <b>while</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>) <font color='red'>{</font>
+<a name='L395'>                                <b>switch</b> (*f) <font color='red'>{</font>
+<a name='L396'>                                <b>case</b> '#':
+<a name='L397'>                                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(alt_form == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L398'>                                        alt_form = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L399'>                                        <b>break</b>;
+<a name='L400'>                                <b>case</b> '-':
+<a name='L401'>                                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(left_justify == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L402'>                                        left_justify = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L403'>                                        <b>break</b>;
+<a name='L404'>                                <b>case</b> ' ':
+<a name='L405'>                                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(plus_space == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L406'>                                        plus_space = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L407'>                                        <b>break</b>;
+<a name='L408'>                                <b>case</b> '+':
+<a name='L409'>                                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(plus_plus == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L410'>                                        plus_plus = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L411'>                                        <b>break</b>;
+<a name='L412'>                                <b>default</b>: <b>goto</b> label_width;
+<a name='L413'>                                <font color='red'>}</font>
+<a name='L414'>                                f++;
+<a name='L415'>                        <font color='red'>}</font>
+<a name='L416'>                        <i><font color='green'>/* Width. */</font></i>
+<a name='L417'>                        label_width:
+<a name='L418'>                        <b>switch</b> (*f) <font color='red'>{</font>
+<a name='L419'>                        <b>case</b> '*':
+<a name='L420'>                                width = va_arg(ap, <b>int</b>);
+<a name='L421'>                                f++;
+<a name='L422'>                                <b>break</b>;
+<a name='L423'>                        <b>case</b> '0': <b>case</b> '1': <b>case</b> '2': <b>case</b> '3': <b>case</b> '4':
+<a name='L424'>                        <b>case</b> '5': <b>case</b> '6': <b>case</b> '7': <b>case</b> '8': <b>case</b> '9': <font color='red'>{</font>
+<a name='L425'>                                <a href='../S/160.html#L124' title='Defined at 124 in deps/jemalloc/include/msvc_compat/stdint.h.'>uintmax_t</a> uwidth;
+<a name='L426'>                                <a href='../D/4119.html' title='Multiple defined in 2 places.'>set_errno</a>(0);
+<a name='L427'>                                uwidth = <a href='../D/3283.html' title='Multiple defined in 2 places.'>malloc_strtoumax</a>(f, (<b>char</b> **)&amp;f, 10);
+<a name='L428'>                                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(uwidth != <a href='../S/160.html#L187' title='Defined at 187 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINTMAX_MAX</a> || <a href='../D/2349.html' title='Multiple defined in 2 places.'>get_errno</a>() !=
+<a name='L429'>                                    ERANGE);
+<a name='L430'>                                width = (<b>int</b>)uwidth;
+<a name='L431'>                                <b>if</b> (*f == '.') <font color='red'>{</font>
+<a name='L432'>                                        f++;
+<a name='L433'>                                        <b>goto</b> label_precision;
+<a name='L434'>                                <font color='red'>}</font> <b>else</b>
+<a name='L435'>                                        <b>goto</b> label_length;
+<a name='L436'>                                <b>break</b>;
+<a name='L437'>                        <font color='red'>}</font> <b>case</b> '.':
+<a name='L438'>                                f++;
+<a name='L439'>                                <b>goto</b> label_precision;
+<a name='L440'>                        <b>default</b>: <b>goto</b> label_length;
+<a name='L441'>                        <font color='red'>}</font>
+<a name='L442'>                        <i><font color='green'>/* Precision. */</font></i>
+<a name='L443'>                        label_precision:
+<a name='L444'>                        <b>switch</b> (*f) <font color='red'>{</font>
+<a name='L445'>                        <b>case</b> '*':
+<a name='L446'>                                prec = va_arg(ap, <b>int</b>);
+<a name='L447'>                                f++;
+<a name='L448'>                                <b>break</b>;
+<a name='L449'>                        <b>case</b> '0': <b>case</b> '1': <b>case</b> '2': <b>case</b> '3': <b>case</b> '4':
+<a name='L450'>                        <b>case</b> '5': <b>case</b> '6': <b>case</b> '7': <b>case</b> '8': <b>case</b> '9': <font color='red'>{</font>
+<a name='L451'>                                <a href='../S/160.html#L124' title='Defined at 124 in deps/jemalloc/include/msvc_compat/stdint.h.'>uintmax_t</a> uprec;
+<a name='L452'>                                <a href='../D/4119.html' title='Multiple defined in 2 places.'>set_errno</a>(0);
+<a name='L453'>                                uprec = <a href='../D/3283.html' title='Multiple defined in 2 places.'>malloc_strtoumax</a>(f, (<b>char</b> **)&amp;f, 10);
+<a name='L454'>                                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(uprec != <a href='../S/160.html#L187' title='Defined at 187 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINTMAX_MAX</a> || <a href='../D/2349.html' title='Multiple defined in 2 places.'>get_errno</a>() !=
+<a name='L455'>                                    ERANGE);
+<a name='L456'>                                prec = (<b>int</b>)uprec;
+<a name='L457'>                                <b>break</b>;
+<a name='L458'>                        <font color='red'>}</font>
+<a name='L459'>                        <b>default</b>: <b>break</b>;
+<a name='L460'>                        <font color='red'>}</font>
+<a name='L461'>                        <i><font color='green'>/* Length. */</font></i>
+<a name='L462'>                        label_length:
+<a name='L463'>                        <b>switch</b> (*f) <font color='red'>{</font>
+<a name='L464'>                        <b>case</b> 'l':
+<a name='L465'>                                f++;
+<a name='L466'>                                <b>if</b> (*f == 'l') <font color='red'>{</font>
+<a name='L467'>                                        len = 'q';
+<a name='L468'>                                        f++;
+<a name='L469'>                                <font color='red'>}</font> <b>else</b>
+<a name='L470'>                                        len = 'l';
+<a name='L471'>                                <b>break</b>;
+<a name='L472'>                        <b>case</b> 'j':
+<a name='L473'>                                len = 'j';
+<a name='L474'>                                f++;
+<a name='L475'>                                <b>break</b>;
+<a name='L476'>                        <b>case</b> 't':
+<a name='L477'>                                len = 't';
+<a name='L478'>                                f++;
+<a name='L479'>                                <b>break</b>;
+<a name='L480'>                        <b>case</b> 'z':
+<a name='L481'>                                len = 'z';
+<a name='L482'>                                f++;
+<a name='L483'>                                <b>break</b>;
+<a name='L484'>                        <b>default</b>: <b>break</b>;
+<a name='L485'>                        <font color='red'>}</font>
+<a name='L486'>                        <i><font color='green'>/* Conversion specifier. */</font></i>
+<a name='L487'>                        <b>switch</b> (*f) <font color='red'>{</font>
+<a name='L488'>                                <b>char</b> *s;
+<a name='L489'>                                size_t slen;
+<a name='L490'>                        <b>case</b> 'd': <b>case</b> 'i': <font color='red'>{</font>
+<a name='L491'>                                <a href='../S/160.html#L123' title='Defined at 123 in deps/jemalloc/include/msvc_compat/stdint.h.'>intmax_t</a> val <a href='../D/253.html' title='Multiple defined in 2 places.'>JEMALLOC_CC_SILENCE_INIT</a>(0);
+<a name='L492'>                                <b>char</b> buf[<a href='../S/212.html#L32' title='Defined at 32 in deps/jemalloc/src/util.c.'>D2S_BUFSIZE</a>];
+<a name='L493'>
+<a name='L494'>                                <a href='../D/175.html' title='Multiple defined in 2 places.'>GET_ARG_NUMERIC</a>(val, len);
+<a name='L495'>                                s = <a href='../S/212.html#L246' title='Defined at 246 in deps/jemalloc/src/util.c.'>d2s</a>(val, (plus_plus ? '+' : (plus_space ?
+<a name='L496'>                                    ' ' : '-')), buf, &amp;slen);
+<a name='L497'>                                <a href='../D/30.html' title='Multiple defined in 2 places.'>APPEND_PADDED_S</a>(s, slen, width, left_justify);
+<a name='L498'>                                f++;
+<a name='L499'>                                <b>break</b>;
+<a name='L500'>                        <font color='red'>}</font> <b>case</b> 'o': <font color='red'>{</font>
+<a name='L501'>                                <a href='../S/160.html#L124' title='Defined at 124 in deps/jemalloc/include/msvc_compat/stdint.h.'>uintmax_t</a> val <a href='../D/253.html' title='Multiple defined in 2 places.'>JEMALLOC_CC_SILENCE_INIT</a>(0);
+<a name='L502'>                                <b>char</b> buf[<a href='../S/212.html#L34' title='Defined at 34 in deps/jemalloc/src/util.c.'>O2S_BUFSIZE</a>];
+<a name='L503'>
+<a name='L504'>                                <a href='../D/175.html' title='Multiple defined in 2 places.'>GET_ARG_NUMERIC</a>(val, len | 0x80);
+<a name='L505'>                                s = <a href='../S/212.html#L272' title='Defined at 272 in deps/jemalloc/src/util.c.'>o2s</a>(val, alt_form, buf, &amp;slen);
+<a name='L506'>                                <a href='../D/30.html' title='Multiple defined in 2 places.'>APPEND_PADDED_S</a>(s, slen, width, left_justify);
+<a name='L507'>                                f++;
+<a name='L508'>                                <b>break</b>;
+<a name='L509'>                        <font color='red'>}</font> <b>case</b> 'u': <font color='red'>{</font>
+<a name='L510'>                                <a href='../S/160.html#L124' title='Defined at 124 in deps/jemalloc/include/msvc_compat/stdint.h.'>uintmax_t</a> val <a href='../D/253.html' title='Multiple defined in 2 places.'>JEMALLOC_CC_SILENCE_INIT</a>(0);
+<a name='L511'>                                <b>char</b> buf[<a href='../S/212.html#L29' title='Defined at 29 in deps/jemalloc/src/util.c.'>U2S_BUFSIZE</a>];
+<a name='L512'>
+<a name='L513'>                                <a href='../D/175.html' title='Multiple defined in 2 places.'>GET_ARG_NUMERIC</a>(val, len | 0x80);
+<a name='L514'>                                s = <a href='../S/212.html#L203' title='Defined at 203 in deps/jemalloc/src/util.c.'>u2s</a>(val, 10, <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>, buf, &amp;slen);
+<a name='L515'>                                <a href='../D/30.html' title='Multiple defined in 2 places.'>APPEND_PADDED_S</a>(s, slen, width, left_justify);
+<a name='L516'>                                f++;
+<a name='L517'>                                <b>break</b>;
+<a name='L518'>                        <font color='red'>}</font> <b>case</b> 'x': <b>case</b> 'X': <font color='red'>{</font>
+<a name='L519'>                                <a href='../S/160.html#L124' title='Defined at 124 in deps/jemalloc/include/msvc_compat/stdint.h.'>uintmax_t</a> val <a href='../D/253.html' title='Multiple defined in 2 places.'>JEMALLOC_CC_SILENCE_INIT</a>(0);
+<a name='L520'>                                <b>char</b> buf[<a href='../S/212.html#L36' title='Defined at 36 in deps/jemalloc/src/util.c.'>X2S_BUFSIZE</a>];
+<a name='L521'>
+<a name='L522'>                                <a href='../D/175.html' title='Multiple defined in 2 places.'>GET_ARG_NUMERIC</a>(val, len | 0x80);
+<a name='L523'>                                s = <a href='../S/212.html#L285' title='Defined at 285 in deps/jemalloc/src/util.c.'>x2s</a>(val, alt_form, *f == 'X', buf, &amp;slen);
+<a name='L524'>                                <a href='../D/30.html' title='Multiple defined in 2 places.'>APPEND_PADDED_S</a>(s, slen, width, left_justify);
+<a name='L525'>                                f++;
+<a name='L526'>                                <b>break</b>;
+<a name='L527'>                        <font color='red'>}</font> <b>case</b> 'c': <font color='red'>{</font>
+<a name='L528'>                                <b>unsigned</b> <b>char</b> val;
+<a name='L529'>                                <b>char</b> buf[2];
+<a name='L530'>
+<a name='L531'>                                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(len == '?' || len == 'l');
+<a name='L532'>                                <a href='../S/149.html#L72' title='Defined at 72 in deps/jemalloc/include/jemalloc/internal/util.h.'>assert_not_implemented</a>(len != 'l');
+<a name='L533'>                                val = va_arg(ap, <b>int</b>);
+<a name='L534'>                                buf[0] = val;
+<a name='L535'>                                buf[1] = '\0';
+<a name='L536'>                                <a href='../D/30.html' title='Multiple defined in 2 places.'>APPEND_PADDED_S</a>(buf, 1, width, left_justify);
+<a name='L537'>                                f++;
+<a name='L538'>                                <b>break</b>;
+<a name='L539'>                        <font color='red'>}</font> <b>case</b> 's':
+<a name='L540'>                                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(len == '?' || len == 'l');
+<a name='L541'>                                <a href='../S/149.html#L72' title='Defined at 72 in deps/jemalloc/include/jemalloc/internal/util.h.'>assert_not_implemented</a>(len != 'l');
+<a name='L542'>                                s = va_arg(ap, <b>char</b> *);
+<a name='L543'>                                slen = (prec == -1) ? strlen(s) : prec;
+<a name='L544'>                                <a href='../D/30.html' title='Multiple defined in 2 places.'>APPEND_PADDED_S</a>(s, slen, width, left_justify);
+<a name='L545'>                                f++;
+<a name='L546'>                                <b>break</b>;
+<a name='L547'>                        <b>case</b> 'p': <font color='red'>{</font>
+<a name='L548'>                                <a href='../S/160.html#L124' title='Defined at 124 in deps/jemalloc/include/msvc_compat/stdint.h.'>uintmax_t</a> val;
+<a name='L549'>                                <b>char</b> buf[<a href='../S/212.html#L36' title='Defined at 36 in deps/jemalloc/src/util.c.'>X2S_BUFSIZE</a>];
+<a name='L550'>
+<a name='L551'>                                <a href='../D/175.html' title='Multiple defined in 2 places.'>GET_ARG_NUMERIC</a>(val, 'p');
+<a name='L552'>                                s = <a href='../S/212.html#L285' title='Defined at 285 in deps/jemalloc/src/util.c.'>x2s</a>(val, <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>, <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>, buf, &amp;slen);
+<a name='L553'>                                <a href='../D/30.html' title='Multiple defined in 2 places.'>APPEND_PADDED_S</a>(s, slen, width, left_justify);
+<a name='L554'>                                f++;
+<a name='L555'>                                <b>break</b>;
+<a name='L556'>                        <font color='red'>}</font>
+<a name='L557'>                        <b>default</b>: <a href='../D/3427.html' title='Multiple defined in 2 places.'>not_implemented</a>();
+<a name='L558'>                        <font color='red'>}</font>
+<a name='L559'>                        <b>break</b>;
+<a name='L560'>                <font color='red'>}</font> <b>default</b>: <font color='red'>{</font>
+<a name='L561'>                        <a href='../D/29.html' title='Multiple defined in 2 places.'>APPEND_C</a>(*f);
+<a name='L562'>                        f++;
+<a name='L563'>                        <b>break</b>;
+<a name='L564'>                <font color='red'>}</font><font color='red'>}</font>
+<a name='L565'>        <font color='red'>}</font>
+<a name='L566'>        label_out:
+<a name='L567'>        <b>if</b> (i &lt; size)
+<a name='L568'>                str[i] = '\0';
+<a name='L569'>        <b>else</b>
+<a name='L570'>                str[size - 1] = '\0';
+<a name='L571'>        ret = i;
+<a name='L572'>
+<a name='L573'><font color='darkred'>#undef</font> <a href='../R/28.html' title='Multiple refered from 4 places.'>APPEND_C</a>
+<a name='L574'><font color='darkred'>#undef</font> <a href='../S/212.html#L326' title='Refered from 326 in deps/jemalloc/src/util.c.'>APPEND_S</a>
+<a name='L575'><font color='darkred'>#undef</font> <a href='../R/29.html' title='Multiple refered from 7 places.'>APPEND_PADDED_S</a>
+<a name='L576'><font color='darkred'>#undef</font> <a href='../R/172.html' title='Multiple refered from 5 places.'>GET_ARG_NUMERIC</a>
+<a name='L577'>        <b>return</b> (ret);
+<a name='L578'><font color='red'>}</font>
+<a name='L579'>
+<a name='L580'><a href='../R/219.html' title='Multiple refered from 11 places.'>JEMALLOC_ATTR</a>(format(printf, 3, 4))
+<a name='L581'><b>int</b>
+<a name='L582'>malloc_snprintf(<b>char</b> *str, size_t size, <b>const</b> <b>char</b> *format, ...)
+<a name='L583'><font color='red'>{</font>
+<a name='L584'>        <b>int</b> ret;
+<a name='L585'>        va_list ap;
+<a name='L586'>
+<a name='L587'>        va_start(ap, format);
+<a name='L588'>        ret = <a href='../D/3295.html' title='Multiple defined in 2 places.'>malloc_vsnprintf</a>(str, size, format, ap);
+<a name='L589'>        va_end(ap);
+<a name='L590'>
+<a name='L591'>        <b>return</b> (ret);
+<a name='L592'><font color='red'>}</font>
+<a name='L593'>
+<a name='L594'><b>void</b>
+<a name='L595'><a href='../R/2946.html' title='Multiple refered from 3 places.'>malloc_vcprintf</a>(<b>void</b> (*write_cb)(<b>void</b> *, <b>const</b> <b>char</b> *), <b>void</b> *cbopaque,
+<a name='L596'>    <b>const</b> <b>char</b> *format, va_list ap)
+<a name='L597'><font color='red'>{</font>
+<a name='L598'>        <b>char</b> buf[<a href='../S/149.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/util.h.'>MALLOC_PRINTF_BUFSIZE</a>];
+<a name='L599'>
+<a name='L600'>        <b>if</b> (write_cb == NULL) <font color='red'>{</font>
+<a name='L601'>                <i><font color='green'>/*</font></i>
+<a name='L602'><i><font color='green'>                 * The caller did not provide an alternate write_cb callback</font></i>
+<a name='L603'><i><font color='green'>                 * function, so use the default one.  malloc_write() is an</font></i>
+<a name='L604'><i><font color='green'>                 * inline function, so use malloc_message() directly here.</font></i>
+<a name='L605'><i><font color='green'>                 */</font></i>
+<a name='L606'>                write_cb = (je_malloc_message != NULL) ? je_malloc_message :
+<a name='L607'>                    <a href='../S/212.html#L44' title='Defined at 44 in deps/jemalloc/src/util.c.'>wrtmessage</a>;
+<a name='L608'>                cbopaque = NULL;
+<a name='L609'>        <font color='red'>}</font>
+<a name='L610'>
+<a name='L611'>        <a href='../D/3295.html' title='Multiple defined in 2 places.'>malloc_vsnprintf</a>(buf, <b>sizeof</b>(buf), format, ap);
+<a name='L612'>        write_cb(cbopaque, buf);
+<a name='L613'><font color='red'>}</font>
+<a name='L614'>
+<a name='L615'><i><font color='green'>/*</font></i>
+<a name='L616'><i><font color='green'> * Print to a callback function in such a way as to (hopefully) avoid memory</font></i>
+<a name='L617'><i><font color='green'> * allocation.</font></i>
+<a name='L618'><i><font color='green'> */</font></i>
+<a name='L619'><a href='../R/219.html' title='Multiple refered from 11 places.'>JEMALLOC_ATTR</a>(format(printf, 3, 4))
+<a name='L620'><b>void</b>
+<a name='L621'>malloc_cprintf(<b>void</b> (*write_cb)(<b>void</b> *, <b>const</b> <b>char</b> *), <b>void</b> *cbopaque,
+<a name='L622'>    <b>const</b> <b>char</b> *format, ...)
+<a name='L623'><font color='red'>{</font>
+<a name='L624'>        va_list ap;
+<a name='L625'>
+<a name='L626'>        va_start(ap, format);
+<a name='L627'>        <a href='../D/3294.html' title='Multiple defined in 2 places.'>malloc_vcprintf</a>(write_cb, cbopaque, format, ap);
+<a name='L628'>        va_end(ap);
+<a name='L629'><font color='red'>}</font>
+<a name='L630'>
+<a name='L631'><i><font color='green'>/* Print to stderr in such a way as to avoid memory allocation. */</font></i>
+<a name='L632'><a href='../R/219.html' title='Multiple refered from 11 places.'>JEMALLOC_ATTR</a>(format(printf, 1, 2))
+<a name='L633'><b>void</b>
+<a name='L634'>malloc_printf(<b>const</b> <b>char</b> *format, ...)
+<a name='L635'><font color='red'>{</font>
+<a name='L636'>        va_list ap;
+<a name='L637'>
+<a name='L638'>        va_start(ap, format);
+<a name='L639'>        <a href='../D/3294.html' title='Multiple defined in 2 places.'>malloc_vcprintf</a>(NULL, NULL, format, ap);
+<a name='L640'>        va_end(ap);
+<a name='L641'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L44'>[^]</a><a href='#L632'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

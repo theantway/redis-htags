@@ -1,0 +1,1592 @@
+<html>
+<head>
+<title>src/ziplist.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/ziplist.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L173'>[^]</a><a href='#L1084'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L173' title='Defined at 173.'>zipIntSize</a>
+<li><a href='#L188' title='Defined at 188.'>zipEncodeLength</a>
+<li><a href='#L252' title='Defined at 252.'>zipPrevEncodeLength</a>
+<li><a href='#L270' title='Defined at 270.'>zipPrevEncodeLengthForceLarge</a>
+<li><a href='#L302' title='Defined at 302.'>zipPrevLenByteDiff</a>
+<li><a href='#L309' title='Defined at 309.'>zipRawEntryLength</a>
+<li><a href='#L318' title='Defined at 318.'>zipTryEncoding</a>
+<li><a href='#L345' title='Defined at 345.'>zipSaveInteger</a>
+<li><a href='#L375' title='Defined at 375.'>zipLoadInteger</a>
+<li><a href='#L407' title='Defined at 407.'>zipEntry</a>
+<li><a href='#L418' title='Defined at 418.'>ziplistNew</a>
+<li><a href='#L429' title='Defined at 429.'>ziplistResize</a>
+<li><a href='#L456' title='Defined at 456.'>__ziplistCascadeUpdate</a>
+<li><a href='#L518' title='Defined at 518.'>__ziplistDelete</a>
+<li><a href='#L578' title='Defined at 578.'>__ziplistInsert</a>
+<li><a href='#L668' title='Defined at 668.'>ziplistPush</a>
+<li><a href='#L677' title='Defined at 677.'>ziplistIndex</a>
+<li><a href='#L705' title='Defined at 705.'>ziplistNext</a>
+<li><a href='#L724' title='Defined at 724.'>ziplistPrev</a>
+<li><a href='#L746' title='Defined at 746.'>ziplistGet</a>
+<li><a href='#L766' title='Defined at 766.'>ziplistInsert</a>
+<li><a href='#L773' title='Defined at 773.'>ziplistDelete</a>
+<li><a href='#L786' title='Defined at 786.'>ziplistDeleteRange</a>
+<li><a href='#L792' title='Defined at 792.'>ziplistCompare</a>
+<li><a href='#L819' title='Defined at 819.'>ziplistFind</a>
+<li><a href='#L879' title='Defined at 879.'>ziplistLen</a>
+<li><a href='#L897' title='Defined at 897.'>ziplistBlobLen</a>
+<li><a href='#L901' title='Defined at 901.'>ziplistRepr</a>
+<li><a href='#L961' title='Defined at 961.'>createList</a>
+<li><a href='#L970' title='Defined at 970.'>createIntList</a>
+<li><a href='#L989' title='Defined at 989.'>usec</a>
+<li><a href='#L995' title='Defined at 995.'>stress</a>
+<li><a href='#L1018' title='Defined at 1018.'>pop</a>
+<li><a href='#L1043' title='Defined at 1043.'>randstring</a>
+<li><a href='#L1068' title='Defined at 1068.'>verify</a>
+<li><a href='#L1084' title='Defined at 1084.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* The ziplist is a specially encoded dually linked list that is designed</font></i>
+<a name='L2'><i><font color='green'> * to be very memory efficient. It stores both strings and integer values,</font></i>
+<a name='L3'><i><font color='green'> * where integers are encoded as actual integers instead of a series of</font></i>
+<a name='L4'><i><font color='green'> * characters. It allows push and pop operations on either side of the list</font></i>
+<a name='L5'><i><font color='green'> * in O(1) time. However, because every operation requires a reallocation of</font></i>
+<a name='L6'><i><font color='green'> * the memory used by the ziplist, the actual complexity is related to the</font></i>
+<a name='L7'><i><font color='green'> * amount of memory used by the ziplist.</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> * ----------------------------------------------------------------------------</font></i>
+<a name='L10'><i><font color='green'> *</font></i>
+<a name='L11'><i><font color='green'> * ZIPLIST OVERALL LAYOUT:</font></i>
+<a name='L12'><i><font color='green'> * The general layout of the ziplist is as follows:</font></i>
+<a name='L13'><i><font color='green'> * &lt;zlbytes&gt;&lt;zltail&gt;&lt;zllen&gt;&lt;entry&gt;&lt;entry&gt;&lt;zlend&gt;</font></i>
+<a name='L14'><i><font color='green'> *</font></i>
+<a name='L15'><i><font color='green'> * &lt;zlbytes&gt; is an unsigned integer to hold the number of bytes that the</font></i>
+<a name='L16'><i><font color='green'> * ziplist occupies. This value needs to be stored to be able to resize the</font></i>
+<a name='L17'><i><font color='green'> * entire structure without the need to traverse it first.</font></i>
+<a name='L18'><i><font color='green'> *</font></i>
+<a name='L19'><i><font color='green'> * &lt;zltail&gt; is the offset to the last entry in the list. This allows a pop</font></i>
+<a name='L20'><i><font color='green'> * operation on the far side of the list without the need for full traversal.</font></i>
+<a name='L21'><i><font color='green'> *</font></i>
+<a name='L22'><i><font color='green'> * &lt;zllen&gt; is the number of entries.When this value is larger than 2**16-2,</font></i>
+<a name='L23'><i><font color='green'> * we need to traverse the entire list to know how many items it holds.</font></i>
+<a name='L24'><i><font color='green'> *</font></i>
+<a name='L25'><i><font color='green'> * &lt;zlend&gt; is a single byte special value, equal to 255, which indicates the</font></i>
+<a name='L26'><i><font color='green'> * end of the list.</font></i>
+<a name='L27'><i><font color='green'> *</font></i>
+<a name='L28'><i><font color='green'> * ZIPLIST ENTRIES:</font></i>
+<a name='L29'><i><font color='green'> * Every entry in the ziplist is prefixed by a header that contains two pieces</font></i>
+<a name='L30'><i><font color='green'> * of information. First, the length of the previous entry is stored to be</font></i>
+<a name='L31'><i><font color='green'> * able to traverse the list from back to front. Second, the encoding with an</font></i>
+<a name='L32'><i><font color='green'> * optional string length of the entry itself is stored.</font></i>
+<a name='L33'><i><font color='green'> *</font></i>
+<a name='L34'><i><font color='green'> * The length of the previous entry is encoded in the following way:</font></i>
+<a name='L35'><i><font color='green'> * If this length is smaller than 254 bytes, it will only consume a single</font></i>
+<a name='L36'><i><font color='green'> * byte that takes the length as value. When the length is greater than or</font></i>
+<a name='L37'><i><font color='green'> * equal to 254, it will consume 5 bytes. The first byte is set to 254 to</font></i>
+<a name='L38'><i><font color='green'> * indicate a larger value is following. The remaining 4 bytes take the</font></i>
+<a name='L39'><i><font color='green'> * length of the previous entry as value.</font></i>
+<a name='L40'><i><font color='green'> *</font></i>
+<a name='L41'><i><font color='green'> * The other header field of the entry itself depends on the contents of the</font></i>
+<a name='L42'><i><font color='green'> * entry. When the entry is a string, the first 2 bits of this header will hold</font></i>
+<a name='L43'><i><font color='green'> * the type of encoding used to store the length of the string, followed by the</font></i>
+<a name='L44'><i><font color='green'> * actual length of the string. When the entry is an integer the first 2 bits</font></i>
+<a name='L45'><i><font color='green'> * are both set to 1. The following 2 bits are used to specify what kind of</font></i>
+<a name='L46'><i><font color='green'> * integer will be stored after this header. An overview of the different</font></i>
+<a name='L47'><i><font color='green'> * types and encodings is as follows:</font></i>
+<a name='L48'><i><font color='green'> *</font></i>
+<a name='L49'><i><font color='green'> * |00pppppp| - 1 byte</font></i>
+<a name='L50'><i><font color='green'> *      String value with length less than or equal to 63 bytes (6 bits).</font></i>
+<a name='L51'><i><font color='green'> * |01pppppp|qqqqqqqq| - 2 bytes</font></i>
+<a name='L52'><i><font color='green'> *      String value with length less than or equal to 16383 bytes (14 bits).</font></i>
+<a name='L53'><i><font color='green'> * |10______|qqqqqqqq|rrrrrrrr|ssssssss|tttttttt| - 5 bytes</font></i>
+<a name='L54'><i><font color='green'> *      String value with length greater than or equal to 16384 bytes.</font></i>
+<a name='L55'><i><font color='green'> * |11000000| - 1 byte</font></i>
+<a name='L56'><i><font color='green'> *      Integer encoded as int16_t (2 bytes).</font></i>
+<a name='L57'><i><font color='green'> * |11010000| - 1 byte</font></i>
+<a name='L58'><i><font color='green'> *      Integer encoded as int32_t (4 bytes).</font></i>
+<a name='L59'><i><font color='green'> * |11100000| - 1 byte</font></i>
+<a name='L60'><i><font color='green'> *      Integer encoded as int64_t (8 bytes).</font></i>
+<a name='L61'><i><font color='green'> * |11110000| - 1 byte</font></i>
+<a name='L62'><i><font color='green'> *      Integer encoded as 24 bit signed (3 bytes).</font></i>
+<a name='L63'><i><font color='green'> * |11111110| - 1 byte</font></i>
+<a name='L64'><i><font color='green'> *      Integer encoded as 8 bit signed (1 byte).</font></i>
+<a name='L65'><i><font color='green'> * |1111xxxx| - (with xxxx between 0000 and 1101) immediate 4 bit integer.</font></i>
+<a name='L66'><i><font color='green'> *      Unsigned integer from 0 to 12. The encoded value is actually from</font></i>
+<a name='L67'><i><font color='green'> *      1 to 13 because 0000 and 1111 can not be used, so 1 should be</font></i>
+<a name='L68'><i><font color='green'> *      subtracted from the encoded 4 bit value to obtain the right value.</font></i>
+<a name='L69'><i><font color='green'> * |11111111| - End of ziplist.</font></i>
+<a name='L70'><i><font color='green'> *</font></i>
+<a name='L71'><i><font color='green'> * All the integers are represented in little endian byte order.</font></i>
+<a name='L72'><i><font color='green'> *</font></i>
+<a name='L73'><i><font color='green'> * ----------------------------------------------------------------------------</font></i>
+<a name='L74'><i><font color='green'> *</font></i>
+<a name='L75'><i><font color='green'> * Copyright (c) 2009-2012, Pieter Noordhuis &lt;pcnoordhuis at gmail dot com&gt;</font></i>
+<a name='L76'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L77'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L78'><i><font color='green'> *</font></i>
+<a name='L79'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L80'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L81'><i><font color='green'> *</font></i>
+<a name='L82'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L83'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L84'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L85'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L86'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L87'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L88'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L89'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L90'><i><font color='green'> *</font></i>
+<a name='L91'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L92'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L93'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L94'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L95'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L96'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L97'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L98'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L99'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L100'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L101'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L102'><i><font color='green'> */</font></i>
+<a name='L103'>
+<a name='L104'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L105'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L106'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L107'><font color='darkred'>#include</font> &lt;<a href='160.html'>stdint.h</a>&gt;
+<a name='L108'><font color='darkred'>#include</font> &lt;assert.h&gt;
+<a name='L109'><font color='darkred'>#include</font> &lt;limits.h&gt;
+<a name='L110'><font color='darkred'>#include</font> "<a href='28.html'>zmalloc.h</a>"
+<a name='L111'><font color='darkred'>#include</font> "<a href='../I/45.html'>util.h</a>"
+<a name='L112'><font color='darkred'>#include</font> "<a href='66.html'>ziplist.h</a>"
+<a name='L113'><font color='darkred'>#include</font> "<a href='42.html'>endianconv.h</a>"
+<a name='L114'>
+<a name='L115'><font color='darkred'>#define</font> <a href='../R/1076.html' title='Multiple refered from 24 places.'>ZIP_END</a> 255
+<a name='L116'><font color='darkred'>#define</font> <a href='../R/1072.html' title='Multiple refered from 5 places.'>ZIP_BIGLEN</a> 254
+<a name='L117'>
+<a name='L118'><i><font color='green'>/* Different encoding/length possibilities */</font></i>
+<a name='L119'><font color='darkred'>#define</font> <a href='../R/1090.html' title='Multiple refered from 3 places.'>ZIP_STR_MASK</a> 0xc0
+<a name='L120'><font color='darkred'>#define</font> ZIP_INT_MASK 0x30
+<a name='L121'><font color='darkred'>#define</font> <a href='../R/1087.html' title='Multiple refered from 2 places.'>ZIP_STR_06B</a> (0 &lt;&lt; 6)
+<a name='L122'><font color='darkred'>#define</font> <a href='../R/1088.html' title='Multiple refered from 2 places.'>ZIP_STR_14B</a> (1 &lt;&lt; 6)
+<a name='L123'><font color='darkred'>#define</font> <a href='../R/1089.html' title='Multiple refered from 2 places.'>ZIP_STR_32B</a> (2 &lt;&lt; 6)
+<a name='L124'><font color='darkred'>#define</font> <a href='../R/1078.html' title='Multiple refered from 4 places.'>ZIP_INT_16B</a> (0xc0 | 0&lt;&lt;4)
+<a name='L125'><font color='darkred'>#define</font> <a href='../R/1080.html' title='Multiple refered from 4 places.'>ZIP_INT_32B</a> (0xc0 | 1&lt;&lt;4)
+<a name='L126'><font color='darkred'>#define</font> <a href='../R/1081.html' title='Multiple refered from 4 places.'>ZIP_INT_64B</a> (0xc0 | 2&lt;&lt;4)
+<a name='L127'><font color='darkred'>#define</font> <a href='../R/1079.html' title='Multiple refered from 4 places.'>ZIP_INT_24B</a> (0xc0 | 3&lt;&lt;4)
+<a name='L128'><font color='darkred'>#define</font> <a href='../R/1082.html' title='Multiple refered from 4 places.'>ZIP_INT_8B</a> 0xfe
+<a name='L129'><i><font color='green'>/* 4 bit integer immediate encoding */</font></i>
+<a name='L130'><font color='darkred'>#define</font> <a href='../R/1083.html' title='Multiple refered from 2 places.'>ZIP_INT_IMM_MASK</a> 0x0f
+<a name='L131'><font color='darkred'>#define</font> <a href='../R/1085.html' title='Multiple refered from 3 places.'>ZIP_INT_IMM_MIN</a> 0xf1    <i><font color='green'>/* 11110001 */</font></i>
+<a name='L132'><font color='darkred'>#define</font> <a href='../R/1084.html' title='Multiple refered from 2 places.'>ZIP_INT_IMM_MAX</a> 0xfd    <i><font color='green'>/* 11111101 */</font></i>
+<a name='L133'><font color='darkred'>#define</font> ZIP_INT_IMM_VAL(v) (v &amp; <a href='../S/89.html#L130' title='Defined at 130 in src/ziplist.c.'>ZIP_INT_IMM_MASK</a>)
+<a name='L134'>
+<a name='L135'><font color='darkred'>#define</font> <a href='../R/197.html' title='Multiple refered from 2 places.'>INT24_MAX</a> 0x7fffff
+<a name='L136'><font color='darkred'>#define</font> <a href='../S/89.html#L331' title='Refered from 331 in src/ziplist.c.'>INT24_MIN</a> (-<a href='../S/89.html#L135' title='Defined at 135 in src/ziplist.c.'>INT24_MAX</a> - 1)
+<a name='L137'>
+<a name='L138'><i><font color='green'>/* Macro to determine type */</font></i>
+<a name='L139'><font color='darkred'>#define</font> <a href='../R/1086.html' title='Multiple refered from 6 places.'>ZIP_IS_STR</a>(enc) (((enc) &amp; <a href='../S/89.html#L119' title='Defined at 119 in src/ziplist.c.'>ZIP_STR_MASK</a>) &lt; <a href='../S/89.html#L119' title='Defined at 119 in src/ziplist.c.'>ZIP_STR_MASK</a>)
+<a name='L140'>
+<a name='L141'><i><font color='green'>/* Utility macros */</font></i>
+<a name='L142'><font color='darkred'>#define</font> <a href='../R/1058.html' title='Multiple refered from 10 places.'>ZIPLIST_BYTES</a>(zl)       (*((<a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a>*)(zl)))
+<a name='L143'><font color='darkred'>#define</font> <a href='../R/1067.html' title='Multiple refered from 16 places.'>ZIPLIST_TAIL_OFFSET</a>(zl) (*((<a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a>*)((zl)+<b>sizeof</b>(<a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a>))))
+<a name='L144'><font color='darkred'>#define</font> <a href='../R/1065.html' title='Multiple refered from 7 places.'>ZIPLIST_LENGTH</a>(zl)      (*((<a href='../D/4428.html' title='Multiple defined in 2 places.'>uint16_t</a>*)((zl)+<b>sizeof</b>(<a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a>)*2)))
+<a name='L145'><font color='darkred'>#define</font> <a href='../R/1063.html' title='Multiple refered from 4 places.'>ZIPLIST_HEADER_SIZE</a>     (<b>sizeof</b>(<a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a>)*2+<b>sizeof</b>(<a href='../D/4428.html' title='Multiple defined in 2 places.'>uint16_t</a>))
+<a name='L146'><font color='darkred'>#define</font> <a href='../R/1060.html' title='Multiple refered from 4 places.'>ZIPLIST_ENTRY_HEAD</a>(zl)  ((zl)+<a href='../S/89.html#L145' title='Defined at 145 in src/ziplist.c.'>ZIPLIST_HEADER_SIZE</a>)
+<a name='L147'><font color='darkred'>#define</font> <a href='../R/1061.html' title='Multiple refered from 3 places.'>ZIPLIST_ENTRY_TAIL</a>(zl)  ((zl)+<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../S/89.html#L143' title='Defined at 143 in src/ziplist.c.'>ZIPLIST_TAIL_OFFSET</a>(zl)))
+<a name='L148'><font color='darkred'>#define</font> <a href='../S/89.html#L670' title='Refered from 670 in src/ziplist.c.'>ZIPLIST_ENTRY_END</a>(zl)   ((zl)+<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../S/89.html#L142' title='Defined at 142 in src/ziplist.c.'>ZIPLIST_BYTES</a>(zl))-1)
+<a name='L149'>
+<a name='L150'><i><font color='green'>/* We know a positive increment can only be 1 because entries can only be</font></i>
+<a name='L151'><i><font color='green'> * pushed one at a time. */</font></i>
+<a name='L152'><font color='darkred'>#define</font> <a href='../R/1064.html' title='Multiple refered from 2 places.'>ZIPLIST_INCR_LENGTH</a>(zl,incr) <font color='red'>{</font> \
+<a name='L153'>    <b>if</b> (<a href='../S/89.html#L144' title='Defined at 144 in src/ziplist.c.'>ZIPLIST_LENGTH</a>(zl) &lt; <a href='../S/160.html#L141' title='Defined at 141 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT16_MAX</a>) \
+<a name='L154'>        <a href='../S/89.html#L144' title='Defined at 144 in src/ziplist.c.'>ZIPLIST_LENGTH</a>(zl) = <a href='../D/2508.html' title='Multiple defined in 2 places.'>intrev16ifbe</a>(<a href='../D/2508.html' title='Multiple defined in 2 places.'>intrev16ifbe</a>(<a href='../S/89.html#L144' title='Defined at 144 in src/ziplist.c.'>ZIPLIST_LENGTH</a>(zl))+incr); \
+<a name='L155'><font color='red'>}</font>
+<a name='L156'>
+<a name='L157'><b>typedef</b> <b>struct</b> <a href='../R/4149.html' title='Multiple refered from 15 places.'>zlentry</a> <font color='red'>{</font>
+<a name='L158'>    <b>unsigned</b> <b>int</b> prevrawlensize, prevrawlen;
+<a name='L159'>    <b>unsigned</b> <b>int</b> lensize, len;
+<a name='L160'>    <b>unsigned</b> <b>int</b> headersize;
+<a name='L161'>    <b>unsigned</b> <b>char</b> encoding;
+<a name='L162'>    <b>unsigned</b> <b>char</b> *p;
+<a name='L163'><font color='red'>}</font> <a href='../R/4149.html' title='Multiple refered from 15 places.'>zlentry</a>;
+<a name='L164'>
+<a name='L165'><i><font color='green'>/* Extract the encoding from the byte pointed by 'ptr' and set it into</font></i>
+<a name='L166'><i><font color='green'> * 'encoding'. */</font></i>
+<a name='L167'><font color='darkred'>#define</font> <a href='../S/89.html#L227' title='Refered from 227 in src/ziplist.c.'>ZIP_ENTRY_ENCODING</a>(ptr, encoding) <b>do</b> <font color='red'>{</font>  \
+<a name='L168'>    (encoding) = (ptr[0]); \
+<a name='L169'>    <b>if</b> ((encoding) &lt; <a href='../S/89.html#L119' title='Defined at 119 in src/ziplist.c.'>ZIP_STR_MASK</a>) (encoding) &amp;= <a href='../S/89.html#L119' title='Defined at 119 in src/ziplist.c.'>ZIP_STR_MASK</a>; \
+<a name='L170'><font color='red'>}</font> <b>while</b>(0)
+<a name='L171'>
+<a name='L172'><i><font color='green'>/* Return bytes needed to store integer encoded by 'encoding' */</font></i>
+<a name='L173'><b>static</b> <b>unsigned</b> <b>int</b> <a href='../R/4108.html' title='Multiple refered from 2 places.'>zipIntSize</a>(<b>unsigned</b> <b>char</b> encoding) <font color='red'>{</font>
+<a name='L174'>    <b>switch</b>(encoding) <font color='red'>{</font>
+<a name='L175'>    <b>case</b> <a href='../S/89.html#L128' title='Defined at 128 in src/ziplist.c.'>ZIP_INT_8B</a>:  <b>return</b> 1;
+<a name='L176'>    <b>case</b> <a href='../S/89.html#L124' title='Defined at 124 in src/ziplist.c.'>ZIP_INT_16B</a>: <b>return</b> 2;
+<a name='L177'>    <b>case</b> <a href='../S/89.html#L127' title='Defined at 127 in src/ziplist.c.'>ZIP_INT_24B</a>: <b>return</b> 3;
+<a name='L178'>    <b>case</b> <a href='../S/89.html#L125' title='Defined at 125 in src/ziplist.c.'>ZIP_INT_32B</a>: <b>return</b> 4;
+<a name='L179'>    <b>case</b> <a href='../S/89.html#L126' title='Defined at 126 in src/ziplist.c.'>ZIP_INT_64B</a>: <b>return</b> 8;
+<a name='L180'>    <b>default</b>: <b>return</b> 0; <i><font color='green'>/* 4 bit immediate */</font></i>
+<a name='L181'>    <font color='red'>}</font>
+<a name='L182'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(NULL);
+<a name='L183'>    <b>return</b> 0;
+<a name='L184'><font color='red'>}</font>
+<a name='L185'>
+<a name='L186'><i><font color='green'>/* Encode the length 'l' writing it in 'p'. If p is NULL it just returns</font></i>
+<a name='L187'><i><font color='green'> * the amount of bytes required to encode such a length. */</font></i>
+<a name='L188'><b>static</b> <b>unsigned</b> <b>int</b> <a href='../R/4106.html' title='Multiple refered from 2 places.'>zipEncodeLength</a>(<b>unsigned</b> <b>char</b> *p, <b>unsigned</b> <b>char</b> encoding, <b>unsigned</b> <b>int</b> rawlen) <font color='red'>{</font>
+<a name='L189'>    <b>unsigned</b> <b>char</b> len = 1, buf[5];
+<a name='L190'>
+<a name='L191'>    <b>if</b> (<a href='../S/89.html#L139' title='Defined at 139 in src/ziplist.c.'>ZIP_IS_STR</a>(encoding)) <font color='red'>{</font>
+<a name='L192'>        <i><font color='green'>/* Although encoding is given it may not be set for strings,</font></i>
+<a name='L193'><i><font color='green'>         * so we determine it here using the raw length. */</font></i>
+<a name='L194'>        <b>if</b> (rawlen &lt;= 0x3f) <font color='red'>{</font>
+<a name='L195'>            <b>if</b> (!p) <b>return</b> len;
+<a name='L196'>            buf[0] = <a href='../S/89.html#L121' title='Defined at 121 in src/ziplist.c.'>ZIP_STR_06B</a> | rawlen;
+<a name='L197'>        <font color='red'>}</font> <b>else</b> <b>if</b> (rawlen &lt;= 0x3fff) <font color='red'>{</font>
+<a name='L198'>            len += 1;
+<a name='L199'>            <b>if</b> (!p) <b>return</b> len;
+<a name='L200'>            buf[0] = <a href='../S/89.html#L122' title='Defined at 122 in src/ziplist.c.'>ZIP_STR_14B</a> | ((rawlen &gt;&gt; 8) &amp; 0x3f);
+<a name='L201'>            buf[1] = rawlen &amp; 0xff;
+<a name='L202'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L203'>            len += 4;
+<a name='L204'>            <b>if</b> (!p) <b>return</b> len;
+<a name='L205'>            buf[0] = <a href='../S/89.html#L123' title='Defined at 123 in src/ziplist.c.'>ZIP_STR_32B</a>;
+<a name='L206'>            buf[1] = (rawlen &gt;&gt; 24) &amp; 0xff;
+<a name='L207'>            buf[2] = (rawlen &gt;&gt; 16) &amp; 0xff;
+<a name='L208'>            buf[3] = (rawlen &gt;&gt; 8) &amp; 0xff;
+<a name='L209'>            buf[4] = rawlen &amp; 0xff;
+<a name='L210'>        <font color='red'>}</font>
+<a name='L211'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L212'>        <i><font color='green'>/* Implies integer encoding, so length is always 1. */</font></i>
+<a name='L213'>        <b>if</b> (!p) <b>return</b> len;
+<a name='L214'>        buf[0] = encoding;
+<a name='L215'>    <font color='red'>}</font>
+<a name='L216'>
+<a name='L217'>    <i><font color='green'>/* Store this length at p */</font></i>
+<a name='L218'>    memcpy(p,buf,len);
+<a name='L219'>    <b>return</b> len;
+<a name='L220'><font color='red'>}</font>
+<a name='L221'>
+<a name='L222'><i><font color='green'>/* Decode the length encoded in 'ptr'. The 'encoding' variable will hold the</font></i>
+<a name='L223'><i><font color='green'> * entries encoding, the 'lensize' variable will hold the number of bytes</font></i>
+<a name='L224'><i><font color='green'> * required to encode the entries length, and the 'len' variable will hold the</font></i>
+<a name='L225'><i><font color='green'> * entries length. */</font></i>
+<a name='L226'><font color='darkred'>#define</font> <a href='../R/1073.html' title='Multiple refered from 3 places.'>ZIP_DECODE_LENGTH</a>(ptr, encoding, lensize, len) <b>do</b> <font color='red'>{</font>                    \
+<a name='L227'>    <a href='../S/89.html#L167' title='Defined at 167 in src/ziplist.c.'>ZIP_ENTRY_ENCODING</a>((ptr), (encoding));                                     \
+<a name='L228'>    <b>if</b> ((encoding) &lt; <a href='../S/89.html#L119' title='Defined at 119 in src/ziplist.c.'>ZIP_STR_MASK</a>) <font color='red'>{</font>                                           \
+<a name='L229'>        <b>if</b> ((encoding) == <a href='../S/89.html#L121' title='Defined at 121 in src/ziplist.c.'>ZIP_STR_06B</a>) <font color='red'>{</font>                                       \
+<a name='L230'>            (lensize) = 1;                                                     \
+<a name='L231'>            (len) = (ptr)[0] &amp; 0x3f;                                           \
+<a name='L232'>        <font color='red'>}</font> <b>else</b> <b>if</b> ((encoding) == <a href='../S/89.html#L122' title='Defined at 122 in src/ziplist.c.'>ZIP_STR_14B</a>) <font color='red'>{</font>                                \
+<a name='L233'>            (lensize) = 2;                                                     \
+<a name='L234'>            (len) = (((ptr)[0] &amp; 0x3f) &lt;&lt; 8) | (ptr)[1];                       \
+<a name='L235'>        <font color='red'>}</font> <b>else</b> <b>if</b> (encoding == <a href='../S/89.html#L123' title='Defined at 123 in src/ziplist.c.'>ZIP_STR_32B</a>) <font color='red'>{</font>                                  \
+<a name='L236'>            (lensize) = 5;                                                     \
+<a name='L237'>            (len) = ((ptr)[1] &lt;&lt; 24) |                                         \
+<a name='L238'>                    ((ptr)[2] &lt;&lt; 16) |                                         \
+<a name='L239'>                    ((ptr)[3] &lt;&lt;  8) |                                         \
+<a name='L240'>                    ((ptr)[4]);                                                \
+<a name='L241'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                               \
+<a name='L242'>            <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(NULL);                                                      \
+<a name='L243'>        <font color='red'>}</font>                                                                      \
+<a name='L244'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                                   \
+<a name='L245'>        (lensize) = 1;                                                         \
+<a name='L246'>        (len) = <a href='../S/89.html#L173' title='Defined at 173 in src/ziplist.c.'>zipIntSize</a>(encoding);                                          \
+<a name='L247'>    <font color='red'>}</font>                                                                          \
+<a name='L248'><font color='red'>}</font> <b>while</b>(0);
+<a name='L249'>
+<a name='L250'><i><font color='green'>/* Encode the length of the previous entry and write it to "p". Return the</font></i>
+<a name='L251'><i><font color='green'> * number of bytes needed to encode this length if "p" is NULL. */</font></i>
+<a name='L252'><b>static</b> <b>unsigned</b> <b>int</b> <a href='../R/4110.html' title='Multiple refered from 8 places.'>zipPrevEncodeLength</a>(<b>unsigned</b> <b>char</b> *p, <b>unsigned</b> <b>int</b> len) <font color='red'>{</font>
+<a name='L253'>    <b>if</b> (p == NULL) <font color='red'>{</font>
+<a name='L254'>        <b>return</b> (len &lt; <a href='../S/89.html#L116' title='Defined at 116 in src/ziplist.c.'>ZIP_BIGLEN</a>) ? 1 : <b>sizeof</b>(len)+1;
+<a name='L255'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L256'>        <b>if</b> (len &lt; <a href='../S/89.html#L116' title='Defined at 116 in src/ziplist.c.'>ZIP_BIGLEN</a>) <font color='red'>{</font>
+<a name='L257'>            p[0] = len;
+<a name='L258'>            <b>return</b> 1;
+<a name='L259'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L260'>            p[0] = <a href='../S/89.html#L116' title='Defined at 116 in src/ziplist.c.'>ZIP_BIGLEN</a>;
+<a name='L261'>            memcpy(p+1,&amp;len,<b>sizeof</b>(len));
+<a name='L262'>            <a href='../D/3346.html' title='Multiple defined in 2 places.'>memrev32ifbe</a>(p+1);
+<a name='L263'>            <b>return</b> 1+<b>sizeof</b>(len);
+<a name='L264'>        <font color='red'>}</font>
+<a name='L265'>    <font color='red'>}</font>
+<a name='L266'><font color='red'>}</font>
+<a name='L267'>
+<a name='L268'><i><font color='green'>/* Encode the length of the previous entry and write it to "p". This only</font></i>
+<a name='L269'><i><font color='green'> * uses the larger encoding (required in __ziplistCascadeUpdate). */</font></i>
+<a name='L270'><b>static</b> <b>void</b> <a href='../S/89.html#L505' title='Refered from 505 in src/ziplist.c.'>zipPrevEncodeLengthForceLarge</a>(<b>unsigned</b> <b>char</b> *p, <b>unsigned</b> <b>int</b> len) <font color='red'>{</font>
+<a name='L271'>    <b>if</b> (p == NULL) <b>return</b>;
+<a name='L272'>    p[0] = <a href='../S/89.html#L116' title='Defined at 116 in src/ziplist.c.'>ZIP_BIGLEN</a>;
+<a name='L273'>    memcpy(p+1,&amp;len,<b>sizeof</b>(len));
+<a name='L274'>    <a href='../D/3346.html' title='Multiple defined in 2 places.'>memrev32ifbe</a>(p+1);
+<a name='L275'><font color='red'>}</font>
+<a name='L276'>
+<a name='L277'><i><font color='green'>/* Decode the number of bytes required to store the length of the previous</font></i>
+<a name='L278'><i><font color='green'> * element, from the perspective of the entry pointed to by 'ptr'. */</font></i>
+<a name='L279'><font color='darkred'>#define</font> <a href='../R/1075.html' title='Multiple refered from 4 places.'>ZIP_DECODE_PREVLENSIZE</a>(ptr, prevlensize) <b>do</b> <font color='red'>{</font>                          \
+<a name='L280'>    <b>if</b> ((ptr)[0] &lt; <a href='../S/89.html#L116' title='Defined at 116 in src/ziplist.c.'>ZIP_BIGLEN</a>) <font color='red'>{</font>                                               \
+<a name='L281'>        (prevlensize) = 1;                                                     \
+<a name='L282'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                                   \
+<a name='L283'>        (prevlensize) = 5;                                                     \
+<a name='L284'>    <font color='red'>}</font>                                                                          \
+<a name='L285'><font color='red'>}</font> <b>while</b>(0);
+<a name='L286'>
+<a name='L287'><i><font color='green'>/* Decode the length of the previous element, from the perspective of the entry</font></i>
+<a name='L288'><i><font color='green'> * pointed to by 'ptr'. */</font></i>
+<a name='L289'><font color='darkred'>#define</font> <a href='../S/89.html#L410' title='Refered from 410 in src/ziplist.c.'>ZIP_DECODE_PREVLEN</a>(ptr, prevlensize, prevlen) <b>do</b> <font color='red'>{</font>                     \
+<a name='L290'>    <a href='../S/89.html#L279' title='Defined at 279 in src/ziplist.c.'>ZIP_DECODE_PREVLENSIZE</a>(ptr, prevlensize);                                  \
+<a name='L291'>    <b>if</b> ((prevlensize) == 1) <font color='red'>{</font>                                                  \
+<a name='L292'>        (prevlen) = (ptr)[0];                                                  \
+<a name='L293'>    <font color='red'>}</font> <b>else</b> <b>if</b> ((prevlensize) == 5) <font color='red'>{</font>                                           \
+<a name='L294'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<b>sizeof</b>((prevlensize)) == 4);                                    \
+<a name='L295'>        memcpy(&amp;(prevlen), ((<b>char</b>*)(ptr)) + 1, 4);                             \
+<a name='L296'>        <a href='../D/3346.html' title='Multiple defined in 2 places.'>memrev32ifbe</a>(&amp;prevlen);                                                \
+<a name='L297'>    <font color='red'>}</font>                                                                          \
+<a name='L298'><font color='red'>}</font> <b>while</b>(0);
+<a name='L299'>
+<a name='L300'><i><font color='green'>/* Return the difference in number of bytes needed to store the length of the</font></i>
+<a name='L301'><i><font color='green'> * previous element 'len', in the entry pointed to by 'p'. */</font></i>
+<a name='L302'><b>static</b> <b>int</b> <a href='../R/4112.html' title='Multiple refered from 2 places.'>zipPrevLenByteDiff</a>(<b>unsigned</b> <b>char</b> *p, <b>unsigned</b> <b>int</b> len) <font color='red'>{</font>
+<a name='L303'>    <b>unsigned</b> <b>int</b> prevlensize;
+<a name='L304'>    <a href='../S/89.html#L279' title='Defined at 279 in src/ziplist.c.'>ZIP_DECODE_PREVLENSIZE</a>(p, prevlensize);
+<a name='L305'>    <b>return</b> <a href='../S/89.html#L252' title='Defined at 252 in src/ziplist.c.'>zipPrevEncodeLength</a>(NULL, len) - prevlensize;
+<a name='L306'><font color='red'>}</font>
+<a name='L307'>
+<a name='L308'><i><font color='green'>/* Return the total number of bytes used by the entry pointed to by 'p'. */</font></i>
+<a name='L309'><b>static</b> <b>unsigned</b> <b>int</b> <a href='../R/4113.html' title='Multiple refered from 5 places.'>zipRawEntryLength</a>(<b>unsigned</b> <b>char</b> *p) <font color='red'>{</font>
+<a name='L310'>    <b>unsigned</b> <b>int</b> prevlensize, encoding, lensize, len;
+<a name='L311'>    <a href='../S/89.html#L279' title='Defined at 279 in src/ziplist.c.'>ZIP_DECODE_PREVLENSIZE</a>(p, prevlensize);
+<a name='L312'>    <a href='../S/89.html#L226' title='Defined at 226 in src/ziplist.c.'>ZIP_DECODE_LENGTH</a>(p + prevlensize, encoding, lensize, len);
+<a name='L313'>    <b>return</b> prevlensize + lensize + len;
+<a name='L314'><font color='red'>}</font>
+<a name='L315'>
+<a name='L316'><i><font color='green'>/* Check if string pointed to by 'entry' can be encoded as an integer.</font></i>
+<a name='L317'><i><font color='green'> * Stores the integer value in 'v' and its encoding in 'encoding'. */</font></i>
+<a name='L318'><b>static</b> <b>int</b> <a href='../R/4115.html' title='Multiple refered from 3 places.'>zipTryEncoding</a>(<b>unsigned</b> <b>char</b> *entry, <b>unsigned</b> <b>int</b> entrylen, <b>long</b> <b>long</b> *v, <b>unsigned</b> <b>char</b> *encoding) <font color='red'>{</font>
+<a name='L319'>    <b>long</b> <b>long</b> value;
+<a name='L320'>
+<a name='L321'>    <b>if</b> (entrylen &gt;= 32 || entrylen == 0) <b>return</b> 0;
+<a name='L322'>    <b>if</b> (<a href='../S/74.html#L244' title='Defined at 244 in src/util.c.'>string2ll</a>((<b>char</b>*)<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>,entrylen,&amp;value)) <font color='red'>{</font>
+<a name='L323'>        <i><font color='green'>/* Great, the string can be encoded. Check what's the smallest</font></i>
+<a name='L324'><i><font color='green'>         * of our encoding types that can hold this value. */</font></i>
+<a name='L325'>        <b>if</b> (value &gt;= 0 &amp;&amp; value &lt;= 12) <font color='red'>{</font>
+<a name='L326'>            *encoding = <a href='../S/89.html#L131' title='Defined at 131 in src/ziplist.c.'>ZIP_INT_IMM_MIN</a>+value;
+<a name='L327'>        <font color='red'>}</font> <b>else</b> <b>if</b> (value &gt;= <a href='../S/160.html#L132' title='Defined at 132 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT8_MIN</a> &amp;&amp; value &lt;= <a href='../S/160.html#L133' title='Defined at 133 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT8_MAX</a>) <font color='red'>{</font>
+<a name='L328'>            *encoding = <a href='../S/89.html#L128' title='Defined at 128 in src/ziplist.c.'>ZIP_INT_8B</a>;
+<a name='L329'>        <font color='red'>}</font> <b>else</b> <b>if</b> (value &gt;= <a href='../S/160.html#L134' title='Defined at 134 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT16_MIN</a> &amp;&amp; value &lt;= <a href='../S/160.html#L135' title='Defined at 135 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT16_MAX</a>) <font color='red'>{</font>
+<a name='L330'>            *encoding = <a href='../S/89.html#L124' title='Defined at 124 in src/ziplist.c.'>ZIP_INT_16B</a>;
+<a name='L331'>        <font color='red'>}</font> <b>else</b> <b>if</b> (value &gt;= <a href='../S/89.html#L136' title='Defined at 136 in src/ziplist.c.'>INT24_MIN</a> &amp;&amp; value &lt;= <a href='../S/89.html#L135' title='Defined at 135 in src/ziplist.c.'>INT24_MAX</a>) <font color='red'>{</font>
+<a name='L332'>            *encoding = <a href='../S/89.html#L127' title='Defined at 127 in src/ziplist.c.'>ZIP_INT_24B</a>;
+<a name='L333'>        <font color='red'>}</font> <b>else</b> <b>if</b> (value &gt;= <a href='../S/160.html#L136' title='Defined at 136 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT32_MIN</a> &amp;&amp; value &lt;= <a href='../S/160.html#L137' title='Defined at 137 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT32_MAX</a>) <font color='red'>{</font>
+<a name='L334'>            *encoding = <a href='../S/89.html#L125' title='Defined at 125 in src/ziplist.c.'>ZIP_INT_32B</a>;
+<a name='L335'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L336'>            *encoding = <a href='../S/89.html#L126' title='Defined at 126 in src/ziplist.c.'>ZIP_INT_64B</a>;
+<a name='L337'>        <font color='red'>}</font>
+<a name='L338'>        *v = value;
+<a name='L339'>        <b>return</b> 1;
+<a name='L340'>    <font color='red'>}</font>
+<a name='L341'>    <b>return</b> 0;
+<a name='L342'><font color='red'>}</font>
+<a name='L343'>
+<a name='L344'><i><font color='green'>/* Store integer 'value' at 'p', encoded as 'encoding' */</font></i>
+<a name='L345'><b>static</b> <b>void</b> <a href='../S/89.html#L662' title='Refered from 662 in src/ziplist.c.'>zipSaveInteger</a>(<b>unsigned</b> <b>char</b> *p, <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> value, <b>unsigned</b> <b>char</b> encoding) <font color='red'>{</font>
+<a name='L346'>    <a href='../D/2492.html' title='Multiple defined in 2 places.'>int16_t</a> i16;
+<a name='L347'>    <a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a> i32;
+<a name='L348'>    <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> i64;
+<a name='L349'>    <b>if</b> (encoding == <a href='../S/89.html#L128' title='Defined at 128 in src/ziplist.c.'>ZIP_INT_8B</a>) <font color='red'>{</font>
+<a name='L350'>        ((<a href='../D/2495.html' title='Multiple defined in 2 places.'>int8_t</a>*)p)[0] = (<a href='../D/2495.html' title='Multiple defined in 2 places.'>int8_t</a>)value;
+<a name='L351'>    <font color='red'>}</font> <b>else</b> <b>if</b> (encoding == <a href='../S/89.html#L124' title='Defined at 124 in src/ziplist.c.'>ZIP_INT_16B</a>) <font color='red'>{</font>
+<a name='L352'>        i16 = value;
+<a name='L353'>        memcpy(p,&amp;i16,<b>sizeof</b>(i16));
+<a name='L354'>        <a href='../D/3344.html' title='Multiple defined in 2 places.'>memrev16ifbe</a>(p);
+<a name='L355'>    <font color='red'>}</font> <b>else</b> <b>if</b> (encoding == <a href='../S/89.html#L127' title='Defined at 127 in src/ziplist.c.'>ZIP_INT_24B</a>) <font color='red'>{</font>
+<a name='L356'>        i32 = value&lt;&lt;8;
+<a name='L357'>        <a href='../D/3346.html' title='Multiple defined in 2 places.'>memrev32ifbe</a>(&amp;i32);
+<a name='L358'>        memcpy(p,((<a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a>*)&amp;i32)+1,<b>sizeof</b>(i32)-<b>sizeof</b>(<a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a>));
+<a name='L359'>    <font color='red'>}</font> <b>else</b> <b>if</b> (encoding == <a href='../S/89.html#L125' title='Defined at 125 in src/ziplist.c.'>ZIP_INT_32B</a>) <font color='red'>{</font>
+<a name='L360'>        i32 = value;
+<a name='L361'>        memcpy(p,&amp;i32,<b>sizeof</b>(i32));
+<a name='L362'>        <a href='../D/3346.html' title='Multiple defined in 2 places.'>memrev32ifbe</a>(p);
+<a name='L363'>    <font color='red'>}</font> <b>else</b> <b>if</b> (encoding == <a href='../S/89.html#L126' title='Defined at 126 in src/ziplist.c.'>ZIP_INT_64B</a>) <font color='red'>{</font>
+<a name='L364'>        i64 = value;
+<a name='L365'>        memcpy(p,&amp;i64,<b>sizeof</b>(i64));
+<a name='L366'>        <a href='../D/3348.html' title='Multiple defined in 2 places.'>memrev64ifbe</a>(p);
+<a name='L367'>    <font color='red'>}</font> <b>else</b> <b>if</b> (encoding &gt;= <a href='../S/89.html#L131' title='Defined at 131 in src/ziplist.c.'>ZIP_INT_IMM_MIN</a> &amp;&amp; encoding &lt;= <a href='../S/89.html#L132' title='Defined at 132 in src/ziplist.c.'>ZIP_INT_IMM_MAX</a>) <font color='red'>{</font>
+<a name='L368'>        <i><font color='green'>/* Nothing to do, the value is stored in the encoding itself. */</font></i>
+<a name='L369'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L370'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(NULL);
+<a name='L371'>    <font color='red'>}</font>
+<a name='L372'><font color='red'>}</font>
+<a name='L373'>
+<a name='L374'><i><font color='green'>/* Read integer encoded as 'encoding' from 'p' */</font></i>
+<a name='L375'><b>static</b> <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> <a href='../R/4109.html' title='Multiple refered from 4 places.'>zipLoadInteger</a>(<b>unsigned</b> <b>char</b> *p, <b>unsigned</b> <b>char</b> encoding) <font color='red'>{</font>
+<a name='L376'>    <a href='../D/2492.html' title='Multiple defined in 2 places.'>int16_t</a> i16;
+<a name='L377'>    <a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a> i32;
+<a name='L378'>    <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> i64, ret = 0;
+<a name='L379'>    <b>if</b> (encoding == <a href='../S/89.html#L128' title='Defined at 128 in src/ziplist.c.'>ZIP_INT_8B</a>) <font color='red'>{</font>
+<a name='L380'>        ret = ((<a href='../D/2495.html' title='Multiple defined in 2 places.'>int8_t</a>*)p)[0];
+<a name='L381'>    <font color='red'>}</font> <b>else</b> <b>if</b> (encoding == <a href='../S/89.html#L124' title='Defined at 124 in src/ziplist.c.'>ZIP_INT_16B</a>) <font color='red'>{</font>
+<a name='L382'>        memcpy(&amp;i16,p,<b>sizeof</b>(i16));
+<a name='L383'>        <a href='../D/3344.html' title='Multiple defined in 2 places.'>memrev16ifbe</a>(&amp;i16);
+<a name='L384'>        ret = i16;
+<a name='L385'>    <font color='red'>}</font> <b>else</b> <b>if</b> (encoding == <a href='../S/89.html#L125' title='Defined at 125 in src/ziplist.c.'>ZIP_INT_32B</a>) <font color='red'>{</font>
+<a name='L386'>        memcpy(&amp;i32,p,<b>sizeof</b>(i32));
+<a name='L387'>        <a href='../D/3346.html' title='Multiple defined in 2 places.'>memrev32ifbe</a>(&amp;i32);
+<a name='L388'>        ret = i32;
+<a name='L389'>    <font color='red'>}</font> <b>else</b> <b>if</b> (encoding == <a href='../S/89.html#L127' title='Defined at 127 in src/ziplist.c.'>ZIP_INT_24B</a>) <font color='red'>{</font>
+<a name='L390'>        i32 = 0;
+<a name='L391'>        memcpy(((<a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a>*)&amp;i32)+1,p,<b>sizeof</b>(i32)-<b>sizeof</b>(<a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a>));
+<a name='L392'>        <a href='../D/3346.html' title='Multiple defined in 2 places.'>memrev32ifbe</a>(&amp;i32);
+<a name='L393'>        ret = i32&gt;&gt;8;
+<a name='L394'>    <font color='red'>}</font> <b>else</b> <b>if</b> (encoding == <a href='../S/89.html#L126' title='Defined at 126 in src/ziplist.c.'>ZIP_INT_64B</a>) <font color='red'>{</font>
+<a name='L395'>        memcpy(&amp;i64,p,<b>sizeof</b>(i64));
+<a name='L396'>        <a href='../D/3348.html' title='Multiple defined in 2 places.'>memrev64ifbe</a>(&amp;i64);
+<a name='L397'>        ret = i64;
+<a name='L398'>    <font color='red'>}</font> <b>else</b> <b>if</b> (encoding &gt;= <a href='../S/89.html#L131' title='Defined at 131 in src/ziplist.c.'>ZIP_INT_IMM_MIN</a> &amp;&amp; encoding &lt;= <a href='../S/89.html#L132' title='Defined at 132 in src/ziplist.c.'>ZIP_INT_IMM_MAX</a>) <font color='red'>{</font>
+<a name='L399'>        ret = (encoding &amp; <a href='../S/89.html#L130' title='Defined at 130 in src/ziplist.c.'>ZIP_INT_IMM_MASK</a>)-1;
+<a name='L400'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L401'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(NULL);
+<a name='L402'>    <font color='red'>}</font>
+<a name='L403'>    <b>return</b> ret;
+<a name='L404'><font color='red'>}</font>
+<a name='L405'>
+<a name='L406'><i><font color='green'>/* Return a struct with all information about an entry. */</font></i>
+<a name='L407'><b>static</b> <a href='../D/4539.html' title='Multiple defined in 2 places.'>zlentry</a> <a href='../R/4107.html' title='Multiple refered from 14 places.'>zipEntry</a>(<b>unsigned</b> <b>char</b> *p) <font color='red'>{</font>
+<a name='L408'>    <a href='../D/4539.html' title='Multiple defined in 2 places.'>zlentry</a> e;
+<a name='L409'>
+<a name='L410'>    <a href='../S/89.html#L289' title='Defined at 289 in src/ziplist.c.'>ZIP_DECODE_PREVLEN</a>(p, e.prevrawlensize, e.prevrawlen);
+<a name='L411'>    <a href='../S/89.html#L226' title='Defined at 226 in src/ziplist.c.'>ZIP_DECODE_LENGTH</a>(p + e.prevrawlensize, e.encoding, e.lensize, e.len);
+<a name='L412'>    e.headersize = e.prevrawlensize + e.lensize;
+<a name='L413'>    e.p = p;
+<a name='L414'>    <b>return</b> e;
+<a name='L415'><font color='red'>}</font>
+<a name='L416'>
+<a name='L417'><i><font color='green'>/* Create a new empty ziplist. */</font></i>
+<a name='L418'><b>unsigned</b> <b>char</b> *<a href='../R/4125.html' title='Multiple refered from 13 places.'>ziplistNew</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L419'>    <b>unsigned</b> <b>int</b> bytes = <a href='../S/89.html#L145' title='Defined at 145 in src/ziplist.c.'>ZIPLIST_HEADER_SIZE</a>+1;
+<a name='L420'>    <b>unsigned</b> <b>char</b> *zl = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(bytes);
+<a name='L421'>    <a href='../S/89.html#L142' title='Defined at 142 in src/ziplist.c.'>ZIPLIST_BYTES</a>(zl) = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(bytes);
+<a name='L422'>    <a href='../S/89.html#L143' title='Defined at 143 in src/ziplist.c.'>ZIPLIST_TAIL_OFFSET</a>(zl) = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../S/89.html#L145' title='Defined at 145 in src/ziplist.c.'>ZIPLIST_HEADER_SIZE</a>);
+<a name='L423'>    <a href='../S/89.html#L144' title='Defined at 144 in src/ziplist.c.'>ZIPLIST_LENGTH</a>(zl) = 0;
+<a name='L424'>    zl[bytes-1] = <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>;
+<a name='L425'>    <b>return</b> zl;
+<a name='L426'><font color='red'>}</font>
+<a name='L427'>
+<a name='L428'><i><font color='green'>/* Resize the ziplist. */</font></i>
+<a name='L429'><b>static</b> <b>unsigned</b> <b>char</b> *<a href='../R/4130.html' title='Multiple refered from 3 places.'>ziplistResize</a>(<b>unsigned</b> <b>char</b> *zl, <b>unsigned</b> <b>int</b> len) <font color='red'>{</font>
+<a name='L430'>    zl = <a href='../S/39.html#L149' title='Defined at 149 in src/zmalloc.c.'>zrealloc</a>(zl,len);
+<a name='L431'>    <a href='../S/89.html#L142' title='Defined at 142 in src/ziplist.c.'>ZIPLIST_BYTES</a>(zl) = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(len);
+<a name='L432'>    zl[len-1] = <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>;
+<a name='L433'>    <b>return</b> zl;
+<a name='L434'><font color='red'>}</font>
+<a name='L435'>
+<a name='L436'><i><font color='green'>/* When an entry is inserted, we need to set the prevlen field of the next</font></i>
+<a name='L437'><i><font color='green'> * entry to equal the length of the inserted entry. It can occur that this</font></i>
+<a name='L438'><i><font color='green'> * length cannot be encoded in 1 byte and the next entry needs to be grow</font></i>
+<a name='L439'><i><font color='green'> * a bit larger to hold the 5-byte encoded prevlen. This can be done for free,</font></i>
+<a name='L440'><i><font color='green'> * because this only happens when an entry is already being inserted (which</font></i>
+<a name='L441'><i><font color='green'> * causes a realloc and memmove). However, encoding the prevlen may require</font></i>
+<a name='L442'><i><font color='green'> * that this entry is grown as well. This effect may cascade throughout</font></i>
+<a name='L443'><i><font color='green'> * the ziplist when there are consecutive entries with a size close to</font></i>
+<a name='L444'><i><font color='green'> * ZIP_BIGLEN, so we need to check that the prevlen can be encoded in every</font></i>
+<a name='L445'><i><font color='green'> * consecutive entry.</font></i>
+<a name='L446'><i><font color='green'> *</font></i>
+<a name='L447'><i><font color='green'> * Note that this effect can also happen in reverse, where the bytes required</font></i>
+<a name='L448'><i><font color='green'> * to encode the prevlen field can shrink. This effect is deliberately ignored,</font></i>
+<a name='L449'><i><font color='green'> * because it can cause a "flapping" effect where a chain prevlen fields is</font></i>
+<a name='L450'><i><font color='green'> * first grown and then shrunk again after consecutive inserts. Rather, the</font></i>
+<a name='L451'><i><font color='green'> * field is allowed to stay larger than necessary, because a large prevlen</font></i>
+<a name='L452'><i><font color='green'> * field implies the ziplist is holding large entries anyway.</font></i>
+<a name='L453'><i><font color='green'> *</font></i>
+<a name='L454'><i><font color='green'> * The pointer "p" points to the first entry that does NOT need to be</font></i>
+<a name='L455'><i><font color='green'> * updated, i.e. consecutive fields MAY need an update. */</font></i>
+<a name='L456'><b>static</b> <b>unsigned</b> <b>char</b> *<a href='../R/1150.html' title='Multiple refered from 2 places.'>__ziplistCascadeUpdate</a>(<b>unsigned</b> <b>char</b> *zl, <b>unsigned</b> <b>char</b> *p) <font color='red'>{</font>
+<a name='L457'>    size_t curlen = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../S/89.html#L142' title='Defined at 142 in src/ziplist.c.'>ZIPLIST_BYTES</a>(zl)), rawlen, rawlensize;
+<a name='L458'>    size_t offset, noffset, extra;
+<a name='L459'>    <b>unsigned</b> <b>char</b> *np;
+<a name='L460'>    <a href='../D/4539.html' title='Multiple defined in 2 places.'>zlentry</a> cur, <a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L461'>
+<a name='L462'>    <b>while</b> (p[0] != <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>) <font color='red'>{</font>
+<a name='L463'>        cur = <a href='../S/89.html#L407' title='Defined at 407 in src/ziplist.c.'>zipEntry</a>(p);
+<a name='L464'>        rawlen = cur.headersize + cur.len;
+<a name='L465'>        rawlensize = <a href='../S/89.html#L252' title='Defined at 252 in src/ziplist.c.'>zipPrevEncodeLength</a>(NULL,rawlen);
+<a name='L466'>
+<a name='L467'>        <i><font color='green'>/* Abort if there is no next entry. */</font></i>
+<a name='L468'>        <b>if</b> (p[rawlen] == <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>) <b>break</b>;
+<a name='L469'>        <a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = <a href='../S/89.html#L407' title='Defined at 407 in src/ziplist.c.'>zipEntry</a>(p+rawlen);
+<a name='L470'>
+<a name='L471'>        <i><font color='green'>/* Abort when "prevlen" has not changed. */</font></i>
+<a name='L472'>        <b>if</b> (<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>.prevrawlen == rawlen) <b>break</b>;
+<a name='L473'>
+<a name='L474'>        <b>if</b> (<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>.prevrawlensize &lt; rawlensize) <font color='red'>{</font>
+<a name='L475'>            <i><font color='green'>/* The "prevlen" field of "next" needs more bytes to hold</font></i>
+<a name='L476'><i><font color='green'>             * the raw length of "cur". */</font></i>
+<a name='L477'>            offset = p-zl;
+<a name='L478'>            extra = rawlensize-<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>.prevrawlensize;
+<a name='L479'>            zl = <a href='../S/89.html#L429' title='Defined at 429 in src/ziplist.c.'>ziplistResize</a>(zl,curlen+extra);
+<a name='L480'>            p = zl+offset;
+<a name='L481'>
+<a name='L482'>            <i><font color='green'>/* Current pointer and offset for next element. */</font></i>
+<a name='L483'>            np = p+rawlen;
+<a name='L484'>            noffset = np-zl;
+<a name='L485'>
+<a name='L486'>            <i><font color='green'>/* Update tail offset when next element is not the tail element. */</font></i>
+<a name='L487'>            <b>if</b> ((zl+<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../S/89.html#L143' title='Defined at 143 in src/ziplist.c.'>ZIPLIST_TAIL_OFFSET</a>(zl))) != np) <font color='red'>{</font>
+<a name='L488'>                <a href='../S/89.html#L143' title='Defined at 143 in src/ziplist.c.'>ZIPLIST_TAIL_OFFSET</a>(zl) =
+<a name='L489'>                    <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../S/89.html#L143' title='Defined at 143 in src/ziplist.c.'>ZIPLIST_TAIL_OFFSET</a>(zl))+extra);
+<a name='L490'>            <font color='red'>}</font>
+<a name='L491'>
+<a name='L492'>            <i><font color='green'>/* Move the tail to the back. */</font></i>
+<a name='L493'>            memmove(np+rawlensize,
+<a name='L494'>                np+<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>.prevrawlensize,
+<a name='L495'>                curlen-noffset-<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>.prevrawlensize-1);
+<a name='L496'>            <a href='../S/89.html#L252' title='Defined at 252 in src/ziplist.c.'>zipPrevEncodeLength</a>(np,rawlen);
+<a name='L497'>
+<a name='L498'>            <i><font color='green'>/* Advance the cursor */</font></i>
+<a name='L499'>            p += rawlen;
+<a name='L500'>            curlen += extra;
+<a name='L501'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L502'>            <b>if</b> (<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>.prevrawlensize &gt; rawlensize) <font color='red'>{</font>
+<a name='L503'>                <i><font color='green'>/* This would result in shrinking, which we want to avoid.</font></i>
+<a name='L504'><i><font color='green'>                 * So, set "rawlen" in the available bytes. */</font></i>
+<a name='L505'>                <a href='../S/89.html#L270' title='Defined at 270 in src/ziplist.c.'>zipPrevEncodeLengthForceLarge</a>(p+rawlen,rawlen);
+<a name='L506'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L507'>                <a href='../S/89.html#L252' title='Defined at 252 in src/ziplist.c.'>zipPrevEncodeLength</a>(p+rawlen,rawlen);
+<a name='L508'>            <font color='red'>}</font>
+<a name='L509'>
+<a name='L510'>            <i><font color='green'>/* Stop here, as the raw length of "next" has not changed. */</font></i>
+<a name='L511'>            <b>break</b>;
+<a name='L512'>        <font color='red'>}</font>
+<a name='L513'>    <font color='red'>}</font>
+<a name='L514'>    <b>return</b> zl;
+<a name='L515'><font color='red'>}</font>
+<a name='L516'>
+<a name='L517'><i><font color='green'>/* Delete "num" entries, starting at "p". Returns pointer to the ziplist. */</font></i>
+<a name='L518'><b>static</b> <b>unsigned</b> <b>char</b> *<a href='../R/1151.html' title='Multiple refered from 2 places.'>__ziplistDelete</a>(<b>unsigned</b> <b>char</b> *zl, <b>unsigned</b> <b>char</b> *p, <b>unsigned</b> <b>int</b> num) <font color='red'>{</font>
+<a name='L519'>    <b>unsigned</b> <b>int</b> i, totlen, deleted = 0;
+<a name='L520'>    size_t offset;
+<a name='L521'>    <b>int</b> nextdiff = 0;
+<a name='L522'>    <a href='../D/4539.html' title='Multiple defined in 2 places.'>zlentry</a> first, tail;
+<a name='L523'>
+<a name='L524'>    first = <a href='../S/89.html#L407' title='Defined at 407 in src/ziplist.c.'>zipEntry</a>(p);
+<a name='L525'>    <b>for</b> (i = 0; p[0] != <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a> &amp;&amp; i &lt; num; i++) <font color='red'>{</font>
+<a name='L526'>        p += <a href='../S/89.html#L309' title='Defined at 309 in src/ziplist.c.'>zipRawEntryLength</a>(p);
+<a name='L527'>        deleted++;
+<a name='L528'>    <font color='red'>}</font>
+<a name='L529'>
+<a name='L530'>    totlen = p-first.p;
+<a name='L531'>    <b>if</b> (totlen &gt; 0) <font color='red'>{</font>
+<a name='L532'>        <b>if</b> (p[0] != <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>) <font color='red'>{</font>
+<a name='L533'>            <i><font color='green'>/* Storing `prevrawlen` in this entry may increase or decrease the</font></i>
+<a name='L534'><i><font color='green'>             * number of bytes required compare to the current `prevrawlen`.</font></i>
+<a name='L535'><i><font color='green'>             * There always is room to store this, because it was previously</font></i>
+<a name='L536'><i><font color='green'>             * stored by an entry that is now being deleted. */</font></i>
+<a name='L537'>            nextdiff = <a href='../S/89.html#L302' title='Defined at 302 in src/ziplist.c.'>zipPrevLenByteDiff</a>(p,first.prevrawlen);
+<a name='L538'>            p -= nextdiff;
+<a name='L539'>            <a href='../S/89.html#L252' title='Defined at 252 in src/ziplist.c.'>zipPrevEncodeLength</a>(p,first.prevrawlen);
+<a name='L540'>
+<a name='L541'>            <i><font color='green'>/* Update offset for tail */</font></i>
+<a name='L542'>            <a href='../S/89.html#L143' title='Defined at 143 in src/ziplist.c.'>ZIPLIST_TAIL_OFFSET</a>(zl) =
+<a name='L543'>                <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../S/89.html#L143' title='Defined at 143 in src/ziplist.c.'>ZIPLIST_TAIL_OFFSET</a>(zl))-totlen);
+<a name='L544'>
+<a name='L545'>            <i><font color='green'>/* When the tail contains more than one entry, we need to take</font></i>
+<a name='L546'><i><font color='green'>             * "nextdiff" in account as well. Otherwise, a change in the</font></i>
+<a name='L547'><i><font color='green'>             * size of prevlen doesn't have an effect on the *tail* offset. */</font></i>
+<a name='L548'>            tail = <a href='../S/89.html#L407' title='Defined at 407 in src/ziplist.c.'>zipEntry</a>(p);
+<a name='L549'>            <b>if</b> (p[tail.headersize+tail.len] != <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>) <font color='red'>{</font>
+<a name='L550'>                <a href='../S/89.html#L143' title='Defined at 143 in src/ziplist.c.'>ZIPLIST_TAIL_OFFSET</a>(zl) =
+<a name='L551'>                   <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../S/89.html#L143' title='Defined at 143 in src/ziplist.c.'>ZIPLIST_TAIL_OFFSET</a>(zl))+nextdiff);
+<a name='L552'>            <font color='red'>}</font>
+<a name='L553'>
+<a name='L554'>            <i><font color='green'>/* Move tail to the front of the ziplist */</font></i>
+<a name='L555'>            memmove(first.p,p,
+<a name='L556'>                <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../S/89.html#L142' title='Defined at 142 in src/ziplist.c.'>ZIPLIST_BYTES</a>(zl))-(p-zl)-1);
+<a name='L557'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L558'>            <i><font color='green'>/* The entire tail was deleted. No need to move memory. */</font></i>
+<a name='L559'>            <a href='../S/89.html#L143' title='Defined at 143 in src/ziplist.c.'>ZIPLIST_TAIL_OFFSET</a>(zl) =
+<a name='L560'>                <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>((first.p-zl)-first.prevrawlen);
+<a name='L561'>        <font color='red'>}</font>
+<a name='L562'>
+<a name='L563'>        <i><font color='green'>/* Resize and update length */</font></i>
+<a name='L564'>        offset = first.p-zl;
+<a name='L565'>        zl = <a href='../S/89.html#L429' title='Defined at 429 in src/ziplist.c.'>ziplistResize</a>(zl, <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../S/89.html#L142' title='Defined at 142 in src/ziplist.c.'>ZIPLIST_BYTES</a>(zl))-totlen+nextdiff);
+<a name='L566'>        <a href='../S/89.html#L152' title='Defined at 152 in src/ziplist.c.'>ZIPLIST_INCR_LENGTH</a>(zl,-deleted);
+<a name='L567'>        p = zl+offset;
+<a name='L568'>
+<a name='L569'>        <i><font color='green'>/* When nextdiff != 0, the raw length of the next entry has changed, so</font></i>
+<a name='L570'><i><font color='green'>         * we need to cascade the update throughout the ziplist */</font></i>
+<a name='L571'>        <b>if</b> (nextdiff != 0)
+<a name='L572'>            zl = <a href='../S/89.html#L456' title='Defined at 456 in src/ziplist.c.'>__ziplistCascadeUpdate</a>(zl,p);
+<a name='L573'>    <font color='red'>}</font>
+<a name='L574'>    <b>return</b> zl;
+<a name='L575'><font color='red'>}</font>
+<a name='L576'>
+<a name='L577'><i><font color='green'>/* Insert item at "p". */</font></i>
+<a name='L578'><b>static</b> <b>unsigned</b> <b>char</b> *<a href='../R/1152.html' title='Multiple refered from 2 places.'>__ziplistInsert</a>(<b>unsigned</b> <b>char</b> *zl, <b>unsigned</b> <b>char</b> *p, <b>unsigned</b> <b>char</b> *s, <b>unsigned</b> <b>int</b> slen) <font color='red'>{</font>
+<a name='L579'>    size_t curlen = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../S/89.html#L142' title='Defined at 142 in src/ziplist.c.'>ZIPLIST_BYTES</a>(zl)), reqlen, prevlen = 0;
+<a name='L580'>    size_t offset;
+<a name='L581'>    <b>int</b> nextdiff = 0;
+<a name='L582'>    <b>unsigned</b> <b>char</b> encoding = 0;
+<a name='L583'>    <b>long</b> <b>long</b> value = 123456789; <i><font color='green'>/* initialized to avoid warning. Using a value</font></i>
+<a name='L584'><i><font color='green'>                                    that is easy to see if for some reason</font></i>
+<a name='L585'><i><font color='green'>                                    we use it uninitialized. */</font></i>
+<a name='L586'>    <a href='../D/4539.html' title='Multiple defined in 2 places.'>zlentry</a> <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>, tail;
+<a name='L587'>
+<a name='L588'>    <i><font color='green'>/* Find out prevlen for the entry that is inserted. */</font></i>
+<a name='L589'>    <b>if</b> (p[0] != <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>) <font color='red'>{</font>
+<a name='L590'>        <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a> = <a href='../S/89.html#L407' title='Defined at 407 in src/ziplist.c.'>zipEntry</a>(p);
+<a name='L591'>        prevlen = <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.prevrawlen;
+<a name='L592'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L593'>        <b>unsigned</b> <b>char</b> *ptail = <a href='../S/89.html#L147' title='Defined at 147 in src/ziplist.c.'>ZIPLIST_ENTRY_TAIL</a>(zl);
+<a name='L594'>        <b>if</b> (ptail[0] != <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>) <font color='red'>{</font>
+<a name='L595'>            prevlen = <a href='../S/89.html#L309' title='Defined at 309 in src/ziplist.c.'>zipRawEntryLength</a>(ptail);
+<a name='L596'>        <font color='red'>}</font>
+<a name='L597'>    <font color='red'>}</font>
+<a name='L598'>
+<a name='L599'>    <i><font color='green'>/* See if the entry can be encoded */</font></i>
+<a name='L600'>    <b>if</b> (<a href='../S/89.html#L318' title='Defined at 318 in src/ziplist.c.'>zipTryEncoding</a>(s,slen,&amp;value,&amp;encoding)) <font color='red'>{</font>
+<a name='L601'>        <i><font color='green'>/* 'encoding' is set to the appropriate integer encoding */</font></i>
+<a name='L602'>        reqlen = <a href='../S/89.html#L173' title='Defined at 173 in src/ziplist.c.'>zipIntSize</a>(encoding);
+<a name='L603'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L604'>        <i><font color='green'>/* 'encoding' is untouched, however zipEncodeLength will use the</font></i>
+<a name='L605'><i><font color='green'>         * string length to figure out how to encode it. */</font></i>
+<a name='L606'>        reqlen = slen;
+<a name='L607'>    <font color='red'>}</font>
+<a name='L608'>    <i><font color='green'>/* We need space for both the length of the previous entry and</font></i>
+<a name='L609'><i><font color='green'>     * the length of the payload. */</font></i>
+<a name='L610'>    reqlen += <a href='../S/89.html#L252' title='Defined at 252 in src/ziplist.c.'>zipPrevEncodeLength</a>(NULL,prevlen);
+<a name='L611'>    reqlen += <a href='../S/89.html#L188' title='Defined at 188 in src/ziplist.c.'>zipEncodeLength</a>(NULL,encoding,slen);
+<a name='L612'>
+<a name='L613'>    <i><font color='green'>/* When the insert position is not equal to the tail, we need to</font></i>
+<a name='L614'><i><font color='green'>     * make sure that the next entry can hold this entry's length in</font></i>
+<a name='L615'><i><font color='green'>     * its prevlen field. */</font></i>
+<a name='L616'>    nextdiff = (p[0] != <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>) ? <a href='../S/89.html#L302' title='Defined at 302 in src/ziplist.c.'>zipPrevLenByteDiff</a>(p,reqlen) : 0;
+<a name='L617'>
+<a name='L618'>    <i><font color='green'>/* Store offset because a realloc may change the address of zl. */</font></i>
+<a name='L619'>    offset = p-zl;
+<a name='L620'>    zl = <a href='../S/89.html#L429' title='Defined at 429 in src/ziplist.c.'>ziplistResize</a>(zl,curlen+reqlen+nextdiff);
+<a name='L621'>    p = zl+offset;
+<a name='L622'>
+<a name='L623'>    <i><font color='green'>/* Apply memory move when necessary and update tail offset. */</font></i>
+<a name='L624'>    <b>if</b> (p[0] != <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>) <font color='red'>{</font>
+<a name='L625'>        <i><font color='green'>/* Subtract one because of the ZIP_END bytes */</font></i>
+<a name='L626'>        memmove(p+reqlen,p-nextdiff,curlen-offset-1+nextdiff);
+<a name='L627'>
+<a name='L628'>        <i><font color='green'>/* Encode this entry's raw length in the next entry. */</font></i>
+<a name='L629'>        <a href='../S/89.html#L252' title='Defined at 252 in src/ziplist.c.'>zipPrevEncodeLength</a>(p+reqlen,reqlen);
+<a name='L630'>
+<a name='L631'>        <i><font color='green'>/* Update offset for tail */</font></i>
+<a name='L632'>        <a href='../S/89.html#L143' title='Defined at 143 in src/ziplist.c.'>ZIPLIST_TAIL_OFFSET</a>(zl) =
+<a name='L633'>            <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../S/89.html#L143' title='Defined at 143 in src/ziplist.c.'>ZIPLIST_TAIL_OFFSET</a>(zl))+reqlen);
+<a name='L634'>
+<a name='L635'>        <i><font color='green'>/* When the tail contains more than one entry, we need to take</font></i>
+<a name='L636'><i><font color='green'>         * "nextdiff" in account as well. Otherwise, a change in the</font></i>
+<a name='L637'><i><font color='green'>         * size of prevlen doesn't have an effect on the *tail* offset. */</font></i>
+<a name='L638'>        tail = <a href='../S/89.html#L407' title='Defined at 407 in src/ziplist.c.'>zipEntry</a>(p+reqlen);
+<a name='L639'>        <b>if</b> (p[reqlen+tail.headersize+tail.len] != <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>) <font color='red'>{</font>
+<a name='L640'>            <a href='../S/89.html#L143' title='Defined at 143 in src/ziplist.c.'>ZIPLIST_TAIL_OFFSET</a>(zl) =
+<a name='L641'>                <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../S/89.html#L143' title='Defined at 143 in src/ziplist.c.'>ZIPLIST_TAIL_OFFSET</a>(zl))+nextdiff);
+<a name='L642'>        <font color='red'>}</font>
+<a name='L643'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L644'>        <i><font color='green'>/* This element will be the new tail. */</font></i>
+<a name='L645'>        <a href='../S/89.html#L143' title='Defined at 143 in src/ziplist.c.'>ZIPLIST_TAIL_OFFSET</a>(zl) = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(p-zl);
+<a name='L646'>    <font color='red'>}</font>
+<a name='L647'>
+<a name='L648'>    <i><font color='green'>/* When nextdiff != 0, the raw length of the next entry has changed, so</font></i>
+<a name='L649'><i><font color='green'>     * we need to cascade the update throughout the ziplist */</font></i>
+<a name='L650'>    <b>if</b> (nextdiff != 0) <font color='red'>{</font>
+<a name='L651'>        offset = p-zl;
+<a name='L652'>        zl = <a href='../S/89.html#L456' title='Defined at 456 in src/ziplist.c.'>__ziplistCascadeUpdate</a>(zl,p+reqlen);
+<a name='L653'>        p = zl+offset;
+<a name='L654'>    <font color='red'>}</font>
+<a name='L655'>
+<a name='L656'>    <i><font color='green'>/* Write the entry */</font></i>
+<a name='L657'>    p += <a href='../S/89.html#L252' title='Defined at 252 in src/ziplist.c.'>zipPrevEncodeLength</a>(p,prevlen);
+<a name='L658'>    p += <a href='../S/89.html#L188' title='Defined at 188 in src/ziplist.c.'>zipEncodeLength</a>(p,encoding,slen);
+<a name='L659'>    <b>if</b> (<a href='../S/89.html#L139' title='Defined at 139 in src/ziplist.c.'>ZIP_IS_STR</a>(encoding)) <font color='red'>{</font>
+<a name='L660'>        memcpy(p,s,slen);
+<a name='L661'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L662'>        <a href='../S/89.html#L345' title='Defined at 345 in src/ziplist.c.'>zipSaveInteger</a>(p,value,encoding);
+<a name='L663'>    <font color='red'>}</font>
+<a name='L664'>    <a href='../S/89.html#L152' title='Defined at 152 in src/ziplist.c.'>ZIPLIST_INCR_LENGTH</a>(zl,1);
+<a name='L665'>    <b>return</b> zl;
+<a name='L666'><font color='red'>}</font>
+<a name='L667'>
+<a name='L668'><b>unsigned</b> <b>char</b> *<a href='../R/4128.html' title='Multiple refered from 29 places.'>ziplistPush</a>(<b>unsigned</b> <b>char</b> *zl, <b>unsigned</b> <b>char</b> *s, <b>unsigned</b> <b>int</b> slen, <b>int</b> where) <font color='red'>{</font>
+<a name='L669'>    <b>unsigned</b> <b>char</b> *p;
+<a name='L670'>    p = (where == <a href='../S/66.html#L31' title='Defined at 31 in src/ziplist.h.'>ZIPLIST_HEAD</a>) ? <a href='../S/89.html#L146' title='Defined at 146 in src/ziplist.c.'>ZIPLIST_ENTRY_HEAD</a>(zl) : <a href='../S/89.html#L148' title='Defined at 148 in src/ziplist.c.'>ZIPLIST_ENTRY_END</a>(zl);
+<a name='L671'>    <b>return</b> <a href='../S/89.html#L578' title='Defined at 578 in src/ziplist.c.'>__ziplistInsert</a>(zl,p,s,slen);
+<a name='L672'><font color='red'>}</font>
+<a name='L673'>
+<a name='L674'><i><font color='green'>/* Returns an offset to use for iterating with ziplistNext. When the given</font></i>
+<a name='L675'><i><font color='green'> * index is negative, the list is traversed back to front. When the list</font></i>
+<a name='L676'><i><font color='green'> * doesn't contain an element at the provided index, NULL is returned. */</font></i>
+<a name='L677'><b>unsigned</b> <b>char</b> *<a href='../R/4122.html' title='Multiple refered from 47 places.'>ziplistIndex</a>(<b>unsigned</b> <b>char</b> *zl, <b>int</b> index) <font color='red'>{</font>
+<a name='L678'>    <b>unsigned</b> <b>char</b> *p;
+<a name='L679'>    <a href='../D/4539.html' title='Multiple defined in 2 places.'>zlentry</a> <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>;
+<a name='L680'>    <b>if</b> (index &lt; 0) <font color='red'>{</font>
+<a name='L681'>        index = (-index)-1;
+<a name='L682'>        p = <a href='../S/89.html#L147' title='Defined at 147 in src/ziplist.c.'>ZIPLIST_ENTRY_TAIL</a>(zl);
+<a name='L683'>        <b>if</b> (p[0] != <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>) <font color='red'>{</font>
+<a name='L684'>            <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a> = <a href='../S/89.html#L407' title='Defined at 407 in src/ziplist.c.'>zipEntry</a>(p);
+<a name='L685'>            <b>while</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.prevrawlen &gt; 0 &amp;&amp; index--) <font color='red'>{</font>
+<a name='L686'>                p -= <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.prevrawlen;
+<a name='L687'>                <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a> = <a href='../S/89.html#L407' title='Defined at 407 in src/ziplist.c.'>zipEntry</a>(p);
+<a name='L688'>            <font color='red'>}</font>
+<a name='L689'>        <font color='red'>}</font>
+<a name='L690'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L691'>        p = <a href='../S/89.html#L146' title='Defined at 146 in src/ziplist.c.'>ZIPLIST_ENTRY_HEAD</a>(zl);
+<a name='L692'>        <b>while</b> (p[0] != <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a> &amp;&amp; index--) <font color='red'>{</font>
+<a name='L693'>            p += <a href='../S/89.html#L309' title='Defined at 309 in src/ziplist.c.'>zipRawEntryLength</a>(p);
+<a name='L694'>        <font color='red'>}</font>
+<a name='L695'>    <font color='red'>}</font>
+<a name='L696'>    <b>return</b> (p[0] == <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a> || index &gt; 0) ? NULL : p;
+<a name='L697'><font color='red'>}</font>
+<a name='L698'>
+<a name='L699'><i><font color='green'>/* Return pointer to next entry in ziplist.</font></i>
+<a name='L700'><i><font color='green'> *</font></i>
+<a name='L701'><i><font color='green'> * zl is the pointer to the ziplist</font></i>
+<a name='L702'><i><font color='green'> * p is the pointer to the current element</font></i>
+<a name='L703'><i><font color='green'> *</font></i>
+<a name='L704'><i><font color='green'> * The element after 'p' is returned, otherwise NULL if we are at the end. */</font></i>
+<a name='L705'><b>unsigned</b> <b>char</b> *<a href='../R/4126.html' title='Multiple refered from 32 places.'>ziplistNext</a>(<b>unsigned</b> <b>char</b> *zl, <b>unsigned</b> <b>char</b> *p) <font color='red'>{</font>
+<a name='L706'>    ((<b>void</b>) zl);
+<a name='L707'>
+<a name='L708'>    <i><font color='green'>/* "p" could be equal to ZIP_END, caused by ziplistDelete,</font></i>
+<a name='L709'><i><font color='green'>     * and we should return NULL. Otherwise, we should return NULL</font></i>
+<a name='L710'><i><font color='green'>     * when the *next* element is ZIP_END (there is no next entry). */</font></i>
+<a name='L711'>    <b>if</b> (p[0] == <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>) <font color='red'>{</font>
+<a name='L712'>        <b>return</b> NULL;
+<a name='L713'>    <font color='red'>}</font>
+<a name='L714'>
+<a name='L715'>    p += <a href='../S/89.html#L309' title='Defined at 309 in src/ziplist.c.'>zipRawEntryLength</a>(p);
+<a name='L716'>    <b>if</b> (p[0] == <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>) <font color='red'>{</font>
+<a name='L717'>        <b>return</b> NULL;
+<a name='L718'>    <font color='red'>}</font>
+<a name='L719'>
+<a name='L720'>    <b>return</b> p;
+<a name='L721'><font color='red'>}</font>
+<a name='L722'>
+<a name='L723'><i><font color='green'>/* Return pointer to previous entry in ziplist. */</font></i>
+<a name='L724'><b>unsigned</b> <b>char</b> *<a href='../R/4127.html' title='Multiple refered from 9 places.'>ziplistPrev</a>(<b>unsigned</b> <b>char</b> *zl, <b>unsigned</b> <b>char</b> *p) <font color='red'>{</font>
+<a name='L725'>    <a href='../D/4539.html' title='Multiple defined in 2 places.'>zlentry</a> <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>;
+<a name='L726'>
+<a name='L727'>    <i><font color='green'>/* Iterating backwards from ZIP_END should return the tail. When "p" is</font></i>
+<a name='L728'><i><font color='green'>     * equal to the first element of the list, we're already at the head,</font></i>
+<a name='L729'><i><font color='green'>     * and should return NULL. */</font></i>
+<a name='L730'>    <b>if</b> (p[0] == <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>) <font color='red'>{</font>
+<a name='L731'>        p = <a href='../S/89.html#L147' title='Defined at 147 in src/ziplist.c.'>ZIPLIST_ENTRY_TAIL</a>(zl);
+<a name='L732'>        <b>return</b> (p[0] == <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>) ? NULL : p;
+<a name='L733'>    <font color='red'>}</font> <b>else</b> <b>if</b> (p == <a href='../S/89.html#L146' title='Defined at 146 in src/ziplist.c.'>ZIPLIST_ENTRY_HEAD</a>(zl)) <font color='red'>{</font>
+<a name='L734'>        <b>return</b> NULL;
+<a name='L735'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L736'>        <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a> = <a href='../S/89.html#L407' title='Defined at 407 in src/ziplist.c.'>zipEntry</a>(p);
+<a name='L737'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.prevrawlen &gt; 0);
+<a name='L738'>        <b>return</b> p-<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.prevrawlen;
+<a name='L739'>    <font color='red'>}</font>
+<a name='L740'><font color='red'>}</font>
+<a name='L741'>
+<a name='L742'><i><font color='green'>/* Get entry pointer to by 'p' and store in either 'e' or 'v' depending</font></i>
+<a name='L743'><i><font color='green'> * on the encoding of the entry. 'e' is always set to NULL to be able</font></i>
+<a name='L744'><i><font color='green'> * to find out whether the string pointer or the integer value was set.</font></i>
+<a name='L745'><i><font color='green'> * Return 0 if 'p' points to the end of the zipmap, 1 otherwise. */</font></i>
+<a name='L746'><b>unsigned</b> <b>int</b> <a href='../R/4121.html' title='Multiple refered from 33 places.'>ziplistGet</a>(<b>unsigned</b> <b>char</b> *p, <b>unsigned</b> <b>char</b> **sstr, <b>unsigned</b> <b>int</b> *slen, <b>long</b> <b>long</b> *sval) <font color='red'>{</font>
+<a name='L747'>    <a href='../D/4539.html' title='Multiple defined in 2 places.'>zlentry</a> <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>;
+<a name='L748'>    <b>if</b> (p == NULL || p[0] == <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>) <b>return</b> 0;
+<a name='L749'>    <b>if</b> (sstr) *sstr = NULL;
+<a name='L750'>
+<a name='L751'>    <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a> = <a href='../S/89.html#L407' title='Defined at 407 in src/ziplist.c.'>zipEntry</a>(p);
+<a name='L752'>    <b>if</b> (<a href='../S/89.html#L139' title='Defined at 139 in src/ziplist.c.'>ZIP_IS_STR</a>(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.encoding)) <font color='red'>{</font>
+<a name='L753'>        <b>if</b> (sstr) <font color='red'>{</font>
+<a name='L754'>            *slen = <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.len;
+<a name='L755'>            *sstr = p+<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.headersize;
+<a name='L756'>        <font color='red'>}</font>
+<a name='L757'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L758'>        <b>if</b> (sval) <font color='red'>{</font>
+<a name='L759'>            *sval = <a href='../S/89.html#L375' title='Defined at 375 in src/ziplist.c.'>zipLoadInteger</a>(p+<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.headersize,<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.encoding);
+<a name='L760'>        <font color='red'>}</font>
+<a name='L761'>    <font color='red'>}</font>
+<a name='L762'>    <b>return</b> 1;
+<a name='L763'><font color='red'>}</font>
+<a name='L764'>
+<a name='L765'><i><font color='green'>/* Insert an entry at "p". */</font></i>
+<a name='L766'><b>unsigned</b> <b>char</b> *<a href='../R/4123.html' title='Multiple refered from 7 places.'>ziplistInsert</a>(<b>unsigned</b> <b>char</b> *zl, <b>unsigned</b> <b>char</b> *p, <b>unsigned</b> <b>char</b> *s, <b>unsigned</b> <b>int</b> slen) <font color='red'>{</font>
+<a name='L767'>    <b>return</b> <a href='../S/89.html#L578' title='Defined at 578 in src/ziplist.c.'>__ziplistInsert</a>(zl,p,s,slen);
+<a name='L768'><font color='red'>}</font>
+<a name='L769'>
+<a name='L770'><i><font color='green'>/* Delete a single entry from the ziplist, pointed to by *p.</font></i>
+<a name='L771'><i><font color='green'> * Also update *p in place, to be able to iterate over the</font></i>
+<a name='L772'><i><font color='green'> * ziplist, while deleting entries. */</font></i>
+<a name='L773'><b>unsigned</b> <b>char</b> *<a href='../R/4118.html' title='Multiple refered from 14 places.'>ziplistDelete</a>(<b>unsigned</b> <b>char</b> *zl, <b>unsigned</b> <b>char</b> **p) <font color='red'>{</font>
+<a name='L774'>    size_t offset = *p-zl;
+<a name='L775'>    zl = <a href='../S/89.html#L518' title='Defined at 518 in src/ziplist.c.'>__ziplistDelete</a>(zl,*p,1);
+<a name='L776'>
+<a name='L777'>    <i><font color='green'>/* Store pointer to current element in p, because ziplistDelete will</font></i>
+<a name='L778'><i><font color='green'>     * do a realloc which might result in a different "zl"-pointer.</font></i>
+<a name='L779'><i><font color='green'>     * When the delete direction is back to front, we might delete the last</font></i>
+<a name='L780'><i><font color='green'>     * entry and end up with "p" pointing to ZIP_END, so check this. */</font></i>
+<a name='L781'>    *p = zl+offset;
+<a name='L782'>    <b>return</b> zl;
+<a name='L783'><font color='red'>}</font>
+<a name='L784'>
+<a name='L785'><i><font color='green'>/* Delete a range of entries from the ziplist. */</font></i>
+<a name='L786'><b>unsigned</b> <b>char</b> *<a href='../R/4119.html' title='Multiple refered from 11 places.'>ziplistDeleteRange</a>(<b>unsigned</b> <b>char</b> *zl, <b>unsigned</b> <b>int</b> index, <b>unsigned</b> <b>int</b> num) <font color='red'>{</font>
+<a name='L787'>    <b>unsigned</b> <b>char</b> *p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl,index);
+<a name='L788'>    <b>return</b> (p == NULL) ? zl : <a href='../S/89.html#L518' title='Defined at 518 in src/ziplist.c.'>__ziplistDelete</a>(zl,p,num);
+<a name='L789'><font color='red'>}</font>
+<a name='L790'>
+<a name='L791'><i><font color='green'>/* Compare entry pointer to by 'p' with 'entry'. Return 1 if equal. */</font></i>
+<a name='L792'><b>unsigned</b> <b>int</b> <a href='../R/4117.html' title='Multiple refered from 8 places.'>ziplistCompare</a>(<b>unsigned</b> <b>char</b> *p, <b>unsigned</b> <b>char</b> *sstr, <b>unsigned</b> <b>int</b> slen) <font color='red'>{</font>
+<a name='L793'>    <a href='../D/4539.html' title='Multiple defined in 2 places.'>zlentry</a> <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>;
+<a name='L794'>    <b>unsigned</b> <b>char</b> sencoding;
+<a name='L795'>    <b>long</b> <b>long</b> zval, sval;
+<a name='L796'>    <b>if</b> (p[0] == <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>) <b>return</b> 0;
+<a name='L797'>
+<a name='L798'>    <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a> = <a href='../S/89.html#L407' title='Defined at 407 in src/ziplist.c.'>zipEntry</a>(p);
+<a name='L799'>    <b>if</b> (<a href='../S/89.html#L139' title='Defined at 139 in src/ziplist.c.'>ZIP_IS_STR</a>(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.encoding)) <font color='red'>{</font>
+<a name='L800'>        <i><font color='green'>/* Raw compare */</font></i>
+<a name='L801'>        <b>if</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.len == slen) <font color='red'>{</font>
+<a name='L802'>            <b>return</b> memcmp(p+<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.headersize,sstr,slen) == 0;
+<a name='L803'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L804'>            <b>return</b> 0;
+<a name='L805'>        <font color='red'>}</font>
+<a name='L806'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L807'>        <i><font color='green'>/* Try to compare encoded values. Don't compare encoding because</font></i>
+<a name='L808'><i><font color='green'>         * different implementations may encoded integers differently. */</font></i>
+<a name='L809'>        <b>if</b> (<a href='../S/89.html#L318' title='Defined at 318 in src/ziplist.c.'>zipTryEncoding</a>(sstr,slen,&amp;sval,&amp;sencoding)) <font color='red'>{</font>
+<a name='L810'>          zval = <a href='../S/89.html#L375' title='Defined at 375 in src/ziplist.c.'>zipLoadInteger</a>(p+<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.headersize,<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.encoding);
+<a name='L811'>          <b>return</b> zval == sval;
+<a name='L812'>        <font color='red'>}</font>
+<a name='L813'>    <font color='red'>}</font>
+<a name='L814'>    <b>return</b> 0;
+<a name='L815'><font color='red'>}</font>
+<a name='L816'>
+<a name='L817'><i><font color='green'>/* Find pointer to the entry equal to the specified entry. Skip 'skip' entries</font></i>
+<a name='L818'><i><font color='green'> * between every comparison. Returns NULL when the field could not be found. */</font></i>
+<a name='L819'><b>unsigned</b> <b>char</b> *<a href='../R/4120.html' title='Multiple refered from 4 places.'>ziplistFind</a>(<b>unsigned</b> <b>char</b> *p, <b>unsigned</b> <b>char</b> *vstr, <b>unsigned</b> <b>int</b> vlen, <b>unsigned</b> <b>int</b> skip) <font color='red'>{</font>
+<a name='L820'>    <b>int</b> skipcnt = 0;
+<a name='L821'>    <b>unsigned</b> <b>char</b> vencoding = 0;
+<a name='L822'>    <b>long</b> <b>long</b> vll = 0;
+<a name='L823'>
+<a name='L824'>    <b>while</b> (p[0] != <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>) <font color='red'>{</font>
+<a name='L825'>        <b>unsigned</b> <b>int</b> prevlensize, encoding, lensize, len;
+<a name='L826'>        <b>unsigned</b> <b>char</b> *q;
+<a name='L827'>
+<a name='L828'>        <a href='../S/89.html#L279' title='Defined at 279 in src/ziplist.c.'>ZIP_DECODE_PREVLENSIZE</a>(p, prevlensize);
+<a name='L829'>        <a href='../S/89.html#L226' title='Defined at 226 in src/ziplist.c.'>ZIP_DECODE_LENGTH</a>(p + prevlensize, encoding, lensize, len);
+<a name='L830'>        q = p + prevlensize + lensize;
+<a name='L831'>
+<a name='L832'>        <b>if</b> (skipcnt == 0) <font color='red'>{</font>
+<a name='L833'>            <i><font color='green'>/* Compare current entry with specified entry */</font></i>
+<a name='L834'>            <b>if</b> (<a href='../S/89.html#L139' title='Defined at 139 in src/ziplist.c.'>ZIP_IS_STR</a>(encoding)) <font color='red'>{</font>
+<a name='L835'>                <b>if</b> (len == vlen &amp;&amp; memcmp(q, vstr, vlen) == 0) <font color='red'>{</font>
+<a name='L836'>                    <b>return</b> p;
+<a name='L837'>                <font color='red'>}</font>
+<a name='L838'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L839'>                <i><font color='green'>/* Find out if the searched field can be encoded. Note that</font></i>
+<a name='L840'><i><font color='green'>                 * we do it only the first time, once done vencoding is set</font></i>
+<a name='L841'><i><font color='green'>                 * to non-zero and vll is set to the integer value. */</font></i>
+<a name='L842'>                <b>if</b> (vencoding == 0) <font color='red'>{</font>
+<a name='L843'>                    <b>if</b> (!<a href='../S/89.html#L318' title='Defined at 318 in src/ziplist.c.'>zipTryEncoding</a>(vstr, vlen, &amp;vll, &amp;vencoding)) <font color='red'>{</font>
+<a name='L844'>                        <i><font color='green'>/* If the entry can't be encoded we set it to</font></i>
+<a name='L845'><i><font color='green'>                         * UCHAR_MAX so that we don't retry again the next</font></i>
+<a name='L846'><i><font color='green'>                         * time. */</font></i>
+<a name='L847'>                        vencoding = UCHAR_MAX;
+<a name='L848'>                    <font color='red'>}</font>
+<a name='L849'>                    <i><font color='green'>/* Must be non-zero by now */</font></i>
+<a name='L850'>                    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(vencoding);
+<a name='L851'>                <font color='red'>}</font>
+<a name='L852'>
+<a name='L853'>                <i><font color='green'>/* Compare current entry with specified entry, do it only</font></i>
+<a name='L854'><i><font color='green'>                 * if vencoding != UCHAR_MAX because if there is no encoding</font></i>
+<a name='L855'><i><font color='green'>                 * possible for the field it can't be a valid integer. */</font></i>
+<a name='L856'>                <b>if</b> (vencoding != UCHAR_MAX) <font color='red'>{</font>
+<a name='L857'>                    <b>long</b> <b>long</b> ll = <a href='../S/89.html#L375' title='Defined at 375 in src/ziplist.c.'>zipLoadInteger</a>(q, encoding);
+<a name='L858'>                    <b>if</b> (ll == vll) <font color='red'>{</font>
+<a name='L859'>                        <b>return</b> p;
+<a name='L860'>                    <font color='red'>}</font>
+<a name='L861'>                <font color='red'>}</font>
+<a name='L862'>            <font color='red'>}</font>
+<a name='L863'>
+<a name='L864'>            <i><font color='green'>/* Reset skip count */</font></i>
+<a name='L865'>            skipcnt = skip;
+<a name='L866'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L867'>            <i><font color='green'>/* Skip entry */</font></i>
+<a name='L868'>            skipcnt--;
+<a name='L869'>        <font color='red'>}</font>
+<a name='L870'>
+<a name='L871'>        <i><font color='green'>/* Move to next entry */</font></i>
+<a name='L872'>        p = q + len;
+<a name='L873'>    <font color='red'>}</font>
+<a name='L874'>
+<a name='L875'>    <b>return</b> NULL;
+<a name='L876'><font color='red'>}</font>
+<a name='L877'>
+<a name='L878'><i><font color='green'>/* Return length of ziplist. */</font></i>
+<a name='L879'><b>unsigned</b> <b>int</b> <a href='../R/4124.html' title='Multiple refered from 9 places.'>ziplistLen</a>(<b>unsigned</b> <b>char</b> *zl) <font color='red'>{</font>
+<a name='L880'>    <b>unsigned</b> <b>int</b> len = 0;
+<a name='L881'>    <b>if</b> (<a href='../D/2508.html' title='Multiple defined in 2 places.'>intrev16ifbe</a>(<a href='../S/89.html#L144' title='Defined at 144 in src/ziplist.c.'>ZIPLIST_LENGTH</a>(zl)) &lt; <a href='../S/160.html#L141' title='Defined at 141 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT16_MAX</a>) <font color='red'>{</font>
+<a name='L882'>        len = <a href='../D/2508.html' title='Multiple defined in 2 places.'>intrev16ifbe</a>(<a href='../S/89.html#L144' title='Defined at 144 in src/ziplist.c.'>ZIPLIST_LENGTH</a>(zl));
+<a name='L883'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L884'>        <b>unsigned</b> <b>char</b> *p = zl+<a href='../S/89.html#L145' title='Defined at 145 in src/ziplist.c.'>ZIPLIST_HEADER_SIZE</a>;
+<a name='L885'>        <b>while</b> (*p != <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>) <font color='red'>{</font>
+<a name='L886'>            p += <a href='../S/89.html#L309' title='Defined at 309 in src/ziplist.c.'>zipRawEntryLength</a>(p);
+<a name='L887'>            len++;
+<a name='L888'>        <font color='red'>}</font>
+<a name='L889'>
+<a name='L890'>        <i><font color='green'>/* Re-store length if small enough */</font></i>
+<a name='L891'>        <b>if</b> (len &lt; <a href='../S/160.html#L141' title='Defined at 141 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT16_MAX</a>) <a href='../S/89.html#L144' title='Defined at 144 in src/ziplist.c.'>ZIPLIST_LENGTH</a>(zl) = <a href='../D/2508.html' title='Multiple defined in 2 places.'>intrev16ifbe</a>(len);
+<a name='L892'>    <font color='red'>}</font>
+<a name='L893'>    <b>return</b> len;
+<a name='L894'><font color='red'>}</font>
+<a name='L895'>
+<a name='L896'><i><font color='green'>/* Return ziplist blob size in bytes. */</font></i>
+<a name='L897'>size_t <a href='../R/4116.html' title='Multiple refered from 5 places.'>ziplistBlobLen</a>(<b>unsigned</b> <b>char</b> *zl) <font color='red'>{</font>
+<a name='L898'>    <b>return</b> <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../S/89.html#L142' title='Defined at 142 in src/ziplist.c.'>ZIPLIST_BYTES</a>(zl));
+<a name='L899'><font color='red'>}</font>
+<a name='L900'>
+<a name='L901'><b>void</b> <a href='../R/4129.html' title='Multiple refered from 12 places.'>ziplistRepr</a>(<b>unsigned</b> <b>char</b> *zl) <font color='red'>{</font>
+<a name='L902'>    <b>unsigned</b> <b>char</b> *p;
+<a name='L903'>    <b>int</b> index = 0;
+<a name='L904'>    <a href='../D/4539.html' title='Multiple defined in 2 places.'>zlentry</a> <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>;
+<a name='L905'>
+<a name='L906'>    printf(
+<a name='L907'>        "{total bytes %d} "
+<a name='L908'>        "{length %u}\n"
+<a name='L909'>        "{tail offset %u}\n",
+<a name='L910'>        <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../S/89.html#L142' title='Defined at 142 in src/ziplist.c.'>ZIPLIST_BYTES</a>(zl)),
+<a name='L911'>        <a href='../D/2508.html' title='Multiple defined in 2 places.'>intrev16ifbe</a>(<a href='../S/89.html#L144' title='Defined at 144 in src/ziplist.c.'>ZIPLIST_LENGTH</a>(zl)),
+<a name='L912'>        <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../S/89.html#L143' title='Defined at 143 in src/ziplist.c.'>ZIPLIST_TAIL_OFFSET</a>(zl)));
+<a name='L913'>    p = <a href='../S/89.html#L146' title='Defined at 146 in src/ziplist.c.'>ZIPLIST_ENTRY_HEAD</a>(zl);
+<a name='L914'>    <b>while</b>(*p != <a href='../S/89.html#L115' title='Defined at 115 in src/ziplist.c.'>ZIP_END</a>) <font color='red'>{</font>
+<a name='L915'>        <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a> = <a href='../S/89.html#L407' title='Defined at 407 in src/ziplist.c.'>zipEntry</a>(p);
+<a name='L916'>        printf(
+<a name='L917'>            "{"
+<a name='L918'>                "addr 0x%08lx, "
+<a name='L919'>                "index %2d, "
+<a name='L920'>                "offset %5ld, "
+<a name='L921'>                "rl: %5u, "
+<a name='L922'>                "hs %2u, "
+<a name='L923'>                "pl: %5u, "
+<a name='L924'>                "pls: %2u, "
+<a name='L925'>                "payload %5u"
+<a name='L926'>            "} ",
+<a name='L927'>            (<b>long</b> <b>unsigned</b>)p,
+<a name='L928'>            index,
+<a name='L929'>            (<b>unsigned</b> <b>long</b>) (p-zl),
+<a name='L930'>            <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.headersize+<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.len,
+<a name='L931'>            <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.headersize,
+<a name='L932'>            <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.prevrawlen,
+<a name='L933'>            <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.prevrawlensize,
+<a name='L934'>            <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.len);
+<a name='L935'>        p += <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.headersize;
+<a name='L936'>        <b>if</b> (<a href='../S/89.html#L139' title='Defined at 139 in src/ziplist.c.'>ZIP_IS_STR</a>(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.encoding)) <font color='red'>{</font>
+<a name='L937'>            <b>if</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.len &gt; 40) <font color='red'>{</font>
+<a name='L938'>                <b>if</b> (fwrite(p,40,1,stdout) == 0) perror("fwrite");
+<a name='L939'>                printf("...");
+<a name='L940'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L941'>                <b>if</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.len &amp;&amp;
+<a name='L942'>                    fwrite(p,<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.len,1,stdout) == 0) perror("fwrite");
+<a name='L943'>            <font color='red'>}</font>
+<a name='L944'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L945'>            printf("%lld", (<b>long</b> <b>long</b>) <a href='../S/89.html#L375' title='Defined at 375 in src/ziplist.c.'>zipLoadInteger</a>(p,<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.encoding));
+<a name='L946'>        <font color='red'>}</font>
+<a name='L947'>        printf("\n");
+<a name='L948'>        p += <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.len;
+<a name='L949'>        index++;
+<a name='L950'>    <font color='red'>}</font>
+<a name='L951'>    printf("{end}\n\n");
+<a name='L952'><font color='red'>}</font>
+<a name='L953'>
+<a name='L954'><font color='darkred'>#ifdef</font> ZIPLIST_TEST_MAIN
+<a name='L955'><font color='darkred'>#include</font> &lt;sys/time.h&gt;
+<a name='L956'><font color='darkred'>#include</font> "<a href='58.html'>adlist.h</a>"
+<a name='L957'><font color='darkred'>#include</font> "<a href='../I/18.html'>sds.h</a>"
+<a name='L958'>
+<a name='L959'><font color='darkred'>#define</font> <a href='../R/1776.html' title='Multiple refered from 4 places.'>debug</a>(f, ...) <font color='red'>{</font> <b>if</b> (DEBUG) printf(f, __VA_ARGS__); <font color='red'>}</font>
+<a name='L960'>
+<a name='L961'><b>unsigned</b> <b>char</b> *<a href='../R/1698.html' title='Multiple refered from 19 places.'>createList</a>() <font color='red'>{</font>
+<a name='L962'>    <b>unsigned</b> <b>char</b> *zl = <a href='../S/89.html#L418' title='Defined at 418 in src/ziplist.c.'>ziplistNew</a>();
+<a name='L963'>    zl = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(zl, (<b>unsigned</b> <b>char</b>*)"foo", 3, <a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>);
+<a name='L964'>    zl = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(zl, (<b>unsigned</b> <b>char</b>*)"quux", 4, <a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>);
+<a name='L965'>    zl = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(zl, (<b>unsigned</b> <b>char</b>*)"hello", 5, <a href='../S/66.html#L31' title='Defined at 31 in src/ziplist.h.'>ZIPLIST_HEAD</a>);
+<a name='L966'>    zl = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(zl, (<b>unsigned</b> <b>char</b>*)"1024", 4, <a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>);
+<a name='L967'>    <b>return</b> zl;
+<a name='L968'><font color='red'>}</font>
+<a name='L969'>
+<a name='L970'><b>unsigned</b> <b>char</b> *<a href='../S/89.html#L1094' title='Refered from 1094 in src/ziplist.c.'>createIntList</a>() <font color='red'>{</font>
+<a name='L971'>    <b>unsigned</b> <b>char</b> *zl = <a href='../S/89.html#L418' title='Defined at 418 in src/ziplist.c.'>ziplistNew</a>();
+<a name='L972'>    <b>char</b> buf[32];
+<a name='L973'>
+<a name='L974'>    sprintf(buf, "100");
+<a name='L975'>    zl = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(zl, (<b>unsigned</b> <b>char</b>*)buf, strlen(buf), <a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>);
+<a name='L976'>    sprintf(buf, "128000");
+<a name='L977'>    zl = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(zl, (<b>unsigned</b> <b>char</b>*)buf, strlen(buf), <a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>);
+<a name='L978'>    sprintf(buf, "-100");
+<a name='L979'>    zl = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(zl, (<b>unsigned</b> <b>char</b>*)buf, strlen(buf), <a href='../S/66.html#L31' title='Defined at 31 in src/ziplist.h.'>ZIPLIST_HEAD</a>);
+<a name='L980'>    sprintf(buf, "4294967296");
+<a name='L981'>    zl = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(zl, (<b>unsigned</b> <b>char</b>*)buf, strlen(buf), <a href='../S/66.html#L31' title='Defined at 31 in src/ziplist.h.'>ZIPLIST_HEAD</a>);
+<a name='L982'>    sprintf(buf, "non integer");
+<a name='L983'>    zl = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(zl, (<b>unsigned</b> <b>char</b>*)buf, strlen(buf), <a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>);
+<a name='L984'>    sprintf(buf, "much much longer non integer");
+<a name='L985'>    zl = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(zl, (<b>unsigned</b> <b>char</b>*)buf, strlen(buf), <a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>);
+<a name='L986'>    <b>return</b> zl;
+<a name='L987'><font color='red'>}</font>
+<a name='L988'>
+<a name='L989'><b>long</b> <b>long</b> <a href='../R/4071.html' title='Multiple refered from 12 places.'>usec</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L990'>    <b>struct</b> timeval tv;
+<a name='L991'>    gettimeofday(&amp;tv,NULL);
+<a name='L992'>    <b>return</b> (((<b>long</b> <b>long</b>)tv.tv_sec)*1000000)+tv.tv_usec;
+<a name='L993'><font color='red'>}</font>
+<a name='L994'>
+<a name='L995'><b>void</b> <a href='../R/3885.html' title='Multiple refered from 2 places.'>stress</a>(<b>int</b> pos, <b>int</b> num, <b>int</b> maxsize, <b>int</b> dnum) <font color='red'>{</font>
+<a name='L996'>    <b>int</b> i,j,k;
+<a name='L997'>    <b>unsigned</b> <b>char</b> *zl;
+<a name='L998'>    <b>char</b> posstr[2][5] = <font color='red'>{</font> "HEAD", "TAIL" <font color='red'>}</font>;
+<a name='L999'>    <b>long</b> <b>long</b> start;
+<a name='L1000'>    <b>for</b> (i = 0; i &lt; maxsize; i+=dnum) <font color='red'>{</font>
+<a name='L1001'>        zl = <a href='../S/89.html#L418' title='Defined at 418 in src/ziplist.c.'>ziplistNew</a>();
+<a name='L1002'>        <b>for</b> (j = 0; j &lt; i; j++) <font color='red'>{</font>
+<a name='L1003'>            zl = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(zl,(<b>unsigned</b> <b>char</b>*)"quux",4,<a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>);
+<a name='L1004'>        <font color='red'>}</font>
+<a name='L1005'>
+<a name='L1006'>        <i><font color='green'>/* Do num times a push+pop from pos */</font></i>
+<a name='L1007'>        start = <a href='../D/4459.html' title='Multiple defined in 3 places.'>usec</a>();
+<a name='L1008'>        <b>for</b> (k = 0; k &lt; num; k++) <font color='red'>{</font>
+<a name='L1009'>            zl = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(zl,(<b>unsigned</b> <b>char</b>*)"quux",4,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>);
+<a name='L1010'>            zl = <a href='../S/89.html#L786' title='Defined at 786 in src/ziplist.c.'>ziplistDeleteRange</a>(zl,0,1);
+<a name='L1011'>        <font color='red'>}</font>
+<a name='L1012'>        printf("List size: %8d, bytes: %8d, %dx push+pop (%s): %6lld usec\n",
+<a name='L1013'>            i,<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../S/89.html#L142' title='Defined at 142 in src/ziplist.c.'>ZIPLIST_BYTES</a>(zl)),num,posstr[<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>],<a href='../D/4459.html' title='Multiple defined in 3 places.'>usec</a>()-start);
+<a name='L1014'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(zl);
+<a name='L1015'>    <font color='red'>}</font>
+<a name='L1016'><font color='red'>}</font>
+<a name='L1017'>
+<a name='L1018'><b>void</b> <a href='../R/3149.html' title='Multiple refered from 4 places.'>pop</a>(<b>unsigned</b> <b>char</b> *zl, <b>int</b> where) <font color='red'>{</font>
+<a name='L1019'>    <b>unsigned</b> <b>char</b> *p, *vstr;
+<a name='L1020'>    <b>unsigned</b> <b>int</b> vlen;
+<a name='L1021'>    <b>long</b> <b>long</b> vlong;
+<a name='L1022'>
+<a name='L1023'>    p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl,where == <a href='../S/66.html#L31' title='Defined at 31 in src/ziplist.h.'>ZIPLIST_HEAD</a> ? 0 : -1);
+<a name='L1024'>    <b>if</b> (<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(p,&amp;vstr,&amp;vlen,&amp;vlong)) <font color='red'>{</font>
+<a name='L1025'>        <b>if</b> (where == <a href='../S/66.html#L31' title='Defined at 31 in src/ziplist.h.'>ZIPLIST_HEAD</a>)
+<a name='L1026'>            printf("Pop head: ");
+<a name='L1027'>        <b>else</b>
+<a name='L1028'>            printf("Pop tail: ");
+<a name='L1029'>
+<a name='L1030'>        <b>if</b> (vstr)
+<a name='L1031'>            <b>if</b> (vlen &amp;&amp; fwrite(vstr,vlen,1,stdout) == 0) perror("fwrite");
+<a name='L1032'>        <b>else</b>
+<a name='L1033'>            printf("%lld", vlong);
+<a name='L1034'>
+<a name='L1035'>        printf("\n");
+<a name='L1036'>        <a href='../S/89.html#L786' title='Defined at 786 in src/ziplist.c.'>ziplistDeleteRange</a>(zl,-1,1);
+<a name='L1037'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1038'>        printf("ERROR: Could not pop\n");
+<a name='L1039'>        exit(1);
+<a name='L1040'>    <font color='red'>}</font>
+<a name='L1041'><font color='red'>}</font>
+<a name='L1042'>
+<a name='L1043'><b>int</b> <a href='../S/89.html#L1472' title='Refered from 1472 in src/ziplist.c.'>randstring</a>(<b>char</b> *target, <b>unsigned</b> <b>int</b> min, <b>unsigned</b> <b>int</b> max) <font color='red'>{</font>
+<a name='L1044'>    <b>int</b> p, len = <a href='../S/20.html#L50' title='Defined at 50 in src/pqsort.c.'>min</a>+rand()%(max-<a href='../S/20.html#L50' title='Defined at 50 in src/pqsort.c.'>min</a>+1);
+<a name='L1045'>    <b>int</b> minval, maxval;
+<a name='L1046'>    <b>switch</b>(rand() % 3) <font color='red'>{</font>
+<a name='L1047'>    <b>case</b> 0:
+<a name='L1048'>        minval = 0;
+<a name='L1049'>        maxval = 255;
+<a name='L1050'>    <b>break</b>;
+<a name='L1051'>    <b>case</b> 1:
+<a name='L1052'>        minval = 48;
+<a name='L1053'>        maxval = 122;
+<a name='L1054'>    <b>break</b>;
+<a name='L1055'>    <b>case</b> 2:
+<a name='L1056'>        minval = 48;
+<a name='L1057'>        maxval = 52;
+<a name='L1058'>    <b>break</b>;
+<a name='L1059'>    <b>default</b>:
+<a name='L1060'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(NULL);
+<a name='L1061'>    <font color='red'>}</font>
+<a name='L1062'>
+<a name='L1063'>    <b>while</b>(p &lt; len)
+<a name='L1064'>        target[p++] = minval+rand()%(maxval-minval+1);
+<a name='L1065'>    <b>return</b> len;
+<a name='L1066'><font color='red'>}</font>
+<a name='L1067'>
+<a name='L1068'><b>void</b> <a href='../R/4076.html' title='Multiple refered from 2 places.'>verify</a>(<b>unsigned</b> <b>char</b> *zl, zlentry *e) <font color='red'>{</font>
+<a name='L1069'>    <b>int</b> i;
+<a name='L1070'>    <b>int</b> len = <a href='../S/89.html#L879' title='Defined at 879 in src/ziplist.c.'>ziplistLen</a>(zl);
+<a name='L1071'>    <a href='../D/4539.html' title='Multiple defined in 2 places.'>zlentry</a> _e;
+<a name='L1072'>
+<a name='L1073'>    <b>for</b> (i = 0; i &lt; len; i++) <font color='red'>{</font>
+<a name='L1074'>        memset(&amp;e[i], 0, <b>sizeof</b>(<a href='../D/4539.html' title='Multiple defined in 2 places.'>zlentry</a>));
+<a name='L1075'>        e[i] = <a href='../S/89.html#L407' title='Defined at 407 in src/ziplist.c.'>zipEntry</a>(<a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl, i));
+<a name='L1076'>
+<a name='L1077'>        memset(&amp;_e, 0, <b>sizeof</b>(<a href='../D/4539.html' title='Multiple defined in 2 places.'>zlentry</a>));
+<a name='L1078'>        _e = <a href='../S/89.html#L407' title='Defined at 407 in src/ziplist.c.'>zipEntry</a>(<a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl, -len+i));
+<a name='L1079'>
+<a name='L1080'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(memcmp(&amp;e[i], &amp;_e, <b>sizeof</b>(<a href='../D/4539.html' title='Multiple defined in 2 places.'>zlentry</a>)) == 0);
+<a name='L1081'>    <font color='red'>}</font>
+<a name='L1082'><font color='red'>}</font>
+<a name='L1083'>
+<a name='L1084'><b>int</b> main(<b>int</b> argc, <b>char</b> **argv) <font color='red'>{</font>
+<a name='L1085'>    <b>unsigned</b> <b>char</b> *zl, *p;
+<a name='L1086'>    <b>unsigned</b> <b>char</b> *<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>;
+<a name='L1087'>    <b>unsigned</b> <b>int</b> elen;
+<a name='L1088'>    <b>long</b> <b>long</b> value;
+<a name='L1089'>
+<a name='L1090'>    <i><font color='green'>/* If an argument is given, use it as the random seed. */</font></i>
+<a name='L1091'>    <b>if</b> (argc == 2)
+<a name='L1092'>        srand(atoi(argv[1]));
+<a name='L1093'>
+<a name='L1094'>    zl = <a href='../S/89.html#L970' title='Defined at 970 in src/ziplist.c.'>createIntList</a>();
+<a name='L1095'>    <a href='../S/89.html#L901' title='Defined at 901 in src/ziplist.c.'>ziplistRepr</a>(zl);
+<a name='L1096'>
+<a name='L1097'>    zl = <a href='../S/89.html#L961' title='Defined at 961 in src/ziplist.c.'>createList</a>();
+<a name='L1098'>    <a href='../S/89.html#L901' title='Defined at 901 in src/ziplist.c.'>ziplistRepr</a>(zl);
+<a name='L1099'>
+<a name='L1100'>    <a href='../S/89.html#L1018' title='Defined at 1018 in src/ziplist.c.'>pop</a>(zl,<a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>);
+<a name='L1101'>    <a href='../S/89.html#L901' title='Defined at 901 in src/ziplist.c.'>ziplistRepr</a>(zl);
+<a name='L1102'>
+<a name='L1103'>    <a href='../S/89.html#L1018' title='Defined at 1018 in src/ziplist.c.'>pop</a>(zl,<a href='../S/66.html#L31' title='Defined at 31 in src/ziplist.h.'>ZIPLIST_HEAD</a>);
+<a name='L1104'>    <a href='../S/89.html#L901' title='Defined at 901 in src/ziplist.c.'>ziplistRepr</a>(zl);
+<a name='L1105'>
+<a name='L1106'>    <a href='../S/89.html#L1018' title='Defined at 1018 in src/ziplist.c.'>pop</a>(zl,<a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>);
+<a name='L1107'>    <a href='../S/89.html#L901' title='Defined at 901 in src/ziplist.c.'>ziplistRepr</a>(zl);
+<a name='L1108'>
+<a name='L1109'>    <a href='../S/89.html#L1018' title='Defined at 1018 in src/ziplist.c.'>pop</a>(zl,<a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>);
+<a name='L1110'>    <a href='../S/89.html#L901' title='Defined at 901 in src/ziplist.c.'>ziplistRepr</a>(zl);
+<a name='L1111'>
+<a name='L1112'>    printf("Get element at index 3:\n");
+<a name='L1113'>    <font color='red'>{</font>
+<a name='L1114'>        zl = <a href='../S/89.html#L961' title='Defined at 961 in src/ziplist.c.'>createList</a>();
+<a name='L1115'>        p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl, 3);
+<a name='L1116'>        <b>if</b> (!<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(p, &amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>, &amp;elen, &amp;value)) <font color='red'>{</font>
+<a name='L1117'>            printf("ERROR: Could not access index 3\n");
+<a name='L1118'>            <b>return</b> 1;
+<a name='L1119'>        <font color='red'>}</font>
+<a name='L1120'>        <b>if</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>) <font color='red'>{</font>
+<a name='L1121'>            <b>if</b> (elen &amp;&amp; fwrite(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>,elen,1,stdout) == 0) perror("fwrite");
+<a name='L1122'>            printf("\n");
+<a name='L1123'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1124'>            printf("%lld\n", value);
+<a name='L1125'>        <font color='red'>}</font>
+<a name='L1126'>        printf("\n");
+<a name='L1127'>    <font color='red'>}</font>
+<a name='L1128'>
+<a name='L1129'>    printf("Get element at index 4 (out of range):\n");
+<a name='L1130'>    <font color='red'>{</font>
+<a name='L1131'>        zl = <a href='../S/89.html#L961' title='Defined at 961 in src/ziplist.c.'>createList</a>();
+<a name='L1132'>        p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl, 4);
+<a name='L1133'>        <b>if</b> (p == NULL) <font color='red'>{</font>
+<a name='L1134'>            printf("No entry\n");
+<a name='L1135'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1136'>            printf("ERROR: Out of range index should return NULL, returned offset: %ld\n", p-zl);
+<a name='L1137'>            <b>return</b> 1;
+<a name='L1138'>        <font color='red'>}</font>
+<a name='L1139'>        printf("\n");
+<a name='L1140'>    <font color='red'>}</font>
+<a name='L1141'>
+<a name='L1142'>    printf("Get element at index -1 (last element):\n");
+<a name='L1143'>    <font color='red'>{</font>
+<a name='L1144'>        zl = <a href='../S/89.html#L961' title='Defined at 961 in src/ziplist.c.'>createList</a>();
+<a name='L1145'>        p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl, -1);
+<a name='L1146'>        <b>if</b> (!<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(p, &amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>, &amp;elen, &amp;value)) <font color='red'>{</font>
+<a name='L1147'>            printf("ERROR: Could not access index -1\n");
+<a name='L1148'>            <b>return</b> 1;
+<a name='L1149'>        <font color='red'>}</font>
+<a name='L1150'>        <b>if</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>) <font color='red'>{</font>
+<a name='L1151'>            <b>if</b> (elen &amp;&amp; fwrite(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>,elen,1,stdout) == 0) perror("fwrite");
+<a name='L1152'>            printf("\n");
+<a name='L1153'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1154'>            printf("%lld\n", value);
+<a name='L1155'>        <font color='red'>}</font>
+<a name='L1156'>        printf("\n");
+<a name='L1157'>    <font color='red'>}</font>
+<a name='L1158'>
+<a name='L1159'>    printf("Get element at index -4 (first element):\n");
+<a name='L1160'>    <font color='red'>{</font>
+<a name='L1161'>        zl = <a href='../S/89.html#L961' title='Defined at 961 in src/ziplist.c.'>createList</a>();
+<a name='L1162'>        p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl, -4);
+<a name='L1163'>        <b>if</b> (!<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(p, &amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>, &amp;elen, &amp;value)) <font color='red'>{</font>
+<a name='L1164'>            printf("ERROR: Could not access index -4\n");
+<a name='L1165'>            <b>return</b> 1;
+<a name='L1166'>        <font color='red'>}</font>
+<a name='L1167'>        <b>if</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>) <font color='red'>{</font>
+<a name='L1168'>            <b>if</b> (elen &amp;&amp; fwrite(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>,elen,1,stdout) == 0) perror("fwrite");
+<a name='L1169'>            printf("\n");
+<a name='L1170'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1171'>            printf("%lld\n", value);
+<a name='L1172'>        <font color='red'>}</font>
+<a name='L1173'>        printf("\n");
+<a name='L1174'>    <font color='red'>}</font>
+<a name='L1175'>
+<a name='L1176'>    printf("Get element at index -5 (reverse out of range):\n");
+<a name='L1177'>    <font color='red'>{</font>
+<a name='L1178'>        zl = <a href='../S/89.html#L961' title='Defined at 961 in src/ziplist.c.'>createList</a>();
+<a name='L1179'>        p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl, -5);
+<a name='L1180'>        <b>if</b> (p == NULL) <font color='red'>{</font>
+<a name='L1181'>            printf("No entry\n");
+<a name='L1182'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1183'>            printf("ERROR: Out of range index should return NULL, returned offset: %ld\n", p-zl);
+<a name='L1184'>            <b>return</b> 1;
+<a name='L1185'>        <font color='red'>}</font>
+<a name='L1186'>        printf("\n");
+<a name='L1187'>    <font color='red'>}</font>
+<a name='L1188'>
+<a name='L1189'>    printf("Iterate list from 0 to end:\n");
+<a name='L1190'>    <font color='red'>{</font>
+<a name='L1191'>        zl = <a href='../S/89.html#L961' title='Defined at 961 in src/ziplist.c.'>createList</a>();
+<a name='L1192'>        p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl, 0);
+<a name='L1193'>        <b>while</b> (<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(p, &amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>, &amp;elen, &amp;value)) <font color='red'>{</font>
+<a name='L1194'>            printf("Entry: ");
+<a name='L1195'>            <b>if</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>) <font color='red'>{</font>
+<a name='L1196'>                <b>if</b> (elen &amp;&amp; fwrite(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>,elen,1,stdout) == 0) perror("fwrite");
+<a name='L1197'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1198'>                printf("%lld", value);
+<a name='L1199'>            <font color='red'>}</font>
+<a name='L1200'>            p = <a href='../S/89.html#L705' title='Defined at 705 in src/ziplist.c.'>ziplistNext</a>(zl,p);
+<a name='L1201'>            printf("\n");
+<a name='L1202'>        <font color='red'>}</font>
+<a name='L1203'>        printf("\n");
+<a name='L1204'>    <font color='red'>}</font>
+<a name='L1205'>
+<a name='L1206'>    printf("Iterate list from 1 to end:\n");
+<a name='L1207'>    <font color='red'>{</font>
+<a name='L1208'>        zl = <a href='../S/89.html#L961' title='Defined at 961 in src/ziplist.c.'>createList</a>();
+<a name='L1209'>        p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl, 1);
+<a name='L1210'>        <b>while</b> (<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(p, &amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>, &amp;elen, &amp;value)) <font color='red'>{</font>
+<a name='L1211'>            printf("Entry: ");
+<a name='L1212'>            <b>if</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>) <font color='red'>{</font>
+<a name='L1213'>                <b>if</b> (elen &amp;&amp; fwrite(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>,elen,1,stdout) == 0) perror("fwrite");
+<a name='L1214'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1215'>                printf("%lld", value);
+<a name='L1216'>            <font color='red'>}</font>
+<a name='L1217'>            p = <a href='../S/89.html#L705' title='Defined at 705 in src/ziplist.c.'>ziplistNext</a>(zl,p);
+<a name='L1218'>            printf("\n");
+<a name='L1219'>        <font color='red'>}</font>
+<a name='L1220'>        printf("\n");
+<a name='L1221'>    <font color='red'>}</font>
+<a name='L1222'>
+<a name='L1223'>    printf("Iterate list from 2 to end:\n");
+<a name='L1224'>    <font color='red'>{</font>
+<a name='L1225'>        zl = <a href='../S/89.html#L961' title='Defined at 961 in src/ziplist.c.'>createList</a>();
+<a name='L1226'>        p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl, 2);
+<a name='L1227'>        <b>while</b> (<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(p, &amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>, &amp;elen, &amp;value)) <font color='red'>{</font>
+<a name='L1228'>            printf("Entry: ");
+<a name='L1229'>            <b>if</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>) <font color='red'>{</font>
+<a name='L1230'>                <b>if</b> (elen &amp;&amp; fwrite(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>,elen,1,stdout) == 0) perror("fwrite");
+<a name='L1231'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1232'>                printf("%lld", value);
+<a name='L1233'>            <font color='red'>}</font>
+<a name='L1234'>            p = <a href='../S/89.html#L705' title='Defined at 705 in src/ziplist.c.'>ziplistNext</a>(zl,p);
+<a name='L1235'>            printf("\n");
+<a name='L1236'>        <font color='red'>}</font>
+<a name='L1237'>        printf("\n");
+<a name='L1238'>    <font color='red'>}</font>
+<a name='L1239'>
+<a name='L1240'>    printf("Iterate starting out of range:\n");
+<a name='L1241'>    <font color='red'>{</font>
+<a name='L1242'>        zl = <a href='../S/89.html#L961' title='Defined at 961 in src/ziplist.c.'>createList</a>();
+<a name='L1243'>        p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl, 4);
+<a name='L1244'>        <b>if</b> (!<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(p, &amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>, &amp;elen, &amp;value)) <font color='red'>{</font>
+<a name='L1245'>            printf("No entry\n");
+<a name='L1246'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1247'>            printf("ERROR\n");
+<a name='L1248'>        <font color='red'>}</font>
+<a name='L1249'>        printf("\n");
+<a name='L1250'>    <font color='red'>}</font>
+<a name='L1251'>
+<a name='L1252'>    printf("Iterate from back to front:\n");
+<a name='L1253'>    <font color='red'>{</font>
+<a name='L1254'>        zl = <a href='../S/89.html#L961' title='Defined at 961 in src/ziplist.c.'>createList</a>();
+<a name='L1255'>        p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl, -1);
+<a name='L1256'>        <b>while</b> (<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(p, &amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>, &amp;elen, &amp;value)) <font color='red'>{</font>
+<a name='L1257'>            printf("Entry: ");
+<a name='L1258'>            <b>if</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>) <font color='red'>{</font>
+<a name='L1259'>                <b>if</b> (elen &amp;&amp; fwrite(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>,elen,1,stdout) == 0) perror("fwrite");
+<a name='L1260'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1261'>                printf("%lld", value);
+<a name='L1262'>            <font color='red'>}</font>
+<a name='L1263'>            p = <a href='../S/89.html#L724' title='Defined at 724 in src/ziplist.c.'>ziplistPrev</a>(zl,p);
+<a name='L1264'>            printf("\n");
+<a name='L1265'>        <font color='red'>}</font>
+<a name='L1266'>        printf("\n");
+<a name='L1267'>    <font color='red'>}</font>
+<a name='L1268'>
+<a name='L1269'>    printf("Iterate from back to front, deleting all items:\n");
+<a name='L1270'>    <font color='red'>{</font>
+<a name='L1271'>        zl = <a href='../S/89.html#L961' title='Defined at 961 in src/ziplist.c.'>createList</a>();
+<a name='L1272'>        p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl, -1);
+<a name='L1273'>        <b>while</b> (<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(p, &amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>, &amp;elen, &amp;value)) <font color='red'>{</font>
+<a name='L1274'>            printf("Entry: ");
+<a name='L1275'>            <b>if</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>) <font color='red'>{</font>
+<a name='L1276'>                <b>if</b> (elen &amp;&amp; fwrite(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>,elen,1,stdout) == 0) perror("fwrite");
+<a name='L1277'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1278'>                printf("%lld", value);
+<a name='L1279'>            <font color='red'>}</font>
+<a name='L1280'>            zl = <a href='../S/89.html#L773' title='Defined at 773 in src/ziplist.c.'>ziplistDelete</a>(zl,&amp;p);
+<a name='L1281'>            p = <a href='../S/89.html#L724' title='Defined at 724 in src/ziplist.c.'>ziplistPrev</a>(zl,p);
+<a name='L1282'>            printf("\n");
+<a name='L1283'>        <font color='red'>}</font>
+<a name='L1284'>        printf("\n");
+<a name='L1285'>    <font color='red'>}</font>
+<a name='L1286'>
+<a name='L1287'>    printf("Delete inclusive range 0,0:\n");
+<a name='L1288'>    <font color='red'>{</font>
+<a name='L1289'>        zl = <a href='../S/89.html#L961' title='Defined at 961 in src/ziplist.c.'>createList</a>();
+<a name='L1290'>        zl = <a href='../S/89.html#L786' title='Defined at 786 in src/ziplist.c.'>ziplistDeleteRange</a>(zl, 0, 1);
+<a name='L1291'>        <a href='../S/89.html#L901' title='Defined at 901 in src/ziplist.c.'>ziplistRepr</a>(zl);
+<a name='L1292'>    <font color='red'>}</font>
+<a name='L1293'>
+<a name='L1294'>    printf("Delete inclusive range 0,1:\n");
+<a name='L1295'>    <font color='red'>{</font>
+<a name='L1296'>        zl = <a href='../S/89.html#L961' title='Defined at 961 in src/ziplist.c.'>createList</a>();
+<a name='L1297'>        zl = <a href='../S/89.html#L786' title='Defined at 786 in src/ziplist.c.'>ziplistDeleteRange</a>(zl, 0, 2);
+<a name='L1298'>        <a href='../S/89.html#L901' title='Defined at 901 in src/ziplist.c.'>ziplistRepr</a>(zl);
+<a name='L1299'>    <font color='red'>}</font>
+<a name='L1300'>
+<a name='L1301'>    printf("Delete inclusive range 1,2:\n");
+<a name='L1302'>    <font color='red'>{</font>
+<a name='L1303'>        zl = <a href='../S/89.html#L961' title='Defined at 961 in src/ziplist.c.'>createList</a>();
+<a name='L1304'>        zl = <a href='../S/89.html#L786' title='Defined at 786 in src/ziplist.c.'>ziplistDeleteRange</a>(zl, 1, 2);
+<a name='L1305'>        <a href='../S/89.html#L901' title='Defined at 901 in src/ziplist.c.'>ziplistRepr</a>(zl);
+<a name='L1306'>    <font color='red'>}</font>
+<a name='L1307'>
+<a name='L1308'>    printf("Delete with start index out of range:\n");
+<a name='L1309'>    <font color='red'>{</font>
+<a name='L1310'>        zl = <a href='../S/89.html#L961' title='Defined at 961 in src/ziplist.c.'>createList</a>();
+<a name='L1311'>        zl = <a href='../S/89.html#L786' title='Defined at 786 in src/ziplist.c.'>ziplistDeleteRange</a>(zl, 5, 1);
+<a name='L1312'>        <a href='../S/89.html#L901' title='Defined at 901 in src/ziplist.c.'>ziplistRepr</a>(zl);
+<a name='L1313'>    <font color='red'>}</font>
+<a name='L1314'>
+<a name='L1315'>    printf("Delete with num overflow:\n");
+<a name='L1316'>    <font color='red'>{</font>
+<a name='L1317'>        zl = <a href='../S/89.html#L961' title='Defined at 961 in src/ziplist.c.'>createList</a>();
+<a name='L1318'>        zl = <a href='../S/89.html#L786' title='Defined at 786 in src/ziplist.c.'>ziplistDeleteRange</a>(zl, 1, 5);
+<a name='L1319'>        <a href='../S/89.html#L901' title='Defined at 901 in src/ziplist.c.'>ziplistRepr</a>(zl);
+<a name='L1320'>    <font color='red'>}</font>
+<a name='L1321'>
+<a name='L1322'>    printf("Delete foo while iterating:\n");
+<a name='L1323'>    <font color='red'>{</font>
+<a name='L1324'>        zl = <a href='../S/89.html#L961' title='Defined at 961 in src/ziplist.c.'>createList</a>();
+<a name='L1325'>        p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl,0);
+<a name='L1326'>        <b>while</b> (<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(p,&amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>,&amp;elen,&amp;value)) <font color='red'>{</font>
+<a name='L1327'>            <b>if</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a> &amp;&amp; strncmp("foo",(<b>char</b>*)<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>,elen) == 0) <font color='red'>{</font>
+<a name='L1328'>                printf("Delete foo\n");
+<a name='L1329'>                zl = <a href='../S/89.html#L773' title='Defined at 773 in src/ziplist.c.'>ziplistDelete</a>(zl,&amp;p);
+<a name='L1330'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1331'>                printf("Entry: ");
+<a name='L1332'>                <b>if</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>) <font color='red'>{</font>
+<a name='L1333'>                    <b>if</b> (elen &amp;&amp; fwrite(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>,elen,1,stdout) == 0)
+<a name='L1334'>                        perror("fwrite");
+<a name='L1335'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1336'>                    printf("%lld",value);
+<a name='L1337'>                <font color='red'>}</font>
+<a name='L1338'>                p = <a href='../S/89.html#L705' title='Defined at 705 in src/ziplist.c.'>ziplistNext</a>(zl,p);
+<a name='L1339'>                printf("\n");
+<a name='L1340'>            <font color='red'>}</font>
+<a name='L1341'>        <font color='red'>}</font>
+<a name='L1342'>        printf("\n");
+<a name='L1343'>        <a href='../S/89.html#L901' title='Defined at 901 in src/ziplist.c.'>ziplistRepr</a>(zl);
+<a name='L1344'>    <font color='red'>}</font>
+<a name='L1345'>
+<a name='L1346'>    printf("Regression test for &gt;255 byte strings:\n");
+<a name='L1347'>    <font color='red'>{</font>
+<a name='L1348'>        <b>char</b> v1[257],v2[257];
+<a name='L1349'>        memset(v1,'x',256);
+<a name='L1350'>        memset(v2,'y',256);
+<a name='L1351'>        zl = <a href='../S/89.html#L418' title='Defined at 418 in src/ziplist.c.'>ziplistNew</a>();
+<a name='L1352'>        zl = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(zl,(<b>unsigned</b> <b>char</b>*)v1,strlen(v1),<a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>);
+<a name='L1353'>        zl = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(zl,(<b>unsigned</b> <b>char</b>*)v2,strlen(v2),<a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>);
+<a name='L1354'>
+<a name='L1355'>        <i><font color='green'>/* Pop values again and compare their value. */</font></i>
+<a name='L1356'>        p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl,0);
+<a name='L1357'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(p,&amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>,&amp;elen,&amp;value));
+<a name='L1358'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(strncmp(v1,(<b>char</b>*)<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>,elen) == 0);
+<a name='L1359'>        p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl,1);
+<a name='L1360'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(p,&amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>,&amp;elen,&amp;value));
+<a name='L1361'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(strncmp(v2,(<b>char</b>*)<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>,elen) == 0);
+<a name='L1362'>        printf("SUCCESS\n\n");
+<a name='L1363'>    <font color='red'>}</font>
+<a name='L1364'>
+<a name='L1365'>    printf("Regression test deleting next to last entries:\n");
+<a name='L1366'>    <font color='red'>{</font>
+<a name='L1367'>        <b>char</b> v[3][257];
+<a name='L1368'>        <a href='../D/4539.html' title='Multiple defined in 2 places.'>zlentry</a> e[3];
+<a name='L1369'>        <b>int</b> i;
+<a name='L1370'>
+<a name='L1371'>        <b>for</b> (i = 0; i &lt; (<b>sizeof</b>(v)/<b>sizeof</b>(v[0])); i++) <font color='red'>{</font>
+<a name='L1372'>            memset(v[i], 'a' + i, <b>sizeof</b>(v[0]));
+<a name='L1373'>        <font color='red'>}</font>
+<a name='L1374'>
+<a name='L1375'>        v[0][256] = '\0';
+<a name='L1376'>        v[1][  1] = '\0';
+<a name='L1377'>        v[2][256] = '\0';
+<a name='L1378'>
+<a name='L1379'>        zl = <a href='../S/89.html#L418' title='Defined at 418 in src/ziplist.c.'>ziplistNew</a>();
+<a name='L1380'>        <b>for</b> (i = 0; i &lt; (<b>sizeof</b>(v)/<b>sizeof</b>(v[0])); i++) <font color='red'>{</font>
+<a name='L1381'>            zl = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(zl, (<b>unsigned</b> <b>char</b> *) v[i], strlen(v[i]), <a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>);
+<a name='L1382'>        <font color='red'>}</font>
+<a name='L1383'>
+<a name='L1384'>        <a href='../S/89.html#L1068' title='Defined at 1068 in src/ziplist.c.'>verify</a>(zl, e);
+<a name='L1385'>
+<a name='L1386'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(e[0].prevrawlensize == 1);
+<a name='L1387'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(e[1].prevrawlensize == 5);
+<a name='L1388'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(e[2].prevrawlensize == 1);
+<a name='L1389'>
+<a name='L1390'>        <i><font color='green'>/* Deleting entry 1 will increase `prevrawlensize` for entry 2 */</font></i>
+<a name='L1391'>        <b>unsigned</b> <b>char</b> *p = e[1].p;
+<a name='L1392'>        zl = <a href='../S/89.html#L773' title='Defined at 773 in src/ziplist.c.'>ziplistDelete</a>(zl, &amp;p);
+<a name='L1393'>
+<a name='L1394'>        <a href='../S/89.html#L1068' title='Defined at 1068 in src/ziplist.c.'>verify</a>(zl, e);
+<a name='L1395'>
+<a name='L1396'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(e[0].prevrawlensize == 1);
+<a name='L1397'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(e[1].prevrawlensize == 5);
+<a name='L1398'>
+<a name='L1399'>        printf("SUCCESS\n\n");
+<a name='L1400'>    <font color='red'>}</font>
+<a name='L1401'>
+<a name='L1402'>    printf("Create long list and check indices:\n");
+<a name='L1403'>    <font color='red'>{</font>
+<a name='L1404'>        zl = <a href='../S/89.html#L418' title='Defined at 418 in src/ziplist.c.'>ziplistNew</a>();
+<a name='L1405'>        <b>char</b> buf[32];
+<a name='L1406'>        <b>int</b> i,len;
+<a name='L1407'>        <b>for</b> (i = 0; i &lt; 1000; i++) <font color='red'>{</font>
+<a name='L1408'>            len = sprintf(buf,"%d",i);
+<a name='L1409'>            zl = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(zl,(<b>unsigned</b> <b>char</b>*)buf,len,<a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>);
+<a name='L1410'>        <font color='red'>}</font>
+<a name='L1411'>        <b>for</b> (i = 0; i &lt; 1000; i++) <font color='red'>{</font>
+<a name='L1412'>            p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl,i);
+<a name='L1413'>            <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(p,NULL,NULL,&amp;value));
+<a name='L1414'>            <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(i == value);
+<a name='L1415'>
+<a name='L1416'>            p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl,-i-1);
+<a name='L1417'>            <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(p,NULL,NULL,&amp;value));
+<a name='L1418'>            <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(999-i == value);
+<a name='L1419'>        <font color='red'>}</font>
+<a name='L1420'>        printf("SUCCESS\n\n");
+<a name='L1421'>    <font color='red'>}</font>
+<a name='L1422'>
+<a name='L1423'>    printf("Compare strings with ziplist entries:\n");
+<a name='L1424'>    <font color='red'>{</font>
+<a name='L1425'>        zl = <a href='../S/89.html#L961' title='Defined at 961 in src/ziplist.c.'>createList</a>();
+<a name='L1426'>        p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl,0);
+<a name='L1427'>        <b>if</b> (!<a href='../S/89.html#L792' title='Defined at 792 in src/ziplist.c.'>ziplistCompare</a>(p,(<b>unsigned</b> <b>char</b>*)"hello",5)) <font color='red'>{</font>
+<a name='L1428'>            printf("ERROR: not \"hello\"\n");
+<a name='L1429'>            <b>return</b> 1;
+<a name='L1430'>        <font color='red'>}</font>
+<a name='L1431'>        <b>if</b> (<a href='../S/89.html#L792' title='Defined at 792 in src/ziplist.c.'>ziplistCompare</a>(p,(<b>unsigned</b> <b>char</b>*)"hella",5)) <font color='red'>{</font>
+<a name='L1432'>            printf("ERROR: \"hella\"\n");
+<a name='L1433'>            <b>return</b> 1;
+<a name='L1434'>        <font color='red'>}</font>
+<a name='L1435'>
+<a name='L1436'>        p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl,3);
+<a name='L1437'>        <b>if</b> (!<a href='../S/89.html#L792' title='Defined at 792 in src/ziplist.c.'>ziplistCompare</a>(p,(<b>unsigned</b> <b>char</b>*)"1024",4)) <font color='red'>{</font>
+<a name='L1438'>            printf("ERROR: not \"1024\"\n");
+<a name='L1439'>            <b>return</b> 1;
+<a name='L1440'>        <font color='red'>}</font>
+<a name='L1441'>        <b>if</b> (<a href='../S/89.html#L792' title='Defined at 792 in src/ziplist.c.'>ziplistCompare</a>(p,(<b>unsigned</b> <b>char</b>*)"1025",4)) <font color='red'>{</font>
+<a name='L1442'>            printf("ERROR: \"1025\"\n");
+<a name='L1443'>            <b>return</b> 1;
+<a name='L1444'>        <font color='red'>}</font>
+<a name='L1445'>        printf("SUCCESS\n\n");
+<a name='L1446'>    <font color='red'>}</font>
+<a name='L1447'>
+<a name='L1448'>    printf("Stress with random payloads of different encoding:\n");
+<a name='L1449'>    <font color='red'>{</font>
+<a name='L1450'>        <b>int</b> i,j,len,where;
+<a name='L1451'>        <b>unsigned</b> <b>char</b> *p;
+<a name='L1452'>        <b>char</b> buf[1024];
+<a name='L1453'>        <b>int</b> buflen;
+<a name='L1454'>        <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *ref;
+<a name='L1455'>        <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *refnode;
+<a name='L1456'>
+<a name='L1457'>        <i><font color='green'>/* Hold temp vars from ziplist */</font></i>
+<a name='L1458'>        <b>unsigned</b> <b>char</b> *sstr;
+<a name='L1459'>        <b>unsigned</b> <b>int</b> slen;
+<a name='L1460'>        <b>long</b> <b>long</b> sval;
+<a name='L1461'>
+<a name='L1462'>        <b>for</b> (i = 0; i &lt; 20000; i++) <font color='red'>{</font>
+<a name='L1463'>            zl = <a href='../S/89.html#L418' title='Defined at 418 in src/ziplist.c.'>ziplistNew</a>();
+<a name='L1464'>            ref = <a href='../S/54.html#L41' title='Defined at 41 in src/adlist.c.'>listCreate</a>();
+<a name='L1465'>            <a href='../S/58.html#L65' title='Defined at 65 in src/adlist.h.'>listSetFreeMethod</a>(ref,<a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>);
+<a name='L1466'>            len = rand() % 256;
+<a name='L1467'>
+<a name='L1468'>            <i><font color='green'>/* Create lists */</font></i>
+<a name='L1469'>            <b>for</b> (j = 0; j &lt; len; j++) <font color='red'>{</font>
+<a name='L1470'>                where = (rand() &amp; 1) ? <a href='../S/66.html#L31' title='Defined at 31 in src/ziplist.h.'>ZIPLIST_HEAD</a> : <a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>;
+<a name='L1471'>                <b>if</b> (rand() % 2) <font color='red'>{</font>
+<a name='L1472'>                    buflen = <a href='../S/89.html#L1043' title='Defined at 1043 in src/ziplist.c.'>randstring</a>(buf,1,<b>sizeof</b>(buf)-1);
+<a name='L1473'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1474'>                    <b>switch</b>(rand() % 3) <font color='red'>{</font>
+<a name='L1475'>                    <b>case</b> 0:
+<a name='L1476'>                        buflen = sprintf(buf,"%lld",(0LL + rand()) &gt;&gt; 20);
+<a name='L1477'>                        <b>break</b>;
+<a name='L1478'>                    <b>case</b> 1:
+<a name='L1479'>                        buflen = sprintf(buf,"%lld",(0LL + rand()));
+<a name='L1480'>                        <b>break</b>;
+<a name='L1481'>                    <b>case</b> 2:
+<a name='L1482'>                        buflen = sprintf(buf,"%lld",(0LL + rand()) &lt;&lt; 20);
+<a name='L1483'>                        <b>break</b>;
+<a name='L1484'>                    <b>default</b>:
+<a name='L1485'>                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(NULL);
+<a name='L1486'>                    <font color='red'>}</font>
+<a name='L1487'>                <font color='red'>}</font>
+<a name='L1488'>
+<a name='L1489'>                <i><font color='green'>/* Add to ziplist */</font></i>
+<a name='L1490'>                zl = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(zl, (<b>unsigned</b> <b>char</b>*)buf, buflen, where);
+<a name='L1491'>
+<a name='L1492'>                <i><font color='green'>/* Add to reference list */</font></i>
+<a name='L1493'>                <b>if</b> (where == <a href='../S/66.html#L31' title='Defined at 31 in src/ziplist.h.'>ZIPLIST_HEAD</a>) <font color='red'>{</font>
+<a name='L1494'>                    <a href='../S/54.html#L80' title='Defined at 80 in src/adlist.c.'>listAddNodeHead</a>(ref,<a href='../D/4014.html' title='Multiple defined in 2 places.'>sdsnewlen</a>(buf, buflen));
+<a name='L1495'>                <font color='red'>}</font> <b>else</b> <b>if</b> (where == <a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>) <font color='red'>{</font>
+<a name='L1496'>                    <a href='../S/54.html#L106' title='Defined at 106 in src/adlist.c.'>listAddNodeTail</a>(ref,<a href='../D/4014.html' title='Multiple defined in 2 places.'>sdsnewlen</a>(buf, buflen));
+<a name='L1497'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1498'>                    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(NULL);
+<a name='L1499'>                <font color='red'>}</font>
+<a name='L1500'>            <font color='red'>}</font>
+<a name='L1501'>
+<a name='L1502'>            <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/58.html#L57' title='Defined at 57 in src/adlist.h.'>listLength</a>(ref) == <a href='../S/89.html#L879' title='Defined at 879 in src/ziplist.c.'>ziplistLen</a>(zl));
+<a name='L1503'>            <b>for</b> (j = 0; j &lt; len; j++) <font color='red'>{</font>
+<a name='L1504'>                <i><font color='green'>/* Naive way to get elements, but similar to the stresser</font></i>
+<a name='L1505'><i><font color='green'>                 * executed from the Tcl test suite. */</font></i>
+<a name='L1506'>                p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl,j);
+<a name='L1507'>                refnode = <a href='../S/54.html#L313' title='Defined at 313 in src/adlist.c.'>listIndex</a>(ref,j);
+<a name='L1508'>
+<a name='L1509'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(p,&amp;sstr,&amp;slen,&amp;sval));
+<a name='L1510'>                <b>if</b> (sstr == NULL) <font color='red'>{</font>
+<a name='L1511'>                    buflen = sprintf(buf,"%lld",sval);
+<a name='L1512'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1513'>                    buflen = slen;
+<a name='L1514'>                    memcpy(buf,sstr,buflen);
+<a name='L1515'>                    buf[buflen] = '\0';
+<a name='L1516'>                <font color='red'>}</font>
+<a name='L1517'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(memcmp(buf,<a href='../S/58.html#L62' title='Defined at 62 in src/adlist.h.'>listNodeValue</a>(refnode),buflen) == 0);
+<a name='L1518'>            <font color='red'>}</font>
+<a name='L1519'>            <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(zl);
+<a name='L1520'>            <a href='../S/54.html#L58' title='Defined at 58 in src/adlist.c.'>listRelease</a>(ref);
+<a name='L1521'>        <font color='red'>}</font>
+<a name='L1522'>        printf("SUCCESS\n\n");
+<a name='L1523'>    <font color='red'>}</font>
+<a name='L1524'>
+<a name='L1525'>    printf("Stress with variable ziplist size:\n");
+<a name='L1526'>    <font color='red'>{</font>
+<a name='L1527'>        <a href='../S/89.html#L995' title='Defined at 995 in src/ziplist.c.'>stress</a>(<a href='../S/66.html#L31' title='Defined at 31 in src/ziplist.h.'>ZIPLIST_HEAD</a>,100000,16384,256);
+<a name='L1528'>        <a href='../S/89.html#L995' title='Defined at 995 in src/ziplist.c.'>stress</a>(<a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>,100000,16384,256);
+<a name='L1529'>    <font color='red'>}</font>
+<a name='L1530'>
+<a name='L1531'>    <b>return</b> 0;
+<a name='L1532'><font color='red'>}</font>
+<a name='L1533'>
+<a name='L1534'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L173'>[^]</a><a href='#L1084'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

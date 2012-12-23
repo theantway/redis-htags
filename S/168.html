@@ -1,0 +1,181 @@
+<html>
+<head>
+<title>deps/jemalloc/test/bitmap.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/396.html'>test</a>/bitmap.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L11'>[^]</a><a href='#L141'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L11' title='Defined at 11.'>test_bitmap_size</a>
+<li><a href='#L24' title='Defined at 24.'>test_bitmap_init</a>
+<li><a href='#L46' title='Defined at 46.'>test_bitmap_set</a>
+<li><a href='#L68' title='Defined at 68.'>test_bitmap_unset</a>
+<li><a href='#L95' title='Defined at 95.'>test_bitmap_sfu</a>
+<li><a href='#L141' title='Defined at 141.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> JEMALLOC_MANGLE
+<a name='L2'><font color='darkred'>#include</font> "jemalloc_test.h"
+<a name='L3'>
+<a name='L4'><font color='darkred'>#if</font> (<a href='../S/133.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>LG_BITMAP_MAXBITS</a> &gt; 12)
+<a name='L5'><font color='darkred'>#  define</font> <a href='../R/438.html' title='Multiple refered from 10 places.'>MAXBITS</a>       4500
+<a name='L6'><font color='darkred'>#else</font>
+<a name='L7'><font color='darkred'>#  define</font> <a href='../R/438.html' title='Multiple refered from 10 places.'>MAXBITS</a>       (1U &lt;&lt; <a href='../S/133.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>LG_BITMAP_MAXBITS</a>)
+<a name='L8'><font color='darkred'>#endif</font>
+<a name='L9'>
+<a name='L10'><b>static</b> <b>void</b>
+<a name='L11'><a href='../S/168.html#L145' title='Refered from 145 in deps/jemalloc/test/bitmap.c.'>test_bitmap_size</a>(<b>void</b>)
+<a name='L12'><font color='red'>{</font>
+<a name='L13'>        size_t i, prev_size;
+<a name='L14'>
+<a name='L15'>        prev_size = 0;
+<a name='L16'>        <b>for</b> (i = 1; i &lt;= <a href='../D/488.html' title='Multiple defined in 4 places.'>MAXBITS</a>; i++) <font color='red'>{</font>
+<a name='L17'>                size_t size = <a href='../D/1752.html' title='Multiple defined in 2 places.'>bitmap_size</a>(i);
+<a name='L18'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(size &gt;= prev_size);
+<a name='L19'>                prev_size = size;
+<a name='L20'>        <font color='red'>}</font>
+<a name='L21'><font color='red'>}</font>
+<a name='L22'>
+<a name='L23'><b>static</b> <b>void</b>
+<a name='L24'><a href='../S/168.html#L146' title='Refered from 146 in deps/jemalloc/test/bitmap.c.'>test_bitmap_init</a>(<b>void</b>)
+<a name='L25'><font color='red'>{</font>
+<a name='L26'>        size_t i;
+<a name='L27'>
+<a name='L28'>        <b>for</b> (i = 1; i &lt;= <a href='../D/488.html' title='Multiple defined in 4 places.'>MAXBITS</a>; i++) <font color='red'>{</font>
+<a name='L29'>                <a href='../S/133.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>bitmap_info_t</a> binfo;
+<a name='L30'>                <a href='../D/1743.html' title='Multiple defined in 2 places.'>bitmap_info_init</a>(&amp;binfo, i);
+<a name='L31'>                <font color='red'>{</font>
+<a name='L32'>                        size_t j;
+<a name='L33'>                        <a href='../S/133.html#L9' title='Defined at 9 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>bitmap_t</a> *bitmap = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(<a href='../S/133.html#L9' title='Defined at 9 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>bitmap_t</a>) *
+<a name='L34'>                                <a href='../D/1744.html' title='Multiple defined in 2 places.'>bitmap_info_ngroups</a>(&amp;binfo));
+<a name='L35'>                        <a href='../D/1747.html' title='Multiple defined in 2 places.'>bitmap_init</a>(bitmap, &amp;binfo);
+<a name='L36'>
+<a name='L37'>                        <b>for</b> (j = 0; j &lt; i; j++)
+<a name='L38'>                                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1742.html' title='Multiple defined in 2 places.'>bitmap_get</a>(bitmap, &amp;binfo, j) == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L39'>                        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(bitmap);
+<a name='L40'>
+<a name='L41'>                <font color='red'>}</font>
+<a name='L42'>        <font color='red'>}</font>
+<a name='L43'><font color='red'>}</font>
+<a name='L44'>
+<a name='L45'><b>static</b> <b>void</b>
+<a name='L46'><a href='../S/168.html#L147' title='Refered from 147 in deps/jemalloc/test/bitmap.c.'>test_bitmap_set</a>(<b>void</b>)
+<a name='L47'><font color='red'>{</font>
+<a name='L48'>        size_t i;
+<a name='L49'>
+<a name='L50'>        <b>for</b> (i = 1; i &lt;= <a href='../D/488.html' title='Multiple defined in 4 places.'>MAXBITS</a>; i++) <font color='red'>{</font>
+<a name='L51'>                <a href='../S/133.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>bitmap_info_t</a> binfo;
+<a name='L52'>                <a href='../D/1743.html' title='Multiple defined in 2 places.'>bitmap_info_init</a>(&amp;binfo, i);
+<a name='L53'>                <font color='red'>{</font>
+<a name='L54'>                        size_t j;
+<a name='L55'>                        <a href='../S/133.html#L9' title='Defined at 9 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>bitmap_t</a> *bitmap = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(<a href='../S/133.html#L9' title='Defined at 9 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>bitmap_t</a>) *
+<a name='L56'>                                <a href='../D/1744.html' title='Multiple defined in 2 places.'>bitmap_info_ngroups</a>(&amp;binfo));
+<a name='L57'>                        <a href='../D/1747.html' title='Multiple defined in 2 places.'>bitmap_init</a>(bitmap, &amp;binfo);
+<a name='L58'>
+<a name='L59'>                        <b>for</b> (j = 0; j &lt; i; j++)
+<a name='L60'>                                <a href='../D/1750.html' title='Multiple defined in 2 places.'>bitmap_set</a>(bitmap, &amp;binfo, j);
+<a name='L61'>                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1741.html' title='Multiple defined in 2 places.'>bitmap_full</a>(bitmap, &amp;binfo));
+<a name='L62'>                        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(bitmap);
+<a name='L63'>                <font color='red'>}</font>
+<a name='L64'>        <font color='red'>}</font>
+<a name='L65'><font color='red'>}</font>
+<a name='L66'>
+<a name='L67'><b>static</b> <b>void</b>
+<a name='L68'><a href='../S/168.html#L148' title='Refered from 148 in deps/jemalloc/test/bitmap.c.'>test_bitmap_unset</a>(<b>void</b>)
+<a name='L69'><font color='red'>{</font>
+<a name='L70'>        size_t i;
+<a name='L71'>
+<a name='L72'>        <b>for</b> (i = 1; i &lt;= <a href='../D/488.html' title='Multiple defined in 4 places.'>MAXBITS</a>; i++) <font color='red'>{</font>
+<a name='L73'>                <a href='../S/133.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>bitmap_info_t</a> binfo;
+<a name='L74'>                <a href='../D/1743.html' title='Multiple defined in 2 places.'>bitmap_info_init</a>(&amp;binfo, i);
+<a name='L75'>                <font color='red'>{</font>
+<a name='L76'>                        size_t j;
+<a name='L77'>                        <a href='../S/133.html#L9' title='Defined at 9 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>bitmap_t</a> *bitmap = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(<a href='../S/133.html#L9' title='Defined at 9 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>bitmap_t</a>) *
+<a name='L78'>                                <a href='../D/1744.html' title='Multiple defined in 2 places.'>bitmap_info_ngroups</a>(&amp;binfo));
+<a name='L79'>                        <a href='../D/1747.html' title='Multiple defined in 2 places.'>bitmap_init</a>(bitmap, &amp;binfo);
+<a name='L80'>
+<a name='L81'>                        <b>for</b> (j = 0; j &lt; i; j++)
+<a name='L82'>                                <a href='../D/1750.html' title='Multiple defined in 2 places.'>bitmap_set</a>(bitmap, &amp;binfo, j);
+<a name='L83'>                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1741.html' title='Multiple defined in 2 places.'>bitmap_full</a>(bitmap, &amp;binfo));
+<a name='L84'>                        <b>for</b> (j = 0; j &lt; i; j++)
+<a name='L85'>                                <a href='../D/1754.html' title='Multiple defined in 2 places.'>bitmap_unset</a>(bitmap, &amp;binfo, j);
+<a name='L86'>                        <b>for</b> (j = 0; j &lt; i; j++)
+<a name='L87'>                                <a href='../D/1750.html' title='Multiple defined in 2 places.'>bitmap_set</a>(bitmap, &amp;binfo, j);
+<a name='L88'>                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1741.html' title='Multiple defined in 2 places.'>bitmap_full</a>(bitmap, &amp;binfo));
+<a name='L89'>                        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(bitmap);
+<a name='L90'>                <font color='red'>}</font>
+<a name='L91'>        <font color='red'>}</font>
+<a name='L92'><font color='red'>}</font>
+<a name='L93'>
+<a name='L94'><b>static</b> <b>void</b>
+<a name='L95'><a href='../S/168.html#L149' title='Refered from 149 in deps/jemalloc/test/bitmap.c.'>test_bitmap_sfu</a>(<b>void</b>)
+<a name='L96'><font color='red'>{</font>
+<a name='L97'>        size_t i;
+<a name='L98'>
+<a name='L99'>        <b>for</b> (i = 1; i &lt;= <a href='../D/488.html' title='Multiple defined in 4 places.'>MAXBITS</a>; i++) <font color='red'>{</font>
+<a name='L100'>                <a href='../S/133.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>bitmap_info_t</a> binfo;
+<a name='L101'>                <a href='../D/1743.html' title='Multiple defined in 2 places.'>bitmap_info_init</a>(&amp;binfo, i);
+<a name='L102'>                <font color='red'>{</font>
+<a name='L103'>                        ssize_t j;
+<a name='L104'>                        <a href='../S/133.html#L9' title='Defined at 9 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>bitmap_t</a> *bitmap = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(<a href='../S/133.html#L9' title='Defined at 9 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>bitmap_t</a>) *
+<a name='L105'>                                <a href='../D/1744.html' title='Multiple defined in 2 places.'>bitmap_info_ngroups</a>(&amp;binfo));
+<a name='L106'>                        <a href='../D/1747.html' title='Multiple defined in 2 places.'>bitmap_init</a>(bitmap, &amp;binfo);
+<a name='L107'>
+<a name='L108'>                        <i><font color='green'>/* Iteratively set bits starting at the beginning. */</font></i>
+<a name='L109'>                        <b>for</b> (j = 0; j &lt; i; j++)
+<a name='L110'>                                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1751.html' title='Multiple defined in 2 places.'>bitmap_sfu</a>(bitmap, &amp;binfo) == j);
+<a name='L111'>                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1741.html' title='Multiple defined in 2 places.'>bitmap_full</a>(bitmap, &amp;binfo));
+<a name='L112'>
+<a name='L113'>                        <i><font color='green'>/*</font></i>
+<a name='L114'><i><font color='green'>                         * Iteratively unset bits starting at the end, and</font></i>
+<a name='L115'><i><font color='green'>                         * verify that bitmap_sfu() reaches the unset bits.</font></i>
+<a name='L116'><i><font color='green'>                         */</font></i>
+<a name='L117'>                        <b>for</b> (j = i - 1; j &gt;= 0; j--) <font color='red'>{</font>
+<a name='L118'>                                <a href='../D/1754.html' title='Multiple defined in 2 places.'>bitmap_unset</a>(bitmap, &amp;binfo, j);
+<a name='L119'>                                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1751.html' title='Multiple defined in 2 places.'>bitmap_sfu</a>(bitmap, &amp;binfo) == j);
+<a name='L120'>                                <a href='../D/1754.html' title='Multiple defined in 2 places.'>bitmap_unset</a>(bitmap, &amp;binfo, j);
+<a name='L121'>                        <font color='red'>}</font>
+<a name='L122'>                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1742.html' title='Multiple defined in 2 places.'>bitmap_get</a>(bitmap, &amp;binfo, 0) == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L123'>
+<a name='L124'>                        <i><font color='green'>/*</font></i>
+<a name='L125'><i><font color='green'>                         * Iteratively set bits starting at the beginning, and</font></i>
+<a name='L126'><i><font color='green'>                         * verify that bitmap_sfu() looks past them.</font></i>
+<a name='L127'><i><font color='green'>                         */</font></i>
+<a name='L128'>                        <b>for</b> (j = 1; j &lt; i; j++) <font color='red'>{</font>
+<a name='L129'>                                <a href='../D/1750.html' title='Multiple defined in 2 places.'>bitmap_set</a>(bitmap, &amp;binfo, j - 1);
+<a name='L130'>                                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1751.html' title='Multiple defined in 2 places.'>bitmap_sfu</a>(bitmap, &amp;binfo) == j);
+<a name='L131'>                                <a href='../D/1754.html' title='Multiple defined in 2 places.'>bitmap_unset</a>(bitmap, &amp;binfo, j);
+<a name='L132'>                        <font color='red'>}</font>
+<a name='L133'>                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1751.html' title='Multiple defined in 2 places.'>bitmap_sfu</a>(bitmap, &amp;binfo) == i - 1);
+<a name='L134'>                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1741.html' title='Multiple defined in 2 places.'>bitmap_full</a>(bitmap, &amp;binfo));
+<a name='L135'>                        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(bitmap);
+<a name='L136'>                <font color='red'>}</font>
+<a name='L137'>        <font color='red'>}</font>
+<a name='L138'><font color='red'>}</font>
+<a name='L139'>
+<a name='L140'><b>int</b>
+<a name='L141'>main(<b>void</b>)
+<a name='L142'><font color='red'>{</font>
+<a name='L143'>        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Test begin\n");
+<a name='L144'>
+<a name='L145'>        <a href='../S/168.html#L11' title='Defined at 11 in deps/jemalloc/test/bitmap.c.'>test_bitmap_size</a>();
+<a name='L146'>        <a href='../S/168.html#L24' title='Defined at 24 in deps/jemalloc/test/bitmap.c.'>test_bitmap_init</a>();
+<a name='L147'>        <a href='../S/168.html#L46' title='Defined at 46 in deps/jemalloc/test/bitmap.c.'>test_bitmap_set</a>();
+<a name='L148'>        <a href='../S/168.html#L68' title='Defined at 68 in deps/jemalloc/test/bitmap.c.'>test_bitmap_unset</a>();
+<a name='L149'>        <a href='../S/168.html#L95' title='Defined at 95 in deps/jemalloc/test/bitmap.c.'>test_bitmap_sfu</a>();
+<a name='L150'>
+<a name='L151'>        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Test end\n");
+<a name='L152'>        <b>return</b> (0);
+<a name='L153'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L11'>[^]</a><a href='#L141'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

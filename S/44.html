@@ -1,0 +1,529 @@
+<html>
+<head>
+<title>src/intset.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/intset.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L45'>[^]</a><a href='#L351'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L45' title='Defined at 45.'>_intsetValueEncoding</a>
+<li><a href='#L55' title='Defined at 55.'>_intsetGetEncoded</a>
+<li><a href='#L76' title='Defined at 76.'>_intsetGet</a>
+<li><a href='#L81' title='Defined at 81.'>_intsetSet</a>
+<li><a href='#L97' title='Defined at 97.'>intsetNew</a>
+<li><a href='#L105' title='Defined at 105.'>intsetResize</a>
+<li><a href='#L115' title='Defined at 115.'>intsetSearch</a>
+<li><a href='#L157' title='Defined at 157.'>intsetUpgradeAndAdd</a>
+<li><a href='#L182' title='Defined at 182.'>intsetMoveTail</a>
+<li><a href='#L204' title='Defined at 204.'>intsetAdd</a>
+<li><a href='#L234' title='Defined at 234.'>intsetRemove</a>
+<li><a href='#L254' title='Defined at 254.'>intsetFind</a>
+<li><a href='#L260' title='Defined at 260.'>intsetRandom</a>
+<li><a href='#L266' title='Defined at 266.'>intsetGet</a>
+<li><a href='#L275' title='Defined at 275.'>intsetLen</a>
+<li><a href='#L280' title='Defined at 280.'>intsetBlobLen</a>
+<li><a href='#L287' title='Defined at 287.'>intsetRepr</a>
+<li><a href='#L295' title='Defined at 295.'>error</a>
+<li><a href='#L300' title='Defined at 300.'>ok</a>
+<li><a href='#L304' title='Defined at 304.'>usec</a>
+<li><a href='#L311' title='Defined at 311.'>_assert</a>
+<li><a href='#L316' title='Defined at 316.'>createSet</a>
+<li><a href='#L332' title='Defined at 332.'>checkConsistency</a>
+<li><a href='#L351' title='Defined at 351.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2009-2012, Pieter Noordhuis &lt;pcnoordhuis at gmail dot com&gt;</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L32'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L33'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L34'><font color='darkred'>#include</font> "<a href='51.html'>intset.h</a>"
+<a name='L35'><font color='darkred'>#include</font> "<a href='28.html'>zmalloc.h</a>"
+<a name='L36'><font color='darkred'>#include</font> "<a href='42.html'>endianconv.h</a>"
+<a name='L37'>
+<a name='L38'><i><font color='green'>/* Note that these encodings are ordered, so:</font></i>
+<a name='L39'><i><font color='green'> * INTSET_ENC_INT16 &lt; INTSET_ENC_INT32 &lt; INTSET_ENC_INT64. */</font></i>
+<a name='L40'><font color='darkred'>#define</font> <a href='../R/207.html' title='Multiple refered from 9 places.'>INTSET_ENC_INT16</a> (<b>sizeof</b>(<a href='../D/2492.html' title='Multiple defined in 2 places.'>int16_t</a>))
+<a name='L41'><font color='darkred'>#define</font> <a href='../R/208.html' title='Multiple refered from 13 places.'>INTSET_ENC_INT32</a> (<b>sizeof</b>(<a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a>))
+<a name='L42'><font color='darkred'>#define</font> <a href='../R/209.html' title='Multiple refered from 12 places.'>INTSET_ENC_INT64</a> (<b>sizeof</b>(<a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>))
+<a name='L43'>
+<a name='L44'><i><font color='green'>/* Return the required encoding for the provided value. */</font></i>
+<a name='L45'><b>static</b> <a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a> <a href='../R/1174.html' title='Multiple refered from 14 places.'>_intsetValueEncoding</a>(<a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> v) <font color='red'>{</font>
+<a name='L46'>    <b>if</b> (v &lt; <a href='../S/160.html#L136' title='Defined at 136 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT32_MIN</a> || v &gt; <a href='../S/160.html#L137' title='Defined at 137 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT32_MAX</a>)
+<a name='L47'>        <b>return</b> <a href='../S/44.html#L42' title='Defined at 42 in src/intset.c.'>INTSET_ENC_INT64</a>;
+<a name='L48'>    <b>else</b> <b>if</b> (v &lt; <a href='../S/160.html#L134' title='Defined at 134 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT16_MIN</a> || v &gt; <a href='../S/160.html#L135' title='Defined at 135 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT16_MAX</a>)
+<a name='L49'>        <b>return</b> <a href='../S/44.html#L41' title='Defined at 41 in src/intset.c.'>INTSET_ENC_INT32</a>;
+<a name='L50'>    <b>else</b>
+<a name='L51'>        <b>return</b> <a href='../S/44.html#L40' title='Defined at 40 in src/intset.c.'>INTSET_ENC_INT16</a>;
+<a name='L52'><font color='red'>}</font>
+<a name='L53'>
+<a name='L54'><i><font color='green'>/* Return the value at pos, given an encoding. */</font></i>
+<a name='L55'><b>static</b> <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> <a href='../R/1172.html' title='Multiple refered from 2 places.'>_intsetGetEncoded</a>(intset *is, <b>int</b> pos, <a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a> enc) <font color='red'>{</font>
+<a name='L56'>    <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> v64;
+<a name='L57'>    <a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a> v32;
+<a name='L58'>    <a href='../D/2492.html' title='Multiple defined in 2 places.'>int16_t</a> v16;
+<a name='L59'>
+<a name='L60'>    <b>if</b> (enc == <a href='../S/44.html#L42' title='Defined at 42 in src/intset.c.'>INTSET_ENC_INT64</a>) <font color='red'>{</font>
+<a name='L61'>        memcpy(&amp;v64,((<a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>*)is-&gt;contents)+<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,<b>sizeof</b>(v64));
+<a name='L62'>        <a href='../D/3348.html' title='Multiple defined in 2 places.'>memrev64ifbe</a>(&amp;v64);
+<a name='L63'>        <b>return</b> v64;
+<a name='L64'>    <font color='red'>}</font> <b>else</b> <b>if</b> (enc == <a href='../S/44.html#L41' title='Defined at 41 in src/intset.c.'>INTSET_ENC_INT32</a>) <font color='red'>{</font>
+<a name='L65'>        memcpy(&amp;v32,((<a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a>*)is-&gt;contents)+<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,<b>sizeof</b>(v32));
+<a name='L66'>        <a href='../D/3346.html' title='Multiple defined in 2 places.'>memrev32ifbe</a>(&amp;v32);
+<a name='L67'>        <b>return</b> v32;
+<a name='L68'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L69'>        memcpy(&amp;v16,((<a href='../D/2492.html' title='Multiple defined in 2 places.'>int16_t</a>*)is-&gt;contents)+<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,<b>sizeof</b>(v16));
+<a name='L70'>        <a href='../D/3344.html' title='Multiple defined in 2 places.'>memrev16ifbe</a>(&amp;v16);
+<a name='L71'>        <b>return</b> v16;
+<a name='L72'>    <font color='red'>}</font>
+<a name='L73'><font color='red'>}</font>
+<a name='L74'>
+<a name='L75'><i><font color='green'>/* Return the value at pos, using the configured encoding. */</font></i>
+<a name='L76'><b>static</b> <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> <a href='../R/1171.html' title='Multiple refered from 6 places.'>_intsetGet</a>(intset *is, <b>int</b> pos) <font color='red'>{</font>
+<a name='L77'>    <b>return</b> <a href='../S/44.html#L55' title='Defined at 55 in src/intset.c.'>_intsetGetEncoded</a>(is,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding));
+<a name='L78'><font color='red'>}</font>
+<a name='L79'>
+<a name='L80'><i><font color='green'>/* Set the value at pos, using the configured encoding. */</font></i>
+<a name='L81'><b>static</b> <b>void</b> <a href='../R/1173.html' title='Multiple refered from 4 places.'>_intsetSet</a>(intset *is, <b>int</b> pos, <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> value) <font color='red'>{</font>
+<a name='L82'>    <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> encoding = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding);
+<a name='L83'>
+<a name='L84'>    <b>if</b> (encoding == <a href='../S/44.html#L42' title='Defined at 42 in src/intset.c.'>INTSET_ENC_INT64</a>) <font color='red'>{</font>
+<a name='L85'>        ((<a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>*)is-&gt;contents)[<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>] = value;
+<a name='L86'>        <a href='../D/3348.html' title='Multiple defined in 2 places.'>memrev64ifbe</a>(((<a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>*)is-&gt;contents)+<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>);
+<a name='L87'>    <font color='red'>}</font> <b>else</b> <b>if</b> (encoding == <a href='../S/44.html#L41' title='Defined at 41 in src/intset.c.'>INTSET_ENC_INT32</a>) <font color='red'>{</font>
+<a name='L88'>        ((<a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a>*)is-&gt;contents)[<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>] = value;
+<a name='L89'>        <a href='../D/3346.html' title='Multiple defined in 2 places.'>memrev32ifbe</a>(((<a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a>*)is-&gt;contents)+<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>);
+<a name='L90'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L91'>        ((<a href='../D/2492.html' title='Multiple defined in 2 places.'>int16_t</a>*)is-&gt;contents)[<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>] = value;
+<a name='L92'>        <a href='../D/3344.html' title='Multiple defined in 2 places.'>memrev16ifbe</a>(((<a href='../D/2492.html' title='Multiple defined in 2 places.'>int16_t</a>*)is-&gt;contents)+<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>);
+<a name='L93'>    <font color='red'>}</font>
+<a name='L94'><font color='red'>}</font>
+<a name='L95'>
+<a name='L96'><i><font color='green'>/* Create an empty intset. */</font></i>
+<a name='L97'><a href='../D/2513.html' title='Multiple defined in 2 places.'>intset</a> *<a href='../R/2229.html' title='Multiple refered from 12 places.'>intsetNew</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L98'>    <a href='../D/2513.html' title='Multiple defined in 2 places.'>intset</a> *is = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<a href='../D/2513.html' title='Multiple defined in 2 places.'>intset</a>));
+<a name='L99'>    is-&gt;encoding = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../S/44.html#L40' title='Defined at 40 in src/intset.c.'>INTSET_ENC_INT16</a>);
+<a name='L100'>    is-&gt;length = 0;
+<a name='L101'>    <b>return</b> is;
+<a name='L102'><font color='red'>}</font>
+<a name='L103'>
+<a name='L104'><i><font color='green'>/* Resize the intset */</font></i>
+<a name='L105'><b>static</b> <a href='../D/2513.html' title='Multiple defined in 2 places.'>intset</a> *<a href='../R/2232.html' title='Multiple refered from 3 places.'>intsetResize</a>(intset *is, <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> len) <font color='red'>{</font>
+<a name='L106'>    <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> size = len*<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding);
+<a name='L107'>    is = <a href='../S/39.html#L149' title='Defined at 149 in src/zmalloc.c.'>zrealloc</a>(is,<b>sizeof</b>(<a href='../D/2513.html' title='Multiple defined in 2 places.'>intset</a>)+size);
+<a name='L108'>    <b>return</b> is;
+<a name='L109'><font color='red'>}</font>
+<a name='L110'>
+<a name='L111'><i><font color='green'>/* Search for the position of "value". Return 1 when the value was found and</font></i>
+<a name='L112'><i><font color='green'> * sets "pos" to the position of the value within the intset. Return 0 when</font></i>
+<a name='L113'><i><font color='green'> * the value is not present in the intset and sets "pos" to the position</font></i>
+<a name='L114'><i><font color='green'> * where "value" can be inserted. */</font></i>
+<a name='L115'><b>static</b> <a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a> <a href='../R/2233.html' title='Multiple refered from 4 places.'>intsetSearch</a>(intset *is, <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> value, <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> *pos) <font color='red'>{</font>
+<a name='L116'>    <b>int</b> <a href='../S/20.html#L50' title='Defined at 50 in src/pqsort.c.'>min</a> = 0, max = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length)-1, mid = -1;
+<a name='L117'>    <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> cur = -1;
+<a name='L118'>
+<a name='L119'>    <i><font color='green'>/* The value can never be found when the set is empty */</font></i>
+<a name='L120'>    <b>if</b> (<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length) == 0) <font color='red'>{</font>
+<a name='L121'>        <b>if</b> (<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>) *<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> = 0;
+<a name='L122'>        <b>return</b> 0;
+<a name='L123'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L124'>        <i><font color='green'>/* Check for the case where we know we cannot find the value,</font></i>
+<a name='L125'><i><font color='green'>         * but do know the insert position. */</font></i>
+<a name='L126'>        <b>if</b> (value &gt; <a href='../S/44.html#L76' title='Defined at 76 in src/intset.c.'>_intsetGet</a>(is,<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length)-1)) <font color='red'>{</font>
+<a name='L127'>            <b>if</b> (<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>) *<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length);
+<a name='L128'>            <b>return</b> 0;
+<a name='L129'>        <font color='red'>}</font> <b>else</b> <b>if</b> (value &lt; <a href='../S/44.html#L76' title='Defined at 76 in src/intset.c.'>_intsetGet</a>(is,0)) <font color='red'>{</font>
+<a name='L130'>            <b>if</b> (<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>) *<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> = 0;
+<a name='L131'>            <b>return</b> 0;
+<a name='L132'>        <font color='red'>}</font>
+<a name='L133'>    <font color='red'>}</font>
+<a name='L134'>
+<a name='L135'>    <b>while</b>(max &gt;= <a href='../S/20.html#L50' title='Defined at 50 in src/pqsort.c.'>min</a>) <font color='red'>{</font>
+<a name='L136'>        mid = (<a href='../S/20.html#L50' title='Defined at 50 in src/pqsort.c.'>min</a>+max)/2;
+<a name='L137'>        cur = <a href='../S/44.html#L76' title='Defined at 76 in src/intset.c.'>_intsetGet</a>(is,mid);
+<a name='L138'>        <b>if</b> (value &gt; cur) <font color='red'>{</font>
+<a name='L139'>            <a href='../S/20.html#L50' title='Defined at 50 in src/pqsort.c.'>min</a> = mid+1;
+<a name='L140'>        <font color='red'>}</font> <b>else</b> <b>if</b> (value &lt; cur) <font color='red'>{</font>
+<a name='L141'>            max = mid-1;
+<a name='L142'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L143'>            <b>break</b>;
+<a name='L144'>        <font color='red'>}</font>
+<a name='L145'>    <font color='red'>}</font>
+<a name='L146'>
+<a name='L147'>    <b>if</b> (value == cur) <font color='red'>{</font>
+<a name='L148'>        <b>if</b> (<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>) *<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> = mid;
+<a name='L149'>        <b>return</b> 1;
+<a name='L150'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L151'>        <b>if</b> (<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>) *<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> = <a href='../S/20.html#L50' title='Defined at 50 in src/pqsort.c.'>min</a>;
+<a name='L152'>        <b>return</b> 0;
+<a name='L153'>    <font color='red'>}</font>
+<a name='L154'><font color='red'>}</font>
+<a name='L155'>
+<a name='L156'><i><font color='green'>/* Upgrades the intset to a larger encoding and inserts the given integer. */</font></i>
+<a name='L157'><b>static</b> <a href='../D/2513.html' title='Multiple defined in 2 places.'>intset</a> *<a href='../S/44.html#L214' title='Refered from 214 in src/intset.c.'>intsetUpgradeAndAdd</a>(intset *is, <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> value) <font color='red'>{</font>
+<a name='L158'>    <a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a> curenc = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding);
+<a name='L159'>    <a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a> newenc = <a href='../S/44.html#L45' title='Defined at 45 in src/intset.c.'>_intsetValueEncoding</a>(value);
+<a name='L160'>    <b>int</b> length = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length);
+<a name='L161'>    <b>int</b> prepend = value &lt; 0 ? 1 : 0;
+<a name='L162'>
+<a name='L163'>    <i><font color='green'>/* First set new encoding and resize */</font></i>
+<a name='L164'>    is-&gt;encoding = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(newenc);
+<a name='L165'>    is = <a href='../S/44.html#L105' title='Defined at 105 in src/intset.c.'>intsetResize</a>(is,<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length)+1);
+<a name='L166'>
+<a name='L167'>    <i><font color='green'>/* Upgrade back-to-front so we don't overwrite values.</font></i>
+<a name='L168'><i><font color='green'>     * Note that the "prepend" variable is used to make sure we have an empty</font></i>
+<a name='L169'><i><font color='green'>     * space at either the beginning or the end of the intset. */</font></i>
+<a name='L170'>    <b>while</b>(length--)
+<a name='L171'>        <a href='../S/44.html#L81' title='Defined at 81 in src/intset.c.'>_intsetSet</a>(is,length+prepend,<a href='../S/44.html#L55' title='Defined at 55 in src/intset.c.'>_intsetGetEncoded</a>(is,length,curenc));
+<a name='L172'>
+<a name='L173'>    <i><font color='green'>/* Set the value at the beginning or the end. */</font></i>
+<a name='L174'>    <b>if</b> (prepend)
+<a name='L175'>        <a href='../S/44.html#L81' title='Defined at 81 in src/intset.c.'>_intsetSet</a>(is,0,value);
+<a name='L176'>    <b>else</b>
+<a name='L177'>        <a href='../S/44.html#L81' title='Defined at 81 in src/intset.c.'>_intsetSet</a>(is,<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length),value);
+<a name='L178'>    is-&gt;length = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length)+1);
+<a name='L179'>    <b>return</b> is;
+<a name='L180'><font color='red'>}</font>
+<a name='L181'>
+<a name='L182'><b>static</b> <b>void</b> <a href='../R/2228.html' title='Multiple refered from 2 places.'>intsetMoveTail</a>(intset *is, <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> from, <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> to) <font color='red'>{</font>
+<a name='L183'>    <b>void</b> *src, *dst;
+<a name='L184'>    <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> bytes = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length)-from;
+<a name='L185'>    <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> encoding = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding);
+<a name='L186'>
+<a name='L187'>    <b>if</b> (encoding == <a href='../S/44.html#L42' title='Defined at 42 in src/intset.c.'>INTSET_ENC_INT64</a>) <font color='red'>{</font>
+<a name='L188'>        src = (<a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>*)is-&gt;contents+from;
+<a name='L189'>        dst = (<a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>*)is-&gt;contents+to;
+<a name='L190'>        bytes *= <b>sizeof</b>(<a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>);
+<a name='L191'>    <font color='red'>}</font> <b>else</b> <b>if</b> (encoding == <a href='../S/44.html#L41' title='Defined at 41 in src/intset.c.'>INTSET_ENC_INT32</a>) <font color='red'>{</font>
+<a name='L192'>        src = (<a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a>*)is-&gt;contents+from;
+<a name='L193'>        dst = (<a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a>*)is-&gt;contents+to;
+<a name='L194'>        bytes *= <b>sizeof</b>(<a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a>);
+<a name='L195'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L196'>        src = (<a href='../D/2492.html' title='Multiple defined in 2 places.'>int16_t</a>*)is-&gt;contents+from;
+<a name='L197'>        dst = (<a href='../D/2492.html' title='Multiple defined in 2 places.'>int16_t</a>*)is-&gt;contents+to;
+<a name='L198'>        bytes *= <b>sizeof</b>(<a href='../D/2492.html' title='Multiple defined in 2 places.'>int16_t</a>);
+<a name='L199'>    <font color='red'>}</font>
+<a name='L200'>    memmove(dst,src,bytes);
+<a name='L201'><font color='red'>}</font>
+<a name='L202'>
+<a name='L203'><i><font color='green'>/* Insert an integer in the intset */</font></i>
+<a name='L204'><a href='../D/2513.html' title='Multiple defined in 2 places.'>intset</a> *<a href='../R/2223.html' title='Multiple refered from 22 places.'>intsetAdd</a>(intset *is, <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> value, <a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a> *success) <font color='red'>{</font>
+<a name='L205'>    <a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a> valenc = <a href='../S/44.html#L45' title='Defined at 45 in src/intset.c.'>_intsetValueEncoding</a>(value);
+<a name='L206'>    <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>;
+<a name='L207'>    <b>if</b> (success) *success = 1;
+<a name='L208'>
+<a name='L209'>    <i><font color='green'>/* Upgrade encoding if necessary. If we need to upgrade, we know that</font></i>
+<a name='L210'><i><font color='green'>     * this value should be either appended (if &gt; 0) or prepended (if &lt; 0),</font></i>
+<a name='L211'><i><font color='green'>     * because it lies outside the range of existing values. */</font></i>
+<a name='L212'>    <b>if</b> (valenc &gt; <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding)) <font color='red'>{</font>
+<a name='L213'>        <i><font color='green'>/* This always succeeds, so we don't need to curry *success. */</font></i>
+<a name='L214'>        <b>return</b> <a href='../S/44.html#L157' title='Defined at 157 in src/intset.c.'>intsetUpgradeAndAdd</a>(is,value);
+<a name='L215'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L216'>        <i><font color='green'>/* Abort if the value is already present in the set.</font></i>
+<a name='L217'><i><font color='green'>         * This call will populate "pos" with the right position to insert</font></i>
+<a name='L218'><i><font color='green'>         * the value when it cannot be found. */</font></i>
+<a name='L219'>        <b>if</b> (<a href='../S/44.html#L115' title='Defined at 115 in src/intset.c.'>intsetSearch</a>(is,value,&amp;<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>)) <font color='red'>{</font>
+<a name='L220'>            <b>if</b> (success) *success = 0;
+<a name='L221'>            <b>return</b> is;
+<a name='L222'>        <font color='red'>}</font>
+<a name='L223'>
+<a name='L224'>        is = <a href='../S/44.html#L105' title='Defined at 105 in src/intset.c.'>intsetResize</a>(is,<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length)+1);
+<a name='L225'>        <b>if</b> (<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> &lt; <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length)) <a href='../S/44.html#L182' title='Defined at 182 in src/intset.c.'>intsetMoveTail</a>(is,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>+1);
+<a name='L226'>    <font color='red'>}</font>
+<a name='L227'>
+<a name='L228'>    <a href='../S/44.html#L81' title='Defined at 81 in src/intset.c.'>_intsetSet</a>(is,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,value);
+<a name='L229'>    is-&gt;length = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length)+1);
+<a name='L230'>    <b>return</b> is;
+<a name='L231'><font color='red'>}</font>
+<a name='L232'>
+<a name='L233'><i><font color='green'>/* Delete integer from intset */</font></i>
+<a name='L234'><a href='../D/2513.html' title='Multiple defined in 2 places.'>intset</a> *<a href='../R/2231.html' title='Multiple refered from 4 places.'>intsetRemove</a>(intset *is, <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> value, <b>int</b> *success) <font color='red'>{</font>
+<a name='L235'>    <a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a> valenc = <a href='../S/44.html#L45' title='Defined at 45 in src/intset.c.'>_intsetValueEncoding</a>(value);
+<a name='L236'>    <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>;
+<a name='L237'>    <b>if</b> (success) *success = 0;
+<a name='L238'>
+<a name='L239'>    <b>if</b> (valenc &lt;= <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding) &amp;&amp; <a href='../S/44.html#L115' title='Defined at 115 in src/intset.c.'>intsetSearch</a>(is,value,&amp;<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>)) <font color='red'>{</font>
+<a name='L240'>        <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> len = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length);
+<a name='L241'>
+<a name='L242'>        <i><font color='green'>/* We know we can delete */</font></i>
+<a name='L243'>        <b>if</b> (success) *success = 1;
+<a name='L244'>
+<a name='L245'>        <i><font color='green'>/* Overwrite value with tail and update length */</font></i>
+<a name='L246'>        <b>if</b> (<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> &lt; (len-1)) <a href='../S/44.html#L182' title='Defined at 182 in src/intset.c.'>intsetMoveTail</a>(is,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>+1,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>);
+<a name='L247'>        is = <a href='../S/44.html#L105' title='Defined at 105 in src/intset.c.'>intsetResize</a>(is,len-1);
+<a name='L248'>        is-&gt;length = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(len-1);
+<a name='L249'>    <font color='red'>}</font>
+<a name='L250'>    <b>return</b> is;
+<a name='L251'><font color='red'>}</font>
+<a name='L252'>
+<a name='L253'><i><font color='green'>/* Determine whether a value belongs to this set */</font></i>
+<a name='L254'><a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a> <a href='../R/2225.html' title='Multiple refered from 19 places.'>intsetFind</a>(intset *is, <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> value) <font color='red'>{</font>
+<a name='L255'>    <a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a> valenc = <a href='../S/44.html#L45' title='Defined at 45 in src/intset.c.'>_intsetValueEncoding</a>(value);
+<a name='L256'>    <b>return</b> valenc &lt;= <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding) &amp;&amp; <a href='../S/44.html#L115' title='Defined at 115 in src/intset.c.'>intsetSearch</a>(is,value,NULL);
+<a name='L257'><font color='red'>}</font>
+<a name='L258'>
+<a name='L259'><i><font color='green'>/* Return random member */</font></i>
+<a name='L260'><a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> <a href='../R/2230.html' title='Multiple refered from 2 places.'>intsetRandom</a>(intset *is) <font color='red'>{</font>
+<a name='L261'>    <b>return</b> <a href='../S/44.html#L76' title='Defined at 76 in src/intset.c.'>_intsetGet</a>(is,rand()%<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length));
+<a name='L262'><font color='red'>}</font>
+<a name='L263'>
+<a name='L264'><i><font color='green'>/* Sets the value to the value at the given position. When this position is</font></i>
+<a name='L265'><i><font color='green'> * out of range the function returns 0, when in range it returns 1. */</font></i>
+<a name='L266'><a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a> <a href='../R/2226.html' title='Multiple refered from 4 places.'>intsetGet</a>(intset *is, <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> pos, <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> *value) <font color='red'>{</font>
+<a name='L267'>    <b>if</b> (<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> &lt; <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length)) <font color='red'>{</font>
+<a name='L268'>        *value = <a href='../S/44.html#L76' title='Defined at 76 in src/intset.c.'>_intsetGet</a>(is,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>);
+<a name='L269'>        <b>return</b> 1;
+<a name='L270'>    <font color='red'>}</font>
+<a name='L271'>    <b>return</b> 0;
+<a name='L272'><font color='red'>}</font>
+<a name='L273'>
+<a name='L274'><i><font color='green'>/* Return intset length */</font></i>
+<a name='L275'><a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> <a href='../R/2227.html' title='Multiple refered from 6 places.'>intsetLen</a>(intset *is) <font color='red'>{</font>
+<a name='L276'>    <b>return</b> <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length);
+<a name='L277'><font color='red'>}</font>
+<a name='L278'>
+<a name='L279'><i><font color='green'>/* Return intset blob size in bytes. */</font></i>
+<a name='L280'>size_t <a href='../R/2224.html' title='Multiple refered from 2 places.'>intsetBlobLen</a>(intset *is) <font color='red'>{</font>
+<a name='L281'>    <b>return</b> <b>sizeof</b>(<a href='../D/2513.html' title='Multiple defined in 2 places.'>intset</a>)+<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length)*<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding);
+<a name='L282'><font color='red'>}</font>
+<a name='L283'>
+<a name='L284'><font color='darkred'>#ifdef</font> INTSET_TEST_MAIN
+<a name='L285'><font color='darkred'>#include</font> &lt;sys/time.h&gt;
+<a name='L286'>
+<a name='L287'><b>void</b> intsetRepr(intset *is) <font color='red'>{</font>
+<a name='L288'>    <b>int</b> i;
+<a name='L289'>    <b>for</b> (i = 0; i &lt; <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length); i++) <font color='red'>{</font>
+<a name='L290'>        printf("%lld\n", (<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)<a href='../S/44.html#L76' title='Defined at 76 in src/intset.c.'>_intsetGet</a>(is,i));
+<a name='L291'>    <font color='red'>}</font>
+<a name='L292'>    printf("\n");
+<a name='L293'><font color='red'>}</font>
+<a name='L294'>
+<a name='L295'><b>void</b> <a href='../R/1893.html' title='Multiple refered from 38 places.'>error</a>(<b>char</b> *err) <font color='red'>{</font>
+<a name='L296'>    printf("%s\n", err);
+<a name='L297'>    exit(1);
+<a name='L298'><font color='red'>}</font>
+<a name='L299'>
+<a name='L300'><b>void</b> <a href='../R/3091.html' title='Multiple refered from 57 places.'>ok</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L301'>    printf("OK\n");
+<a name='L302'><font color='red'>}</font>
+<a name='L303'>
+<a name='L304'><b>long</b> <b>long</b> <a href='../R/4071.html' title='Multiple refered from 12 places.'>usec</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L305'>    <b>struct</b> timeval tv;
+<a name='L306'>    gettimeofday(&amp;tv,NULL);
+<a name='L307'>    <b>return</b> (((<b>long</b> <b>long</b>)tv.tv_sec)*1000000)+tv.tv_usec;
+<a name='L308'><font color='red'>}</font>
+<a name='L309'>
+<a name='L310'><font color='darkred'>#define</font> <a href='../R/1413.html' title='Multiple refered from 580 places.'>assert</a>(_e) ((_e)?(<b>void</b>)0:(<a href='../S/44.html#L311' title='Defined at 311 in src/intset.c.'>_assert</a>(#_e,__FILE__,__LINE__),exit(1)))
+<a name='L311'><b>void</b> <a href='../S/44.html#L310' title='Refered from 310 in src/intset.c.'>_assert</a>(<b>char</b> *estr, <b>char</b> *file, <b>int</b> line) <font color='red'>{</font>
+<a name='L312'>    printf("\n\n=== ASSERTION FAILED ===\n");
+<a name='L313'>    printf("==&gt; %s:%d '%s' is not true\n",file,line,estr);
+<a name='L314'><font color='red'>}</font>
+<a name='L315'>
+<a name='L316'><a href='../D/2513.html' title='Multiple defined in 2 places.'>intset</a> *<a href='../S/44.html#L459' title='Refered from 459 in src/intset.c.'>createSet</a>(<b>int</b> bits, <b>int</b> size) <font color='red'>{</font>
+<a name='L317'>    <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> mask = (1&lt;&lt;bits)-1;
+<a name='L318'>    <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> i, value;
+<a name='L319'>    <a href='../D/2513.html' title='Multiple defined in 2 places.'>intset</a> *is = <a href='../S/44.html#L97' title='Defined at 97 in src/intset.c.'>intsetNew</a>();
+<a name='L320'>
+<a name='L321'>    <b>for</b> (i = 0; i &lt; size; i++) <font color='red'>{</font>
+<a name='L322'>        <b>if</b> (bits &gt; 32) <font color='red'>{</font>
+<a name='L323'>            value = (rand()*rand()) &amp; mask;
+<a name='L324'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L325'>            value = rand() &amp; mask;
+<a name='L326'>        <font color='red'>}</font>
+<a name='L327'>        is = <a href='../S/44.html#L204' title='Defined at 204 in src/intset.c.'>intsetAdd</a>(is,value,NULL);
+<a name='L328'>    <font color='red'>}</font>
+<a name='L329'>    <b>return</b> is;
+<a name='L330'><font color='red'>}</font>
+<a name='L331'>
+<a name='L332'><b>void</b> <a href='../R/1540.html' title='Multiple refered from 9 places.'>checkConsistency</a>(intset *is) <font color='red'>{</font>
+<a name='L333'>    <b>int</b> i;
+<a name='L334'>
+<a name='L335'>    <b>for</b> (i = 0; i &lt; (<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length)-1); i++) <font color='red'>{</font>
+<a name='L336'>        <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> encoding = <a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding);
+<a name='L337'>
+<a name='L338'>        <b>if</b> (encoding == <a href='../S/44.html#L40' title='Defined at 40 in src/intset.c.'>INTSET_ENC_INT16</a>) <font color='red'>{</font>
+<a name='L339'>            <a href='../D/2492.html' title='Multiple defined in 2 places.'>int16_t</a> *i16 = (<a href='../D/2492.html' title='Multiple defined in 2 places.'>int16_t</a>*)is-&gt;contents;
+<a name='L340'>            <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(i16[i] &lt; i16[i+1]);
+<a name='L341'>        <font color='red'>}</font> <b>else</b> <b>if</b> (encoding == <a href='../S/44.html#L41' title='Defined at 41 in src/intset.c.'>INTSET_ENC_INT32</a>) <font color='red'>{</font>
+<a name='L342'>            <a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a> *i32 = (<a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a>*)is-&gt;contents;
+<a name='L343'>            <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(i32[i] &lt; i32[i+1]);
+<a name='L344'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L345'>            <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> *i64 = (<a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>*)is-&gt;contents;
+<a name='L346'>            <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(i64[i] &lt; i64[i+1]);
+<a name='L347'>        <font color='red'>}</font>
+<a name='L348'>    <font color='red'>}</font>
+<a name='L349'><font color='red'>}</font>
+<a name='L350'>
+<a name='L351'><b>int</b> main(<b>int</b> argc, <b>char</b> **argv) <font color='red'>{</font>
+<a name='L352'>    <a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a> success;
+<a name='L353'>    <b>int</b> i;
+<a name='L354'>    <a href='../D/2513.html' title='Multiple defined in 2 places.'>intset</a> *is;
+<a name='L355'>    sranddev();
+<a name='L356'>
+<a name='L357'>    printf("Value encodings: "); <font color='red'>{</font>
+<a name='L358'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L45' title='Defined at 45 in src/intset.c.'>_intsetValueEncoding</a>(-32768) == <a href='../S/44.html#L40' title='Defined at 40 in src/intset.c.'>INTSET_ENC_INT16</a>);
+<a name='L359'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L45' title='Defined at 45 in src/intset.c.'>_intsetValueEncoding</a>(+32767) == <a href='../S/44.html#L40' title='Defined at 40 in src/intset.c.'>INTSET_ENC_INT16</a>);
+<a name='L360'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L45' title='Defined at 45 in src/intset.c.'>_intsetValueEncoding</a>(-32769) == <a href='../S/44.html#L41' title='Defined at 41 in src/intset.c.'>INTSET_ENC_INT32</a>);
+<a name='L361'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L45' title='Defined at 45 in src/intset.c.'>_intsetValueEncoding</a>(+32768) == <a href='../S/44.html#L41' title='Defined at 41 in src/intset.c.'>INTSET_ENC_INT32</a>);
+<a name='L362'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L45' title='Defined at 45 in src/intset.c.'>_intsetValueEncoding</a>(-2147483648) == <a href='../S/44.html#L41' title='Defined at 41 in src/intset.c.'>INTSET_ENC_INT32</a>);
+<a name='L363'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L45' title='Defined at 45 in src/intset.c.'>_intsetValueEncoding</a>(+2147483647) == <a href='../S/44.html#L41' title='Defined at 41 in src/intset.c.'>INTSET_ENC_INT32</a>);
+<a name='L364'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L45' title='Defined at 45 in src/intset.c.'>_intsetValueEncoding</a>(-2147483649) == <a href='../S/44.html#L42' title='Defined at 42 in src/intset.c.'>INTSET_ENC_INT64</a>);
+<a name='L365'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L45' title='Defined at 45 in src/intset.c.'>_intsetValueEncoding</a>(+2147483648) == <a href='../S/44.html#L42' title='Defined at 42 in src/intset.c.'>INTSET_ENC_INT64</a>);
+<a name='L366'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L45' title='Defined at 45 in src/intset.c.'>_intsetValueEncoding</a>(-9223372036854775808ull) == <a href='../S/44.html#L42' title='Defined at 42 in src/intset.c.'>INTSET_ENC_INT64</a>);
+<a name='L367'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L45' title='Defined at 45 in src/intset.c.'>_intsetValueEncoding</a>(+9223372036854775807ull) == <a href='../S/44.html#L42' title='Defined at 42 in src/intset.c.'>INTSET_ENC_INT64</a>);
+<a name='L368'>        <a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>();
+<a name='L369'>    <font color='red'>}</font>
+<a name='L370'>
+<a name='L371'>    printf("Basic adding: "); <font color='red'>{</font>
+<a name='L372'>        is = <a href='../S/44.html#L97' title='Defined at 97 in src/intset.c.'>intsetNew</a>();
+<a name='L373'>        is = <a href='../S/44.html#L204' title='Defined at 204 in src/intset.c.'>intsetAdd</a>(is,5,&amp;success); <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(success);
+<a name='L374'>        is = <a href='../S/44.html#L204' title='Defined at 204 in src/intset.c.'>intsetAdd</a>(is,6,&amp;success); <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(success);
+<a name='L375'>        is = <a href='../S/44.html#L204' title='Defined at 204 in src/intset.c.'>intsetAdd</a>(is,4,&amp;success); <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(success);
+<a name='L376'>        is = <a href='../S/44.html#L204' title='Defined at 204 in src/intset.c.'>intsetAdd</a>(is,4,&amp;success); <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(!success);
+<a name='L377'>        <a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>();
+<a name='L378'>    <font color='red'>}</font>
+<a name='L379'>
+<a name='L380'>    printf("Large number of random adds: "); <font color='red'>{</font>
+<a name='L381'>        <b>int</b> inserts = 0;
+<a name='L382'>        is = <a href='../S/44.html#L97' title='Defined at 97 in src/intset.c.'>intsetNew</a>();
+<a name='L383'>        <b>for</b> (i = 0; i &lt; 1024; i++) <font color='red'>{</font>
+<a name='L384'>            is = <a href='../S/44.html#L204' title='Defined at 204 in src/intset.c.'>intsetAdd</a>(is,rand()%0x800,&amp;success);
+<a name='L385'>            <b>if</b> (success) inserts++;
+<a name='L386'>        <font color='red'>}</font>
+<a name='L387'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;length) == inserts);
+<a name='L388'>        <a href='../S/44.html#L332' title='Defined at 332 in src/intset.c.'>checkConsistency</a>(is);
+<a name='L389'>        <a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>();
+<a name='L390'>    <font color='red'>}</font>
+<a name='L391'>
+<a name='L392'>    printf("Upgrade from int16 to int32: "); <font color='red'>{</font>
+<a name='L393'>        is = <a href='../S/44.html#L97' title='Defined at 97 in src/intset.c.'>intsetNew</a>();
+<a name='L394'>        is = <a href='../S/44.html#L204' title='Defined at 204 in src/intset.c.'>intsetAdd</a>(is,32,NULL);
+<a name='L395'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding) == <a href='../S/44.html#L40' title='Defined at 40 in src/intset.c.'>INTSET_ENC_INT16</a>);
+<a name='L396'>        is = <a href='../S/44.html#L204' title='Defined at 204 in src/intset.c.'>intsetAdd</a>(is,65535,NULL);
+<a name='L397'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding) == <a href='../S/44.html#L41' title='Defined at 41 in src/intset.c.'>INTSET_ENC_INT32</a>);
+<a name='L398'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L254' title='Defined at 254 in src/intset.c.'>intsetFind</a>(is,32));
+<a name='L399'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L254' title='Defined at 254 in src/intset.c.'>intsetFind</a>(is,65535));
+<a name='L400'>        <a href='../S/44.html#L332' title='Defined at 332 in src/intset.c.'>checkConsistency</a>(is);
+<a name='L401'>
+<a name='L402'>        is = <a href='../S/44.html#L97' title='Defined at 97 in src/intset.c.'>intsetNew</a>();
+<a name='L403'>        is = <a href='../S/44.html#L204' title='Defined at 204 in src/intset.c.'>intsetAdd</a>(is,32,NULL);
+<a name='L404'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding) == <a href='../S/44.html#L40' title='Defined at 40 in src/intset.c.'>INTSET_ENC_INT16</a>);
+<a name='L405'>        is = <a href='../S/44.html#L204' title='Defined at 204 in src/intset.c.'>intsetAdd</a>(is,-65535,NULL);
+<a name='L406'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding) == <a href='../S/44.html#L41' title='Defined at 41 in src/intset.c.'>INTSET_ENC_INT32</a>);
+<a name='L407'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L254' title='Defined at 254 in src/intset.c.'>intsetFind</a>(is,32));
+<a name='L408'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L254' title='Defined at 254 in src/intset.c.'>intsetFind</a>(is,-65535));
+<a name='L409'>        <a href='../S/44.html#L332' title='Defined at 332 in src/intset.c.'>checkConsistency</a>(is);
+<a name='L410'>        <a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>();
+<a name='L411'>    <font color='red'>}</font>
+<a name='L412'>
+<a name='L413'>    printf("Upgrade from int16 to int64: "); <font color='red'>{</font>
+<a name='L414'>        is = <a href='../S/44.html#L97' title='Defined at 97 in src/intset.c.'>intsetNew</a>();
+<a name='L415'>        is = <a href='../S/44.html#L204' title='Defined at 204 in src/intset.c.'>intsetAdd</a>(is,32,NULL);
+<a name='L416'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding) == <a href='../S/44.html#L40' title='Defined at 40 in src/intset.c.'>INTSET_ENC_INT16</a>);
+<a name='L417'>        is = <a href='../S/44.html#L204' title='Defined at 204 in src/intset.c.'>intsetAdd</a>(is,4294967295,NULL);
+<a name='L418'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding) == <a href='../S/44.html#L42' title='Defined at 42 in src/intset.c.'>INTSET_ENC_INT64</a>);
+<a name='L419'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L254' title='Defined at 254 in src/intset.c.'>intsetFind</a>(is,32));
+<a name='L420'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L254' title='Defined at 254 in src/intset.c.'>intsetFind</a>(is,4294967295));
+<a name='L421'>        <a href='../S/44.html#L332' title='Defined at 332 in src/intset.c.'>checkConsistency</a>(is);
+<a name='L422'>
+<a name='L423'>        is = <a href='../S/44.html#L97' title='Defined at 97 in src/intset.c.'>intsetNew</a>();
+<a name='L424'>        is = <a href='../S/44.html#L204' title='Defined at 204 in src/intset.c.'>intsetAdd</a>(is,32,NULL);
+<a name='L425'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding) == <a href='../S/44.html#L40' title='Defined at 40 in src/intset.c.'>INTSET_ENC_INT16</a>);
+<a name='L426'>        is = <a href='../S/44.html#L204' title='Defined at 204 in src/intset.c.'>intsetAdd</a>(is,-4294967295,NULL);
+<a name='L427'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding) == <a href='../S/44.html#L42' title='Defined at 42 in src/intset.c.'>INTSET_ENC_INT64</a>);
+<a name='L428'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L254' title='Defined at 254 in src/intset.c.'>intsetFind</a>(is,32));
+<a name='L429'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L254' title='Defined at 254 in src/intset.c.'>intsetFind</a>(is,-4294967295));
+<a name='L430'>        <a href='../S/44.html#L332' title='Defined at 332 in src/intset.c.'>checkConsistency</a>(is);
+<a name='L431'>        <a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>();
+<a name='L432'>    <font color='red'>}</font>
+<a name='L433'>
+<a name='L434'>    printf("Upgrade from int32 to int64: "); <font color='red'>{</font>
+<a name='L435'>        is = <a href='../S/44.html#L97' title='Defined at 97 in src/intset.c.'>intsetNew</a>();
+<a name='L436'>        is = <a href='../S/44.html#L204' title='Defined at 204 in src/intset.c.'>intsetAdd</a>(is,65535,NULL);
+<a name='L437'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding) == <a href='../S/44.html#L41' title='Defined at 41 in src/intset.c.'>INTSET_ENC_INT32</a>);
+<a name='L438'>        is = <a href='../S/44.html#L204' title='Defined at 204 in src/intset.c.'>intsetAdd</a>(is,4294967295,NULL);
+<a name='L439'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding) == <a href='../S/44.html#L42' title='Defined at 42 in src/intset.c.'>INTSET_ENC_INT64</a>);
+<a name='L440'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L254' title='Defined at 254 in src/intset.c.'>intsetFind</a>(is,65535));
+<a name='L441'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L254' title='Defined at 254 in src/intset.c.'>intsetFind</a>(is,4294967295));
+<a name='L442'>        <a href='../S/44.html#L332' title='Defined at 332 in src/intset.c.'>checkConsistency</a>(is);
+<a name='L443'>
+<a name='L444'>        is = <a href='../S/44.html#L97' title='Defined at 97 in src/intset.c.'>intsetNew</a>();
+<a name='L445'>        is = <a href='../S/44.html#L204' title='Defined at 204 in src/intset.c.'>intsetAdd</a>(is,65535,NULL);
+<a name='L446'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding) == <a href='../S/44.html#L41' title='Defined at 41 in src/intset.c.'>INTSET_ENC_INT32</a>);
+<a name='L447'>        is = <a href='../S/44.html#L204' title='Defined at 204 in src/intset.c.'>intsetAdd</a>(is,-4294967295,NULL);
+<a name='L448'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/2510.html' title='Multiple defined in 2 places.'>intrev32ifbe</a>(is-&gt;encoding) == <a href='../S/44.html#L42' title='Defined at 42 in src/intset.c.'>INTSET_ENC_INT64</a>);
+<a name='L449'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L254' title='Defined at 254 in src/intset.c.'>intsetFind</a>(is,65535));
+<a name='L450'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L254' title='Defined at 254 in src/intset.c.'>intsetFind</a>(is,-4294967295));
+<a name='L451'>        <a href='../S/44.html#L332' title='Defined at 332 in src/intset.c.'>checkConsistency</a>(is);
+<a name='L452'>        <a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>();
+<a name='L453'>    <font color='red'>}</font>
+<a name='L454'>
+<a name='L455'>    printf("Stress lookups: "); <font color='red'>{</font>
+<a name='L456'>        <b>long</b> num = 100000, size = 10000;
+<a name='L457'>        <b>int</b> i, bits = 20;
+<a name='L458'>        <b>long</b> <b>long</b> start;
+<a name='L459'>        is = <a href='../S/44.html#L316' title='Defined at 316 in src/intset.c.'>createSet</a>(bits,size);
+<a name='L460'>        <a href='../S/44.html#L332' title='Defined at 332 in src/intset.c.'>checkConsistency</a>(is);
+<a name='L461'>
+<a name='L462'>        start = <a href='../D/4459.html' title='Multiple defined in 3 places.'>usec</a>();
+<a name='L463'>        <b>for</b> (i = 0; i &lt; num; i++) <a href='../S/44.html#L115' title='Defined at 115 in src/intset.c.'>intsetSearch</a>(is,rand() % ((1&lt;&lt;bits)-1),NULL);
+<a name='L464'>        printf("%ld lookups, %ld element set, %lldusec\n",num,size,<a href='../D/4459.html' title='Multiple defined in 3 places.'>usec</a>()-start);
+<a name='L465'>    <font color='red'>}</font>
+<a name='L466'>
+<a name='L467'>    printf("Stress add+delete: "); <font color='red'>{</font>
+<a name='L468'>        <b>int</b> i, v1, v2;
+<a name='L469'>        is = <a href='../S/44.html#L97' title='Defined at 97 in src/intset.c.'>intsetNew</a>();
+<a name='L470'>        <b>for</b> (i = 0; i &lt; 0xffff; i++) <font color='red'>{</font>
+<a name='L471'>            v1 = rand() % 0xfff;
+<a name='L472'>            is = <a href='../S/44.html#L204' title='Defined at 204 in src/intset.c.'>intsetAdd</a>(is,v1,NULL);
+<a name='L473'>            <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/44.html#L254' title='Defined at 254 in src/intset.c.'>intsetFind</a>(is,v1));
+<a name='L474'>
+<a name='L475'>            v2 = rand() % 0xfff;
+<a name='L476'>            is = <a href='../S/44.html#L234' title='Defined at 234 in src/intset.c.'>intsetRemove</a>(is,v2,NULL);
+<a name='L477'>            <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(!<a href='../S/44.html#L254' title='Defined at 254 in src/intset.c.'>intsetFind</a>(is,v2));
+<a name='L478'>        <font color='red'>}</font>
+<a name='L479'>        <a href='../S/44.html#L332' title='Defined at 332 in src/intset.c.'>checkConsistency</a>(is);
+<a name='L480'>        <a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>();
+<a name='L481'>    <font color='red'>}</font>
+<a name='L482'><font color='red'>}</font>
+<a name='L483'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L45'>[^]</a><a href='#L351'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

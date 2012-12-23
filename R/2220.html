@@ -1,0 +1,76 @@
+<html>
+<head>
+<title>intrev32ifbe</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/44.html#L77'>intrev32ifbe</a>       77 src/intset.c       return _intsetGetEncoded(is,pos,intrev32ifbe(is-&gt;encoding));
+<a href='../S/44.html#L82'>intrev32ifbe</a>       82 src/intset.c       uint32_t encoding = intrev32ifbe(is-&gt;encoding);
+<a href='../S/44.html#L99'>intrev32ifbe</a>       99 src/intset.c       is-&gt;encoding = intrev32ifbe(INTSET_ENC_INT16);
+<a href='../S/44.html#L106'>intrev32ifbe</a>      106 src/intset.c       uint32_t size = len*intrev32ifbe(is-&gt;encoding);
+<a href='../S/44.html#L116'>intrev32ifbe</a>      116 src/intset.c       int min = 0, max = intrev32ifbe(is-&gt;length)-1, mid = -1;
+<a href='../S/44.html#L120'>intrev32ifbe</a>      120 src/intset.c       if (intrev32ifbe(is-&gt;length) == 0) {
+<a href='../S/44.html#L126'>intrev32ifbe</a>      126 src/intset.c           if (value &gt; _intsetGet(is,intrev32ifbe(is-&gt;length)-1)) {
+<a href='../S/44.html#L127'>intrev32ifbe</a>      127 src/intset.c               if (pos) *pos = intrev32ifbe(is-&gt;length);
+<a href='../S/44.html#L158'>intrev32ifbe</a>      158 src/intset.c       uint8_t curenc = intrev32ifbe(is-&gt;encoding);
+<a href='../S/44.html#L160'>intrev32ifbe</a>      160 src/intset.c       int length = intrev32ifbe(is-&gt;length);
+<a href='../S/44.html#L164'>intrev32ifbe</a>      164 src/intset.c       is-&gt;encoding = intrev32ifbe(newenc);
+<a href='../S/44.html#L165'>intrev32ifbe</a>      165 src/intset.c       is = intsetResize(is,intrev32ifbe(is-&gt;length)+1);
+<a href='../S/44.html#L177'>intrev32ifbe</a>      177 src/intset.c           _intsetSet(is,intrev32ifbe(is-&gt;length),value);
+<a href='../S/44.html#L178'>intrev32ifbe</a>      178 src/intset.c       is-&gt;length = intrev32ifbe(intrev32ifbe(is-&gt;length)+1);
+<a href='../S/44.html#L184'>intrev32ifbe</a>      184 src/intset.c       uint32_t bytes = intrev32ifbe(is-&gt;length)-from;
+<a href='../S/44.html#L185'>intrev32ifbe</a>      185 src/intset.c       uint32_t encoding = intrev32ifbe(is-&gt;encoding);
+<a href='../S/44.html#L212'>intrev32ifbe</a>      212 src/intset.c       if (valenc &gt; intrev32ifbe(is-&gt;encoding)) {
+<a href='../S/44.html#L224'>intrev32ifbe</a>      224 src/intset.c           is = intsetResize(is,intrev32ifbe(is-&gt;length)+1);
+<a href='../S/44.html#L225'>intrev32ifbe</a>      225 src/intset.c           if (pos &lt; intrev32ifbe(is-&gt;length)) intsetMoveTail(is,pos,pos+1);
+<a href='../S/44.html#L229'>intrev32ifbe</a>      229 src/intset.c       is-&gt;length = intrev32ifbe(intrev32ifbe(is-&gt;length)+1);
+<a href='../S/44.html#L239'>intrev32ifbe</a>      239 src/intset.c       if (valenc &lt;= intrev32ifbe(is-&gt;encoding) &amp;&amp; intsetSearch(is,value,&amp;pos)) {
+<a href='../S/44.html#L240'>intrev32ifbe</a>      240 src/intset.c           uint32_t len = intrev32ifbe(is-&gt;length);
+<a href='../S/44.html#L248'>intrev32ifbe</a>      248 src/intset.c           is-&gt;length = intrev32ifbe(len-1);
+<a href='../S/44.html#L256'>intrev32ifbe</a>      256 src/intset.c       return valenc &lt;= intrev32ifbe(is-&gt;encoding) &amp;&amp; intsetSearch(is,value,NULL);
+<a href='../S/44.html#L261'>intrev32ifbe</a>      261 src/intset.c       return _intsetGet(is,rand()%intrev32ifbe(is-&gt;length));
+<a href='../S/44.html#L267'>intrev32ifbe</a>      267 src/intset.c       if (pos &lt; intrev32ifbe(is-&gt;length)) {
+<a href='../S/44.html#L276'>intrev32ifbe</a>      276 src/intset.c       return intrev32ifbe(is-&gt;length);
+<a href='../S/44.html#L281'>intrev32ifbe</a>      281 src/intset.c       return sizeof(intset)+intrev32ifbe(is-&gt;length)*intrev32ifbe(is-&gt;encoding);
+<a href='../S/44.html#L289'>intrev32ifbe</a>      289 src/intset.c       for (i = 0; i &lt; intrev32ifbe(is-&gt;length); i++) {
+<a href='../S/44.html#L335'>intrev32ifbe</a>      335 src/intset.c       for (i = 0; i &lt; (intrev32ifbe(is-&gt;length)-1); i++) {
+<a href='../S/44.html#L336'>intrev32ifbe</a>      336 src/intset.c           uint32_t encoding = intrev32ifbe(is-&gt;encoding);
+<a href='../S/44.html#L387'>intrev32ifbe</a>      387 src/intset.c           assert(intrev32ifbe(is-&gt;length) == inserts);
+<a href='../S/44.html#L395'>intrev32ifbe</a>      395 src/intset.c           assert(intrev32ifbe(is-&gt;encoding) == INTSET_ENC_INT16);
+<a href='../S/44.html#L397'>intrev32ifbe</a>      397 src/intset.c           assert(intrev32ifbe(is-&gt;encoding) == INTSET_ENC_INT32);
+<a href='../S/44.html#L404'>intrev32ifbe</a>      404 src/intset.c           assert(intrev32ifbe(is-&gt;encoding) == INTSET_ENC_INT16);
+<a href='../S/44.html#L406'>intrev32ifbe</a>      406 src/intset.c           assert(intrev32ifbe(is-&gt;encoding) == INTSET_ENC_INT32);
+<a href='../S/44.html#L416'>intrev32ifbe</a>      416 src/intset.c           assert(intrev32ifbe(is-&gt;encoding) == INTSET_ENC_INT16);
+<a href='../S/44.html#L418'>intrev32ifbe</a>      418 src/intset.c           assert(intrev32ifbe(is-&gt;encoding) == INTSET_ENC_INT64);
+<a href='../S/44.html#L425'>intrev32ifbe</a>      425 src/intset.c           assert(intrev32ifbe(is-&gt;encoding) == INTSET_ENC_INT16);
+<a href='../S/44.html#L427'>intrev32ifbe</a>      427 src/intset.c           assert(intrev32ifbe(is-&gt;encoding) == INTSET_ENC_INT64);
+<a href='../S/44.html#L437'>intrev32ifbe</a>      437 src/intset.c           assert(intrev32ifbe(is-&gt;encoding) == INTSET_ENC_INT32);
+<a href='../S/44.html#L439'>intrev32ifbe</a>      439 src/intset.c           assert(intrev32ifbe(is-&gt;encoding) == INTSET_ENC_INT64);
+<a href='../S/44.html#L446'>intrev32ifbe</a>      446 src/intset.c           assert(intrev32ifbe(is-&gt;encoding) == INTSET_ENC_INT32);
+<a href='../S/44.html#L448'>intrev32ifbe</a>      448 src/intset.c           assert(intrev32ifbe(is-&gt;encoding) == INTSET_ENC_INT64);
+<a href='../S/89.html#L147'>intrev32ifbe</a>      147 src/ziplist.c  #define ZIPLIST_ENTRY_TAIL(zl)  ((zl)+intrev32ifbe(ZIPLIST_TAIL_OFFSET(zl)))
+<a href='../S/89.html#L148'>intrev32ifbe</a>      148 src/ziplist.c  #define ZIPLIST_ENTRY_END(zl)   ((zl)+intrev32ifbe(ZIPLIST_BYTES(zl))-1)
+<a href='../S/89.html#L421'>intrev32ifbe</a>      421 src/ziplist.c      ZIPLIST_BYTES(zl) = intrev32ifbe(bytes);
+<a href='../S/89.html#L422'>intrev32ifbe</a>      422 src/ziplist.c      ZIPLIST_TAIL_OFFSET(zl) = intrev32ifbe(ZIPLIST_HEADER_SIZE);
+<a href='../S/89.html#L431'>intrev32ifbe</a>      431 src/ziplist.c      ZIPLIST_BYTES(zl) = intrev32ifbe(len);
+<a href='../S/89.html#L457'>intrev32ifbe</a>      457 src/ziplist.c      size_t curlen = intrev32ifbe(ZIPLIST_BYTES(zl)), rawlen, rawlensize;
+<a href='../S/89.html#L487'>intrev32ifbe</a>      487 src/ziplist.c              if ((zl+intrev32ifbe(ZIPLIST_TAIL_OFFSET(zl))) != np) {
+<a href='../S/89.html#L489'>intrev32ifbe</a>      489 src/ziplist.c                      intrev32ifbe(intrev32ifbe(ZIPLIST_TAIL_OFFSET(zl))+extra);
+<a href='../S/89.html#L543'>intrev32ifbe</a>      543 src/ziplist.c                  intrev32ifbe(intrev32ifbe(ZIPLIST_TAIL_OFFSET(zl))-totlen);
+<a href='../S/89.html#L551'>intrev32ifbe</a>      551 src/ziplist.c                     intrev32ifbe(intrev32ifbe(ZIPLIST_TAIL_OFFSET(zl))+nextdiff);
+<a href='../S/89.html#L556'>intrev32ifbe</a>      556 src/ziplist.c                  intrev32ifbe(ZIPLIST_BYTES(zl))-(p-zl)-1);
+<a href='../S/89.html#L560'>intrev32ifbe</a>      560 src/ziplist.c                  intrev32ifbe((first.p-zl)-first.prevrawlen);
+<a href='../S/89.html#L565'>intrev32ifbe</a>      565 src/ziplist.c          zl = ziplistResize(zl, intrev32ifbe(ZIPLIST_BYTES(zl))-totlen+nextdiff);
+<a href='../S/89.html#L579'>intrev32ifbe</a>      579 src/ziplist.c      size_t curlen = intrev32ifbe(ZIPLIST_BYTES(zl)), reqlen, prevlen = 0;
+<a href='../S/89.html#L633'>intrev32ifbe</a>      633 src/ziplist.c              intrev32ifbe(intrev32ifbe(ZIPLIST_TAIL_OFFSET(zl))+reqlen);
+<a href='../S/89.html#L641'>intrev32ifbe</a>      641 src/ziplist.c                  intrev32ifbe(intrev32ifbe(ZIPLIST_TAIL_OFFSET(zl))+nextdiff);
+<a href='../S/89.html#L645'>intrev32ifbe</a>      645 src/ziplist.c          ZIPLIST_TAIL_OFFSET(zl) = intrev32ifbe(p-zl);
+<a href='../S/89.html#L898'>intrev32ifbe</a>      898 src/ziplist.c      return intrev32ifbe(ZIPLIST_BYTES(zl));
+<a href='../S/89.html#L910'>intrev32ifbe</a>      910 src/ziplist.c          intrev32ifbe(ZIPLIST_BYTES(zl)),
+<a href='../S/89.html#L912'>intrev32ifbe</a>      912 src/ziplist.c          intrev32ifbe(ZIPLIST_TAIL_OFFSET(zl)));
+<a href='../S/89.html#L1013'>intrev32ifbe</a>     1013 src/ziplist.c              i,intrev32ifbe(ZIPLIST_BYTES(zl)),num,posstr[pos],usec()-start);
+</pre>
+</body>
+</html>

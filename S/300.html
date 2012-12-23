@@ -1,0 +1,111 @@
+<html>
+<head>
+<title>deps/lua/src/lmem.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/lmem.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L46'>[^]</a><a href='#L76'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L46' title='Defined at 46.'>luaM_growaux_</a>
+<li><a href='#L66' title='Defined at 66.'>luaM_toobig</a>
+<li><a href='#L76' title='Defined at 76.'>luaM_realloc_</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: lmem.c,v 1.70.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Interface to Memory Manager</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'>
+<a name='L8'><font color='darkred'>#include</font> &lt;stddef.h&gt;
+<a name='L9'>
+<a name='L10'><font color='darkred'>#define</font> lmem_c
+<a name='L11'><font color='darkred'>#define</font> <a href='../R/303.html' title='Multiple refered from 2 places.'>LUA_CORE</a>
+<a name='L12'>
+<a name='L13'><font color='darkred'>#include</font> "<a href='266.html'>lua.h</a>"
+<a name='L14'>
+<a name='L15'><font color='darkred'>#include</font> "<a href='264.html'>ldebug.h</a>"
+<a name='L16'><font color='darkred'>#include</font> "<a href='296.html'>ldo.h</a>"
+<a name='L17'><font color='darkred'>#include</font> "<a href='278.html'>lmem.h</a>"
+<a name='L18'><font color='darkred'>#include</font> "<a href='282.html'>lobject.h</a>"
+<a name='L19'><font color='darkred'>#include</font> "<a href='298.html'>lstate.h</a>"
+<a name='L20'>
+<a name='L21'>
+<a name='L22'>
+<a name='L23'><i><font color='green'>/*</font></i>
+<a name='L24'><i><font color='green'>** About the realloc function:</font></i>
+<a name='L25'><i><font color='green'>** void * frealloc (void *ud, void *ptr, size_t osize, size_t nsize);</font></i>
+<a name='L26'><i><font color='green'>** (`osize' is the old size, `nsize' is the new size)</font></i>
+<a name='L27'><i><font color='green'>**</font></i>
+<a name='L28'><i><font color='green'>** Lua ensures that (ptr == NULL) iff (osize == 0).</font></i>
+<a name='L29'><i><font color='green'>**</font></i>
+<a name='L30'><i><font color='green'>** * frealloc(ud, NULL, 0, x) creates a new block of size `x'</font></i>
+<a name='L31'><i><font color='green'>**</font></i>
+<a name='L32'><i><font color='green'>** * frealloc(ud, p, x, 0) frees the block `p'</font></i>
+<a name='L33'><i><font color='green'>** (in this specific case, frealloc must return NULL).</font></i>
+<a name='L34'><i><font color='green'>** particularly, frealloc(ud, NULL, 0, 0) does nothing</font></i>
+<a name='L35'><i><font color='green'>** (which is equivalent to free(NULL) in ANSI C)</font></i>
+<a name='L36'><i><font color='green'>**</font></i>
+<a name='L37'><i><font color='green'>** frealloc returns NULL if it cannot create or reallocate the area</font></i>
+<a name='L38'><i><font color='green'>** (any reallocation to an equal or smaller size cannot fail!)</font></i>
+<a name='L39'><i><font color='green'>*/</font></i>
+<a name='L40'>
+<a name='L41'>
+<a name='L42'>
+<a name='L43'><font color='darkred'>#define</font> <a href='../R/454.html' title='Multiple refered from 2 places.'>MINSIZEARRAY</a>    4
+<a name='L44'>
+<a name='L45'>
+<a name='L46'><b>void</b> *<a href='../R/2678.html' title='Multiple refered from 2 places.'>luaM_growaux_</a> (lua_State *L, <b>void</b> *block, <b>int</b> *size, size_t size_elems,
+<a name='L47'>                     <b>int</b> limit, <b>const</b> <b>char</b> *errormsg) <font color='red'>{</font>
+<a name='L48'>  <b>void</b> *newblock;
+<a name='L49'>  <b>int</b> newsize;
+<a name='L50'>  <b>if</b> (*size &gt;= limit/2) <font color='red'>{</font>  <i><font color='green'>/* cannot double it? */</font></i>
+<a name='L51'>    <b>if</b> (*size &gt;= limit)  <i><font color='green'>/* cannot grow even a little? */</font></i>
+<a name='L52'>      <a href='../S/299.html#L631' title='Defined at 631 in deps/lua/src/ldebug.c.'>luaG_runerror</a>(L, errormsg);
+<a name='L53'>    newsize = limit;  <i><font color='green'>/* still have at least one free place */</font></i>
+<a name='L54'>  <font color='red'>}</font>
+<a name='L55'>  <b>else</b> <font color='red'>{</font>
+<a name='L56'>    newsize = (*size)*2;
+<a name='L57'>    <b>if</b> (newsize &lt; <a href='../S/300.html#L43' title='Defined at 43 in deps/lua/src/lmem.c.'>MINSIZEARRAY</a>)
+<a name='L58'>      newsize = <a href='../S/300.html#L43' title='Defined at 43 in deps/lua/src/lmem.c.'>MINSIZEARRAY</a>;  <i><font color='green'>/* minimum size */</font></i>
+<a name='L59'>  <font color='red'>}</font>
+<a name='L60'>  newblock = <a href='../S/278.html#L19' title='Defined at 19 in deps/lua/src/lmem.h.'>luaM_reallocv</a>(L, <a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a>, *size, newsize, size_elems);
+<a name='L61'>  *size = newsize;  <i><font color='green'>/* update only when everything else is OK */</font></i>
+<a name='L62'>  <b>return</b> newblock;
+<a name='L63'><font color='red'>}</font>
+<a name='L64'>
+<a name='L65'>
+<a name='L66'><b>void</b> *<a href='../R/2686.html' title='Multiple refered from 4 places.'>luaM_toobig</a> (lua_State *L) <font color='red'>{</font>
+<a name='L67'>  <a href='../S/299.html#L631' title='Defined at 631 in deps/lua/src/ldebug.c.'>luaG_runerror</a>(L, "memory allocation error: block too big");
+<a name='L68'>  <b>return</b> NULL;  <i><font color='green'>/* to avoid warnings */</font></i>
+<a name='L69'><font color='red'>}</font>
+<a name='L70'>
+<a name='L71'>
+<a name='L72'>
+<a name='L73'><i><font color='green'>/*</font></i>
+<a name='L74'><i><font color='green'>** generic allocation routine.</font></i>
+<a name='L75'><i><font color='green'>*/</font></i>
+<a name='L76'><b>void</b> *<a href='../R/2683.html' title='Multiple refered from 5 places.'>luaM_realloc_</a> (lua_State *L, <b>void</b> *block, size_t osize, size_t nsize) <font color='red'>{</font>
+<a name='L77'>  <a href='../D/2382.html' title='Multiple defined in 2 places.'>global_State</a> *g = <a href='../S/298.html#L130' title='Defined at 130 in deps/lua/src/lstate.h.'>G</a>(L);
+<a name='L78'>  <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>((osize == 0) == (<a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a> == NULL));
+<a name='L79'>  <a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a> = (*g-&gt;frealloc)(g-&gt;ud, <a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a>, osize, nsize);
+<a name='L80'>  <b>if</b> (<a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a> == NULL &amp;&amp; nsize &gt; 0)
+<a name='L81'>    <a href='../S/297.html#L94' title='Defined at 94 in deps/lua/src/ldo.c.'>luaD_throw</a>(L, <a href='../S/266.html#L46' title='Defined at 46 in deps/lua/src/lua.h.'>LUA_ERRMEM</a>);
+<a name='L82'>  <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>((nsize == 0) == (<a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a> == NULL));
+<a name='L83'>  g-&gt;totalbytes = (g-&gt;totalbytes - osize) + nsize;
+<a name='L84'>  <b>return</b> <a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a>;
+<a name='L85'><font color='red'>}</font>
+<a name='L86'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L46'>[^]</a><a href='#L76'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

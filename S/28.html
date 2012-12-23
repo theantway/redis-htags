@@ -1,0 +1,104 @@
+<html>
+<head>
+<title>src/zmalloc.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/zmalloc.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/229.html' title='Multiple included from 11 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* zmalloc - total amount of allocated memory aware version of malloc()</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2009-2010, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'><font color='darkred'>#ifndef</font> <a href='../S/28.html#L32' title='Defined at 32 in src/zmalloc.h.'>__ZMALLOC_H</a>
+<a name='L32'><font color='darkred'>#define</font> <a href='../S/28.html#L31' title='Refered from 31 in src/zmalloc.h.'>__ZMALLOC_H</a>
+<a name='L33'>
+<a name='L34'><i><font color='green'>/* Double expansion needed for stringification of macro values. */</font></i>
+<a name='L35'><font color='darkred'>#define</font> <a href='../R/1149.html' title='Multiple refered from 2 places.'>__xstr</a>(s) <a href='../S/28.html#L36' title='Defined at 36 in src/zmalloc.h.'>__str</a>(s)
+<a name='L36'><font color='darkred'>#define</font> <a href='../S/28.html#L35' title='Refered from 35 in src/zmalloc.h.'>__str</a>(s) #s
+<a name='L37'>
+<a name='L38'><font color='darkred'>#if</font> <b>defined</b>(USE_TCMALLOC)
+<a name='L39'><font color='darkred'>#define</font> <a href='../R/1091.html' title='Multiple refered from 3 places.'>ZMALLOC_LIB</a> ("tcmalloc-" <a href='../S/28.html#L35' title='Defined at 35 in src/zmalloc.h.'>__xstr</a>(TC_VERSION_MAJOR) "." <a href='../S/28.html#L35' title='Defined at 35 in src/zmalloc.h.'>__xstr</a>(TC_VERSION_MINOR))
+<a name='L40'><font color='darkred'>#include</font> &lt;google/tcmalloc.h&gt;
+<a name='L41'><font color='darkred'>#if</font> (TC_VERSION_MAJOR == 1 &amp;&amp; TC_VERSION_MINOR &gt;= 6) || (TC_VERSION_MAJOR &gt; 1)
+<a name='L42'><font color='darkred'>#define</font> <a href='../R/180.html' title='Multiple refered from 9 places.'>HAVE_MALLOC_SIZE</a> 1
+<a name='L43'><font color='darkred'>#define</font> <a href='../R/4158.html' title='Multiple refered from 7 places.'>zmalloc_size</a>(p) tc_malloc_size(p)
+<a name='L44'><font color='darkred'>#else</font>
+<a name='L45'><font color='darkred'>#error</font> "Newer version of tcmalloc required"
+<a name='L46'><font color='darkred'>#endif</font>
+<a name='L47'>
+<a name='L48'><font color='darkred'>#elif</font> <b>defined</b>(USE_JEMALLOC)
+<a name='L49'><font color='darkred'>#define</font> <a href='../R/1091.html' title='Multiple refered from 3 places.'>ZMALLOC_LIB</a> ("jemalloc-" <a href='../S/28.html#L35' title='Defined at 35 in src/zmalloc.h.'>__xstr</a>(JEMALLOC_VERSION_MAJOR) "." <a href='../S/28.html#L35' title='Defined at 35 in src/zmalloc.h.'>__xstr</a>(JEMALLOC_VERSION_MINOR) "." <a href='../S/28.html#L35' title='Defined at 35 in src/zmalloc.h.'>__xstr</a>(JEMALLOC_VERSION_BUGFIX))
+<a name='L50'><font color='darkred'>#include</font> &lt;jemalloc/jemalloc.h&gt;
+<a name='L51'><font color='darkred'>#if</font> (JEMALLOC_VERSION_MAJOR == 2 &amp;&amp; JEMALLOC_VERSION_MINOR &gt;= 1) || (JEMALLOC_VERSION_MAJOR &gt; 2)
+<a name='L52'><font color='darkred'>#define</font> <a href='../R/180.html' title='Multiple refered from 9 places.'>HAVE_MALLOC_SIZE</a> 1
+<a name='L53'><font color='darkred'>#define</font> <a href='../R/4158.html' title='Multiple refered from 7 places.'>zmalloc_size</a>(p) <a href='../S/213.html#L1312' title='Defined at 1312 in deps/jemalloc/src/jemalloc.c.'>je_malloc_usable_size</a>(p)
+<a name='L54'><font color='darkred'>#else</font>
+<a name='L55'><font color='darkred'>#error</font> "Newer version of jemalloc required"
+<a name='L56'><font color='darkred'>#endif</font>
+<a name='L57'>
+<a name='L58'><font color='darkred'>#elif</font> <b>defined</b>(__APPLE__)
+<a name='L59'><font color='darkred'>#include</font> &lt;malloc/malloc.h&gt;
+<a name='L60'><font color='darkred'>#define</font> <a href='../R/180.html' title='Multiple refered from 9 places.'>HAVE_MALLOC_SIZE</a> 1
+<a name='L61'><font color='darkred'>#define</font> <a href='../R/4158.html' title='Multiple refered from 7 places.'>zmalloc_size</a>(p) malloc_size(p)
+<a name='L62'><font color='darkred'>#endif</font>
+<a name='L63'>
+<a name='L64'><font color='darkred'>#ifndef</font> <a href='../D/1344.html' title='Multiple defined in 3 places.'>ZMALLOC_LIB</a>
+<a name='L65'><font color='darkred'>#define</font> <a href='../R/1091.html' title='Multiple refered from 3 places.'>ZMALLOC_LIB</a> "libc"
+<a name='L66'><font color='darkred'>#endif</font>
+<a name='L67'>
+<a name='L68'><b>void</b> *<a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(size_t size);
+<a name='L69'><b>void</b> *<a href='../S/39.html#L135' title='Defined at 135 in src/zmalloc.c.'>zcalloc</a>(size_t size);
+<a name='L70'><b>void</b> *<a href='../S/39.html#L149' title='Defined at 149 in src/zmalloc.c.'>zrealloc</a>(<b>void</b> *ptr, size_t size);
+<a name='L71'><b>void</b> <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(<b>void</b> *ptr);
+<a name='L72'><b>char</b> *<a href='../S/39.html#L210' title='Defined at 210 in src/zmalloc.c.'>zstrdup</a>(<b>const</b> <b>char</b> *s);
+<a name='L73'>size_t <a href='../S/39.html#L218' title='Defined at 218 in src/zmalloc.c.'>zmalloc_used_memory</a>(<b>void</b>);
+<a name='L74'><b>void</b> <a href='../S/39.html#L237' title='Defined at 237 in src/zmalloc.c.'>zmalloc_enable_thread_safeness</a>(<b>void</b>);
+<a name='L75'><b>void</b> <a href='../S/39.html#L241' title='Defined at 241 in src/zmalloc.c.'>zmalloc_set_oom_handler</a>(<b>void</b> (*oom_handler)(size_t));
+<a name='L76'><b>float</b> <a href='../S/39.html#L324' title='Defined at 324 in src/zmalloc.c.'>zmalloc_get_fragmentation_ratio</a>(<b>void</b>);
+<a name='L77'>size_t <a href='../D/4546.html' title='Multiple defined in 3 places.'>zmalloc_get_rss</a>(<b>void</b>);
+<a name='L78'>size_t <a href='../D/4545.html' title='Multiple defined in 2 places.'>zmalloc_get_private_dirty</a>(<b>void</b>);
+<a name='L79'><b>void</b> <a href='../S/39.html#L38' title='Defined at 38 in src/zmalloc.c.'>zlibc_free</a>(<b>void</b> *ptr);
+<a name='L80'>
+<a name='L81'><font color='darkred'>#ifndef</font> <a href='../D/183.html' title='Multiple defined in 3 places.'>HAVE_MALLOC_SIZE</a>
+<a name='L82'>size_t <a href='../D/4548.html' title='Multiple defined in 4 places.'>zmalloc_size</a>(<b>void</b> *ptr);
+<a name='L83'><font color='darkred'>#endif</font>
+<a name='L84'>
+<a name='L85'><font color='darkred'>#endif</font> <i><font color='green'>/* __ZMALLOC_H */</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

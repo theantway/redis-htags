@@ -1,0 +1,127 @@
+<html>
+<head>
+<title>src/ae_select.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/ae_select.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L41'>[^]</a><a href='#L97'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L41' title='Defined at 41.'>aeApiCreate</a>
+<li><a href='#L51' title='Defined at 51.'>aeApiFree</a>
+<li><a href='#L55' title='Defined at 55.'>aeApiAddEvent</a>
+<li><a href='#L63' title='Defined at 63.'>aeApiDelEvent</a>
+<li><a href='#L70' title='Defined at 70.'>aeApiPoll</a>
+<li><a href='#L97' title='Defined at 97.'>aeApiName</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* Select()-based ae.c module.</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'>
+<a name='L32'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L33'>
+<a name='L34'><b>typedef</b> <b>struct</b> <a href='../R/1239.html' title='Multiple refered from 19 places.'>aeApiState</a> <font color='red'>{</font>
+<a name='L35'>    fd_set rfds, wfds;
+<a name='L36'>    <i><font color='green'>/* We need to have a copy of the fd sets as it's not safe to reuse</font></i>
+<a name='L37'><i><font color='green'>     * FD sets after select(). */</font></i>
+<a name='L38'>    fd_set _rfds, _wfds;
+<a name='L39'><font color='red'>}</font> <a href='../R/1239.html' title='Multiple refered from 19 places.'>aeApiState</a>;
+<a name='L40'>
+<a name='L41'><b>static</b> <b>int</b> <a href='../S/36.html#L77' title='Refered from 77 in src/ae.c.'>aeApiCreate</a>(aeEventLoop *eventLoop) <font color='red'>{</font>
+<a name='L42'>    <a href='../D/1501.html' title='Multiple defined in 8 places.'>aeApiState</a> *state = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<a href='../D/1501.html' title='Multiple defined in 8 places.'>aeApiState</a>));
+<a name='L43'>
+<a name='L44'>    <b>if</b> (!state) <b>return</b> -1;
+<a name='L45'>    FD_ZERO(&amp;state-&gt;rfds);
+<a name='L46'>    FD_ZERO(&amp;state-&gt;wfds);
+<a name='L47'>    eventLoop-&gt;apidata = state;
+<a name='L48'>    <b>return</b> 0;
+<a name='L49'><font color='red'>}</font>
+<a name='L50'>
+<a name='L51'><b>static</b> <b>void</b> <a href='../S/36.html#L94' title='Refered from 94 in src/ae.c.'>aeApiFree</a>(aeEventLoop *eventLoop) <font color='red'>{</font>
+<a name='L52'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(eventLoop-&gt;apidata);
+<a name='L53'><font color='red'>}</font>
+<a name='L54'>
+<a name='L55'><b>static</b> <b>int</b> <a href='../S/36.html#L110' title='Refered from 110 in src/ae.c.'>aeApiAddEvent</a>(aeEventLoop *eventLoop, <b>int</b> fd, <b>int</b> mask) <font color='red'>{</font>
+<a name='L56'>    <a href='../D/1501.html' title='Multiple defined in 8 places.'>aeApiState</a> *state = eventLoop-&gt;apidata;
+<a name='L57'>
+<a name='L58'>    <b>if</b> (mask &amp; <a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>) FD_SET(fd,&amp;state-&gt;rfds);
+<a name='L59'>    <b>if</b> (mask &amp; <a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>) FD_SET(fd,&amp;state-&gt;wfds);
+<a name='L60'>    <b>return</b> 0;
+<a name='L61'><font color='red'>}</font>
+<a name='L62'>
+<a name='L63'><b>static</b> <b>void</b> <a href='../S/36.html#L136' title='Refered from 136 in src/ae.c.'>aeApiDelEvent</a>(aeEventLoop *eventLoop, <b>int</b> fd, <b>int</b> mask) <font color='red'>{</font>
+<a name='L64'>    <a href='../D/1501.html' title='Multiple defined in 8 places.'>aeApiState</a> *state = eventLoop-&gt;apidata;
+<a name='L65'>
+<a name='L66'>    <b>if</b> (mask &amp; <a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>) FD_CLR(fd,&amp;state-&gt;rfds);
+<a name='L67'>    <b>if</b> (mask &amp; <a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>) FD_CLR(fd,&amp;state-&gt;wfds);
+<a name='L68'><font color='red'>}</font>
+<a name='L69'>
+<a name='L70'><b>static</b> <b>int</b> <a href='../S/36.html#L366' title='Refered from 366 in src/ae.c.'>aeApiPoll</a>(aeEventLoop *eventLoop, <b>struct</b> timeval *tvp) <font color='red'>{</font>
+<a name='L71'>    <a href='../D/1501.html' title='Multiple defined in 8 places.'>aeApiState</a> *state = eventLoop-&gt;apidata;
+<a name='L72'>    <b>int</b> retval, j, numevents = 0;
+<a name='L73'>
+<a name='L74'>    memcpy(&amp;state-&gt;_rfds,&amp;state-&gt;rfds,<b>sizeof</b>(fd_set));
+<a name='L75'>    memcpy(&amp;state-&gt;_wfds,&amp;state-&gt;wfds,<b>sizeof</b>(fd_set));
+<a name='L76'>
+<a name='L77'>    retval = select(eventLoop-&gt;maxfd+1,
+<a name='L78'>                &amp;state-&gt;_rfds,&amp;state-&gt;_wfds,NULL,tvp);
+<a name='L79'>    <b>if</b> (retval &gt; 0) <font color='red'>{</font>
+<a name='L80'>        <b>for</b> (j = 0; j &lt;= eventLoop-&gt;maxfd; j++) <font color='red'>{</font>
+<a name='L81'>            <b>int</b> mask = 0;
+<a name='L82'>            <a href='../D/1511.html' title='Multiple defined in 2 places.'>aeFileEvent</a> *fe = &amp;eventLoop-&gt;events[j];
+<a name='L83'>
+<a name='L84'>            <b>if</b> (fe-&gt;mask == <a href='../S/38.html#L39' title='Defined at 39 in src/ae.h.'>AE_NONE</a>) <b>continue</b>;
+<a name='L85'>            <b>if</b> (fe-&gt;mask &amp; <a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a> &amp;&amp; FD_ISSET(j,&amp;state-&gt;_rfds))
+<a name='L86'>                mask |= <a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>;
+<a name='L87'>            <b>if</b> (fe-&gt;mask &amp; <a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a> &amp;&amp; FD_ISSET(j,&amp;state-&gt;_wfds))
+<a name='L88'>                mask |= <a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>;
+<a name='L89'>            eventLoop-&gt;fired[numevents].fd = j;
+<a name='L90'>            eventLoop-&gt;fired[numevents].mask = mask;
+<a name='L91'>            numevents++;
+<a name='L92'>        <font color='red'>}</font>
+<a name='L93'>    <font color='red'>}</font>
+<a name='L94'>    <b>return</b> numevents;
+<a name='L95'><font color='red'>}</font>
+<a name='L96'>
+<a name='L97'><b>static</b> <b>char</b> *<a href='../S/36.html#L426' title='Refered from 426 in src/ae.c.'>aeApiName</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L98'>    <b>return</b> "select";
+<a name='L99'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L41'>[^]</a><a href='#L97'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

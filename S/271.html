@@ -1,0 +1,55 @@
+<html>
+<head>
+<title>deps/lua/src/lundump.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/lundump.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/142.html' title='Multiple included from 7 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: lundump.h,v 1.37.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** load precompiled Lua chunks</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'><font color='darkred'>#ifndef</font> <a href='../S/271.html#L8' title='Defined at 8 in deps/lua/src/lundump.h.'>lundump_h</a>
+<a name='L8'><font color='darkred'>#define</font> <a href='../S/271.html#L7' title='Refered from 7 in deps/lua/src/lundump.h.'>lundump_h</a>
+<a name='L9'>
+<a name='L10'><font color='darkred'>#include</font> "<a href='282.html'>lobject.h</a>"
+<a name='L11'><font color='darkred'>#include</font> "<a href='312.html'>lzio.h</a>"
+<a name='L12'>
+<a name='L13'><i><font color='green'>/* load one chunk; from lundump.c */</font></i>
+<a name='L14'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <a href='../D/722.html' title='Multiple defined in 2 places.'>Proto</a>* <a href='../S/308.html#L195' title='Defined at 195 in deps/lua/src/lundump.c.'>luaU_undump</a> (lua_State* L, <a href='../S/312.html#L18' title='Defined at 18 in deps/lua/src/lzio.h.'>ZIO</a>* Z, Mbuffer* buff, <b>const</b> <b>char</b>* name);
+<a name='L15'>
+<a name='L16'><i><font color='green'>/* make header; from lundump.c */</font></i>
+<a name='L17'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/308.html#L214' title='Defined at 214 in deps/lua/src/lundump.c.'>luaU_header</a> (<b>char</b>* h);
+<a name='L18'>
+<a name='L19'><i><font color='green'>/* dump one chunk; from ldump.c */</font></i>
+<a name='L20'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>int</b> <a href='../D/3049.html' title='Multiple defined in 2 places.'>luaU_dump</a> (lua_State* L, <b>const</b> Proto* f, lua_Writer w, <b>void</b>* data, <b>int</b> strip);
+<a name='L21'>
+<a name='L22'><font color='darkred'>#ifdef</font> <a href='../D/3213.html' title='Multiple defined in 2 places.'>luac_c</a>
+<a name='L23'><i><font color='green'>/* print one chunk; from print.c */</font></i>
+<a name='L24'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> luaU_print (<b>const</b> Proto* f, <b>int</b> full);
+<a name='L25'><font color='darkred'>#endif</font>
+<a name='L26'>
+<a name='L27'><i><font color='green'>/* for header of binary files -- this is Lua 5.1 */</font></i>
+<a name='L28'><font color='darkred'>#define</font> <a href='../S/308.html#L219' title='Refered from 219 in deps/lua/src/lundump.c.'>LUAC_VERSION</a>            0x51
+<a name='L29'>
+<a name='L30'><i><font color='green'>/* for header of binary files -- this is the official format */</font></i>
+<a name='L31'><font color='darkred'>#define</font> <a href='../S/308.html#L220' title='Refered from 220 in deps/lua/src/lundump.c.'>LUAC_FORMAT</a>             0
+<a name='L32'>
+<a name='L33'><i><font color='green'>/* size of header of binary files */</font></i>
+<a name='L34'><font color='darkred'>#define</font> <a href='../R/267.html' title='Multiple refered from 6 places.'>LUAC_HEADERSIZE</a>         12
+<a name='L35'>
+<a name='L36'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<html>
+<head>
+<title>TValue</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/272.html#L49'>TValue</a>             49 deps/lua/src/lapi.c static TValue *index2adr (lua_State *L, int idx) {
+<a href='../S/272.html#L51'>TValue</a>             51 deps/lua/src/lapi.c     TValue *o = L-&gt;base + (idx - 1);
+<a href='../S/272.html#L53'>TValue</a>             53 deps/lua/src/lapi.c     if (o &gt;= L-&gt;top) return cast(TValue *, luaO_nilobject);
+<a href='../S/272.html#L73'>TValue</a>             73 deps/lua/src/lapi.c                 : cast(TValue *, luaO_nilobject);
+<a href='../S/272.html#L261'>TValue</a>            261 deps/lua/src/lapi.c   TValue n;
+<a href='../S/272.html#L262'>TValue</a>            262 deps/lua/src/lapi.c   const TValue *o = index2adr(L, idx);
+<a href='../S/272.html#L274'>TValue</a>            274 deps/lua/src/lapi.c   const TValue *o = index2adr(L, idx);
+<a href='../S/272.html#L314'>TValue</a>            314 deps/lua/src/lapi.c   TValue n;
+<a href='../S/272.html#L315'>TValue</a>            315 deps/lua/src/lapi.c   const TValue *o = index2adr(L, idx);
+<a href='../S/272.html#L324'>TValue</a>            324 deps/lua/src/lapi.c   TValue n;
+<a href='../S/272.html#L325'>TValue</a>            325 deps/lua/src/lapi.c   const TValue *o = index2adr(L, idx);
+<a href='../S/272.html#L338'>TValue</a>            338 deps/lua/src/lapi.c   const TValue *o = index2adr(L, idx);
+<a href='../S/272.html#L546'>TValue</a>            546 deps/lua/src/lapi.c   TValue key;
+<a href='../S/272.html#L588'>TValue</a>            588 deps/lua/src/lapi.c   const TValue *obj;
+<a href='../S/272.html#L659'>TValue</a>            659 deps/lua/src/lapi.c   TValue key;
+<a href='../S/272.html#L698'>TValue</a>            698 deps/lua/src/lapi.c   TValue *obj;
+<a href='../S/272.html#L877'>TValue</a>            877 deps/lua/src/lapi.c   TValue *o;
+<a href='../S/272.html#L1059'>TValue</a>           1059 deps/lua/src/lapi.c   TValue *val;
+<a href='../S/272.html#L1073'>TValue</a>           1073 deps/lua/src/lapi.c   TValue *val;
+<a href='../S/293.html#L231'>TValue</a>            231 deps/lua/src/lcode.c   TValue *idx = luaH_set(L, fs-&gt;h, k);
+<a href='../S/293.html#L240'>TValue</a>            240 deps/lua/src/lcode.c     luaM_growvector(L, f-&gt;k, fs-&gt;nk, f-&gt;sizek, TValue,
+<a href='../S/293.html#L251'>TValue</a>            251 deps/lua/src/lcode.c   TValue o;
+<a href='../S/293.html#L258'>TValue</a>            258 deps/lua/src/lcode.c   TValue o;
+<a href='../S/293.html#L265'>TValue</a>            265 deps/lua/src/lcode.c   TValue o;
+<a href='../S/293.html#L272'>TValue</a>            272 deps/lua/src/lcode.c   TValue k, v;
+<a href='../S/299.html#L589'>TValue</a>            589 deps/lua/src/ldebug.c   TValue temp;
+<a href='../S/297.html#L142'>TValue</a>            142 deps/lua/src/ldo.c   TValue *oldstack = L-&gt;stack;
+<a href='../S/297.html#L145'>TValue</a>            145 deps/lua/src/ldo.c   luaM_reallocvector(L, L-&gt;stack, L-&gt;stacksize, realsize, TValue);
+<a href='../S/297.html#L244'>TValue</a>            244 deps/lua/src/ldo.c   const TValue *tm = luaT_gettmbyobj(L, func, TM_CALL);
+<a href='../S/296.html#L17'>TValue</a>             17 deps/lua/src/ldo.h   if ((char *)L-&gt;stack_last - (char *)L-&gt;top &lt;= (n)*(int)sizeof(TValue)) \
+<a href='../S/296.html#L25'>TValue</a>             25 deps/lua/src/ldo.h #define restorestack(L,n)	((TValue *)((char *)L-&gt;stack + (n)))
+<a href='../S/303.html#L86'>TValue</a>             86 deps/lua/src/ldump.c   const TValue* o=&amp;f-&gt;k[i];
+<a href='../S/258.html#L144'>TValue</a>            144 deps/lua/src/lfunc.c   luaM_freearray(L, f-&gt;k, f-&gt;sizek, TValue);
+<a href='../S/257.html#L15'>TValue</a>             15 deps/lua/src/lfunc.h                          cast(int, sizeof(TValue)*((n)-1)))
+<a href='../S/257.html#L18'>TValue</a>             18 deps/lua/src/lfunc.h                          cast(int, sizeof(TValue *)*((n)-1)))
+<a href='../S/291.html#L162'>TValue</a>            162 deps/lua/src/lgc.c   const TValue *mode;
+<a href='../S/291.html#L287'>TValue</a>            287 deps/lua/src/lgc.c       return sizeof(Table) + sizeof(TValue) * h-&gt;sizearray +
+<a href='../S/291.html#L304'>TValue</a>            304 deps/lua/src/lgc.c       return sizeof(lua_State) + sizeof(TValue) * th-&gt;stacksize +
+<a href='../S/291.html#L313'>TValue</a>            313 deps/lua/src/lgc.c                              sizeof(TValue) * p-&gt;sizek + 
+<a href='../S/291.html#L359'>TValue</a>            359 deps/lua/src/lgc.c         TValue *o = &amp;h-&gt;array[i];
+<a href='../S/291.html#L449'>TValue</a>            449 deps/lua/src/lgc.c   const TValue *tm;
+<a href='../S/305.html#L120'>TValue</a>            120 deps/lua/src/llex.c   TValue *o = luaH_setstr(L, ls-&gt;fs-&gt;h, ts);  /* entry for `str' */
+<a href='../S/311.html#L27'>TValue</a>             27 deps/lua/src/lobject.c const TValue luaO_nilobject_ = {{NULL}, LUA_TNIL};
+<a href='../S/282.html#L120'>TValue</a>            120 deps/lua/src/lobject.h   { TValue *i_o=(obj); i_o-&gt;value.n=(x); i_o-&gt;tt=LUA_TNUMBER; }
+<a href='../S/282.html#L123'>TValue</a>            123 deps/lua/src/lobject.h   { TValue *i_o=(obj); i_o-&gt;value.p=(x); i_o-&gt;tt=LUA_TLIGHTUSERDATA; }
+<a href='../S/282.html#L126'>TValue</a>            126 deps/lua/src/lobject.h   { TValue *i_o=(obj); i_o-&gt;value.b=(x); i_o-&gt;tt=LUA_TBOOLEAN; }
+<a href='../S/282.html#L129'>TValue</a>            129 deps/lua/src/lobject.h   { TValue *i_o=(obj); \
+<a href='../S/282.html#L134'>TValue</a>            134 deps/lua/src/lobject.h   { TValue *i_o=(obj); \
+<a href='../S/282.html#L139'>TValue</a>            139 deps/lua/src/lobject.h   { TValue *i_o=(obj); \
+<a href='../S/282.html#L144'>TValue</a>            144 deps/lua/src/lobject.h   { TValue *i_o=(obj); \
+<a href='../S/282.html#L149'>TValue</a>            149 deps/lua/src/lobject.h   { TValue *i_o=(obj); \
+<a href='../S/282.html#L154'>TValue</a>            154 deps/lua/src/lobject.h   { TValue *i_o=(obj); \
+<a href='../S/282.html#L162'>TValue</a>            162 deps/lua/src/lobject.h   { const TValue *o2=(obj2); TValue *o1=(obj1); \
+<a href='../S/282.html#L193'>TValue</a>            193 deps/lua/src/lobject.h typedef TValue *StkId;  /* index to stack elements */
+<a href='../S/282.html#L233'>TValue</a>            233 deps/lua/src/lobject.h   TValue *k;  /* constants used by the function */
+<a href='../S/282.html#L276'>TValue</a>            276 deps/lua/src/lobject.h   TValue *v;  /* points to stack or to its own value */
+<a href='../S/282.html#L278'>TValue</a>            278 deps/lua/src/lobject.h     TValue value;  /* the value (when closed) */
+<a href='../S/282.html#L298'>TValue</a>            298 deps/lua/src/lobject.h   TValue upvalue[1];
+<a href='../S/282.html#L328'>TValue</a>            328 deps/lua/src/lobject.h   TValue tvk;
+<a href='../S/282.html#L333'>TValue</a>            333 deps/lua/src/lobject.h   TValue i_val;
+<a href='../S/282.html#L343'>TValue</a>            343 deps/lua/src/lobject.h   TValue *array;  /* array part */
+<a href='../S/282.html#L365'>TValue</a>            365 deps/lua/src/lobject.h LUAI_DATA const TValue luaO_nilobject_;
+<a href='../S/304.html#L366'>TValue</a>            366 deps/lua/src/lparser.c   luaM_reallocvector(L, f-&gt;k, f-&gt;sizek, fs-&gt;nk, TValue);
+<a href='../S/275.html#L49'>TValue</a>             49 deps/lua/src/lstate.c   L1-&gt;stack = luaM_newvector(L, BASIC_STACK_SIZE + EXTRA_STACK, TValue);
+<a href='../S/275.html#L63'>TValue</a>             63 deps/lua/src/lstate.c   luaM_freearray(L, L1-&gt;stack, L1-&gt;stacksize, TValue);
+<a href='../S/298.html#L89'>TValue</a>             89 deps/lua/src/lstate.h   TValue l_registry;
+<a href='../S/298.html#L121'>TValue</a>            121 deps/lua/src/lstate.h   TValue l_gt;  /* table of globals */
+<a href='../S/298.html#L122'>TValue</a>            122 deps/lua/src/lstate.h   TValue env;  /* temporary place for environments */
+<a href='../S/259.html#L265'>TValue</a>            265 deps/lua/src/ltable.c   luaM_reallocvector(L, t-&gt;array, t-&gt;sizearray, size, TValue);
+<a href='../S/259.html#L314'>TValue</a>            314 deps/lua/src/ltable.c     luaM_reallocvector(L, t-&gt;array, oldasize, nasize, TValue);
+<a href='../S/259.html#L377'>TValue</a>            377 deps/lua/src/ltable.c   luaM_freearray(L, t-&gt;array, t-&gt;sizearray, TValue);
+<a href='../S/259.html#L399'>TValue</a>            399 deps/lua/src/ltable.c static TValue *newkey (lua_State *L, Table *t, const TValue *key) {
+<a href='../S/259.html#L435'>TValue</a>            435 deps/lua/src/ltable.c const TValue *luaH_getnum (Table *t, int key) {
+<a href='../S/259.html#L455'>TValue</a>            455 deps/lua/src/ltable.c const TValue *luaH_getstr (Table *t, TString *key) {
+<a href='../S/259.html#L469'>TValue</a>            469 deps/lua/src/ltable.c const TValue *luaH_get (Table *t, const TValue *key) {
+<a href='../S/259.html#L494'>TValue</a>            494 deps/lua/src/ltable.c TValue *luaH_set (lua_State *L, Table *t, const TValue *key) {
+<a href='../S/259.html#L495'>TValue</a>            495 deps/lua/src/ltable.c   const TValue *p = luaH_get(t, key);
+<a href='../S/259.html#L498'>TValue</a>            498 deps/lua/src/ltable.c     return cast(TValue *, p);
+<a href='../S/259.html#L508'>TValue</a>            508 deps/lua/src/ltable.c TValue *luaH_setnum (lua_State *L, Table *t, int key) {
+<a href='../S/259.html#L509'>TValue</a>            509 deps/lua/src/ltable.c   const TValue *p = luaH_getnum(t, key);
+<a href='../S/259.html#L511'>TValue</a>            511 deps/lua/src/ltable.c     return cast(TValue *, p);
+<a href='../S/259.html#L513'>TValue</a>            513 deps/lua/src/ltable.c     TValue k;
+<a href='../S/259.html#L520'>TValue</a>            520 deps/lua/src/ltable.c TValue *luaH_setstr (lua_State *L, Table *t, TString *key) {
+<a href='../S/259.html#L521'>TValue</a>            521 deps/lua/src/ltable.c   const TValue *p = luaH_getstr(t, key);
+<a href='../S/259.html#L523'>TValue</a>            523 deps/lua/src/ltable.c     return cast(TValue *, p);
+<a href='../S/259.html#L525'>TValue</a>            525 deps/lua/src/ltable.c     TValue k;
+<a href='../S/281.html#L21'>TValue</a>             21 deps/lua/src/ltable.h LUAI_FUNC const TValue *luaH_getnum (Table *t, int key);
+<a href='../S/281.html#L22'>TValue</a>             22 deps/lua/src/ltable.h LUAI_FUNC TValue *luaH_setnum (lua_State *L, Table *t, int key);
+<a href='../S/281.html#L23'>TValue</a>             23 deps/lua/src/ltable.h LUAI_FUNC const TValue *luaH_getstr (Table *t, TString *key);
+<a href='../S/281.html#L24'>TValue</a>             24 deps/lua/src/ltable.h LUAI_FUNC TValue *luaH_setstr (lua_State *L, Table *t, TString *key);
+<a href='../S/281.html#L25'>TValue</a>             25 deps/lua/src/ltable.h LUAI_FUNC const TValue *luaH_get (Table *t, const TValue *key);
+<a href='../S/281.html#L26'>TValue</a>             26 deps/lua/src/ltable.h LUAI_FUNC TValue *luaH_set (lua_State *L, Table *t, const TValue *key);
+<a href='../S/309.html#L50'>TValue</a>             50 deps/lua/src/ltm.c const TValue *luaT_gettm (Table *events, TMS event, TString *ename) {
+<a href='../S/309.html#L51'>TValue</a>             51 deps/lua/src/ltm.c   const TValue *tm = luaH_getstr(events, ename);
+<a href='../S/309.html#L61'>TValue</a>             61 deps/lua/src/ltm.c const TValue *luaT_gettmbyobj (lua_State *L, const TValue *o, TMS event) {
+<a href='../S/307.html#L49'>TValue</a>             49 deps/lua/src/ltm.h LUAI_FUNC const TValue *luaT_gettm (Table *events, TMS event, TString *ename);
+<a href='../S/307.html#L50'>TValue</a>             50 deps/lua/src/ltm.h LUAI_FUNC const TValue *luaT_gettmbyobj (lua_State *L, const TValue *o,
+<a href='../S/308.html#L104'>TValue</a>            104 deps/lua/src/lundump.c  f-&gt;k=luaM_newvector(S-&gt;L,n,TValue);
+<a href='../S/308.html#L109'>TValue</a>            109 deps/lua/src/lundump.c   TValue* o=&amp;f-&gt;k[i];
+<a href='../S/290.html#L35'>TValue</a>             35 deps/lua/src/lvm.c const TValue *luaV_tonumber (const TValue *obj, TValue *n) {
+<a href='../S/290.html#L111'>TValue</a>            111 deps/lua/src/lvm.c     const TValue *tm;
+<a href='../S/290.html#L114'>TValue</a>            114 deps/lua/src/lvm.c       const TValue *res = luaH_get(h, key); /* do a primitive get */
+<a href='../S/290.html#L137'>TValue</a>            137 deps/lua/src/lvm.c     const TValue *tm;
+<a href='../S/290.html#L140'>TValue</a>            140 deps/lua/src/lvm.c       TValue *oldval = luaH_set(L, h, key); /* do a primitive set */
+<a href='../S/290.html#L163'>TValue</a>            163 deps/lua/src/lvm.c   const TValue *tm = luaT_gettmbyobj(L, p1, event);  /* try first operand */
+<a href='../S/290.html#L172'>TValue</a>            172 deps/lua/src/lvm.c static const TValue *get_compTM (lua_State *L, Table *mt1, Table *mt2,
+<a href='../S/290.html#L174'>TValue</a>            174 deps/lua/src/lvm.c   const TValue *tm1 = fasttm(L, mt1, event);
+<a href='../S/290.html#L175'>TValue</a>            175 deps/lua/src/lvm.c   const TValue *tm2;
+<a href='../S/290.html#L188'>TValue</a>            188 deps/lua/src/lvm.c   const TValue *tm1 = luaT_gettmbyobj(L, p1, event);
+<a href='../S/290.html#L189'>TValue</a>            189 deps/lua/src/lvm.c   const TValue *tm2;
+<a href='../S/290.html#L252'>TValue</a>            252 deps/lua/src/lvm.c   const TValue *tm;
+<a href='../S/290.html#L315'>TValue</a>            315 deps/lua/src/lvm.c   TValue tempb, tempc;
+<a href='../S/290.html#L316'>TValue</a>            316 deps/lua/src/lvm.c   const TValue *b, *c;
+<a href='../S/290.html#L361'>TValue</a>            361 deps/lua/src/lvm.c         TValue *rb = RKB(i); \
+<a href='../S/290.html#L362'>TValue</a>            362 deps/lua/src/lvm.c         TValue *rc = RKC(i); \
+<a href='../S/290.html#L376'>TValue</a>            376 deps/lua/src/lvm.c   TValue *k;
+<a href='../S/290.html#L417'>TValue</a>            417 deps/lua/src/lvm.c         TValue *rb = RB(i);
+<a href='../S/290.html#L429'>TValue</a>            429 deps/lua/src/lvm.c         TValue g;
+<a href='../S/290.html#L430'>TValue</a>            430 deps/lua/src/lvm.c         TValue *rb = KBx(i);
+<a href='../S/290.html#L441'>TValue</a>            441 deps/lua/src/lvm.c         TValue g;
+<a href='../S/290.html#L495'>TValue</a>            495 deps/lua/src/lvm.c         TValue *rb = RB(i);
+<a href='../S/290.html#L511'>TValue</a>            511 deps/lua/src/lvm.c         const TValue *rb = RB(i);
+<a href='../S/290.html#L542'>TValue</a>            542 deps/lua/src/lvm.c         TValue *rb = RKB(i);
+<a href='../S/290.html#L543'>TValue</a>            543 deps/lua/src/lvm.c         TValue *rc = RKC(i);
+<a href='../S/290.html#L574'>TValue</a>            574 deps/lua/src/lvm.c         TValue *rb = RB(i);
+<a href='../S/290.html#L663'>TValue</a>            663 deps/lua/src/lvm.c         const TValue *init = ra;
+<a href='../S/290.html#L664'>TValue</a>            664 deps/lua/src/lvm.c         const TValue *plimit = ra+1;
+<a href='../S/290.html#L665'>TValue</a>            665 deps/lua/src/lvm.c         const TValue *pstep = ra+2;
+<a href='../S/290.html#L709'>TValue</a>            709 deps/lua/src/lvm.c           TValue *val = ra+n;
+<a href='../S/262.html#L27'>TValue</a>             27 deps/lua/src/lvm.h LUAI_FUNC const TValue *luaV_tonumber (const TValue *obj, TValue *n);
+<a href='../S/283.html#L53'>TValue</a>             53 deps/lua/src/print.c  const TValue* o=&amp;f-&gt;k[i];
+</pre>
+</body>
+</html>

@@ -1,0 +1,193 @@
+<html>
+<head>
+<title>deps/lua/src/lauxlib.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/lauxlib.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/93.html' title='Multiple included from 18 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: lauxlib.h,v 1.88.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Auxiliary functions for building Lua libraries</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'>
+<a name='L8'><font color='darkred'>#ifndef</font> <a href='../S/265.html#L9' title='Defined at 9 in deps/lua/src/lauxlib.h.'>lauxlib_h</a>
+<a name='L9'><font color='darkred'>#define</font> <a href='../S/265.html#L8' title='Refered from 8 in deps/lua/src/lauxlib.h.'>lauxlib_h</a>
+<a name='L10'>
+<a name='L11'>
+<a name='L12'><font color='darkred'>#include</font> &lt;stddef.h&gt;
+<a name='L13'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L14'>
+<a name='L15'><font color='darkred'>#include</font> "<a href='266.html'>lua.h</a>"
+<a name='L16'>
+<a name='L17'>
+<a name='L18'><font color='darkred'>#if</font> <b>defined</b>(<a href='../S/317.html#L322' title='Defined at 322 in deps/lua/src/luaconf.h.'>LUA_COMPAT_GETN</a>)
+<a name='L19'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> (<a href='../D/2979.html' title='Multiple defined in 2 places.'>luaL_getn</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>int</b> t);
+<a name='L20'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>void</b> (<a href='../D/2998.html' title='Multiple defined in 2 places.'>luaL_setn</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>int</b> t, <b>int</b> n);
+<a name='L21'><font color='darkred'>#else</font>
+<a name='L22'><font color='darkred'>#define</font> <a href='../R/2648.html' title='Multiple refered from 4 places.'>luaL_getn</a>(L,i)          ((<b>int</b>)<a href='../S/272.html#L361' title='Defined at 361 in deps/lua/src/lapi.c.'>lua_objlen</a>(L, i))
+<a name='L23'><font color='darkred'>#define</font> <a href='../R/2667.html' title='Multiple refered from 5 places.'>luaL_setn</a>(L,i,j)        ((<b>void</b>)0)  <i><font color='green'>/* no op! */</font></i>
+<a name='L24'><font color='darkred'>#endif</font>
+<a name='L25'>
+<a name='L26'><font color='darkred'>#if</font> <b>defined</b>(<a href='../S/317.html#L366' title='Defined at 366 in deps/lua/src/luaconf.h.'>LUA_COMPAT_OPENLIB</a>)
+<a name='L27'><font color='darkred'>#define</font> <a href='../R/2588.html' title='Multiple refered from 2 places.'>luaI_openlib</a>    luaL_openlib
+<a name='L28'><font color='darkred'>#endif</font>
+<a name='L29'>
+<a name='L30'>
+<a name='L31'><i><font color='green'>/* extra error code for `luaL_load' */</font></i>
+<a name='L32'><font color='darkred'>#define</font> <a href='../S/260.html#L548' title='Refered from 548 in deps/lua/src/lauxlib.c.'>LUA_ERRFILE</a>     (<a href='../S/266.html#L47' title='Defined at 47 in deps/lua/src/lua.h.'>LUA_ERRERR</a>+1)
+<a name='L33'>
+<a name='L34'>
+<a name='L35'><b>typedef</b> <b>struct</b> <a href='../R/2623.html' title='Multiple refered from 18 places.'>luaL_Reg</a> <font color='red'>{</font>
+<a name='L36'>  <b>const</b> <b>char</b> *name;
+<a name='L37'>  lua_CFunction func;
+<a name='L38'><font color='red'>}</font> <a href='../R/2623.html' title='Multiple refered from 18 places.'>luaL_Reg</a>;
+<a name='L39'>
+<a name='L40'>
+<a name='L41'>
+<a name='L42'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>void</b> (<a href='../D/2917.html' title='Multiple defined in 2 places.'>luaI_openlib</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>const</b> <b>char</b> *libname,
+<a name='L43'>                                <b>const</b> <a href='../D/2952.html' title='Multiple defined in 2 places.'>luaL_Reg</a> *l, <b>int</b> nup);
+<a name='L44'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>void</b> (luaL_register) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>const</b> <b>char</b> *libname,
+<a name='L45'>                                <b>const</b> <a href='../D/2952.html' title='Multiple defined in 2 places.'>luaL_Reg</a> *l);
+<a name='L46'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> (<a href='../S/260.html#L203' title='Defined at 203 in deps/lua/src/lauxlib.c.'>luaL_getmetafield</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>int</b> obj, <b>const</b> <b>char</b> *e);
+<a name='L47'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> (<a href='../S/260.html#L219' title='Defined at 219 in deps/lua/src/lauxlib.c.'>luaL_callmeta</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>int</b> obj, <b>const</b> <b>char</b> *e);
+<a name='L48'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> (<a href='../S/260.html#L61' title='Defined at 61 in deps/lua/src/lauxlib.c.'>luaL_typerror</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>int</b> narg, <b>const</b> <b>char</b> *tname);
+<a name='L49'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> (<a href='../S/260.html#L43' title='Defined at 43 in deps/lua/src/lauxlib.c.'>luaL_argerror</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>int</b> numarg, <b>const</b> <b>char</b> *extramsg);
+<a name='L50'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>const</b> <b>char</b> *(<a href='../S/260.html#L158' title='Defined at 158 in deps/lua/src/lauxlib.c.'>luaL_checklstring</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>int</b> numArg,
+<a name='L51'>                                                          size_t *l);
+<a name='L52'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>const</b> <b>char</b> *(<a href='../S/260.html#L165' title='Defined at 165 in deps/lua/src/lauxlib.c.'>luaL_optlstring</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>int</b> numArg,
+<a name='L53'>                                          <b>const</b> <b>char</b> *def, size_t *l);
+<a name='L54'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <a href='../S/266.html#L99' title='Defined at 99 in deps/lua/src/lua.h.'>lua_Number</a> (luaL_checknumber) (lua_State *L, <b>int</b> numArg);
+<a name='L55'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <a href='../S/266.html#L99' title='Defined at 99 in deps/lua/src/lua.h.'>lua_Number</a> (luaL_optnumber) (lua_State *L, <b>int</b> nArg, <a href='../S/266.html#L99' title='Defined at 99 in deps/lua/src/lua.h.'>lua_Number</a> def);
+<a name='L56'>
+<a name='L57'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <a href='../S/266.html#L103' title='Defined at 103 in deps/lua/src/lua.h.'>lua_Integer</a> (luaL_checkinteger) (lua_State *L, <b>int</b> numArg);
+<a name='L58'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <a href='../S/266.html#L103' title='Defined at 103 in deps/lua/src/lua.h.'>lua_Integer</a> (luaL_optinteger) (lua_State *L, <b>int</b> nArg,
+<a name='L59'>                                          <a href='../S/266.html#L103' title='Defined at 103 in deps/lua/src/lua.h.'>lua_Integer</a> def);
+<a name='L60'>
+<a name='L61'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>void</b> (<a href='../S/260.html#L140' title='Defined at 140 in deps/lua/src/lauxlib.c.'>luaL_checkstack</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>int</b> sz, <b>const</b> <b>char</b> *msg);
+<a name='L62'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>void</b> (<a href='../S/260.html#L146' title='Defined at 146 in deps/lua/src/lauxlib.c.'>luaL_checktype</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>int</b> narg, <b>int</b> t);
+<a name='L63'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>void</b> (<a href='../S/260.html#L152' title='Defined at 152 in deps/lua/src/lauxlib.c.'>luaL_checkany</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>int</b> narg);
+<a name='L64'>
+<a name='L65'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b>   (<a href='../S/260.html#L112' title='Defined at 112 in deps/lua/src/lauxlib.c.'>luaL_newmetatable</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>const</b> <b>char</b> *tname);
+<a name='L66'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>void</b> *(<a href='../S/260.html#L124' title='Defined at 124 in deps/lua/src/lauxlib.c.'>luaL_checkudata</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>int</b> ud, <b>const</b> <b>char</b> *tname);
+<a name='L67'>
+<a name='L68'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>void</b> (<a href='../S/260.html#L73' title='Defined at 73 in deps/lua/src/lauxlib.c.'>luaL_where</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>int</b> lvl);
+<a name='L69'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> (<a href='../S/260.html#L86' title='Defined at 86 in deps/lua/src/lauxlib.c.'>luaL_error</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>const</b> <b>char</b> *fmt, ...);
+<a name='L70'>
+<a name='L71'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> (<a href='../S/260.html#L99' title='Defined at 99 in deps/lua/src/lauxlib.c.'>luaL_checkoption</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>int</b> narg, <b>const</b> <b>char</b> *def,
+<a name='L72'>                                   <b>const</b> <b>char</b> *<b>const</b> lst[]);
+<a name='L73'>
+<a name='L74'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> (<a href='../S/260.html#L481' title='Defined at 481 in deps/lua/src/lauxlib.c.'>luaL_ref</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>int</b> t);
+<a name='L75'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>void</b> (<a href='../S/260.html#L504' title='Defined at 504 in deps/lua/src/lauxlib.c.'>luaL_unref</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>int</b> t, <b>int</b> ref);
+<a name='L76'>
+<a name='L77'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> (<a href='../S/260.html#L552' title='Defined at 552 in deps/lua/src/lauxlib.c.'>luaL_loadfile</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>const</b> <b>char</b> *filename);
+<a name='L78'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> (<a href='../S/260.html#L609' title='Defined at 609 in deps/lua/src/lauxlib.c.'>luaL_loadbuffer</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>const</b> <b>char</b> *buff, size_t sz,
+<a name='L79'>                                  <b>const</b> <b>char</b> *name);
+<a name='L80'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>int</b> (luaL_loadstring) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>const</b> <b>char</b> *s);
+<a name='L81'>
+<a name='L82'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *(<a href='../S/260.html#L647' title='Defined at 647 in deps/lua/src/lauxlib.c.'>luaL_newstate</a>) (<b>void</b>);
+<a name='L83'>
+<a name='L84'>
+<a name='L85'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>const</b> <b>char</b> *(<a href='../S/260.html#L340' title='Defined at 340 in deps/lua/src/lauxlib.c.'>luaL_gsub</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>const</b> <b>char</b> *s, <b>const</b> <b>char</b> *p,
+<a name='L86'>                                                  <b>const</b> <b>char</b> *r);
+<a name='L87'>
+<a name='L88'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>const</b> <b>char</b> *(<a href='../S/260.html#L357' title='Defined at 357 in deps/lua/src/lauxlib.c.'>luaL_findtable</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <b>int</b> idx,
+<a name='L89'>                                         <b>const</b> <b>char</b> *fname, <b>int</b> szhint);
+<a name='L90'>
+<a name='L91'>
+<a name='L92'>
+<a name='L93'>
+<a name='L94'><i><font color='green'>/*</font></i>
+<a name='L95'><i><font color='green'>** ===============================================================</font></i>
+<a name='L96'><i><font color='green'>** some useful macros</font></i>
+<a name='L97'><i><font color='green'>** ===============================================================</font></i>
+<a name='L98'><i><font color='green'>*/</font></i>
+<a name='L99'>
+<a name='L100'><font color='darkred'>#define</font> <a href='../R/2629.html' title='Multiple refered from 26 places.'>luaL_argcheck</a>(L, cond,numarg,extramsg)  \
+<a name='L101'>                ((<b>void</b>)((<a href='../S/304.html#L965' title='Defined at 965 in deps/lua/src/lparser.c.'>cond</a>) || <a href='../S/260.html#L43' title='Defined at 43 in deps/lua/src/lauxlib.c.'>luaL_argerror</a>(L, (numarg), (extramsg))))
+<a name='L102'><font color='darkred'>#define</font> <a href='../R/2640.html' title='Multiple refered from 23 places.'>luaL_checkstring</a>(L,n)   (<a href='../S/260.html#L158' title='Defined at 158 in deps/lua/src/lauxlib.c.'>luaL_checklstring</a>(L, (n), NULL))
+<a name='L103'><font color='darkred'>#define</font> <a href='../R/2661.html' title='Multiple refered from 12 places.'>luaL_optstring</a>(L,n,d)   (<a href='../S/260.html#L165' title='Defined at 165 in deps/lua/src/lauxlib.c.'>luaL_optlstring</a>(L, (n), (d), NULL))
+<a name='L104'><font color='darkred'>#define</font> <a href='../R/2634.html' title='Multiple refered from 23 places.'>luaL_checkint</a>(L,n)      ((<b>int</b>)<a href='../S/260.html#L189' title='Defined at 189 in deps/lua/src/lauxlib.c.'>luaL_checkinteger</a>(L, (n)))
+<a name='L105'><font color='darkred'>#define</font> <a href='../R/2656.html' title='Multiple refered from 10 places.'>luaL_optint</a>(L,n,d)      ((<b>int</b>)<a href='../S/260.html#L197' title='Defined at 197 in deps/lua/src/lauxlib.c.'>luaL_optinteger</a>(L, (n), (d)))
+<a name='L106'><font color='darkred'>#define</font> luaL_checklong(L,n)     ((<b>long</b>)<a href='../S/260.html#L189' title='Defined at 189 in deps/lua/src/lauxlib.c.'>luaL_checkinteger</a>(L, (n)))
+<a name='L107'><font color='darkred'>#define</font> <a href='../S/315.html#L444' title='Refered from 444 in deps/lua/src/liolib.c.'>luaL_optlong</a>(L,n,d)     ((<b>long</b>)<a href='../S/260.html#L197' title='Defined at 197 in deps/lua/src/lauxlib.c.'>luaL_optinteger</a>(L, (n), (d)))
+<a name='L108'>
+<a name='L109'><font color='darkred'>#define</font> <a href='../R/2668.html' title='Multiple refered from 6 places.'>luaL_typename</a>(L,i)      <a href='../S/272.html#L248' title='Defined at 248 in deps/lua/src/lapi.c.'>lua_typename</a>(L, <a href='../S/272.html#L242' title='Defined at 242 in deps/lua/src/lapi.c.'>lua_type</a>(L,(i)))
+<a name='L110'>
+<a name='L111'><font color='darkred'>#define</font> <a href='../S/229.html#L36' title='Refered from 36 in deps/lua/etc/min.c.'>luaL_dofile</a>(L, fn) \
+<a name='L112'>        (<a href='../S/260.html#L552' title='Defined at 552 in deps/lua/src/lauxlib.c.'>luaL_loadfile</a>(L, fn) || <a href='../S/272.html#L805' title='Defined at 805 in deps/lua/src/lapi.c.'>lua_pcall</a>(L, 0, <a href='../S/266.html#L30' title='Defined at 30 in deps/lua/src/lua.h.'>LUA_MULTRET</a>, 0))
+<a name='L113'>
+<a name='L114'><font color='darkred'>#define</font> luaL_dostring(L, s) \
+<a name='L115'>        (luaL_loadstring(L, s) || <a href='../S/272.html#L805' title='Defined at 805 in deps/lua/src/lapi.c.'>lua_pcall</a>(L, 0, <a href='../S/266.html#L30' title='Defined at 30 in deps/lua/src/lua.h.'>LUA_MULTRET</a>, 0))
+<a name='L116'>
+<a name='L117'><font color='darkred'>#define</font> <a href='../R/2647.html' title='Multiple refered from 2 places.'>luaL_getmetatable</a>(L,n)  (<a href='../S/272.html#L544' title='Defined at 544 in deps/lua/src/lapi.c.'>lua_getfield</a>(L, <a href='../S/266.html#L36' title='Defined at 36 in deps/lua/src/lua.h.'>LUA_REGISTRYINDEX</a>, (n)))
+<a name='L118'>
+<a name='L119'><font color='darkred'>#define</font> <a href='../R/2655.html' title='Multiple refered from 5 places.'>luaL_opt</a>(L,f,n,d)       (<a href='../S/266.html#L271' title='Defined at 271 in deps/lua/src/lua.h.'>lua_isnoneornil</a>(L,(n)) ? (d) : f(L,(n)))
+<a name='L120'>
+<a name='L121'><i><font color='green'>/*</font></i>
+<a name='L122'><i><font color='green'>** {======================================================</font></i>
+<a name='L123'><i><font color='green'>** Generic Buffer manipulation</font></i>
+<a name='L124'><i><font color='green'>** =======================================================</font></i>
+<a name='L125'><i><font color='green'>*/</font></i>
+<a name='L126'>
+<a name='L127'>
+<a name='L128'>
+<a name='L129'><b>typedef</b> <b>struct</b> <a href='../R/2622.html' title='Multiple refered from 21 places.'>luaL_Buffer</a> <font color='red'>{</font>
+<a name='L130'>  <b>char</b> *p;                      <i><font color='green'>/* current position in buffer */</font></i>
+<a name='L131'>  <b>int</b> lvl;  <i><font color='green'>/* number of strings in the stack (level) */</font></i>
+<a name='L132'>  <a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L;
+<a name='L133'>  <b>char</b> buffer[<a href='../S/317.html#L488' title='Defined at 488 in deps/lua/src/luaconf.h.'>LUAL_BUFFERSIZE</a>];
+<a name='L134'><font color='red'>}</font> <a href='../R/2622.html' title='Multiple refered from 21 places.'>luaL_Buffer</a>;
+<a name='L135'>
+<a name='L136'><font color='darkred'>#define</font> <a href='../R/2624.html' title='Multiple refered from 19 places.'>luaL_addchar</a>(B,c) \
+<a name='L137'>  ((<b>void</b>)((B)-&gt;p &lt; ((B)-&gt;buffer+<a href='../S/317.html#L488' title='Defined at 488 in deps/lua/src/luaconf.h.'>LUAL_BUFFERSIZE</a>) || <a href='../S/260.html#L429' title='Defined at 429 in deps/lua/src/lauxlib.c.'>luaL_prepbuffer</a>(B)), \
+<a name='L138'>   (*(B)-&gt;p++ = (<b>char</b>)(c)))
+<a name='L139'>
+<a name='L140'><i><font color='green'>/* compatibility only */</font></i>
+<a name='L141'><font color='darkred'>#define</font> <a href='../R/2664.html' title='Multiple refered from 3 places.'>luaL_putchar</a>(B,c)       <a href='../S/265.html#L136' title='Defined at 136 in deps/lua/src/lauxlib.h.'>luaL_addchar</a>(B,c)
+<a name='L142'>
+<a name='L143'><font color='darkred'>#define</font> <a href='../R/2626.html' title='Multiple refered from 3 places.'>luaL_addsize</a>(B,n)       ((B)-&gt;p += (n))
+<a name='L144'>
+<a name='L145'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>void</b> (<a href='../S/260.html#L472' title='Defined at 472 in deps/lua/src/lauxlib.c.'>luaL_buffinit</a>) (<a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L, <a href='../D/2951.html' title='Multiple defined in 2 places.'>luaL_Buffer</a> *B);
+<a name='L146'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>char</b> *(<a href='../S/260.html#L429' title='Defined at 429 in deps/lua/src/lauxlib.c.'>luaL_prepbuffer</a>) (<a href='../D/2951.html' title='Multiple defined in 2 places.'>luaL_Buffer</a> *B);
+<a name='L147'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>void</b> (<a href='../S/260.html#L436' title='Defined at 436 in deps/lua/src/lauxlib.c.'>luaL_addlstring</a>) (<a href='../D/2951.html' title='Multiple defined in 2 places.'>luaL_Buffer</a> *B, <b>const</b> <b>char</b> *s, size_t l);
+<a name='L148'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>void</b> (<a href='../S/260.html#L442' title='Defined at 442 in deps/lua/src/lauxlib.c.'>luaL_addstring</a>) (<a href='../D/2951.html' title='Multiple defined in 2 places.'>luaL_Buffer</a> *B, <b>const</b> <b>char</b> *s);
+<a name='L149'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>void</b> (<a href='../S/260.html#L454' title='Defined at 454 in deps/lua/src/lauxlib.c.'>luaL_addvalue</a>) (<a href='../D/2951.html' title='Multiple defined in 2 places.'>luaL_Buffer</a> *B);
+<a name='L150'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>void</b> (<a href='../S/260.html#L447' title='Defined at 447 in deps/lua/src/lauxlib.c.'>luaL_pushresult</a>) (<a href='../D/2951.html' title='Multiple defined in 2 places.'>luaL_Buffer</a> *B);
+<a name='L151'>
+<a name='L152'>
+<a name='L153'><i><font color='green'>/* }====================================================== */</font></i>
+<a name='L154'>
+<a name='L155'>
+<a name='L156'><i><font color='green'>/* compatibility with ref system */</font></i>
+<a name='L157'>
+<a name='L158'><i><font color='green'>/* pre-defined references */</font></i>
+<a name='L159'><font color='darkred'>#define</font> LUA_NOREF       (-2)
+<a name='L160'><font color='darkred'>#define</font> <a href='../S/260.html#L486' title='Refered from 486 in deps/lua/src/lauxlib.c.'>LUA_REFNIL</a>      (-1)
+<a name='L161'>
+<a name='L162'><font color='darkred'>#define</font> lua_ref(L,lock) ((lock) ? <a href='../S/260.html#L481' title='Defined at 481 in deps/lua/src/lauxlib.c.'>luaL_ref</a>(L, <a href='../S/266.html#L36' title='Defined at 36 in deps/lua/src/lua.h.'>LUA_REGISTRYINDEX</a>) : \
+<a name='L163'>      (<a href='../S/272.html#L454' title='Defined at 454 in deps/lua/src/lapi.c.'>lua_pushstring</a>(L, "unlocked references are obsolete"), <a href='../S/272.html#L964' title='Defined at 964 in deps/lua/src/lapi.c.'>lua_error</a>(L), 0))
+<a name='L164'>
+<a name='L165'><font color='darkred'>#define</font> lua_unref(L,ref)        <a href='../S/260.html#L504' title='Defined at 504 in deps/lua/src/lauxlib.c.'>luaL_unref</a>(L, <a href='../S/266.html#L36' title='Defined at 36 in deps/lua/src/lua.h.'>LUA_REGISTRYINDEX</a>, (ref))
+<a name='L166'>
+<a name='L167'><font color='darkred'>#define</font> lua_getref(L,ref)       <a href='../S/272.html#L567' title='Defined at 567 in deps/lua/src/lapi.c.'>lua_rawgeti</a>(L, <a href='../S/266.html#L36' title='Defined at 36 in deps/lua/src/lua.h.'>LUA_REGISTRYINDEX</a>, (ref))
+<a name='L168'>
+<a name='L169'>
+<a name='L170'><font color='darkred'>#define</font> <a href='../R/2666.html' title='Multiple refered from 2 places.'>luaL_reg</a>        <a href='../D/2952.html' title='Multiple defined in 2 places.'>luaL_Reg</a>
+<a name='L171'>
+<a name='L172'><font color='darkred'>#endif</font>
+<a name='L173'>
+<a name='L174'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

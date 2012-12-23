@@ -1,0 +1,101 @@
+<html>
+<head>
+<title>deps/lua/src/lparser.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/lparser.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/122.html' title='Multiple included from 6 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: lparser.h,v 1.57.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Lua Parser</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'><font color='darkred'>#ifndef</font> <a href='../S/286.html#L8' title='Defined at 8 in deps/lua/src/lparser.h.'>lparser_h</a>
+<a name='L8'><font color='darkred'>#define</font> <a href='../S/286.html#L7' title='Refered from 7 in deps/lua/src/lparser.h.'>lparser_h</a>
+<a name='L9'>
+<a name='L10'><font color='darkred'>#include</font> "<a href='310.html'>llimits.h</a>"
+<a name='L11'><font color='darkred'>#include</font> "<a href='282.html'>lobject.h</a>"
+<a name='L12'><font color='darkred'>#include</font> "<a href='312.html'>lzio.h</a>"
+<a name='L13'>
+<a name='L14'>
+<a name='L15'><i><font color='green'>/*</font></i>
+<a name='L16'><i><font color='green'>** Expression descriptor</font></i>
+<a name='L17'><i><font color='green'>*/</font></i>
+<a name='L18'>
+<a name='L19'><b>typedef</b> <b>enum</b> <font color='red'>{</font>
+<a name='L20'>  <a href='../R/1044.html' title='Multiple refered from 10 places.'>VVOID</a>,        <i><font color='green'>/* no value */</font></i>
+<a name='L21'>  <a href='../R/1037.html' title='Multiple refered from 7 places.'>VNIL</a>,
+<a name='L22'>  <a href='../R/1041.html' title='Multiple refered from 9 places.'>VTRUE</a>,
+<a name='L23'>  <a href='../R/1030.html' title='Multiple refered from 8 places.'>VFALSE</a>,
+<a name='L24'>  <a href='../R/1034.html' title='Multiple refered from 6 places.'>VK</a>,           <i><font color='green'>/* info = index of constant in `k' */</font></i>
+<a name='L25'>  <a href='../R/1035.html' title='Multiple refered from 8 places.'>VKNUM</a>,        <i><font color='green'>/* nval = numerical value */</font></i>
+<a name='L26'>  <a href='../R/1036.html' title='Multiple refered from 9 places.'>VLOCAL</a>,       <i><font color='green'>/* info = local register */</font></i>
+<a name='L27'>  <a href='../R/1042.html' title='Multiple refered from 5 places.'>VUPVAL</a>,       <i><font color='green'>/* info = index of upvalue in `upvalues' */</font></i>
+<a name='L28'>  <a href='../R/1031.html' title='Multiple refered from 7 places.'>VGLOBAL</a>,      <i><font color='green'>/* info = index of table; aux = index of global name in `k' */</font></i>
+<a name='L29'>  <a href='../R/1032.html' title='Multiple refered from 5 places.'>VINDEXED</a>,     <i><font color='green'>/* info = table register; aux = index register (or `k') */</font></i>
+<a name='L30'>  <a href='../R/1033.html' title='Multiple refered from 7 places.'>VJMP</a>,         <i><font color='green'>/* info = instruction pc */</font></i>
+<a name='L31'>  <a href='../R/1040.html' title='Multiple refered from 13 places.'>VRELOCABLE</a>,   <i><font color='green'>/* info = instruction pc */</font></i>
+<a name='L32'>  <a href='../R/1038.html' title='Multiple refered from 12 places.'>VNONRELOC</a>,    <i><font color='green'>/* info = result register */</font></i>
+<a name='L33'>  <a href='../R/1027.html' title='Multiple refered from 7 places.'>VCALL</a>,        <i><font color='green'>/* info = instruction pc */</font></i>
+<a name='L34'>  <a href='../R/1043.html' title='Multiple refered from 5 places.'>VVARARG</a>       <i><font color='green'>/* info = instruction pc */</font></i>
+<a name='L35'><font color='red'>}</font> <a href='../S/286.html#L38' title='Refered from 38 in deps/lua/src/lparser.h.'>expkind</a>;
+<a name='L36'>
+<a name='L37'><b>typedef</b> <b>struct</b> <a href='../R/1909.html' title='Multiple refered from 18 places.'>expdesc</a> <font color='red'>{</font>
+<a name='L38'>  <a href='../S/286.html#L35' title='Defined at 35 in deps/lua/src/lparser.h.'>expkind</a> k;
+<a name='L39'>  <b>union</b> <font color='red'>{</font>
+<a name='L40'>    <b>struct</b> <font color='red'>{</font> <b>int</b> info, aux; <font color='red'>}</font> s;
+<a name='L41'>    <a href='../S/266.html#L99' title='Defined at 99 in deps/lua/src/lua.h.'>lua_Number</a> nval;
+<a name='L42'>  <font color='red'>}</font> u;
+<a name='L43'>  <b>int</b> t;  <i><font color='green'>/* patch list of `exit when true' */</font></i>
+<a name='L44'>  <b>int</b> f;  <i><font color='green'>/* patch list of `exit when false' */</font></i>
+<a name='L45'><font color='red'>}</font> <a href='../R/1909.html' title='Multiple refered from 18 places.'>expdesc</a>;
+<a name='L46'>
+<a name='L47'>
+<a name='L48'><b>typedef</b> <b>struct</b> <a href='../S/286.html#L73' title='Refered from 73 in deps/lua/src/lparser.h.'>upvaldesc</a> <font color='red'>{</font>
+<a name='L49'>  <a href='../S/310.html#L27' title='Defined at 27 in deps/lua/src/llimits.h.'>lu_byte</a> k;
+<a name='L50'>  <a href='../S/310.html#L27' title='Defined at 27 in deps/lua/src/llimits.h.'>lu_byte</a> info;
+<a name='L51'><font color='red'>}</font> <a href='../S/286.html#L73' title='Refered from 73 in deps/lua/src/lparser.h.'>upvaldesc</a>;
+<a name='L52'>
+<a name='L53'>
+<a name='L54'><b>struct</b> <a href='../D/54.html' title='Multiple defined in 2 places.'>BlockCnt</a>;  <i><font color='green'>/* defined in lparser.c */</font></i>
+<a name='L55'>
+<a name='L56'>
+<a name='L57'><i><font color='green'>/* state needed to generate code for a given function */</font></i>
+<a name='L58'><b>typedef</b> <b>struct</b> <a href='../R/153.html' title='Multiple refered from 32 places.'>FuncState</a> <font color='red'>{</font>
+<a name='L59'>  <a href='../D/722.html' title='Multiple defined in 2 places.'>Proto</a> *f;  <i><font color='green'>/* current function header */</font></i>
+<a name='L60'>  <a href='../D/1237.html' title='Multiple defined in 2 places.'>Table</a> *h;  <i><font color='green'>/* table to find (and reuse) elements in `k' */</font></i>
+<a name='L61'>  <b>struct</b> <a href='../D/156.html' title='Multiple defined in 2 places.'>FuncState</a> *prev;  <i><font color='green'>/* enclosing function */</font></i>
+<a name='L62'>  <b>struct</b> <a href='../D/455.html' title='Multiple defined in 2 places.'>LexState</a> *ls;  <i><font color='green'>/* lexical state */</font></i>
+<a name='L63'>  <b>struct</b> <a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L;  <i><font color='green'>/* copy of the Lua state */</font></i>
+<a name='L64'>  <b>struct</b> <a href='../D/54.html' title='Multiple defined in 2 places.'>BlockCnt</a> *bl;  <i><font color='green'>/* chain of current blocks */</font></i>
+<a name='L65'>  <b>int</b> pc;  <i><font color='green'>/* next position to code (equivalent to `ncode') */</font></i>
+<a name='L66'>  <b>int</b> lasttarget;   <i><font color='green'>/* `pc' of last `jump target' */</font></i>
+<a name='L67'>  <b>int</b> jpc;  <i><font color='green'>/* list of pending jumps to `pc' */</font></i>
+<a name='L68'>  <b>int</b> <a href='../S/293.html#L215' title='Defined at 215 in deps/lua/src/lcode.c.'>freereg</a>;  <i><font color='green'>/* first free register */</font></i>
+<a name='L69'>  <b>int</b> nk;  <i><font color='green'>/* number of elements in `k' */</font></i>
+<a name='L70'>  <b>int</b> np;  <i><font color='green'>/* number of elements in `p' */</font></i>
+<a name='L71'>  <b>short</b> nlocvars;  <i><font color='green'>/* number of elements in `locvars' */</font></i>
+<a name='L72'>  <a href='../S/310.html#L27' title='Defined at 27 in deps/lua/src/llimits.h.'>lu_byte</a> nactvar;  <i><font color='green'>/* number of active local variables */</font></i>
+<a name='L73'>  <a href='../D/4457.html' title='Multiple defined in 2 places.'>upvaldesc</a> upvalues[<a href='../S/317.html#L482' title='Defined at 482 in deps/lua/src/luaconf.h.'>LUAI_MAXUPVALUES</a>];  <i><font color='green'>/* upvalues */</font></i>
+<a name='L74'>  <b>unsigned</b> <b>short</b> actvar[<a href='../S/317.html#L475' title='Defined at 475 in deps/lua/src/luaconf.h.'>LUAI_MAXVARS</a>];  <i><font color='green'>/* declared-variable stack */</font></i>
+<a name='L75'><font color='red'>}</font> <a href='../R/153.html' title='Multiple refered from 32 places.'>FuncState</a>;
+<a name='L76'>
+<a name='L77'>
+<a name='L78'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <a href='../D/722.html' title='Multiple defined in 2 places.'>Proto</a> *<a href='../D/3069.html' title='Multiple defined in 2 places.'>luaY_parser</a> (lua_State *L, <a href='../S/312.html#L18' title='Defined at 18 in deps/lua/src/lzio.h.'>ZIO</a> *z, Mbuffer *buff,
+<a name='L79'>                                            <b>const</b> <b>char</b> *name);
+<a name='L80'>
+<a name='L81'>
+<a name='L82'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

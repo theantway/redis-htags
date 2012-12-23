@@ -1,0 +1,142 @@
+<html>
+<head>
+<title>deps/jemalloc/test/allocated.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/396.html'>test</a>/allocated.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L5'>[^]</a><a href='#L97'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L5' title='Defined at 5.'>je_thread_start</a>
+<li><a href='#L97' title='Defined at 97.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> JEMALLOC_MANGLE
+<a name='L2'><font color='darkred'>#include</font> "jemalloc_test.h"
+<a name='L3'>
+<a name='L4'><b>void</b> *
+<a name='L5'><a href='../R/2297.html' title='Multiple refered from 12 places.'>je_thread_start</a>(<b>void</b> *arg)
+<a name='L6'><font color='red'>{</font>
+<a name='L7'>        <b>int</b> err;
+<a name='L8'>        <b>void</b> *p;
+<a name='L9'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> a0, a1, d0, d1;
+<a name='L10'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> *ap0, *ap1, *dp0, *dp1;
+<a name='L11'>        size_t sz, usize;
+<a name='L12'>
+<a name='L13'>        sz = <b>sizeof</b>(a0);
+<a name='L14'>        <b>if</b> ((err = mallctl("thread.allocated", &amp;a0, &amp;sz, NULL, 0))) <font color='red'>{</font>
+<a name='L15'>                <b>if</b> (err == ENOENT) <font color='red'>{</font>
+<a name='L16'><font color='darkred'>#ifdef</font> JEMALLOC_STATS
+<a name='L17'>                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L18'><font color='darkred'>#endif</font>
+<a name='L19'>                        <b>goto</b> label_return;
+<a name='L20'>                <font color='red'>}</font>
+<a name='L21'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("%s(): Error in mallctl(): %s\n", __func__,
+<a name='L22'>                    strerror(err));
+<a name='L23'>                exit(1);
+<a name='L24'>        <font color='red'>}</font>
+<a name='L25'>        sz = <b>sizeof</b>(ap0);
+<a name='L26'>        <b>if</b> ((err = mallctl("thread.allocatedp", &amp;ap0, &amp;sz, NULL, 0))) <font color='red'>{</font>
+<a name='L27'>                <b>if</b> (err == ENOENT) <font color='red'>{</font>
+<a name='L28'><font color='darkred'>#ifdef</font> JEMALLOC_STATS
+<a name='L29'>                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L30'><font color='darkred'>#endif</font>
+<a name='L31'>                        <b>goto</b> label_return;
+<a name='L32'>                <font color='red'>}</font>
+<a name='L33'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("%s(): Error in mallctl(): %s\n", __func__,
+<a name='L34'>                    strerror(err));
+<a name='L35'>                exit(1);
+<a name='L36'>        <font color='red'>}</font>
+<a name='L37'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(*ap0 == a0);
+<a name='L38'>
+<a name='L39'>        sz = <b>sizeof</b>(d0);
+<a name='L40'>        <b>if</b> ((err = mallctl("thread.deallocated", &amp;d0, &amp;sz, NULL, 0))) <font color='red'>{</font>
+<a name='L41'>                <b>if</b> (err == ENOENT) <font color='red'>{</font>
+<a name='L42'><font color='darkred'>#ifdef</font> JEMALLOC_STATS
+<a name='L43'>                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L44'><font color='darkred'>#endif</font>
+<a name='L45'>                        <b>goto</b> label_return;
+<a name='L46'>                <font color='red'>}</font>
+<a name='L47'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("%s(): Error in mallctl(): %s\n", __func__,
+<a name='L48'>                    strerror(err));
+<a name='L49'>                exit(1);
+<a name='L50'>        <font color='red'>}</font>
+<a name='L51'>        sz = <b>sizeof</b>(dp0);
+<a name='L52'>        <b>if</b> ((err = mallctl("thread.deallocatedp", &amp;dp0, &amp;sz, NULL, 0))) <font color='red'>{</font>
+<a name='L53'>                <b>if</b> (err == ENOENT) <font color='red'>{</font>
+<a name='L54'><font color='darkred'>#ifdef</font> JEMALLOC_STATS
+<a name='L55'>                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L56'><font color='darkred'>#endif</font>
+<a name='L57'>                        <b>goto</b> label_return;
+<a name='L58'>                <font color='red'>}</font>
+<a name='L59'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("%s(): Error in mallctl(): %s\n", __func__,
+<a name='L60'>                    strerror(err));
+<a name='L61'>                exit(1);
+<a name='L62'>        <font color='red'>}</font>
+<a name='L63'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(*dp0 == d0);
+<a name='L64'>
+<a name='L65'>        p = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(1);
+<a name='L66'>        <b>if</b> (p == NULL) <font color='red'>{</font>
+<a name='L67'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("%s(): Error in malloc()\n", __func__);
+<a name='L68'>                exit(1);
+<a name='L69'>        <font color='red'>}</font>
+<a name='L70'>
+<a name='L71'>        sz = <b>sizeof</b>(a1);
+<a name='L72'>        mallctl("thread.allocated", &amp;a1, &amp;sz, NULL, 0);
+<a name='L73'>        sz = <b>sizeof</b>(ap1);
+<a name='L74'>        mallctl("thread.allocatedp", &amp;ap1, &amp;sz, NULL, 0);
+<a name='L75'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(*ap1 == a1);
+<a name='L76'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ap0 == ap1);
+<a name='L77'>
+<a name='L78'>        usize = malloc_usable_size(p);
+<a name='L79'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(a0 + usize &lt;= a1);
+<a name='L80'>
+<a name='L81'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(p);
+<a name='L82'>
+<a name='L83'>        sz = <b>sizeof</b>(d1);
+<a name='L84'>        mallctl("thread.deallocated", &amp;d1, &amp;sz, NULL, 0);
+<a name='L85'>        sz = <b>sizeof</b>(dp1);
+<a name='L86'>        mallctl("thread.deallocatedp", &amp;dp1, &amp;sz, NULL, 0);
+<a name='L87'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(*dp1 == d1);
+<a name='L88'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(dp0 == dp1);
+<a name='L89'>
+<a name='L90'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(d0 + usize &lt;= d1);
+<a name='L91'>
+<a name='L92'>label_return:
+<a name='L93'>        <b>return</b> (NULL);
+<a name='L94'><font color='red'>}</font>
+<a name='L95'>
+<a name='L96'><b>int</b>
+<a name='L97'>main(<b>void</b>)
+<a name='L98'><font color='red'>{</font>
+<a name='L99'>        <b>int</b> ret = 0;
+<a name='L100'>        je_thread_t thread;
+<a name='L101'>
+<a name='L102'>        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Test begin\n");
+<a name='L103'>
+<a name='L104'>        <a href='../D/2595.html' title='Multiple defined in 4 places.'>je_thread_start</a>(NULL);
+<a name='L105'>
+<a name='L106'>        je_thread_create(&amp;thread, <a href='../D/2595.html' title='Multiple defined in 4 places.'>je_thread_start</a>, NULL);
+<a name='L107'>        je_thread_join(thread, (<b>void</b> *)&amp;ret);
+<a name='L108'>
+<a name='L109'>        <a href='../D/2595.html' title='Multiple defined in 4 places.'>je_thread_start</a>(NULL);
+<a name='L110'>
+<a name='L111'>        je_thread_create(&amp;thread, <a href='../D/2595.html' title='Multiple defined in 4 places.'>je_thread_start</a>, NULL);
+<a name='L112'>        je_thread_join(thread, (<b>void</b> *)&amp;ret);
+<a name='L113'>
+<a name='L114'>        <a href='../D/2595.html' title='Multiple defined in 4 places.'>je_thread_start</a>(NULL);
+<a name='L115'>
+<a name='L116'>        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Test end\n");
+<a name='L117'>        <b>return</b> (ret);
+<a name='L118'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L5'>[^]</a><a href='#L97'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

@@ -1,0 +1,84 @@
+<html>
+<head>
+<title>deps/jemalloc/include/jemalloc/internal/qr.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/391.html'>include</a>/<a href='../files/392.html'>jemalloc</a>/<a href='../files/393.html'>internal</a>/qr.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* Ring definitions. */</font></i>
+<a name='L2'><font color='darkred'>#define</font> <a href='../S/136.html#L11' title='Refered from 11 in deps/jemalloc/include/jemalloc/internal/ql.h.'>qr</a>(a_type)                                                      \
+<a name='L3'><b>struct</b> <font color='red'>{</font>                                                                \
+<a name='L4'>        a_type  *qre_next;                                              \
+<a name='L5'>        a_type  *qre_prev;                                              \
+<a name='L6'><font color='red'>}</font>
+<a name='L7'>
+<a name='L8'><i><font color='green'>/* Ring functions. */</font></i>
+<a name='L9'><font color='darkred'>#define</font> <a href='../S/136.html#L18' title='Refered from 18 in deps/jemalloc/include/jemalloc/internal/ql.h.'>qr_new</a>(a_qr, a_field) <b>do</b> <font color='red'>{</font>                                      \
+<a name='L10'>        (a_qr)-&gt;a_field.qre_next = (a_qr);                              \
+<a name='L11'>        (a_qr)-&gt;a_field.qre_prev = (a_qr);                              \
+<a name='L12'><font color='red'>}</font> <b>while</b> (0)
+<a name='L13'>
+<a name='L14'><font color='darkred'>#define</font> <a href='../R/3293.html' title='Multiple refered from 3 places.'>qr_next</a>(a_qr, a_field) ((a_qr)-&gt;a_field.qre_next)
+<a name='L15'>
+<a name='L16'><font color='darkred'>#define</font> <a href='../R/3294.html' title='Multiple refered from 3 places.'>qr_prev</a>(a_qr, a_field) ((a_qr)-&gt;a_field.qre_prev)
+<a name='L17'>
+<a name='L18'><font color='darkred'>#define</font> <a href='../R/3289.html' title='Multiple refered from 3 places.'>qr_before_insert</a>(a_qrelm, a_qr, a_field) <b>do</b> <font color='red'>{</font>                   \
+<a name='L19'>        (a_qr)-&gt;a_field.qre_prev = (a_qrelm)-&gt;a_field.qre_prev;         \
+<a name='L20'>        (a_qr)-&gt;a_field.qre_next = (a_qrelm);                           \
+<a name='L21'>        (a_qr)-&gt;a_field.qre_prev-&gt;a_field.qre_next = (a_qr);            \
+<a name='L22'>        (a_qrelm)-&gt;a_field.qre_prev = (a_qr);                           \
+<a name='L23'><font color='red'>}</font> <b>while</b> (0)
+<a name='L24'>
+<a name='L25'><font color='darkred'>#define</font> <a href='../S/136.html#L42' title='Refered from 42 in deps/jemalloc/include/jemalloc/internal/ql.h.'>qr_after_insert</a>(a_qrelm, a_qr, a_field)                         \
+<a name='L26'>    <b>do</b>                                                                  \
+<a name='L27'>    <font color='red'>{</font>                                                                   \
+<a name='L28'>        (a_qr)-&gt;a_field.qre_next = (a_qrelm)-&gt;a_field.qre_next;         \
+<a name='L29'>        (a_qr)-&gt;a_field.qre_prev = (a_qrelm);                           \
+<a name='L30'>        (a_qr)-&gt;a_field.qre_next-&gt;a_field.qre_prev = (a_qr);            \
+<a name='L31'>        (a_qrelm)-&gt;a_field.qre_next = (a_qr);                           \
+<a name='L32'>    <font color='red'>}</font> <b>while</b> (0)
+<a name='L33'>
+<a name='L34'><font color='darkred'>#define</font> <a href='../S/145.html#L46' title='Refered from 46 in deps/jemalloc/include/jemalloc/internal/qr.h.'>qr_meld</a>(a_qr_a, a_qr_b, a_field) <b>do</b> <font color='red'>{</font>                           \
+<a name='L35'>        <b>void</b> *t;                                                        \
+<a name='L36'>        (a_qr_a)-&gt;a_field.qre_prev-&gt;a_field.qre_next = (a_qr_b);        \
+<a name='L37'>        (a_qr_b)-&gt;a_field.qre_prev-&gt;a_field.qre_next = (a_qr_a);        \
+<a name='L38'>        t = (a_qr_a)-&gt;a_field.qre_prev;                                 \
+<a name='L39'>        (a_qr_a)-&gt;a_field.qre_prev = (a_qr_b)-&gt;a_field.qre_prev;        \
+<a name='L40'>        (a_qr_b)-&gt;a_field.qre_prev = t;                                 \
+<a name='L41'><font color='red'>}</font> <b>while</b> (0)
+<a name='L42'>
+<a name='L43'><i><font color='green'>/* qr_meld() and qr_split() are functionally equivalent, so there's no need to</font></i>
+<a name='L44'><i><font color='green'> * have two copies of the code. */</font></i>
+<a name='L45'><font color='darkred'>#define</font> qr_split(a_qr_a, a_qr_b, a_field)                               \
+<a name='L46'>        <a href='../S/145.html#L34' title='Defined at 34 in deps/jemalloc/include/jemalloc/internal/qr.h.'>qr_meld</a>((a_qr_a), (a_qr_b), a_field)
+<a name='L47'>
+<a name='L48'><font color='darkred'>#define</font> <a href='../S/136.html#L63' title='Refered from 63 in deps/jemalloc/include/jemalloc/internal/ql.h.'>qr_remove</a>(a_qr, a_field) <b>do</b> <font color='red'>{</font>                                   \
+<a name='L49'>        (a_qr)-&gt;a_field.qre_prev-&gt;a_field.qre_next                      \
+<a name='L50'>            = (a_qr)-&gt;a_field.qre_next;                                 \
+<a name='L51'>        (a_qr)-&gt;a_field.qre_next-&gt;a_field.qre_prev                      \
+<a name='L52'>            = (a_qr)-&gt;a_field.qre_prev;                                 \
+<a name='L53'>        (a_qr)-&gt;a_field.qre_next = (a_qr);                              \
+<a name='L54'>        (a_qr)-&gt;a_field.qre_prev = (a_qr);                              \
+<a name='L55'><font color='red'>}</font> <b>while</b> (0)
+<a name='L56'>
+<a name='L57'><font color='darkred'>#define</font> <a href='../S/136.html#L80' title='Refered from 80 in deps/jemalloc/include/jemalloc/internal/ql.h.'>qr_foreach</a>(var, a_qr, a_field)                                  \
+<a name='L58'>        <b>for</b> ((var) = (a_qr);                                            \
+<a name='L59'>            (var) != NULL;                                              \
+<a name='L60'>            (var) = (((var)-&gt;a_field.qre_next != (a_qr))                \
+<a name='L61'>            ? (var)-&gt;a_field.qre_next : NULL))
+<a name='L62'>
+<a name='L63'><font color='darkred'>#define</font> <a href='../S/136.html#L83' title='Refered from 83 in deps/jemalloc/include/jemalloc/internal/ql.h.'>qr_reverse_foreach</a>(var, a_qr, a_field)                          \
+<a name='L64'>        <b>for</b> ((var) = ((a_qr) != NULL) ? <a href='../S/145.html#L16' title='Defined at 16 in deps/jemalloc/include/jemalloc/internal/qr.h.'>qr_prev</a>(a_qr, a_field) : NULL;  \
+<a name='L65'>            (var) != NULL;                                              \
+<a name='L66'>            (var) = (((var) != (a_qr))                                  \
+<a name='L67'>            ? (var)-&gt;a_field.qre_prev : NULL))
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

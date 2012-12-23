@@ -1,0 +1,201 @@
+<html>
+<head>
+<title>entry</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/107.html#L137'>entry</a>             137 deps/hiredis/dict.c     dictEntry *entry;
+<a href='../S/107.html#L145'>entry</a>             145 deps/hiredis/dict.c     entry = malloc(sizeof(*entry));
+<a href='../S/107.html#L146'>entry</a>             146 deps/hiredis/dict.c     entry-&gt;next = ht-&gt;table[index];
+<a href='../S/107.html#L147'>entry</a>             147 deps/hiredis/dict.c     ht-&gt;table[index] = entry;
+<a href='../S/107.html#L150'>entry</a>             150 deps/hiredis/dict.c     dictSetHashKey(ht, entry, key);
+<a href='../S/107.html#L151'>entry</a>             151 deps/hiredis/dict.c     dictSetHashVal(ht, entry, val);
+<a href='../S/107.html#L161'>entry</a>             161 deps/hiredis/dict.c     dictEntry *entry, auxentry;
+<a href='../S/107.html#L168'>entry</a>             168 deps/hiredis/dict.c     entry = dictFind(ht, key);
+<a href='../S/107.html#L175'>entry</a>             175 deps/hiredis/dict.c     auxentry = *entry;
+<a href='../S/107.html#L176'>entry</a>             176 deps/hiredis/dict.c     dictSetHashVal(ht, entry, val);
+<a href='../S/107.html#L263'>entry</a>             263 deps/hiredis/dict.c     iter-&gt;entry = NULL;
+<a href='../S/107.html#L270'>entry</a>             270 deps/hiredis/dict.c         if (iter-&gt;entry == NULL) {
+<a href='../S/107.html#L274'>entry</a>             274 deps/hiredis/dict.c             iter-&gt;entry = iter-&gt;ht-&gt;table[iter-&gt;index];
+<a href='../S/107.html#L276'>entry</a>             276 deps/hiredis/dict.c             iter-&gt;entry = iter-&gt;nextEntry;
+<a href='../S/107.html#L278'>entry</a>             278 deps/hiredis/dict.c         if (iter-&gt;entry) {
+<a href='../S/107.html#L281'>entry</a>             281 deps/hiredis/dict.c             iter-&gt;nextEntry = iter-&gt;entry-&gt;next;
+<a href='../S/107.html#L282'>entry</a>             282 deps/hiredis/dict.c             return iter-&gt;entry;
+<a href='../S/123.html#L72'>entry</a>              72 deps/hiredis/dict.h     dictEntry *entry, *nextEntry;
+<a href='../S/123.html#L81'>entry</a>              81 deps/hiredis/dict.h         (ht)-&gt;type-&gt;valDestructor((ht)-&gt;privdata, (entry)-&gt;val)
+<a href='../S/123.html#L85'>entry</a>              85 deps/hiredis/dict.h         entry-&gt;val = (ht)-&gt;type-&gt;valDup((ht)-&gt;privdata, _val_); \
+<a href='../S/123.html#L87'>entry</a>              87 deps/hiredis/dict.h         entry-&gt;val = (_val_); \
+<a href='../S/123.html#L92'>entry</a>              92 deps/hiredis/dict.h         (ht)-&gt;type-&gt;keyDestructor((ht)-&gt;privdata, (entry)-&gt;key)
+<a href='../S/123.html#L96'>entry</a>              96 deps/hiredis/dict.h         entry-&gt;key = (ht)-&gt;type-&gt;keyDup((ht)-&gt;privdata, _key_); \
+<a href='../S/123.html#L98'>entry</a>              98 deps/hiredis/dict.h         entry-&gt;key = (_key_); \
+<a href='../S/69.html#L149'>entry</a>             149 src/debug.c                    listTypeEntry entry;
+<a href='../S/69.html#L150'>entry</a>             150 src/debug.c                    while(listTypeNext(li,&amp;entry)) {
+<a href='../S/69.html#L151'>entry</a>             151 src/debug.c                        robj *eleobj = listTypeGet(&amp;entry);
+<a href='../S/29.html#L316'>entry</a>             316 src/dict.c         dictEntry *entry = dictAddRaw(d,key);
+<a href='../S/29.html#L318'>entry</a>             318 src/dict.c         if (!entry) return DICT_ERR;
+<a href='../S/29.html#L319'>entry</a>             319 src/dict.c         dictSetVal(d, entry, val);
+<a href='../S/29.html#L341'>entry</a>             341 src/dict.c         dictEntry *entry;
+<a href='../S/29.html#L353'>entry</a>             353 src/dict.c         entry = zmalloc(sizeof(*entry));
+<a href='../S/29.html#L354'>entry</a>             354 src/dict.c         entry-&gt;next = ht-&gt;table[index];
+<a href='../S/29.html#L355'>entry</a>             355 src/dict.c         ht-&gt;table[index] = entry;
+<a href='../S/29.html#L359'>entry</a>             359 src/dict.c         dictSetKey(d, entry, key);
+<a href='../S/29.html#L360'>entry</a>             360 src/dict.c         return entry;
+<a href='../S/29.html#L369'>entry</a>             369 src/dict.c         dictEntry *entry, auxentry;
+<a href='../S/29.html#L376'>entry</a>             376 src/dict.c         entry = dictFind(d, key);
+<a href='../S/29.html#L382'>entry</a>             382 src/dict.c         auxentry = *entry;
+<a href='../S/29.html#L383'>entry</a>             383 src/dict.c         dictSetVal(d, entry, val);
+<a href='../S/29.html#L395'>entry</a>             395 src/dict.c         dictEntry *entry = dictFind(d,key);
+<a href='../S/29.html#L397'>entry</a>             397 src/dict.c         return entry ? entry : dictAddRaw(d,key);
+<a href='../S/29.html#L516'>entry</a>             516 src/dict.c         iter-&gt;entry = NULL;
+<a href='../S/29.html#L531'>entry</a>             531 src/dict.c             if (iter-&gt;entry == NULL) {
+<a href='../S/29.html#L545'>entry</a>             545 src/dict.c                 iter-&gt;entry = ht-&gt;table[iter-&gt;index];
+<a href='../S/29.html#L547'>entry</a>             547 src/dict.c                 iter-&gt;entry = iter-&gt;nextEntry;
+<a href='../S/29.html#L549'>entry</a>             549 src/dict.c             if (iter-&gt;entry) {
+<a href='../S/29.html#L552'>entry</a>             552 src/dict.c                 iter-&gt;nextEntry = iter-&gt;entry-&gt;next;
+<a href='../S/29.html#L553'>entry</a>             553 src/dict.c                 return iter-&gt;entry;
+<a href='../S/88.html#L90'>entry</a>              90 src/dict.h         dictEntry *entry, *nextEntry;
+<a href='../S/88.html#L99'>entry</a>              99 src/dict.h             (d)-&gt;type-&gt;valDestructor((d)-&gt;privdata, (entry)-&gt;v.val)
+<a href='../S/88.html#L103'>entry</a>             103 src/dict.h             entry-&gt;v.val = (d)-&gt;type-&gt;valDup((d)-&gt;privdata, _val_); \
+<a href='../S/88.html#L105'>entry</a>             105 src/dict.h             entry-&gt;v.val = (_val_); \
+<a href='../S/88.html#L109'>entry</a>             109 src/dict.h         do { entry-&gt;v.s64 = _val_; } while(0)
+<a href='../S/88.html#L112'>entry</a>             112 src/dict.h         do { entry-&gt;v.u64 = _val_; } while(0)
+<a href='../S/88.html#L116'>entry</a>             116 src/dict.h             (d)-&gt;type-&gt;keyDestructor((d)-&gt;privdata, (entry)-&gt;key)
+<a href='../S/88.html#L120'>entry</a>             120 src/dict.h             entry-&gt;key = (d)-&gt;type-&gt;keyDup((d)-&gt;privdata, _key_); \
+<a href='../S/88.html#L122'>entry</a>             122 src/dict.h             entry-&gt;key = (_key_); \
+<a href='../S/55.html#L488'>entry</a>             488 src/redis-check-dump.c entry loadEntry() {
+<a href='../S/55.html#L489'>entry</a>             489 src/redis-check-dump.c     entry e = { NULL, -1, 0 };
+<a href='../S/55.html#L607'>entry</a>             607 src/redis-check-dump.c     entry entry;
+<a href='../S/55.html#L623'>entry</a>             623 src/redis-check-dump.c         entry = loadEntry();
+<a href='../S/55.html#L624'>entry</a>             624 src/redis-check-dump.c         if (!entry.success) {
+<a href='../S/55.html#L626'>entry</a>             626 src/redis-check-dump.c             printErrorStack(&amp;entry);
+<a href='../S/55.html#L635'>entry</a>             635 src/redis-check-dump.c             while (!entry.success &amp;&amp; offset &lt; positions[0].size) {
+<a href='../S/55.html#L640'>entry</a>             640 src/redis-check-dump.c                     entry = loadEntry();
+<a href='../S/55.html#L641'>entry</a>             641 src/redis-check-dump.c                     if (!entry.success) break;
+<a href='../S/55.html#L662'>entry</a>             662 src/redis-check-dump.c         free(entry.key);
+<a href='../S/55.html#L670'>entry</a>             670 src/redis-check-dump.c     if (entry.type != REDIS_EOF) {
+<a href='../S/55.html#L673'>entry</a>             673 src/redis-check-dump.c         SHIFT_ERROR(positions[0].offset, "Expected EOF, got %s", types[entry.type]);
+<a href='../S/55.html#L676'>entry</a>             676 src/redis-check-dump.c         entry.type = -1;
+<a href='../S/55.html#L677'>entry</a>             677 src/redis-check-dump.c         printErrorStack(&amp;entry);
+<a href='../S/27.html#L209'>entry</a>             209 src/redis-cli.c     helpEntry *entry;
+<a href='../S/27.html#L227'>entry</a>             227 src/redis-cli.c         entry = &amp;helpEntries[i];
+<a href='../S/27.html#L228'>entry</a>             228 src/redis-cli.c         if (entry-&gt;type != CLI_HELP_COMMAND) continue;
+<a href='../S/27.html#L230'>entry</a>             230 src/redis-cli.c         help = entry-&gt;org;
+<a href='../S/27.html#L233'>entry</a>             233 src/redis-cli.c             if (argc == entry-&gt;argc) {
+<a href='../S/27.html#L235'>entry</a>             235 src/redis-cli.c                     if (strcasecmp(argv[j],entry-&gt;argv[j]) != 0) break;
+<a href='../S/57.html#L311'>entry</a>             311 src/sort.c             listTypeEntry entry;
+<a href='../S/57.html#L312'>entry</a>             312 src/sort.c             while(listTypeNext(li,&amp;entry)) {
+<a href='../S/57.html#L313'>entry</a>             313 src/sort.c                 vector[j].obj = listTypeGet(&amp;entry);
+<a href='../S/60.html#L152'>entry</a>             152 src/t_list.c       entry-&gt;li = li;
+<a href='../S/60.html#L154'>entry</a>             154 src/t_list.c           entry-&gt;zi = li-&gt;zi;
+<a href='../S/60.html#L155'>entry</a>             155 src/t_list.c           if (entry-&gt;zi != NULL) {
+<a href='../S/60.html#L163'>entry</a>             163 src/t_list.c           entry-&gt;ln = li-&gt;ln;
+<a href='../S/60.html#L164'>entry</a>             164 src/t_list.c           if (entry-&gt;ln != NULL) {
+<a href='../S/60.html#L179'>entry</a>             179 src/t_list.c       listTypeIterator *li = entry-&gt;li;
+<a href='../S/60.html#L185'>entry</a>             185 src/t_list.c           redisAssert(entry-&gt;zi != NULL);
+<a href='../S/60.html#L186'>entry</a>             186 src/t_list.c           if (ziplistGet(entry-&gt;zi,&amp;vstr,&amp;vlen,&amp;vlong)) {
+<a href='../S/60.html#L194'>entry</a>             194 src/t_list.c           redisAssert(entry-&gt;ln != NULL);
+<a href='../S/60.html#L195'>entry</a>             195 src/t_list.c           value = listNodeValue(entry-&gt;ln);
+<a href='../S/60.html#L204'>entry</a>             204 src/t_list.c       robj *subject = entry-&gt;li-&gt;subject;
+<a href='../S/60.html#L205'>entry</a>             205 src/t_list.c       if (entry-&gt;li-&gt;encoding == REDIS_ENCODING_ZIPLIST) {
+<a href='../S/60.html#L208'>entry</a>             208 src/t_list.c               unsigned char *next = ziplistNext(subject-&gt;ptr,entry-&gt;zi);
+<a href='../S/60.html#L218'>entry</a>             218 src/t_list.c               subject-&gt;ptr = ziplistInsert(subject-&gt;ptr,entry-&gt;zi,value-&gt;ptr,sdslen(value-&gt;ptr));
+<a href='../S/60.html#L221'>entry</a>             221 src/t_list.c       } else if (entry-&gt;li-&gt;encoding == REDIS_ENCODING_LINKEDLIST) {
+<a href='../S/60.html#L223'>entry</a>             223 src/t_list.c               listInsertNode(subject-&gt;ptr,entry-&gt;ln,value,AL_START_TAIL);
+<a href='../S/60.html#L225'>entry</a>             225 src/t_list.c               listInsertNode(subject-&gt;ptr,entry-&gt;ln,value,AL_START_HEAD);
+<a href='../S/60.html#L235'>entry</a>             235 src/t_list.c       listTypeIterator *li = entry-&gt;li;
+<a href='../S/60.html#L238'>entry</a>             238 src/t_list.c           return ziplistCompare(entry-&gt;zi,o-&gt;ptr,sdslen(o-&gt;ptr));
+<a href='../S/60.html#L240'>entry</a>             240 src/t_list.c           return equalStringObjects(o,listNodeValue(entry-&gt;ln));
+<a href='../S/60.html#L248'>entry</a>             248 src/t_list.c       listTypeIterator *li = entry-&gt;li;
+<a href='../S/60.html#L250'>entry</a>             250 src/t_list.c           unsigned char *p = entry-&gt;zi;
+<a href='../S/60.html#L258'>entry</a>             258 src/t_list.c       } else if (entry-&gt;li-&gt;encoding == REDIS_ENCODING_LINKEDLIST) {
+<a href='../S/60.html#L261'>entry</a>             261 src/t_list.c               next = entry-&gt;ln-&gt;next;
+<a href='../S/60.html#L263'>entry</a>             263 src/t_list.c               next = entry-&gt;ln-&gt;prev;
+<a href='../S/60.html#L264'>entry</a>             264 src/t_list.c           listDelNode(li-&gt;subject-&gt;ptr,entry-&gt;ln);
+<a href='../S/60.html#L273'>entry</a>             273 src/t_list.c       listTypeEntry entry;
+<a href='../S/60.html#L282'>entry</a>             282 src/t_list.c           while (listTypeNext(li,&amp;entry)) listAddNodeTail(l,listTypeGet(&amp;entry));
+<a href='../S/60.html#L334'>entry</a>             334 src/t_list.c       listTypeEntry entry;
+<a href='../S/60.html#L354'>entry</a>             354 src/t_list.c           while (listTypeNext(iter,&amp;entry)) {
+<a href='../S/60.html#L355'>entry</a>             355 src/t_list.c               if (listTypeEqual(&amp;entry,refval)) {
+<a href='../S/60.html#L356'>entry</a>             356 src/t_list.c                   listTypeInsert(&amp;entry,val,where);
+<a href='../S/60.html#L632'>entry</a>             632 src/t_list.c       listTypeEntry entry;
+<a href='../S/60.html#L652'>entry</a>             652 src/t_list.c       while (listTypeNext(li,&amp;entry)) {
+<a href='../S/60.html#L653'>entry</a>             653 src/t_list.c           if (listTypeEqual(&amp;entry,obj)) {
+<a href='../S/60.html#L654'>entry</a>             654 src/t_list.c               listTypeDelete(&amp;entry);
+<a href='../S/89.html#L322'>entry</a>             322 src/ziplist.c      if (string2ll((char*)entry,entrylen,&amp;value)) {
+<a href='../S/89.html#L586'>entry</a>             586 src/ziplist.c      zlentry entry, tail;
+<a href='../S/89.html#L590'>entry</a>             590 src/ziplist.c          entry = zipEntry(p);
+<a href='../S/89.html#L591'>entry</a>             591 src/ziplist.c          prevlen = entry.prevrawlen;
+<a href='../S/89.html#L679'>entry</a>             679 src/ziplist.c      zlentry entry;
+<a href='../S/89.html#L684'>entry</a>             684 src/ziplist.c              entry = zipEntry(p);
+<a href='../S/89.html#L685'>entry</a>             685 src/ziplist.c              while (entry.prevrawlen &gt; 0 &amp;&amp; index--) {
+<a href='../S/89.html#L686'>entry</a>             686 src/ziplist.c                  p -= entry.prevrawlen;
+<a href='../S/89.html#L687'>entry</a>             687 src/ziplist.c                  entry = zipEntry(p);
+<a href='../S/89.html#L725'>entry</a>             725 src/ziplist.c      zlentry entry;
+<a href='../S/89.html#L736'>entry</a>             736 src/ziplist.c          entry = zipEntry(p);
+<a href='../S/89.html#L737'>entry</a>             737 src/ziplist.c          assert(entry.prevrawlen &gt; 0);
+<a href='../S/89.html#L738'>entry</a>             738 src/ziplist.c          return p-entry.prevrawlen;
+<a href='../S/89.html#L747'>entry</a>             747 src/ziplist.c      zlentry entry;
+<a href='../S/89.html#L751'>entry</a>             751 src/ziplist.c      entry = zipEntry(p);
+<a href='../S/89.html#L752'>entry</a>             752 src/ziplist.c      if (ZIP_IS_STR(entry.encoding)) {
+<a href='../S/89.html#L754'>entry</a>             754 src/ziplist.c              *slen = entry.len;
+<a href='../S/89.html#L755'>entry</a>             755 src/ziplist.c              *sstr = p+entry.headersize;
+<a href='../S/89.html#L759'>entry</a>             759 src/ziplist.c              *sval = zipLoadInteger(p+entry.headersize,entry.encoding);
+<a href='../S/89.html#L793'>entry</a>             793 src/ziplist.c      zlentry entry;
+<a href='../S/89.html#L798'>entry</a>             798 src/ziplist.c      entry = zipEntry(p);
+<a href='../S/89.html#L799'>entry</a>             799 src/ziplist.c      if (ZIP_IS_STR(entry.encoding)) {
+<a href='../S/89.html#L801'>entry</a>             801 src/ziplist.c          if (entry.len == slen) {
+<a href='../S/89.html#L802'>entry</a>             802 src/ziplist.c              return memcmp(p+entry.headersize,sstr,slen) == 0;
+<a href='../S/89.html#L810'>entry</a>             810 src/ziplist.c            zval = zipLoadInteger(p+entry.headersize,entry.encoding);
+<a href='../S/89.html#L904'>entry</a>             904 src/ziplist.c      zlentry entry;
+<a href='../S/89.html#L915'>entry</a>             915 src/ziplist.c          entry = zipEntry(p);
+<a href='../S/89.html#L930'>entry</a>             930 src/ziplist.c              entry.headersize+entry.len,
+<a href='../S/89.html#L931'>entry</a>             931 src/ziplist.c              entry.headersize,
+<a href='../S/89.html#L932'>entry</a>             932 src/ziplist.c              entry.prevrawlen,
+<a href='../S/89.html#L933'>entry</a>             933 src/ziplist.c              entry.prevrawlensize,
+<a href='../S/89.html#L934'>entry</a>             934 src/ziplist.c              entry.len);
+<a href='../S/89.html#L935'>entry</a>             935 src/ziplist.c          p += entry.headersize;
+<a href='../S/89.html#L936'>entry</a>             936 src/ziplist.c          if (ZIP_IS_STR(entry.encoding)) {
+<a href='../S/89.html#L937'>entry</a>             937 src/ziplist.c              if (entry.len &gt; 40) {
+<a href='../S/89.html#L941'>entry</a>             941 src/ziplist.c                  if (entry.len &amp;&amp;
+<a href='../S/89.html#L942'>entry</a>             942 src/ziplist.c                      fwrite(p,entry.len,1,stdout) == 0) perror("fwrite");
+<a href='../S/89.html#L945'>entry</a>             945 src/ziplist.c              printf("%lld", (long long) zipLoadInteger(p,entry.encoding));
+<a href='../S/89.html#L948'>entry</a>             948 src/ziplist.c          p += entry.len;
+<a href='../S/89.html#L1086'>entry</a>            1086 src/ziplist.c      unsigned char *entry;
+<a href='../S/89.html#L1116'>entry</a>            1116 src/ziplist.c          if (!ziplistGet(p, &amp;entry, &amp;elen, &amp;value)) {
+<a href='../S/89.html#L1120'>entry</a>            1120 src/ziplist.c          if (entry) {
+<a href='../S/89.html#L1121'>entry</a>            1121 src/ziplist.c              if (elen &amp;&amp; fwrite(entry,elen,1,stdout) == 0) perror("fwrite");
+<a href='../S/89.html#L1146'>entry</a>            1146 src/ziplist.c          if (!ziplistGet(p, &amp;entry, &amp;elen, &amp;value)) {
+<a href='../S/89.html#L1150'>entry</a>            1150 src/ziplist.c          if (entry) {
+<a href='../S/89.html#L1151'>entry</a>            1151 src/ziplist.c              if (elen &amp;&amp; fwrite(entry,elen,1,stdout) == 0) perror("fwrite");
+<a href='../S/89.html#L1163'>entry</a>            1163 src/ziplist.c          if (!ziplistGet(p, &amp;entry, &amp;elen, &amp;value)) {
+<a href='../S/89.html#L1167'>entry</a>            1167 src/ziplist.c          if (entry) {
+<a href='../S/89.html#L1168'>entry</a>            1168 src/ziplist.c              if (elen &amp;&amp; fwrite(entry,elen,1,stdout) == 0) perror("fwrite");
+<a href='../S/89.html#L1193'>entry</a>            1193 src/ziplist.c          while (ziplistGet(p, &amp;entry, &amp;elen, &amp;value)) {
+<a href='../S/89.html#L1195'>entry</a>            1195 src/ziplist.c              if (entry) {
+<a href='../S/89.html#L1196'>entry</a>            1196 src/ziplist.c                  if (elen &amp;&amp; fwrite(entry,elen,1,stdout) == 0) perror("fwrite");
+<a href='../S/89.html#L1210'>entry</a>            1210 src/ziplist.c          while (ziplistGet(p, &amp;entry, &amp;elen, &amp;value)) {
+<a href='../S/89.html#L1212'>entry</a>            1212 src/ziplist.c              if (entry) {
+<a href='../S/89.html#L1213'>entry</a>            1213 src/ziplist.c                  if (elen &amp;&amp; fwrite(entry,elen,1,stdout) == 0) perror("fwrite");
+<a href='../S/89.html#L1227'>entry</a>            1227 src/ziplist.c          while (ziplistGet(p, &amp;entry, &amp;elen, &amp;value)) {
+<a href='../S/89.html#L1229'>entry</a>            1229 src/ziplist.c              if (entry) {
+<a href='../S/89.html#L1230'>entry</a>            1230 src/ziplist.c                  if (elen &amp;&amp; fwrite(entry,elen,1,stdout) == 0) perror("fwrite");
+<a href='../S/89.html#L1244'>entry</a>            1244 src/ziplist.c          if (!ziplistGet(p, &amp;entry, &amp;elen, &amp;value)) {
+<a href='../S/89.html#L1256'>entry</a>            1256 src/ziplist.c          while (ziplistGet(p, &amp;entry, &amp;elen, &amp;value)) {
+<a href='../S/89.html#L1258'>entry</a>            1258 src/ziplist.c              if (entry) {
+<a href='../S/89.html#L1259'>entry</a>            1259 src/ziplist.c                  if (elen &amp;&amp; fwrite(entry,elen,1,stdout) == 0) perror("fwrite");
+<a href='../S/89.html#L1273'>entry</a>            1273 src/ziplist.c          while (ziplistGet(p, &amp;entry, &amp;elen, &amp;value)) {
+<a href='../S/89.html#L1275'>entry</a>            1275 src/ziplist.c              if (entry) {
+<a href='../S/89.html#L1276'>entry</a>            1276 src/ziplist.c                  if (elen &amp;&amp; fwrite(entry,elen,1,stdout) == 0) perror("fwrite");
+<a href='../S/89.html#L1326'>entry</a>            1326 src/ziplist.c          while (ziplistGet(p,&amp;entry,&amp;elen,&amp;value)) {
+<a href='../S/89.html#L1327'>entry</a>            1327 src/ziplist.c              if (entry &amp;&amp; strncmp("foo",(char*)entry,elen) == 0) {
+<a href='../S/89.html#L1332'>entry</a>            1332 src/ziplist.c                  if (entry) {
+<a href='../S/89.html#L1333'>entry</a>            1333 src/ziplist.c                      if (elen &amp;&amp; fwrite(entry,elen,1,stdout) == 0)
+<a href='../S/89.html#L1357'>entry</a>            1357 src/ziplist.c          assert(ziplistGet(p,&amp;entry,&amp;elen,&amp;value));
+<a href='../S/89.html#L1358'>entry</a>            1358 src/ziplist.c          assert(strncmp(v1,(char*)entry,elen) == 0);
+<a href='../S/89.html#L1360'>entry</a>            1360 src/ziplist.c          assert(ziplistGet(p,&amp;entry,&amp;elen,&amp;value));
+<a href='../S/89.html#L1361'>entry</a>            1361 src/ziplist.c          assert(strncmp(v2,(char*)entry,elen) == 0);
+</pre>
+</body>
+</html>

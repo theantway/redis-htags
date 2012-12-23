@@ -1,0 +1,137 @@
+<html>
+<head>
+<title>deps/lua/src/lstring.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/lstring.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L22'>[^]</a><a href='#L96'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L22' title='Defined at 22.'>luaS_resize</a>
+<li><a href='#L50' title='Defined at 50.'>newlstr</a>
+<li><a href='#L75' title='Defined at 75.'>luaS_newlstr</a>
+<li><a href='#L96' title='Defined at 96.'>luaS_newudata</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: lstring.c,v 2.8.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** String table (keeps all strings handled by Lua)</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'>
+<a name='L8'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L9'>
+<a name='L10'><font color='darkred'>#define</font> lstring_c
+<a name='L11'><font color='darkred'>#define</font> <a href='../R/303.html' title='Multiple refered from 2 places.'>LUA_CORE</a>
+<a name='L12'>
+<a name='L13'><font color='darkred'>#include</font> "<a href='266.html'>lua.h</a>"
+<a name='L14'>
+<a name='L15'><font color='darkred'>#include</font> "<a href='278.html'>lmem.h</a>"
+<a name='L16'><font color='darkred'>#include</font> "<a href='282.html'>lobject.h</a>"
+<a name='L17'><font color='darkred'>#include</font> "<a href='298.html'>lstate.h</a>"
+<a name='L18'><font color='darkred'>#include</font> "<a href='268.html'>lstring.h</a>"
+<a name='L19'>
+<a name='L20'>
+<a name='L21'>
+<a name='L22'><b>void</b> <a href='../R/2712.html' title='Multiple refered from 4 places.'>luaS_resize</a> (lua_State *L, <b>int</b> newsize) <font color='red'>{</font>
+<a name='L23'>  <a href='../D/159.html' title='Multiple defined in 2 places.'>GCObject</a> **newhash;
+<a name='L24'>  <a href='../D/4265.html' title='Multiple defined in 2 places.'>stringtable</a> *tb;
+<a name='L25'>  <b>int</b> i;
+<a name='L26'>  <b>if</b> (<a href='../S/298.html#L130' title='Defined at 130 in deps/lua/src/lstate.h.'>G</a>(L)-&gt;gcstate == <a href='../S/261.html#L19' title='Defined at 19 in deps/lua/src/lgc.h.'>GCSsweepstring</a>)
+<a name='L27'>    <b>return</b>;  <i><font color='green'>/* cannot resize during GC traverse */</font></i>
+<a name='L28'>  newhash = <a href='../S/278.html#L30' title='Defined at 30 in deps/lua/src/lmem.h.'>luaM_newvector</a>(L, newsize, <a href='../D/159.html' title='Multiple defined in 2 places.'>GCObject</a> *);
+<a name='L29'>  tb = &amp;<a href='../S/298.html#L130' title='Defined at 130 in deps/lua/src/lstate.h.'>G</a>(L)-&gt;strt;
+<a name='L30'>  <b>for</b> (i=0; i&lt;newsize; i++) newhash[i] = NULL;
+<a name='L31'>  <i><font color='green'>/* rehash */</font></i>
+<a name='L32'>  <b>for</b> (i=0; i&lt;tb-&gt;size; i++) <font color='red'>{</font>
+<a name='L33'>    <a href='../D/159.html' title='Multiple defined in 2 places.'>GCObject</a> *p = tb-&gt;<a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a>[i];
+<a name='L34'>    <b>while</b> (p) <font color='red'>{</font>  <i><font color='green'>/* for each node in the list */</font></i>
+<a name='L35'>      <a href='../D/159.html' title='Multiple defined in 2 places.'>GCObject</a> *<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = p-&gt;gch.<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;  <i><font color='green'>/* save next */</font></i>
+<a name='L36'>      <b>unsigned</b> <b>int</b> h = <a href='../S/298.html#L150' title='Defined at 150 in deps/lua/src/lstate.h.'>gco2ts</a>(p)-&gt;<a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a>;
+<a name='L37'>      <b>int</b> h1 = <a href='../S/282.html#L355' title='Defined at 355 in deps/lua/src/lobject.h.'>lmod</a>(h, newsize);  <i><font color='green'>/* new position */</font></i>
+<a name='L38'>      <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(<a href='../S/310.html#L80' title='Defined at 80 in deps/lua/src/llimits.h.'>cast_int</a>(h%newsize) == <a href='../S/282.html#L355' title='Defined at 355 in deps/lua/src/lobject.h.'>lmod</a>(h, newsize));
+<a name='L39'>      p-&gt;gch.<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = newhash[h1];  <i><font color='green'>/* chain it */</font></i>
+<a name='L40'>      newhash[h1] = p;
+<a name='L41'>      p = <a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L42'>    <font color='red'>}</font>
+<a name='L43'>  <font color='red'>}</font>
+<a name='L44'>  <a href='../S/278.html#L26' title='Defined at 26 in deps/lua/src/lmem.h.'>luaM_freearray</a>(L, tb-&gt;<a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a>, tb-&gt;size, <a href='../D/1215.html' title='Multiple defined in 2 places.'>TString</a> *);
+<a name='L45'>  tb-&gt;size = newsize;
+<a name='L46'>  tb-&gt;<a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a> = newhash;
+<a name='L47'><font color='red'>}</font>
+<a name='L48'>
+<a name='L49'>
+<a name='L50'><b>static</b> <a href='../D/1215.html' title='Multiple defined in 2 places.'>TString</a> *<a href='../S/284.html#L92' title='Refered from 92 in deps/lua/src/lstring.c.'>newlstr</a> (lua_State *L, <b>const</b> <b>char</b> *str, size_t l,
+<a name='L51'>                                       <b>unsigned</b> <b>int</b> h) <font color='red'>{</font>
+<a name='L52'>  <a href='../D/1215.html' title='Multiple defined in 2 places.'>TString</a> *ts;
+<a name='L53'>  <a href='../D/4265.html' title='Multiple defined in 2 places.'>stringtable</a> *tb;
+<a name='L54'>  <b>if</b> (l+1 &gt; (<a href='../S/310.html#L30' title='Defined at 30 in deps/lua/src/llimits.h.'>MAX_SIZET</a> - <b>sizeof</b>(<a href='../D/1215.html' title='Multiple defined in 2 places.'>TString</a>))/<b>sizeof</b>(<b>char</b>))
+<a name='L55'>    <a href='../S/300.html#L66' title='Defined at 66 in deps/lua/src/lmem.c.'>luaM_toobig</a>(L);
+<a name='L56'>  ts = <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../D/1215.html' title='Multiple defined in 2 places.'>TString</a> *, <a href='../S/278.html#L28' title='Defined at 28 in deps/lua/src/lmem.h.'>luaM_malloc</a>(L, (l+1)*<b>sizeof</b>(<b>char</b>)+<b>sizeof</b>(<a href='../D/1215.html' title='Multiple defined in 2 places.'>TString</a>)));
+<a name='L57'>  ts-&gt;tsv.len = l;
+<a name='L58'>  ts-&gt;tsv.<a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a> = h;
+<a name='L59'>  ts-&gt;tsv.marked = <a href='../S/261.html#L77' title='Defined at 77 in deps/lua/src/lgc.h.'>luaC_white</a>(<a href='../S/298.html#L130' title='Defined at 130 in deps/lua/src/lstate.h.'>G</a>(L));
+<a name='L60'>  ts-&gt;tsv.tt = <a href='../S/266.html#L78' title='Defined at 78 in deps/lua/src/lua.h.'>LUA_TSTRING</a>;
+<a name='L61'>  ts-&gt;tsv.reserved = 0;
+<a name='L62'>  memcpy(ts+1, str, l*<b>sizeof</b>(<b>char</b>));
+<a name='L63'>  ((<b>char</b> *)(ts+1))[l] = '\0';  <i><font color='green'>/* ending 0 */</font></i>
+<a name='L64'>  tb = &amp;<a href='../S/298.html#L130' title='Defined at 130 in deps/lua/src/lstate.h.'>G</a>(L)-&gt;strt;
+<a name='L65'>  h = <a href='../S/282.html#L355' title='Defined at 355 in deps/lua/src/lobject.h.'>lmod</a>(h, tb-&gt;size);
+<a name='L66'>  ts-&gt;tsv.<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = tb-&gt;<a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a>[h];  <i><font color='green'>/* chain new entry */</font></i>
+<a name='L67'>  tb-&gt;<a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a>[h] = <a href='../S/298.html#L162' title='Defined at 162 in deps/lua/src/lstate.h.'>obj2gco</a>(ts);
+<a name='L68'>  tb-&gt;nuse++;
+<a name='L69'>  <b>if</b> (tb-&gt;nuse &gt; <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/310.html#L18' title='Defined at 18 in deps/lua/src/llimits.h.'>lu_int32</a>, tb-&gt;size) &amp;&amp; tb-&gt;size &lt;= <a href='../S/310.html#L35' title='Defined at 35 in deps/lua/src/llimits.h.'>MAX_INT</a>/2)
+<a name='L70'>    <a href='../S/284.html#L22' title='Defined at 22 in deps/lua/src/lstring.c.'>luaS_resize</a>(L, tb-&gt;size*2);  <i><font color='green'>/* too crowded */</font></i>
+<a name='L71'>  <b>return</b> ts;
+<a name='L72'><font color='red'>}</font>
+<a name='L73'>
+<a name='L74'>
+<a name='L75'><a href='../D/1215.html' title='Multiple defined in 2 places.'>TString</a> *<a href='../R/2710.html' title='Multiple refered from 9 places.'>luaS_newlstr</a> (lua_State *L, <b>const</b> <b>char</b> *str, size_t l) <font color='red'>{</font>
+<a name='L76'>  <a href='../D/159.html' title='Multiple defined in 2 places.'>GCObject</a> *o;
+<a name='L77'>  <b>unsigned</b> <b>int</b> h = <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>unsigned</b> <b>int</b>, l);  <i><font color='green'>/* seed */</font></i>
+<a name='L78'>  size_t step = (l&gt;&gt;5)+1;  <i><font color='green'>/* if string is too long, don't hash all its chars */</font></i>
+<a name='L79'>  size_t l1;
+<a name='L80'>  <b>for</b> (l1=l; l1&gt;=step; l1-=step)  <i><font color='green'>/* compute hash */</font></i>
+<a name='L81'>    h = h ^ ((h&lt;&lt;5)+(h&gt;&gt;2)+<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>unsigned</b> <b>char</b>, str[l1-1]));
+<a name='L82'>  <b>for</b> (o = <a href='../S/298.html#L130' title='Defined at 130 in deps/lua/src/lstate.h.'>G</a>(L)-&gt;strt.<a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a>[<a href='../S/282.html#L355' title='Defined at 355 in deps/lua/src/lobject.h.'>lmod</a>(h, <a href='../S/298.html#L130' title='Defined at 130 in deps/lua/src/lstate.h.'>G</a>(L)-&gt;strt.size)];
+<a name='L83'>       o != NULL;
+<a name='L84'>       o = o-&gt;gch.<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>) <font color='red'>{</font>
+<a name='L85'>    <a href='../D/1215.html' title='Multiple defined in 2 places.'>TString</a> *ts = <a href='../S/298.html#L149' title='Defined at 149 in deps/lua/src/lstate.h.'>rawgco2ts</a>(o);
+<a name='L86'>    <b>if</b> (ts-&gt;tsv.len == l &amp;&amp; (memcmp(str, <a href='../S/282.html#L210' title='Defined at 210 in deps/lua/src/lobject.h.'>getstr</a>(ts), l) == 0)) <font color='red'>{</font>
+<a name='L87'>      <i><font color='green'>/* string may be dead */</font></i>
+<a name='L88'>      <b>if</b> (<a href='../S/261.html#L70' title='Defined at 70 in deps/lua/src/lgc.h.'>isdead</a>(<a href='../S/298.html#L130' title='Defined at 130 in deps/lua/src/lstate.h.'>G</a>(L), o)) <a href='../S/261.html#L72' title='Defined at 72 in deps/lua/src/lgc.h.'>changewhite</a>(o);
+<a name='L89'>      <b>return</b> ts;
+<a name='L90'>    <font color='red'>}</font>
+<a name='L91'>  <font color='red'>}</font>
+<a name='L92'>  <b>return</b> <a href='../S/284.html#L50' title='Defined at 50 in deps/lua/src/lstring.c.'>newlstr</a>(L, str, l, h);  <i><font color='green'>/* not found */</font></i>
+<a name='L93'><font color='red'>}</font>
+<a name='L94'>
+<a name='L95'>
+<a name='L96'><a href='../D/1268.html' title='Multiple defined in 2 places.'>Udata</a> *<a href='../R/2711.html' title='Multiple refered from 2 places.'>luaS_newudata</a> (lua_State *L, size_t s, Table *e) <font color='red'>{</font>
+<a name='L97'>  <a href='../D/1268.html' title='Multiple defined in 2 places.'>Udata</a> *u;
+<a name='L98'>  <b>if</b> (s &gt; <a href='../S/310.html#L30' title='Defined at 30 in deps/lua/src/llimits.h.'>MAX_SIZET</a> - <b>sizeof</b>(<a href='../D/1268.html' title='Multiple defined in 2 places.'>Udata</a>))
+<a name='L99'>    <a href='../S/300.html#L66' title='Defined at 66 in deps/lua/src/lmem.c.'>luaM_toobig</a>(L);
+<a name='L100'>  u = <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../D/1268.html' title='Multiple defined in 2 places.'>Udata</a> *, <a href='../S/278.html#L28' title='Defined at 28 in deps/lua/src/lmem.h.'>luaM_malloc</a>(L, s + <b>sizeof</b>(<a href='../D/1268.html' title='Multiple defined in 2 places.'>Udata</a>)));
+<a name='L101'>  u-&gt;uv.marked = <a href='../S/261.html#L77' title='Defined at 77 in deps/lua/src/lgc.h.'>luaC_white</a>(<a href='../S/298.html#L130' title='Defined at 130 in deps/lua/src/lstate.h.'>G</a>(L));  <i><font color='green'>/* is not finalized */</font></i>
+<a name='L102'>  u-&gt;uv.tt = <a href='../S/266.html#L81' title='Defined at 81 in deps/lua/src/lua.h.'>LUA_TUSERDATA</a>;
+<a name='L103'>  u-&gt;uv.len = s;
+<a name='L104'>  u-&gt;uv.metatable = NULL;
+<a name='L105'>  u-&gt;uv.env = e;
+<a name='L106'>  <i><font color='green'>/* chain it on udata list (after main thread) */</font></i>
+<a name='L107'>  u-&gt;uv.<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = <a href='../S/298.html#L130' title='Defined at 130 in deps/lua/src/lstate.h.'>G</a>(L)-&gt;mainthread-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L108'>  <a href='../S/298.html#L130' title='Defined at 130 in deps/lua/src/lstate.h.'>G</a>(L)-&gt;mainthread-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = <a href='../S/298.html#L162' title='Defined at 162 in deps/lua/src/lstate.h.'>obj2gco</a>(u);
+<a name='L109'>  <b>return</b> u;
+<a name='L110'><font color='red'>}</font>
+<a name='L111'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L22'>[^]</a><a href='#L96'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<html>
+<head>
+<title>src/rio.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/rio.h</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L73'>[^]</a><a href='#L86'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/203.html' title='Multiple included from 3 places.'>INCLUDED FROM</a></h2>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L73' title='Defined at 73.'>rioWrite</a>
+<li><a href='#L78' title='Defined at 78.'>rioRead</a>
+<li><a href='#L86' title='Defined at 86.'>rioTell</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2009-2012, Pieter Noordhuis &lt;pcnoordhuis at gmail dot com&gt;</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'>
+<a name='L32'><font color='darkred'>#ifndef</font> <a href='../S/65.html#L33' title='Defined at 33 in src/rio.h.'>__REDIS_RIO_H</a>
+<a name='L33'><font color='darkred'>#define</font> <a href='../S/65.html#L32' title='Refered from 32 in src/rio.h.'>__REDIS_RIO_H</a>
+<a name='L34'>
+<a name='L35'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L36'><font color='darkred'>#include</font> &lt;<a href='160.html'>stdint.h</a>&gt;
+<a name='L37'><font color='darkred'>#include</font> "<a href='../I/18.html'>sds.h</a>"
+<a name='L38'>
+<a name='L39'><b>struct</b> <a href='../R/1182.html' title='Multiple refered from 5 places.'>_rio</a> <font color='red'>{</font>
+<a name='L40'>    <i><font color='green'>/* Backend functions.</font></i>
+<a name='L41'><i><font color='green'>     * Since this functions do not tolerate short writes or reads the return</font></i>
+<a name='L42'><i><font color='green'>     * value is simplified to: zero on error, non zero on complete success. */</font></i>
+<a name='L43'>    size_t (*read)(<b>struct</b> <a href='../S/65.html#L39' title='Defined at 39 in src/rio.h.'>_rio</a> *, <b>void</b> *buf, size_t len);
+<a name='L44'>    size_t (*write)(<b>struct</b> <a href='../S/65.html#L39' title='Defined at 39 in src/rio.h.'>_rio</a> *, <b>const</b> <b>void</b> *buf, size_t len);
+<a name='L45'>    off_t (*tell)(<b>struct</b> <a href='../S/65.html#L39' title='Defined at 39 in src/rio.h.'>_rio</a> *);
+<a name='L46'>    <i><font color='green'>/* The update_cksum method if not NULL is used to compute the checksum of all the</font></i>
+<a name='L47'><i><font color='green'>     * data that was read or written so far. The method should be designed so that</font></i>
+<a name='L48'><i><font color='green'>     * can be called with the current checksum, and the buf and len fields pointing</font></i>
+<a name='L49'><i><font color='green'>     * to the new block of data to add to the checksum computation. */</font></i>
+<a name='L50'>    <b>void</b> (*update_cksum)(<b>struct</b> <a href='../S/65.html#L39' title='Defined at 39 in src/rio.h.'>_rio</a> *, <b>const</b> <b>void</b> *buf, size_t len);
+<a name='L51'>
+<a name='L52'>    <i><font color='green'>/* The current checksum */</font></i>
+<a name='L53'>    <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> cksum;
+<a name='L54'>
+<a name='L55'>    <i><font color='green'>/* Backend-specific vars. */</font></i>
+<a name='L56'>    <b>union</b> <font color='red'>{</font>
+<a name='L57'>        <b>struct</b> <font color='red'>{</font>
+<a name='L58'>            <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> ptr;
+<a name='L59'>            off_t <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>;
+<a name='L60'>        <font color='red'>}</font> buffer;
+<a name='L61'>        <b>struct</b> <font color='red'>{</font>
+<a name='L62'>            FILE *fp;
+<a name='L63'>        <font color='red'>}</font> file;
+<a name='L64'>    <font color='red'>}</font> io;
+<a name='L65'><font color='red'>}</font>;
+<a name='L66'>
+<a name='L67'><b>typedef</b> <b>struct</b> <a href='../S/65.html#L39' title='Defined at 39 in src/rio.h.'>_rio</a> <a href='../R/3560.html' title='Multiple refered from 8 places.'>rio</a>;
+<a name='L68'>
+<a name='L69'><i><font color='green'>/* The following functions are our interface with the stream. They'll call the</font></i>
+<a name='L70'><i><font color='green'> * actual implementation of read / write / tell, and will update the checksum</font></i>
+<a name='L71'><i><font color='green'> * if needed. */</font></i>
+<a name='L72'>
+<a name='L73'><b>static</b> <b>inline</b> size_t <a href='../R/3572.html' title='Multiple refered from 8 places.'>rioWrite</a>(rio *r, <b>const</b> <b>void</b> *buf, size_t len) <font color='red'>{</font>
+<a name='L74'>    <b>if</b> (r-&gt;update_cksum) r-&gt;update_cksum(r,buf,len);
+<a name='L75'>    <b>return</b> r-&gt;write(r,buf,len);
+<a name='L76'><font color='red'>}</font>
+<a name='L77'>
+<a name='L78'><b>static</b> <b>inline</b> size_t <a href='../R/3570.html' title='Multiple refered from 15 places.'>rioRead</a>(rio *r, <b>void</b> *buf, size_t len) <font color='red'>{</font>
+<a name='L79'>    <b>if</b> (r-&gt;read(r,buf,len) == 1) <font color='red'>{</font>
+<a name='L80'>        <b>if</b> (r-&gt;update_cksum) r-&gt;update_cksum(r,buf,len);
+<a name='L81'>        <b>return</b> 1;
+<a name='L82'>    <font color='red'>}</font>
+<a name='L83'>    <b>return</b> 0;
+<a name='L84'><font color='red'>}</font>
+<a name='L85'>
+<a name='L86'><b>static</b> <b>inline</b> off_t <a href='../R/3571.html' title='Multiple refered from 2 places.'>rioTell</a>(rio *r) <font color='red'>{</font>
+<a name='L87'>    <b>return</b> r-&gt;tell(r);
+<a name='L88'><font color='red'>}</font>
+<a name='L89'>
+<a name='L90'><b>void</b> <a href='../S/76.html#L110' title='Defined at 110 in src/rio.c.'>rioInitWithFile</a>(rio *r, FILE *fp);
+<a name='L91'><b>void</b> <a href='../S/76.html#L115' title='Defined at 115 in src/rio.c.'>rioInitWithBuffer</a>(rio *r, sds s);
+<a name='L92'>
+<a name='L93'>size_t <a href='../S/76.html#L132' title='Defined at 132 in src/rio.c.'>rioWriteBulkCount</a>(rio *r, <b>char</b> prefix, <b>int</b> count);
+<a name='L94'>size_t <a href='../S/76.html#L145' title='Defined at 145 in src/rio.c.'>rioWriteBulkString</a>(rio *r, <b>const</b> <b>char</b> *buf, size_t len);
+<a name='L95'>size_t <a href='../S/76.html#L155' title='Defined at 155 in src/rio.c.'>rioWriteBulkLongLong</a>(rio *r, <b>long</b> <b>long</b> l);
+<a name='L96'>size_t <a href='../S/76.html#L164' title='Defined at 164 in src/rio.c.'>rioWriteBulkDouble</a>(rio *r, <b>double</b> d);
+<a name='L97'>
+<a name='L98'><b>void</b> <a href='../S/76.html#L123' title='Defined at 123 in src/rio.c.'>rioGenericUpdateChecksum</a>(rio *r, <b>const</b> <b>void</b> *buf, size_t len);
+<a name='L99'>
+<a name='L100'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L73'>[^]</a><a href='#L86'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

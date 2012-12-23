@@ -1,0 +1,782 @@
+<html>
+<head>
+<title>deps/lua/src/luaconf.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/luaconf.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='266.html#L16' title='Included from 16 in deps/lua/src/lua.h.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: luaconf.h,v 1.82.1.7 2008/02/11 16:25:08 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Configuration file for Lua</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'>
+<a name='L8'><font color='darkred'>#ifndef</font> <a href='../S/317.html#L9' title='Defined at 9 in deps/lua/src/luaconf.h.'>lconfig_h</a>
+<a name='L9'><font color='darkred'>#define</font> <a href='../S/317.html#L8' title='Refered from 8 in deps/lua/src/luaconf.h.'>lconfig_h</a>
+<a name='L10'>
+<a name='L11'><font color='darkred'>#include</font> &lt;limits.h&gt;
+<a name='L12'><font color='darkred'>#include</font> &lt;stddef.h&gt;
+<a name='L13'>
+<a name='L14'>
+<a name='L15'><i><font color='green'>/*</font></i>
+<a name='L16'><i><font color='green'>** ==================================================================</font></i>
+<a name='L17'><i><font color='green'>** Search for "@@" to find all configurable definitions.</font></i>
+<a name='L18'><i><font color='green'>** ===================================================================</font></i>
+<a name='L19'><i><font color='green'>*/</font></i>
+<a name='L20'>
+<a name='L21'>
+<a name='L22'><i><font color='green'>/*</font></i>
+<a name='L23'><i><font color='green'>@@ LUA_ANSI controls the use of non-ansi features.</font></i>
+<a name='L24'><i><font color='green'>** CHANGE it (define it) if you want Lua to avoid the use of any</font></i>
+<a name='L25'><i><font color='green'>** non-ansi feature or library.</font></i>
+<a name='L26'><i><font color='green'>*/</font></i>
+<a name='L27'><font color='darkred'>#if</font> <b>defined</b>(__STRICT_ANSI__)
+<a name='L28'><font color='darkred'>#define</font> <a href='../R/290.html' title='Multiple refered from 2 places.'>LUA_ANSI</a>
+<a name='L29'><font color='darkred'>#endif</font>
+<a name='L30'>
+<a name='L31'>
+<a name='L32'><font color='darkred'>#if</font> !<b>defined</b>(<a href='../S/317.html#L28' title='Defined at 28 in deps/lua/src/luaconf.h.'>LUA_ANSI</a>) &amp;&amp; <b>defined</b>(_WIN32)
+<a name='L33'><font color='darkred'>#define</font> <a href='../R/398.html' title='Multiple refered from 3 places.'>LUA_WIN</a>
+<a name='L34'><font color='darkred'>#endif</font>
+<a name='L35'>
+<a name='L36'><font color='darkred'>#if</font> <b>defined</b>(LUA_USE_LINUX)
+<a name='L37'><font color='darkred'>#define</font> <a href='../S/317.html#L54' title='Refered from 54 in deps/lua/src/luaconf.h.'>LUA_USE_POSIX</a>
+<a name='L38'><font color='darkred'>#define</font> <a href='../S/317.html#L700' title='Refered from 700 in deps/lua/src/luaconf.h.'>LUA_USE_DLOPEN</a>          <i><font color='green'>/* needs an extra library: -ldl */</font></i>
+<a name='L39'><font color='darkred'>#define</font> <a href='../S/317.html#L273' title='Refered from 273 in deps/lua/src/luaconf.h.'>LUA_USE_READLINE</a>        <i><font color='green'>/* needs some extra libraries */</font></i>
+<a name='L40'><font color='darkred'>#endif</font>
+<a name='L41'>
+<a name='L42'><font color='darkred'>#if</font> <b>defined</b>(LUA_USE_MACOSX)
+<a name='L43'><font color='darkred'>#define</font> <a href='../S/317.html#L54' title='Refered from 54 in deps/lua/src/luaconf.h.'>LUA_USE_POSIX</a>
+<a name='L44'><font color='darkred'>#define</font> <a href='../S/279.html#L144' title='Refered from 144 in deps/lua/src/loadlib.c.'>LUA_DL_DYLD</a>             <i><font color='green'>/* does not need extra library */</font></i>
+<a name='L45'><font color='darkred'>#endif</font>
+<a name='L46'>
+<a name='L47'>
+<a name='L48'>
+<a name='L49'><i><font color='green'>/*</font></i>
+<a name='L50'><i><font color='green'>@@ LUA_USE_POSIX includes all functionallity listed as X/Open System</font></i>
+<a name='L51'><i><font color='green'>@* Interfaces Extension (XSI).</font></i>
+<a name='L52'><i><font color='green'>** CHANGE it (define it) if your system is XSI compatible.</font></i>
+<a name='L53'><i><font color='green'>*/</font></i>
+<a name='L54'><font color='darkred'>#if</font> <b>defined</b>(<a href='../D/441.html' title='Multiple defined in 2 places.'>LUA_USE_POSIX</a>)
+<a name='L55'><font color='darkred'>#define</font> <a href='../S/317.html#L646' title='Refered from 646 in deps/lua/src/luaconf.h.'>LUA_USE_MKSTEMP</a>
+<a name='L56'><font color='darkred'>#define</font> <a href='../S/317.html#L227' title='Refered from 227 in deps/lua/src/luaconf.h.'>LUA_USE_ISATTY</a>
+<a name='L57'><font color='darkred'>#define</font> <a href='../S/317.html#L668' title='Refered from 668 in deps/lua/src/luaconf.h.'>LUA_USE_POPEN</a>
+<a name='L58'><font color='darkred'>#define</font> <a href='../S/317.html#L613' title='Refered from 613 in deps/lua/src/luaconf.h.'>LUA_USE_ULONGJMP</a>
+<a name='L59'><font color='darkred'>#endif</font>
+<a name='L60'>
+<a name='L61'>
+<a name='L62'><i><font color='green'>/*</font></i>
+<a name='L63'><i><font color='green'>@@ LUA_PATH and LUA_CPATH are the names of the environment variables that</font></i>
+<a name='L64'><i><font color='green'>@* Lua check to set its paths.</font></i>
+<a name='L65'><i><font color='green'>@@ LUA_INIT is the name of the environment variable that Lua</font></i>
+<a name='L66'><i><font color='green'>@* checks for initialization code.</font></i>
+<a name='L67'><i><font color='green'>** CHANGE them if you want different names.</font></i>
+<a name='L68'><i><font color='green'>*/</font></i>
+<a name='L69'><font color='darkred'>#define</font> <a href='../S/279.html#L649' title='Refered from 649 in deps/lua/src/loadlib.c.'>LUA_PATH</a>        "LUA_PATH"
+<a name='L70'><font color='darkred'>#define</font> <a href='../S/279.html#L650' title='Refered from 650 in deps/lua/src/loadlib.c.'>LUA_CPATH</a>       "LUA_CPATH"
+<a name='L71'><font color='darkred'>#define</font> <a href='../R/335.html' title='Multiple refered from 2 places.'>LUA_INIT</a>        "LUA_INIT"
+<a name='L72'>
+<a name='L73'>
+<a name='L74'><i><font color='green'>/*</font></i>
+<a name='L75'><i><font color='green'>@@ LUA_PATH_DEFAULT is the default path that Lua uses to look for</font></i>
+<a name='L76'><i><font color='green'>@* Lua libraries.</font></i>
+<a name='L77'><i><font color='green'>@@ LUA_CPATH_DEFAULT is the default path that Lua uses to look for</font></i>
+<a name='L78'><i><font color='green'>@* C libraries.</font></i>
+<a name='L79'><i><font color='green'>** CHANGE them if your machine has a non-conventional directory</font></i>
+<a name='L80'><i><font color='green'>** hierarchy or if you want to install your libraries in</font></i>
+<a name='L81'><i><font color='green'>** non-conventional directories.</font></i>
+<a name='L82'><i><font color='green'>*/</font></i>
+<a name='L83'><font color='darkred'>#if</font> <b>defined</b>(_WIN32)
+<a name='L84'><i><font color='green'>/*</font></i>
+<a name='L85'><i><font color='green'>** In Windows, any exclamation mark ('!') in the path is replaced by the</font></i>
+<a name='L86'><i><font color='green'>** path of the directory of the executable file of the current process.</font></i>
+<a name='L87'><i><font color='green'>*/</font></i>
+<a name='L88'><font color='darkred'>#define</font> <a href='../R/340.html' title='Multiple refered from 2 places.'>LUA_LDIR</a>        "!\\lua\\"
+<a name='L89'><font color='darkred'>#define</font> <a href='../R/293.html' title='Multiple refered from 4 places.'>LUA_CDIR</a>        "!\\"
+<a name='L90'><font color='darkred'>#define</font> <a href='../S/279.html#L649' title='Refered from 649 in deps/lua/src/loadlib.c.'>LUA_PATH_DEFAULT</a>  \
+<a name='L91'>                ".\\?.lua;"  <a href='../D/386.html' title='Multiple defined in 2 places.'>LUA_LDIR</a>"?.lua;"  <a href='../D/386.html' title='Multiple defined in 2 places.'>LUA_LDIR</a>"?\\init.lua;" \
+<a name='L92'>                             <a href='../D/339.html' title='Multiple defined in 2 places.'>LUA_CDIR</a>"?.lua;"  <a href='../D/339.html' title='Multiple defined in 2 places.'>LUA_CDIR</a>"?\\init.lua"
+<a name='L93'><font color='darkred'>#define</font> <a href='../S/279.html#L650' title='Refered from 650 in deps/lua/src/loadlib.c.'>LUA_CPATH_DEFAULT</a> \
+<a name='L94'>        ".\\?.dll;"  <a href='../D/339.html' title='Multiple defined in 2 places.'>LUA_CDIR</a>"?.dll;" <a href='../D/339.html' title='Multiple defined in 2 places.'>LUA_CDIR</a>"loadall.dll"
+<a name='L95'>
+<a name='L96'><font color='darkred'>#else</font>
+<a name='L97'><font color='darkred'>#define</font> <a href='../R/372.html' title='Multiple refered from 2 places.'>LUA_ROOT</a>        "/usr/local/"
+<a name='L98'><font color='darkred'>#define</font> <a href='../R/340.html' title='Multiple refered from 2 places.'>LUA_LDIR</a>        <a href='../S/317.html#L97' title='Defined at 97 in deps/lua/src/luaconf.h.'>LUA_ROOT</a> "share/lua/5.1/"
+<a name='L99'><font color='darkred'>#define</font> <a href='../R/293.html' title='Multiple refered from 4 places.'>LUA_CDIR</a>        <a href='../S/317.html#L97' title='Defined at 97 in deps/lua/src/luaconf.h.'>LUA_ROOT</a> "lib/lua/5.1/"
+<a name='L100'><font color='darkred'>#define</font> <a href='../S/279.html#L649' title='Refered from 649 in deps/lua/src/loadlib.c.'>LUA_PATH_DEFAULT</a>  \
+<a name='L101'>                "./?.lua;"  <a href='../D/386.html' title='Multiple defined in 2 places.'>LUA_LDIR</a>"?.lua;"  <a href='../D/386.html' title='Multiple defined in 2 places.'>LUA_LDIR</a>"?/init.lua;" \
+<a name='L102'>                            <a href='../D/339.html' title='Multiple defined in 2 places.'>LUA_CDIR</a>"?.lua;"  <a href='../D/339.html' title='Multiple defined in 2 places.'>LUA_CDIR</a>"?/init.lua"
+<a name='L103'><font color='darkred'>#define</font> <a href='../S/279.html#L650' title='Refered from 650 in deps/lua/src/loadlib.c.'>LUA_CPATH_DEFAULT</a> \
+<a name='L104'>        "./?.so;"  <a href='../D/339.html' title='Multiple defined in 2 places.'>LUA_CDIR</a>"?.so;" <a href='../D/339.html' title='Multiple defined in 2 places.'>LUA_CDIR</a>"loadall.so"
+<a name='L105'><font color='darkred'>#endif</font>
+<a name='L106'>
+<a name='L107'>
+<a name='L108'><i><font color='green'>/*</font></i>
+<a name='L109'><i><font color='green'>@@ LUA_DIRSEP is the directory separator (for submodules).</font></i>
+<a name='L110'><i><font color='green'>** CHANGE it if your machine does not use "/" as the directory separator</font></i>
+<a name='L111'><i><font color='green'>** and is not Windows. (On Windows Lua automatically uses "\".)</font></i>
+<a name='L112'><i><font color='green'>*/</font></i>
+<a name='L113'><font color='darkred'>#if</font> <b>defined</b>(_WIN32)
+<a name='L114'><font color='darkred'>#define</font> <a href='../R/307.html' title='Multiple refered from 2 places.'>LUA_DIRSEP</a>      "\\"
+<a name='L115'><font color='darkred'>#else</font>
+<a name='L116'><font color='darkred'>#define</font> <a href='../R/307.html' title='Multiple refered from 2 places.'>LUA_DIRSEP</a>      "/"
+<a name='L117'><font color='darkred'>#endif</font>
+<a name='L118'>
+<a name='L119'>
+<a name='L120'><i><font color='green'>/*</font></i>
+<a name='L121'><i><font color='green'>@@ LUA_PATHSEP is the character that separates templates in a path.</font></i>
+<a name='L122'><i><font color='green'>@@ LUA_PATH_MARK is the string that marks the substitution points in a</font></i>
+<a name='L123'><i><font color='green'>@* template.</font></i>
+<a name='L124'><i><font color='green'>@@ LUA_EXECDIR in a Windows path is replaced by the executable's</font></i>
+<a name='L125'><i><font color='green'>@* directory.</font></i>
+<a name='L126'><i><font color='green'>@@ LUA_IGMARK is a mark to ignore all before it when bulding the</font></i>
+<a name='L127'><i><font color='green'>@* luaopen_ function name.</font></i>
+<a name='L128'><i><font color='green'>** CHANGE them if for some reason your system cannot use those</font></i>
+<a name='L129'><i><font color='green'>** characters. (E.g., if one of those characters is a common character</font></i>
+<a name='L130'><i><font color='green'>** in file/directory names.) Probably you do not need to change them.</font></i>
+<a name='L131'><i><font color='green'>*/</font></i>
+<a name='L132'><font color='darkred'>#define</font> <a href='../R/360.html' title='Multiple refered from 5 places.'>LUA_PATHSEP</a>     ";"
+<a name='L133'><font color='darkred'>#define</font> <a href='../R/362.html' title='Multiple refered from 2 places.'>LUA_PATH_MARK</a>   "?"
+<a name='L134'><font color='darkred'>#define</font> <a href='../R/317.html' title='Multiple refered from 2 places.'>LUA_EXECDIR</a>     "!"
+<a name='L135'><font color='darkred'>#define</font> <a href='../R/334.html' title='Multiple refered from 2 places.'>LUA_IGMARK</a>      "-"
+<a name='L136'>
+<a name='L137'>
+<a name='L138'><i><font color='green'>/*</font></i>
+<a name='L139'><i><font color='green'>@@ LUA_INTEGER is the integral type used by lua_pushinteger/lua_tointeger.</font></i>
+<a name='L140'><i><font color='green'>** CHANGE that if ptrdiff_t is not adequate on your machine. (On most</font></i>
+<a name='L141'><i><font color='green'>** machines, ptrdiff_t gives a good choice between int or long.)</font></i>
+<a name='L142'><i><font color='green'>*/</font></i>
+<a name='L143'><font color='darkred'>#define</font> <a href='../S/266.html#L103' title='Refered from 103 in deps/lua/src/lua.h.'>LUA_INTEGER</a>     ptrdiff_t
+<a name='L144'>
+<a name='L145'>
+<a name='L146'><i><font color='green'>/*</font></i>
+<a name='L147'><i><font color='green'>@@ LUA_API is a mark for all core API functions.</font></i>
+<a name='L148'><i><font color='green'>@@ LUALIB_API is a mark for all standard library functions.</font></i>
+<a name='L149'><i><font color='green'>** CHANGE them if you need to define those functions in some special way.</font></i>
+<a name='L150'><i><font color='green'>** For instance, if you want to create one Windows DLL with the core and</font></i>
+<a name='L151'><i><font color='green'>** the libraries, you may want to use the following definition (define</font></i>
+<a name='L152'><i><font color='green'>** LUA_BUILD_AS_DLL to get it).</font></i>
+<a name='L153'><i><font color='green'>*/</font></i>
+<a name='L154'><font color='darkred'>#if</font> <b>defined</b>(LUA_BUILD_AS_DLL)
+<a name='L155'>
+<a name='L156'><font color='darkred'>#if</font> <b>defined</b>(<a href='../D/349.html' title='Multiple defined in 22 places.'>LUA_CORE</a>) || <b>defined</b>(<a href='../D/387.html' title='Multiple defined in 10 places.'>LUA_LIB</a>)
+<a name='L157'><font color='darkred'>#define</font> <a href='../R/291.html' title='Multiple refered from 161 places.'>LUA_API</a> __declspec(dllexport)
+<a name='L158'><font color='darkred'>#else</font>
+<a name='L159'><font color='darkred'>#define</font> <a href='../R/291.html' title='Multiple refered from 161 places.'>LUA_API</a> __declspec(dllimport)
+<a name='L160'><font color='darkred'>#endif</font>
+<a name='L161'>
+<a name='L162'><font color='darkred'>#else</font>
+<a name='L163'>
+<a name='L164'><font color='darkred'>#define</font> <a href='../R/291.html' title='Multiple refered from 161 places.'>LUA_API</a>         <b>extern</b>
+<a name='L165'>
+<a name='L166'><font color='darkred'>#endif</font>
+<a name='L167'>
+<a name='L168'><i><font color='green'>/* more often than not the libs go together with the core */</font></i>
+<a name='L169'><font color='darkred'>#define</font> <a href='../R/288.html' title='Multiple refered from 95 places.'>LUALIB_API</a>      <a href='../D/337.html' title='Multiple defined in 3 places.'>LUA_API</a>
+<a name='L170'>
+<a name='L171'>
+<a name='L172'><i><font color='green'>/*</font></i>
+<a name='L173'><i><font color='green'>@@ LUAI_FUNC is a mark for all extern functions that are not to be</font></i>
+<a name='L174'><i><font color='green'>@* exported to outside modules.</font></i>
+<a name='L175'><i><font color='green'>@@ LUAI_DATA is a mark for all extern (const) variables that are not to</font></i>
+<a name='L176'><i><font color='green'>@* be exported to outside modules.</font></i>
+<a name='L177'><i><font color='green'>** CHANGE them if you need to mark them in some special way. Elf/gcc</font></i>
+<a name='L178'><i><font color='green'>** (versions 3.2 and later) mark them as "hidden" to optimize access</font></i>
+<a name='L179'><i><font color='green'>** when Lua is compiled as a shared library.</font></i>
+<a name='L180'><i><font color='green'>*/</font></i>
+<a name='L181'><font color='darkred'>#if</font> <b>defined</b>(<a href='../S/231.html#L5' title='Defined at 5 in deps/lua/etc/all.c.'>luaall_c</a>)
+<a name='L182'><font color='darkred'>#define</font> <a href='../R/272.html' title='Multiple refered from 131 places.'>LUAI_FUNC</a>       <b>static</b>
+<a name='L183'><font color='darkred'>#define</font> <a href='../R/270.html' title='Multiple refered from 5 places.'>LUAI_DATA</a>       <i><font color='green'>/* empty */</font></i>
+<a name='L184'>
+<a name='L185'><font color='darkred'>#elif</font> <b>defined</b>(__GNUC__) &amp;&amp; ((__GNUC__*100 + __GNUC_MINOR__) &gt;= 302) &amp;&amp; \
+<a name='L186'>      <b>defined</b>(__ELF__)
+<a name='L187'><font color='darkred'>#define</font> <a href='../R/272.html' title='Multiple refered from 131 places.'>LUAI_FUNC</a>       <b>__attribute__</b>((visibility("hidden"))) <b>extern</b>
+<a name='L188'><font color='darkred'>#define</font> <a href='../R/270.html' title='Multiple refered from 5 places.'>LUAI_DATA</a>       <a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a>
+<a name='L189'>
+<a name='L190'><font color='darkred'>#else</font>
+<a name='L191'><font color='darkred'>#define</font> <a href='../R/272.html' title='Multiple refered from 131 places.'>LUAI_FUNC</a>       <b>extern</b>
+<a name='L192'><font color='darkred'>#define</font> <a href='../R/270.html' title='Multiple refered from 5 places.'>LUAI_DATA</a>       <b>extern</b>
+<a name='L193'><font color='darkred'>#endif</font>
+<a name='L194'>
+<a name='L195'>
+<a name='L196'>
+<a name='L197'><i><font color='green'>/*</font></i>
+<a name='L198'><i><font color='green'>@@ LUA_QL describes how error messages quote program elements.</font></i>
+<a name='L199'><i><font color='green'>** CHANGE it if you want a different appearance.</font></i>
+<a name='L200'><i><font color='green'>*/</font></i>
+<a name='L201'><font color='darkred'>#define</font> <a href='../R/367.html' title='Multiple refered from 36 places.'>LUA_QL</a>(x)       "'" x "'"
+<a name='L202'><font color='darkred'>#define</font> <a href='../R/368.html' title='Multiple refered from 18 places.'>LUA_QS</a>          <a href='../S/317.html#L201' title='Defined at 201 in deps/lua/src/luaconf.h.'>LUA_QL</a>("%s")
+<a name='L203'>
+<a name='L204'>
+<a name='L205'><i><font color='green'>/*</font></i>
+<a name='L206'><i><font color='green'>@@ LUA_IDSIZE gives the maximum size for the description of the source</font></i>
+<a name='L207'><i><font color='green'>@* of a function in debug information.</font></i>
+<a name='L208'><i><font color='green'>** CHANGE it if you want a different size.</font></i>
+<a name='L209'><i><font color='green'>*/</font></i>
+<a name='L210'><font color='darkred'>#define</font> <a href='../R/333.html' title='Multiple refered from 5 places.'>LUA_IDSIZE</a>      60
+<a name='L211'>
+<a name='L212'>
+<a name='L213'><i><font color='green'>/*</font></i>
+<a name='L214'><i><font color='green'>** {==================================================================</font></i>
+<a name='L215'><i><font color='green'>** Stand-alone configuration</font></i>
+<a name='L216'><i><font color='green'>** ===================================================================</font></i>
+<a name='L217'><i><font color='green'>*/</font></i>
+<a name='L218'>
+<a name='L219'><font color='darkred'>#if</font> <b>defined</b>(<a href='../S/287.html#L13' title='Defined at 13 in deps/lua/src/lua.c.'>lua_c</a>) || <b>defined</b>(<a href='../S/231.html#L5' title='Defined at 5 in deps/lua/etc/all.c.'>luaall_c</a>)
+<a name='L220'>
+<a name='L221'><i><font color='green'>/*</font></i>
+<a name='L222'><i><font color='green'>@@ lua_stdin_is_tty detects whether the standard input is a 'tty' (that</font></i>
+<a name='L223'><i><font color='green'>@* is, whether we're running lua interactively).</font></i>
+<a name='L224'><i><font color='green'>** CHANGE it if you have a better definition for non-POSIX/non-Windows</font></i>
+<a name='L225'><i><font color='green'>** systems.</font></i>
+<a name='L226'><i><font color='green'>*/</font></i>
+<a name='L227'><font color='darkred'>#if</font> <b>defined</b>(<a href='../S/317.html#L56' title='Defined at 56 in deps/lua/src/luaconf.h.'>LUA_USE_ISATTY</a>)
+<a name='L228'><font color='darkred'>#include</font> &lt;unistd.h&gt;
+<a name='L229'><font color='darkred'>#define</font> <a href='../S/287.html#L367' title='Refered from 367 in deps/lua/src/lua.c.'>lua_stdin_is_tty</a>()      isatty(0)
+<a name='L230'><font color='darkred'>#elif</font> <b>defined</b>(<a href='../S/317.html#L33' title='Defined at 33 in deps/lua/src/luaconf.h.'>LUA_WIN</a>)
+<a name='L231'><font color='darkred'>#include</font> &lt;io.h&gt;
+<a name='L232'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L233'><font color='darkred'>#define</font> <a href='../S/287.html#L367' title='Refered from 367 in deps/lua/src/lua.c.'>lua_stdin_is_tty</a>()      _isatty(_fileno(stdin))
+<a name='L234'><font color='darkred'>#else</font>
+<a name='L235'><font color='darkred'>#define</font> <a href='../S/287.html#L367' title='Refered from 367 in deps/lua/src/lua.c.'>lua_stdin_is_tty</a>()      1  <i><font color='green'>/* assume stdin is a tty */</font></i>
+<a name='L236'><font color='darkred'>#endif</font>
+<a name='L237'>
+<a name='L238'>
+<a name='L239'><i><font color='green'>/*</font></i>
+<a name='L240'><i><font color='green'>@@ LUA_PROMPT is the default prompt used by stand-alone Lua.</font></i>
+<a name='L241'><i><font color='green'>@@ LUA_PROMPT2 is the default continuation prompt used by stand-alone Lua.</font></i>
+<a name='L242'><i><font color='green'>** CHANGE them if you want different prompts. (You can also change the</font></i>
+<a name='L243'><i><font color='green'>** prompts dynamically, assigning to globals _PROMPT/_PROMPT2.)</font></i>
+<a name='L244'><i><font color='green'>*/</font></i>
+<a name='L245'><font color='darkred'>#define</font> <a href='../S/287.html#L157' title='Refered from 157 in deps/lua/src/lua.c.'>LUA_PROMPT</a>              "&gt; "
+<a name='L246'><font color='darkred'>#define</font> <a href='../S/287.html#L157' title='Refered from 157 in deps/lua/src/lua.c.'>LUA_PROMPT2</a>             "&gt;&gt; "
+<a name='L247'>
+<a name='L248'>
+<a name='L249'><i><font color='green'>/*</font></i>
+<a name='L250'><i><font color='green'>@@ LUA_PROGNAME is the default name for the stand-alone Lua program.</font></i>
+<a name='L251'><i><font color='green'>** CHANGE it if your stand-alone interpreter has a different name and</font></i>
+<a name='L252'><i><font color='green'>** your system is not able to detect that name automatically.</font></i>
+<a name='L253'><i><font color='green'>*/</font></i>
+<a name='L254'><font color='darkred'>#define</font> <a href='../S/287.html#L24' title='Refered from 24 in deps/lua/src/lua.c.'>LUA_PROGNAME</a>            "lua"
+<a name='L255'>
+<a name='L256'>
+<a name='L257'><i><font color='green'>/*</font></i>
+<a name='L258'><i><font color='green'>@@ LUA_MAXINPUT is the maximum length for an input line in the</font></i>
+<a name='L259'><i><font color='green'>@* stand-alone interpreter.</font></i>
+<a name='L260'><i><font color='green'>** CHANGE it if you need longer lines.</font></i>
+<a name='L261'><i><font color='green'>*/</font></i>
+<a name='L262'><font color='darkred'>#define</font> <a href='../R/349.html' title='Multiple refered from 2 places.'>LUA_MAXINPUT</a>    512
+<a name='L263'>
+<a name='L264'>
+<a name='L265'><i><font color='green'>/*</font></i>
+<a name='L266'><i><font color='green'>@@ lua_readline defines how to show a prompt and then read a line from</font></i>
+<a name='L267'><i><font color='green'>@* the standard input.</font></i>
+<a name='L268'><i><font color='green'>@@ lua_saveline defines how to "save" a read line in a "history".</font></i>
+<a name='L269'><i><font color='green'>@@ lua_freeline defines how to free a line read by lua_readline.</font></i>
+<a name='L270'><i><font color='green'>** CHANGE them if you want to improve this functionality (e.g., by using</font></i>
+<a name='L271'><i><font color='green'>** GNU readline and history facilities).</font></i>
+<a name='L272'><i><font color='green'>*/</font></i>
+<a name='L273'><font color='darkred'>#if</font> <b>defined</b>(<a href='../S/317.html#L39' title='Defined at 39 in deps/lua/src/luaconf.h.'>LUA_USE_READLINE</a>)
+<a name='L274'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L275'><font color='darkred'>#include</font> &lt;readline/readline.h&gt;
+<a name='L276'><font color='darkred'>#include</font> &lt;readline/history.h&gt;
+<a name='L277'><font color='darkred'>#define</font> <a href='../S/287.html#L182' title='Refered from 182 in deps/lua/src/lua.c.'>lua_readline</a>(L,b,p)     ((<b>void</b>)L, ((b)=readline(p)) != NULL)
+<a name='L278'><font color='darkred'>#define</font> <a href='../S/287.html#L210' title='Refered from 210 in deps/lua/src/lua.c.'>lua_saveline</a>(L,idx) \
+<a name='L279'>        <b>if</b> (<a href='../S/266.html#L262' title='Defined at 262 in deps/lua/src/lua.h.'>lua_strlen</a>(L,idx) &gt; 0)  <i><font color='green'>/* non-empty line? */</font></i> \
+<a name='L280'>          add_history(<a href='../S/266.html#L279' title='Defined at 279 in deps/lua/src/lua.h.'>lua_tostring</a>(L, idx));  <i><font color='green'>/* add it to history */</font></i>
+<a name='L281'><font color='darkred'>#define</font> <a href='../S/287.html#L191' title='Refered from 191 in deps/lua/src/lua.c.'>lua_freeline</a>(L,b)       ((<b>void</b>)L, <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(b))
+<a name='L282'><font color='darkred'>#else</font>
+<a name='L283'><font color='darkred'>#define</font> <a href='../S/287.html#L182' title='Refered from 182 in deps/lua/src/lua.c.'>lua_readline</a>(L,b,p)     \
+<a name='L284'>        ((<b>void</b>)L, fputs(p, stdout), fflush(stdout),  <i><font color='green'>/* show prompt */</font></i> \
+<a name='L285'>        fgets(b, <a href='../S/317.html#L262' title='Defined at 262 in deps/lua/src/luaconf.h.'>LUA_MAXINPUT</a>, stdin) != NULL)  <i><font color='green'>/* get line */</font></i>
+<a name='L286'><font color='darkred'>#define</font> <a href='../S/287.html#L210' title='Refered from 210 in deps/lua/src/lua.c.'>lua_saveline</a>(L,idx)     <font color='red'>{</font> (<b>void</b>)L; (<b>void</b>)idx; <font color='red'>}</font>
+<a name='L287'><font color='darkred'>#define</font> <a href='../S/287.html#L191' title='Refered from 191 in deps/lua/src/lua.c.'>lua_freeline</a>(L,b)       <font color='red'>{</font> (<b>void</b>)L; (<b>void</b>)b; <font color='red'>}</font>
+<a name='L288'><font color='darkred'>#endif</font>
+<a name='L289'>
+<a name='L290'><font color='darkred'>#endif</font>
+<a name='L291'>
+<a name='L292'><i><font color='green'>/* }================================================================== */</font></i>
+<a name='L293'>
+<a name='L294'>
+<a name='L295'><i><font color='green'>/*</font></i>
+<a name='L296'><i><font color='green'>@@ LUAI_GCPAUSE defines the default pause between garbage-collector cycles</font></i>
+<a name='L297'><i><font color='green'>@* as a percentage.</font></i>
+<a name='L298'><i><font color='green'>** CHANGE it if you want the GC to run faster or slower (higher values</font></i>
+<a name='L299'><i><font color='green'>** mean larger pauses which mean slower collection.) You can also change</font></i>
+<a name='L300'><i><font color='green'>** this value dynamically.</font></i>
+<a name='L301'><i><font color='green'>*/</font></i>
+<a name='L302'><font color='darkred'>#define</font> <a href='../S/275.html#L178' title='Refered from 178 in deps/lua/src/lstate.c.'>LUAI_GCPAUSE</a>    200  <i><font color='green'>/* 200% (wait memory to double before next GC) */</font></i>
+<a name='L303'>
+<a name='L304'>
+<a name='L305'><i><font color='green'>/*</font></i>
+<a name='L306'><i><font color='green'>@@ LUAI_GCMUL defines the default speed of garbage collection relative to</font></i>
+<a name='L307'><i><font color='green'>@* memory allocation as a percentage.</font></i>
+<a name='L308'><i><font color='green'>** CHANGE it if you want to change the granularity of the garbage</font></i>
+<a name='L309'><i><font color='green'>** collection. (Higher values mean coarser collections. 0 represents</font></i>
+<a name='L310'><i><font color='green'>** infinity, where each step performs a full collection.) You can also</font></i>
+<a name='L311'><i><font color='green'>** change this value dynamically.</font></i>
+<a name='L312'><i><font color='green'>*/</font></i>
+<a name='L313'><font color='darkred'>#define</font> <a href='../S/275.html#L179' title='Refered from 179 in deps/lua/src/lstate.c.'>LUAI_GCMUL</a>      200 <i><font color='green'>/* GC runs 'twice the speed' of memory allocation */</font></i>
+<a name='L314'>
+<a name='L315'>
+<a name='L316'>
+<a name='L317'><i><font color='green'>/*</font></i>
+<a name='L318'><i><font color='green'>@@ LUA_COMPAT_GETN controls compatibility with old getn behavior.</font></i>
+<a name='L319'><i><font color='green'>** CHANGE it (define it) if you want exact compatibility with the</font></i>
+<a name='L320'><i><font color='green'>** behavior of setn/getn in Lua 5.0.</font></i>
+<a name='L321'><i><font color='green'>*/</font></i>
+<a name='L322'><font color='darkred'>#undef</font> <a href='../R/295.html' title='Multiple refered from 2 places.'>LUA_COMPAT_GETN</a>
+<a name='L323'>
+<a name='L324'><i><font color='green'>/*</font></i>
+<a name='L325'><i><font color='green'>@@ LUA_COMPAT_LOADLIB controls compatibility about global loadlib.</font></i>
+<a name='L326'><i><font color='green'>** CHANGE it to undefined as soon as you do not need a global 'loadlib'</font></i>
+<a name='L327'><i><font color='green'>** function (the function is still available as 'package.loadlib').</font></i>
+<a name='L328'><i><font color='green'>*/</font></i>
+<a name='L329'><font color='darkred'>#undef</font> <a href='../S/279.html#L635' title='Refered from 635 in deps/lua/src/loadlib.c.'>LUA_COMPAT_LOADLIB</a>
+<a name='L330'>
+<a name='L331'><i><font color='green'>/*</font></i>
+<a name='L332'><i><font color='green'>@@ LUA_COMPAT_VARARG controls compatibility with old vararg feature.</font></i>
+<a name='L333'><i><font color='green'>** CHANGE it to undefined as soon as your programs use only '...' to</font></i>
+<a name='L334'><i><font color='green'>** access vararg parameters (instead of the old 'arg' table).</font></i>
+<a name='L335'><i><font color='green'>*/</font></i>
+<a name='L336'><font color='darkred'>#define</font> <a href='../R/301.html' title='Multiple refered from 2 places.'>LUA_COMPAT_VARARG</a>
+<a name='L337'>
+<a name='L338'><i><font color='green'>/*</font></i>
+<a name='L339'><i><font color='green'>@@ LUA_COMPAT_MOD controls compatibility with old math.mod function.</font></i>
+<a name='L340'><i><font color='green'>** CHANGE it to undefined as soon as your programs use 'math.fmod' or</font></i>
+<a name='L341'><i><font color='green'>** the new '%' operator instead of 'math.mod'.</font></i>
+<a name='L342'><i><font color='green'>*/</font></i>
+<a name='L343'><font color='darkred'>#define</font> <a href='../S/276.html#L257' title='Refered from 257 in deps/lua/src/lmathlib.c.'>LUA_COMPAT_MOD</a>
+<a name='L344'>
+<a name='L345'><i><font color='green'>/*</font></i>
+<a name='L346'><i><font color='green'>@@ LUA_COMPAT_LSTR controls compatibility with old long string nesting</font></i>
+<a name='L347'><i><font color='green'>@* facility.</font></i>
+<a name='L348'><i><font color='green'>** CHANGE it to 2 if you want the old behaviour, or undefine it to turn</font></i>
+<a name='L349'><i><font color='green'>** off the advisory error when nesting [[...]].</font></i>
+<a name='L350'><i><font color='green'>*/</font></i>
+<a name='L351'><font color='darkred'>#define</font> <a href='../R/298.html' title='Multiple refered from 3 places.'>LUA_COMPAT_LSTR</a>         1
+<a name='L352'>
+<a name='L353'><i><font color='green'>/*</font></i>
+<a name='L354'><i><font color='green'>@@ LUA_COMPAT_GFIND controls compatibility with old 'string.gfind' name.</font></i>
+<a name='L355'><i><font color='green'>** CHANGE it to undefined as soon as you rename 'string.gfind' to</font></i>
+<a name='L356'><i><font color='green'>** 'string.gmatch'.</font></i>
+<a name='L357'><i><font color='green'>*/</font></i>
+<a name='L358'><font color='darkred'>#define</font> <a href='../S/270.html#L862' title='Refered from 862 in deps/lua/src/lstrlib.c.'>LUA_COMPAT_GFIND</a>
+<a name='L359'>
+<a name='L360'><i><font color='green'>/*</font></i>
+<a name='L361'><i><font color='green'>@@ LUA_COMPAT_OPENLIB controls compatibility with old 'luaL_openlib'</font></i>
+<a name='L362'><i><font color='green'>@* behavior.</font></i>
+<a name='L363'><i><font color='green'>** CHANGE it to undefined as soon as you replace to 'luaL_register'</font></i>
+<a name='L364'><i><font color='green'>** your uses of 'luaL_openlib'</font></i>
+<a name='L365'><i><font color='green'>*/</font></i>
+<a name='L366'><font color='darkred'>#define</font> <a href='../S/265.html#L26' title='Refered from 26 in deps/lua/src/lauxlib.h.'>LUA_COMPAT_OPENLIB</a>
+<a name='L367'>
+<a name='L368'>
+<a name='L369'>
+<a name='L370'><i><font color='green'>/*</font></i>
+<a name='L371'><i><font color='green'>@@ luai_apicheck is the assert macro used by the Lua-C API.</font></i>
+<a name='L372'><i><font color='green'>** CHANGE luai_apicheck if you want Lua to perform some checks in the</font></i>
+<a name='L373'><i><font color='green'>** parameters it gets from API calls. This may slow down the interpreter</font></i>
+<a name='L374'><i><font color='green'>** a bit, but may be quite useful when debugging C code that interfaces</font></i>
+<a name='L375'><i><font color='green'>** with Lua. A useful redefinition is to use assert.h.</font></i>
+<a name='L376'><i><font color='green'>*/</font></i>
+<a name='L377'><font color='darkred'>#if</font> <b>defined</b>(LUA_USE_APICHECK)
+<a name='L378'><font color='darkred'>#include</font> &lt;assert.h&gt;
+<a name='L379'><font color='darkred'>#define</font> <a href='../R/2875.html' title='Multiple refered from 2 places.'>luai_apicheck</a>(L,o)      <font color='red'>{</font> (<b>void</b>)L; <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(o); <font color='red'>}</font>
+<a name='L380'><font color='darkred'>#else</font>
+<a name='L381'><font color='darkred'>#define</font> <a href='../R/2875.html' title='Multiple refered from 2 places.'>luai_apicheck</a>(L,o)      <font color='red'>{</font> (<b>void</b>)L; <font color='red'>}</font>
+<a name='L382'><font color='darkred'>#endif</font>
+<a name='L383'>
+<a name='L384'>
+<a name='L385'><i><font color='green'>/*</font></i>
+<a name='L386'><i><font color='green'>@@ LUAI_BITSINT defines the number of bits in an int.</font></i>
+<a name='L387'><i><font color='green'>** CHANGE here if Lua cannot automatically detect the number of bits of</font></i>
+<a name='L388'><i><font color='green'>** your machine. Probably you do not need to change this.</font></i>
+<a name='L389'><i><font color='green'>*/</font></i>
+<a name='L390'><i><font color='green'>/* avoid overflows in comparison */</font></i>
+<a name='L391'><font color='darkred'>#if</font> INT_MAX-20 &lt; 32760
+<a name='L392'><font color='darkred'>#define</font> <a href='../R/269.html' title='Multiple refered from 4 places.'>LUAI_BITSINT</a>    16
+<a name='L393'><font color='darkred'>#elif</font> INT_MAX &gt; 2147483640L
+<a name='L394'><i><font color='green'>/* int has at least 32 bits */</font></i>
+<a name='L395'><font color='darkred'>#define</font> <a href='../R/269.html' title='Multiple refered from 4 places.'>LUAI_BITSINT</a>    32
+<a name='L396'><font color='darkred'>#else</font>
+<a name='L397'><font color='darkred'>#error</font> "you must define LUA_BITSINT with number of bits in an integer"
+<a name='L398'><font color='darkred'>#endif</font>
+<a name='L399'>
+<a name='L400'>
+<a name='L401'><i><font color='green'>/*</font></i>
+<a name='L402'><i><font color='green'>@@ LUAI_UINT32 is an unsigned integer with at least 32 bits.</font></i>
+<a name='L403'><i><font color='green'>@@ LUAI_INT32 is an signed integer with at least 32 bits.</font></i>
+<a name='L404'><i><font color='green'>@@ LUAI_UMEM is an unsigned integer big enough to count the total</font></i>
+<a name='L405'><i><font color='green'>@* memory used by Lua.</font></i>
+<a name='L406'><i><font color='green'>@@ LUAI_MEM is a signed integer big enough to count the total memory</font></i>
+<a name='L407'><i><font color='green'>@* used by Lua.</font></i>
+<a name='L408'><i><font color='green'>** CHANGE here if for some weird reason the default definitions are not</font></i>
+<a name='L409'><i><font color='green'>** good enough for your machine. (The definitions in the 'else'</font></i>
+<a name='L410'><i><font color='green'>** part always works, but may waste space on machines with 64-bit</font></i>
+<a name='L411'><i><font color='green'>** longs.) Probably you do not need to change this.</font></i>
+<a name='L412'><i><font color='green'>*/</font></i>
+<a name='L413'><font color='darkred'>#if</font> <a href='../D/313.html' title='Multiple defined in 2 places.'>LUAI_BITSINT</a> &gt;= 32
+<a name='L414'><font color='darkred'>#define</font> <a href='../S/310.html#L18' title='Refered from 18 in deps/lua/src/llimits.h.'>LUAI_UINT32</a>     <b>unsigned</b> <b>int</b>
+<a name='L415'><font color='darkred'>#define</font> LUAI_INT32      <b>int</b>
+<a name='L416'><font color='darkred'>#define</font> LUAI_MAXINT32   INT_MAX
+<a name='L417'><font color='darkred'>#define</font> <a href='../S/310.html#L20' title='Refered from 20 in deps/lua/src/llimits.h.'>LUAI_UMEM</a>       size_t
+<a name='L418'><font color='darkred'>#define</font> <a href='../S/310.html#L22' title='Refered from 22 in deps/lua/src/llimits.h.'>LUAI_MEM</a>        ptrdiff_t
+<a name='L419'><font color='darkred'>#else</font>
+<a name='L420'><i><font color='green'>/* 16-bit ints */</font></i>
+<a name='L421'><font color='darkred'>#define</font> <a href='../S/310.html#L18' title='Refered from 18 in deps/lua/src/llimits.h.'>LUAI_UINT32</a>     <b>unsigned</b> <b>long</b>
+<a name='L422'><font color='darkred'>#define</font> LUAI_INT32      <b>long</b>
+<a name='L423'><font color='darkred'>#define</font> LUAI_MAXINT32   LONG_MAX
+<a name='L424'><font color='darkred'>#define</font> <a href='../S/310.html#L20' title='Refered from 20 in deps/lua/src/llimits.h.'>LUAI_UMEM</a>       <b>unsigned</b> <b>long</b>
+<a name='L425'><font color='darkred'>#define</font> <a href='../S/310.html#L22' title='Refered from 22 in deps/lua/src/llimits.h.'>LUAI_MEM</a>        <b>long</b>
+<a name='L426'><font color='darkred'>#endif</font>
+<a name='L427'>
+<a name='L428'>
+<a name='L429'><i><font color='green'>/*</font></i>
+<a name='L430'><i><font color='green'>@@ LUAI_MAXCALLS limits the number of nested calls.</font></i>
+<a name='L431'><i><font color='green'>** CHANGE it if you need really deep recursive calls. This limit is</font></i>
+<a name='L432'><i><font color='green'>** arbitrary; its only purpose is to stop infinite recursion before</font></i>
+<a name='L433'><i><font color='green'>** exhausting memory.</font></i>
+<a name='L434'><i><font color='green'>*/</font></i>
+<a name='L435'><font color='darkred'>#define</font> <a href='../R/275.html' title='Multiple refered from 6 places.'>LUAI_MAXCALLS</a>   20000
+<a name='L436'>
+<a name='L437'>
+<a name='L438'><i><font color='green'>/*</font></i>
+<a name='L439'><i><font color='green'>@@ LUAI_MAXCSTACK limits the number of Lua stack slots that a C function</font></i>
+<a name='L440'><i><font color='green'>@* can use.</font></i>
+<a name='L441'><i><font color='green'>** CHANGE it if you need lots of (Lua) stack space for your C</font></i>
+<a name='L442'><i><font color='green'>** functions. This limit is arbitrary; its only purpose is to stop C</font></i>
+<a name='L443'><i><font color='green'>** functions to consume unlimited stack space. (must be smaller than</font></i>
+<a name='L444'><i><font color='green'>** -LUA_REGISTRYINDEX)</font></i>
+<a name='L445'><i><font color='green'>*/</font></i>
+<a name='L446'><font color='darkred'>#define</font> <a href='../S/272.html#L98' title='Refered from 98 in deps/lua/src/lapi.c.'>LUAI_MAXCSTACK</a>  8000
+<a name='L447'>
+<a name='L448'>
+<a name='L449'>
+<a name='L450'><i><font color='green'>/*</font></i>
+<a name='L451'><i><font color='green'>** {==================================================================</font></i>
+<a name='L452'><i><font color='green'>** CHANGE (to smaller values) the following definitions if your system</font></i>
+<a name='L453'><i><font color='green'>** has a small C stack. (Or you may want to change them to larger</font></i>
+<a name='L454'><i><font color='green'>** values if your system has a large C stack and these limits are</font></i>
+<a name='L455'><i><font color='green'>** too rigid for you.) Some of these constants control the size of</font></i>
+<a name='L456'><i><font color='green'>** stack-allocated arrays used by the compiler or the interpreter, while</font></i>
+<a name='L457'><i><font color='green'>** others limit the maximum number of recursive calls that the compiler</font></i>
+<a name='L458'><i><font color='green'>** or the interpreter can perform. Values too large may cause a C stack</font></i>
+<a name='L459'><i><font color='green'>** overflow for some forms of deep constructs.</font></i>
+<a name='L460'><i><font color='green'>** ===================================================================</font></i>
+<a name='L461'><i><font color='green'>*/</font></i>
+<a name='L462'>
+<a name='L463'>
+<a name='L464'><i><font color='green'>/*</font></i>
+<a name='L465'><i><font color='green'>@@ LUAI_MAXCCALLS is the maximum depth for nested C calls (short) and</font></i>
+<a name='L466'><i><font color='green'>@* syntactical nested non-terminals in a program.</font></i>
+<a name='L467'><i><font color='green'>*/</font></i>
+<a name='L468'><font color='darkred'>#define</font> <a href='../R/276.html' title='Multiple refered from 7 places.'>LUAI_MAXCCALLS</a>          200
+<a name='L469'>
+<a name='L470'>
+<a name='L471'><i><font color='green'>/*</font></i>
+<a name='L472'><i><font color='green'>@@ LUAI_MAXVARS is the maximum number of local variables per function</font></i>
+<a name='L473'><i><font color='green'>@* (must be smaller than 250).</font></i>
+<a name='L474'><i><font color='green'>*/</font></i>
+<a name='L475'><font color='darkred'>#define</font> <a href='../R/280.html' title='Multiple refered from 2 places.'>LUAI_MAXVARS</a>            200
+<a name='L476'>
+<a name='L477'>
+<a name='L478'><i><font color='green'>/*</font></i>
+<a name='L479'><i><font color='green'>@@ LUAI_MAXUPVALUES is the maximum number of upvalues per function</font></i>
+<a name='L480'><i><font color='green'>@* (must be smaller than 250).</font></i>
+<a name='L481'><i><font color='green'>*/</font></i>
+<a name='L482'><font color='darkred'>#define</font> <a href='../R/279.html' title='Multiple refered from 2 places.'>LUAI_MAXUPVALUES</a>        60
+<a name='L483'>
+<a name='L484'>
+<a name='L485'><i><font color='green'>/*</font></i>
+<a name='L486'><i><font color='green'>@@ LUAL_BUFFERSIZE is the buffer size used by the lauxlib buffer system.</font></i>
+<a name='L487'><i><font color='green'>*/</font></i>
+<a name='L488'><font color='darkred'>#define</font> <a href='../R/289.html' title='Multiple refered from 7 places.'>LUAL_BUFFERSIZE</a>         BUFSIZ
+<a name='L489'>
+<a name='L490'><i><font color='green'>/* }================================================================== */</font></i>
+<a name='L491'>
+<a name='L492'>
+<a name='L493'>
+<a name='L494'>
+<a name='L495'><i><font color='green'>/*</font></i>
+<a name='L496'><i><font color='green'>** {==================================================================</font></i>
+<a name='L497'><i><font color='green'>@@ LUA_NUMBER is the type of numbers in Lua.</font></i>
+<a name='L498'><i><font color='green'>** CHANGE the following definitions only if you want to build Lua</font></i>
+<a name='L499'><i><font color='green'>** with a number type different from double. You may also need to</font></i>
+<a name='L500'><i><font color='green'>** change lua_number2int &amp; lua_number2integer.</font></i>
+<a name='L501'><i><font color='green'>** ===================================================================</font></i>
+<a name='L502'><i><font color='green'>*/</font></i>
+<a name='L503'>
+<a name='L504'><font color='darkred'>#define</font> <a href='../S/317.html#L557' title='Refered from 557 in deps/lua/src/luaconf.h.'>LUA_NUMBER_DOUBLE</a>
+<a name='L505'><font color='darkred'>#define</font> <a href='../S/266.html#L99' title='Refered from 99 in deps/lua/src/lua.h.'>LUA_NUMBER</a>      <b>double</b>
+<a name='L506'>
+<a name='L507'><i><font color='green'>/*</font></i>
+<a name='L508'><i><font color='green'>@@ LUAI_UACNUMBER is the result of an 'usual argument conversion'</font></i>
+<a name='L509'><i><font color='green'>@* over a number.</font></i>
+<a name='L510'><i><font color='green'>*/</font></i>
+<a name='L511'><font color='darkred'>#define</font> <a href='../S/310.html#L51' title='Refered from 51 in deps/lua/src/llimits.h.'>LUAI_UACNUMBER</a>  <b>double</b>
+<a name='L512'>
+<a name='L513'>
+<a name='L514'><i><font color='green'>/*</font></i>
+<a name='L515'><i><font color='green'>@@ LUA_NUMBER_SCAN is the format for reading numbers.</font></i>
+<a name='L516'><i><font color='green'>@@ LUA_NUMBER_FMT is the format for writing numbers.</font></i>
+<a name='L517'><i><font color='green'>@@ lua_number2str converts a number to a string.</font></i>
+<a name='L518'><i><font color='green'>@@ LUAI_MAXNUMBER2STR is maximum size of previous conversion.</font></i>
+<a name='L519'><i><font color='green'>@@ lua_str2number converts a string to a number.</font></i>
+<a name='L520'><i><font color='green'>*/</font></i>
+<a name='L521'><font color='darkred'>#define</font> <a href='../S/315.html#L275' title='Refered from 275 in deps/lua/src/liolib.c.'>LUA_NUMBER_SCAN</a>         "%lf"
+<a name='L522'><font color='darkred'>#define</font> <a href='../R/355.html' title='Multiple refered from 3 places.'>LUA_NUMBER_FMT</a>          "%.14g"
+<a name='L523'><font color='darkred'>#define</font> <a href='../S/290.html#L53' title='Refered from 53 in deps/lua/src/lvm.c.'>lua_number2str</a>(s,n)     sprintf((s), <a href='../S/317.html#L522' title='Defined at 522 in deps/lua/src/luaconf.h.'>LUA_NUMBER_FMT</a>, (n))
+<a name='L524'><font color='darkred'>#define</font> <a href='../S/290.html#L51' title='Refered from 51 in deps/lua/src/lvm.c.'>LUAI_MAXNUMBER2STR</a>      32 <i><font color='green'>/* 16 digits, sign, point, and \0 */</font></i>
+<a name='L525'><font color='darkred'>#define</font> <a href='../S/311.html#L92' title='Refered from 92 in deps/lua/src/lobject.c.'>lua_str2number</a>(s,p)     strtod((s), (p))
+<a name='L526'>
+<a name='L527'>
+<a name='L528'><i><font color='green'>/*</font></i>
+<a name='L529'><i><font color='green'>@@ The luai_num* macros define the primitive operations over numbers.</font></i>
+<a name='L530'><i><font color='green'>*/</font></i>
+<a name='L531'><font color='darkred'>#if</font> <b>defined</b>(<a href='../D/349.html' title='Multiple defined in 22 places.'>LUA_CORE</a>)
+<a name='L532'><font color='darkred'>#include</font> &lt;math.h&gt;
+<a name='L533'><font color='darkred'>#define</font> <a href='../R/2877.html' title='Multiple refered from 4 places.'>luai_numadd</a>(a,b)        ((a)+(b))
+<a name='L534'><font color='darkred'>#define</font> <a href='../R/2886.html' title='Multiple refered from 4 places.'>luai_numsub</a>(a,b)        ((a)-(b))
+<a name='L535'><font color='darkred'>#define</font> <a href='../R/2884.html' title='Multiple refered from 3 places.'>luai_nummul</a>(a,b)        ((a)*(b))
+<a name='L536'><font color='darkred'>#define</font> <a href='../R/2878.html' title='Multiple refered from 3 places.'>luai_numdiv</a>(a,b)        ((a)/(b))
+<a name='L537'><font color='darkred'>#define</font> <a href='../R/2883.html' title='Multiple refered from 3 places.'>luai_nummod</a>(a,b)        ((a) - floor((a)/(b))*(b))
+<a name='L538'><font color='darkred'>#define</font> <a href='../R/2885.html' title='Multiple refered from 3 places.'>luai_numpow</a>(a,b)        (pow(a,b))
+<a name='L539'><font color='darkred'>#define</font> <a href='../R/2887.html' title='Multiple refered from 3 places.'>luai_numunm</a>(a)          (-(a))
+<a name='L540'><font color='darkred'>#define</font> <a href='../R/2879.html' title='Multiple refered from 7 places.'>luai_numeq</a>(a,b)         ((a)==(b))
+<a name='L541'><font color='darkred'>#define</font> <a href='../R/2882.html' title='Multiple refered from 2 places.'>luai_numlt</a>(a,b)         ((a)&lt;(b))
+<a name='L542'><font color='darkred'>#define</font> <a href='../R/2881.html' title='Multiple refered from 3 places.'>luai_numle</a>(a,b)         ((a)&lt;=(b))
+<a name='L543'><font color='darkred'>#define</font> <a href='../R/2880.html' title='Multiple refered from 2 places.'>luai_numisnan</a>(a)        (!<a href='../S/317.html#L540' title='Defined at 540 in deps/lua/src/luaconf.h.'>luai_numeq</a>((a), (a)))
+<a name='L544'><font color='darkred'>#endif</font>
+<a name='L545'>
+<a name='L546'>
+<a name='L547'><i><font color='green'>/*</font></i>
+<a name='L548'><i><font color='green'>@@ lua_number2int is a macro to convert lua_Number to int.</font></i>
+<a name='L549'><i><font color='green'>@@ lua_number2integer is a macro to convert lua_Number to lua_Integer.</font></i>
+<a name='L550'><i><font color='green'>** CHANGE them if you know a faster way to convert a lua_Number to</font></i>
+<a name='L551'><i><font color='green'>** int (with any rounding method and without throwing errors) in your</font></i>
+<a name='L552'><i><font color='green'>** system. In Pentium machines, a naive typecast from double to int</font></i>
+<a name='L553'><i><font color='green'>** in C is extremely slow, so any alternative is worth trying.</font></i>
+<a name='L554'><i><font color='green'>*/</font></i>
+<a name='L555'>
+<a name='L556'><i><font color='green'>/* On a Pentium, resort to a trick */</font></i>
+<a name='L557'><font color='darkred'>#if</font> <b>defined</b>(<a href='../S/317.html#L504' title='Defined at 504 in deps/lua/src/luaconf.h.'>LUA_NUMBER_DOUBLE</a>) &amp;&amp; !<b>defined</b>(<a href='../S/317.html#L28' title='Defined at 28 in deps/lua/src/luaconf.h.'>LUA_ANSI</a>) &amp;&amp; !<b>defined</b>(__SSE2__) &amp;&amp; \
+<a name='L558'>    (<b>defined</b>(__i386) || <b>defined</b> (_M_IX86) || <b>defined</b>(__i386__))
+<a name='L559'>
+<a name='L560'><i><font color='green'>/* On a Microsoft compiler, use assembler */</font></i>
+<a name='L561'><font color='darkred'>#if</font> <b>defined</b>(_MSC_VER)
+<a name='L562'>
+<a name='L563'><font color='darkred'>#define</font> <a href='../R/2807.html' title='Multiple refered from 4 places.'>lua_number2int</a>(i,d)   <b>__asm</b> fld d   <b>__asm</b> fistp i
+<a name='L564'><font color='darkred'>#define</font> <a href='../S/272.html#L329' title='Refered from 329 in deps/lua/src/lapi.c.'>lua_number2integer</a>(i,n)         <a href='../D/3145.html' title='Multiple defined in 3 places.'>lua_number2int</a>(i, n)
+<a name='L565'>
+<a name='L566'><i><font color='green'>/* the next trick should work on any Pentium, but sometimes clashes</font></i>
+<a name='L567'><i><font color='green'>   with a DirectX idiosyncrasy */</font></i>
+<a name='L568'><font color='darkred'>#else</font>
+<a name='L569'>
+<a name='L570'><b>union</b> <a href='../S/317.html#L572' title='Refered from 572 in deps/lua/src/luaconf.h.'>luai_Cast</a> <font color='red'>{</font> <b>double</b> l_d; <b>long</b> l_l; <font color='red'>}</font>;
+<a name='L571'><font color='darkred'>#define</font> <a href='../R/2807.html' title='Multiple refered from 4 places.'>lua_number2int</a>(i,d) \
+<a name='L572'>  <font color='red'>{</font> <b>volatile</b> <b>union</b> <a href='../S/317.html#L570' title='Defined at 570 in deps/lua/src/luaconf.h.'>luai_Cast</a> u; u.l_d = (d) + 6755399441055744.0; (i) = u.l_l; <font color='red'>}</font>
+<a name='L573'><font color='darkred'>#define</font> <a href='../S/272.html#L329' title='Refered from 329 in deps/lua/src/lapi.c.'>lua_number2integer</a>(i,n)         <a href='../D/3145.html' title='Multiple defined in 3 places.'>lua_number2int</a>(i, n)
+<a name='L574'>
+<a name='L575'><font color='darkred'>#endif</font>
+<a name='L576'>
+<a name='L577'>
+<a name='L578'><i><font color='green'>/* this option always works, but may be slow */</font></i>
+<a name='L579'><font color='darkred'>#else</font>
+<a name='L580'><font color='darkred'>#define</font> <a href='../R/2807.html' title='Multiple refered from 4 places.'>lua_number2int</a>(i,d)     ((i)=(<b>int</b>)(d))
+<a name='L581'><font color='darkred'>#define</font> <a href='../S/272.html#L329' title='Refered from 329 in deps/lua/src/lapi.c.'>lua_number2integer</a>(i,d) ((i)=(<a href='../S/266.html#L103' title='Defined at 103 in deps/lua/src/lua.h.'>lua_Integer</a>)(d))
+<a name='L582'>
+<a name='L583'><font color='darkred'>#endif</font>
+<a name='L584'>
+<a name='L585'><i><font color='green'>/* }================================================================== */</font></i>
+<a name='L586'>
+<a name='L587'>
+<a name='L588'><i><font color='green'>/*</font></i>
+<a name='L589'><i><font color='green'>@@ LUAI_USER_ALIGNMENT_T is a type that requires maximum alignment.</font></i>
+<a name='L590'><i><font color='green'>** CHANGE it if your system requires alignments larger than double. (For</font></i>
+<a name='L591'><i><font color='green'>** instance, if your system supports long doubles and they must be</font></i>
+<a name='L592'><i><font color='green'>** aligned in 16-byte boundaries, then you should add long double in the</font></i>
+<a name='L593'><i><font color='green'>** union.) Probably you do not need to change this.</font></i>
+<a name='L594'><i><font color='green'>*/</font></i>
+<a name='L595'><font color='darkred'>#define</font> <a href='../S/310.html#L47' title='Refered from 47 in deps/lua/src/llimits.h.'>LUAI_USER_ALIGNMENT_T</a>   <b>union</b> <font color='red'>{</font> <b>double</b> u; <b>void</b> *s; <b>long</b> l; <font color='red'>}</font>
+<a name='L596'>
+<a name='L597'>
+<a name='L598'><i><font color='green'>/*</font></i>
+<a name='L599'><i><font color='green'>@@ LUAI_THROW/LUAI_TRY define how Lua does exception handling.</font></i>
+<a name='L600'><i><font color='green'>** CHANGE them if you prefer to use longjmp/setjmp even with C++</font></i>
+<a name='L601'><i><font color='green'>** or if want/don't to use _longjmp/_setjmp instead of regular</font></i>
+<a name='L602'><i><font color='green'>** longjmp/setjmp. By default, Lua handles errors with exceptions when</font></i>
+<a name='L603'><i><font color='green'>** compiling as C++ code, with _longjmp/_setjmp when asked to use them,</font></i>
+<a name='L604'><i><font color='green'>** and with longjmp/setjmp otherwise.</font></i>
+<a name='L605'><i><font color='green'>*/</font></i>
+<a name='L606'><font color='darkred'>#if</font> <b>defined</b>(__cplusplus)
+<a name='L607'><i><font color='green'>/* C++ exceptions */</font></i>
+<a name='L608'><font color='darkred'>#define</font> <a href='../S/297.html#L97' title='Refered from 97 in deps/lua/src/ldo.c.'>LUAI_THROW</a>(L,c) throw(c)
+<a name='L609'><font color='darkred'>#define</font> <a href='../S/297.html#L116' title='Refered from 116 in deps/lua/src/ldo.c.'>LUAI_TRY</a>(L,c,a) try <font color='red'>{</font> a <font color='red'>}</font> catch(...) \
+<a name='L610'>        <font color='red'>{</font> <b>if</b> ((c)-&gt;status == 0) (c)-&gt;status = -1; <font color='red'>}</font>
+<a name='L611'><font color='darkred'>#define</font> <a href='../S/297.html#L46' title='Refered from 46 in deps/lua/src/ldo.c.'>luai_jmpbuf</a>     <b>int</b>  <i><font color='green'>/* dummy variable */</font></i>
+<a name='L612'>
+<a name='L613'><font color='darkred'>#elif</font> <b>defined</b>(<a href='../S/317.html#L58' title='Defined at 58 in deps/lua/src/luaconf.h.'>LUA_USE_ULONGJMP</a>)
+<a name='L614'><i><font color='green'>/* in Unix, try _longjmp/_setjmp (more efficient) */</font></i>
+<a name='L615'><font color='darkred'>#define</font> <a href='../S/297.html#L97' title='Refered from 97 in deps/lua/src/ldo.c.'>LUAI_THROW</a>(L,c) _longjmp((c)-&gt;b, 1)
+<a name='L616'><font color='darkred'>#define</font> <a href='../S/297.html#L116' title='Refered from 116 in deps/lua/src/ldo.c.'>LUAI_TRY</a>(L,c,a) <b>if</b> (_setjmp((c)-&gt;b) == 0) <font color='red'>{</font> a <font color='red'>}</font>
+<a name='L617'><font color='darkred'>#define</font> <a href='../S/297.html#L46' title='Refered from 46 in deps/lua/src/ldo.c.'>luai_jmpbuf</a>     jmp_buf
+<a name='L618'>
+<a name='L619'><font color='darkred'>#else</font>
+<a name='L620'><i><font color='green'>/* default handling with long jumps */</font></i>
+<a name='L621'><font color='darkred'>#define</font> <a href='../S/297.html#L97' title='Refered from 97 in deps/lua/src/ldo.c.'>LUAI_THROW</a>(L,c) longjmp((c)-&gt;b, 1)
+<a name='L622'><font color='darkred'>#define</font> <a href='../S/297.html#L116' title='Refered from 116 in deps/lua/src/ldo.c.'>LUAI_TRY</a>(L,c,a) <b>if</b> (setjmp((c)-&gt;b) == 0) <font color='red'>{</font> a <font color='red'>}</font>
+<a name='L623'><font color='darkred'>#define</font> <a href='../S/297.html#L46' title='Refered from 46 in deps/lua/src/ldo.c.'>luai_jmpbuf</a>     jmp_buf
+<a name='L624'>
+<a name='L625'><font color='darkred'>#endif</font>
+<a name='L626'>
+<a name='L627'>
+<a name='L628'><i><font color='green'>/*</font></i>
+<a name='L629'><i><font color='green'>@@ LUA_MAXCAPTURES is the maximum number of captures that a pattern</font></i>
+<a name='L630'><i><font color='green'>@* can do during pattern-matching.</font></i>
+<a name='L631'><i><font color='green'>** CHANGE it if you need more captures. This limit is arbitrary.</font></i>
+<a name='L632'><i><font color='green'>*/</font></i>
+<a name='L633'><font color='darkred'>#define</font> <a href='../R/348.html' title='Multiple refered from 2 places.'>LUA_MAXCAPTURES</a>         32
+<a name='L634'>
+<a name='L635'>
+<a name='L636'><i><font color='green'>/*</font></i>
+<a name='L637'><i><font color='green'>@@ lua_tmpnam is the function that the OS library uses to create a</font></i>
+<a name='L638'><i><font color='green'>@* temporary name.</font></i>
+<a name='L639'><i><font color='green'>@@ LUA_TMPNAMBUFSIZE is the maximum size of a name created by lua_tmpnam.</font></i>
+<a name='L640'><i><font color='green'>** CHANGE them if you have an alternative to tmpnam (which is considered</font></i>
+<a name='L641'><i><font color='green'>** insecure) or if you want the original tmpnam anyway.  By default, Lua</font></i>
+<a name='L642'><i><font color='green'>** uses tmpnam except when POSIX is available, where it uses mkstemp.</font></i>
+<a name='L643'><i><font color='green'>*/</font></i>
+<a name='L644'><font color='darkred'>#if</font> <b>defined</b>(<a href='../S/294.html#L14' title='Defined at 14 in deps/lua/src/loslib.c.'>loslib_c</a>) || <b>defined</b>(<a href='../S/231.html#L5' title='Defined at 5 in deps/lua/etc/all.c.'>luaall_c</a>)
+<a name='L645'>
+<a name='L646'><font color='darkred'>#if</font> <b>defined</b>(<a href='../S/317.html#L55' title='Defined at 55 in deps/lua/src/luaconf.h.'>LUA_USE_MKSTEMP</a>)
+<a name='L647'><font color='darkred'>#include</font> &lt;unistd.h&gt;
+<a name='L648'><font color='darkred'>#define</font> <a href='../S/294.html#L58' title='Refered from 58 in deps/lua/src/loslib.c.'>LUA_TMPNAMBUFSIZE</a>       32
+<a name='L649'><font color='darkred'>#define</font> <a href='../S/294.html#L60' title='Refered from 60 in deps/lua/src/loslib.c.'>lua_tmpnam</a>(b,e) <font color='red'>{</font> \
+<a name='L650'>        strcpy(b, "/tmp/lua_XXXXXX"); \
+<a name='L651'>        e = mkstemp(b); \
+<a name='L652'>        <b>if</b> (e != -1) close(e); \
+<a name='L653'>        e = (e == -1); <font color='red'>}</font>
+<a name='L654'>
+<a name='L655'><font color='darkred'>#else</font>
+<a name='L656'><font color='darkred'>#define</font> <a href='../S/294.html#L58' title='Refered from 58 in deps/lua/src/loslib.c.'>LUA_TMPNAMBUFSIZE</a>       L_tmpnam
+<a name='L657'><font color='darkred'>#define</font> <a href='../S/294.html#L60' title='Refered from 60 in deps/lua/src/loslib.c.'>lua_tmpnam</a>(b,e)         <font color='red'>{</font> e = (tmpnam(b) == NULL); <font color='red'>}</font>
+<a name='L658'><font color='darkred'>#endif</font>
+<a name='L659'>
+<a name='L660'><font color='darkred'>#endif</font>
+<a name='L661'>
+<a name='L662'>
+<a name='L663'><i><font color='green'>/*</font></i>
+<a name='L664'><i><font color='green'>@@ lua_popen spawns a new process connected to the current one through</font></i>
+<a name='L665'><i><font color='green'>@* the file streams.</font></i>
+<a name='L666'><i><font color='green'>** CHANGE it if you have a way to implement it in your system.</font></i>
+<a name='L667'><i><font color='green'>*/</font></i>
+<a name='L668'><font color='darkred'>#if</font> <b>defined</b>(<a href='../S/317.html#L57' title='Defined at 57 in deps/lua/src/luaconf.h.'>LUA_USE_POPEN</a>)
+<a name='L669'>
+<a name='L670'><font color='darkred'>#define</font> <a href='../S/315.html#L178' title='Refered from 178 in deps/lua/src/liolib.c.'>lua_popen</a>(L,c,m)        ((<b>void</b>)L, fflush(NULL), popen(c,m))
+<a name='L671'><font color='darkred'>#define</font> <a href='../S/315.html#L110' title='Refered from 110 in deps/lua/src/liolib.c.'>lua_pclose</a>(L,file)      ((<b>void</b>)L, (pclose(file) != -1))
+<a name='L672'>
+<a name='L673'><font color='darkred'>#elif</font> <b>defined</b>(<a href='../S/317.html#L33' title='Defined at 33 in deps/lua/src/luaconf.h.'>LUA_WIN</a>)
+<a name='L674'>
+<a name='L675'><font color='darkred'>#define</font> <a href='../S/315.html#L178' title='Refered from 178 in deps/lua/src/liolib.c.'>lua_popen</a>(L,c,m)        ((<b>void</b>)L, _popen(c,m))
+<a name='L676'><font color='darkred'>#define</font> <a href='../S/315.html#L110' title='Refered from 110 in deps/lua/src/liolib.c.'>lua_pclose</a>(L,file)      ((<b>void</b>)L, (_pclose(file) != -1))
+<a name='L677'>
+<a name='L678'><font color='darkred'>#else</font>
+<a name='L679'>
+<a name='L680'><font color='darkred'>#define</font> <a href='../S/315.html#L178' title='Refered from 178 in deps/lua/src/liolib.c.'>lua_popen</a>(L,c,m)        ((<b>void</b>)((<b>void</b>)c, m),  \
+<a name='L681'>                <a href='../S/260.html#L86' title='Defined at 86 in deps/lua/src/lauxlib.c.'>luaL_error</a>(L, <a href='../S/317.html#L201' title='Defined at 201 in deps/lua/src/luaconf.h.'>LUA_QL</a>("popen") " not supported"), (FILE*)0)
+<a name='L682'><font color='darkred'>#define</font> <a href='../S/315.html#L110' title='Refered from 110 in deps/lua/src/liolib.c.'>lua_pclose</a>(L,file)              ((<b>void</b>)((<b>void</b>)L, file), 0)
+<a name='L683'>
+<a name='L684'><font color='darkred'>#endif</font>
+<a name='L685'>
+<a name='L686'><i><font color='green'>/*</font></i>
+<a name='L687'><i><font color='green'>@@ LUA_DL_* define which dynamic-library system Lua should use.</font></i>
+<a name='L688'><i><font color='green'>** CHANGE here if Lua has problems choosing the appropriate</font></i>
+<a name='L689'><i><font color='green'>** dynamic-library system for your platform (either Windows' DLL, Mac's</font></i>
+<a name='L690'><i><font color='green'>** dyld, or Unix's dlopen). If your system is some kind of Unix, there</font></i>
+<a name='L691'><i><font color='green'>** is a good chance that it has dlopen, so LUA_DL_DLOPEN will work for</font></i>
+<a name='L692'><i><font color='green'>** it.  To use dlopen you also need to adapt the src/Makefile (probably</font></i>
+<a name='L693'><i><font color='green'>** adding -ldl to the linker options), so Lua does not select it</font></i>
+<a name='L694'><i><font color='green'>** automatically.  (When you change the makefile to add -ldl, you must</font></i>
+<a name='L695'><i><font color='green'>** also add -DLUA_USE_DLOPEN.)</font></i>
+<a name='L696'><i><font color='green'>** If you do not want any kind of dynamic library, undefine all these</font></i>
+<a name='L697'><i><font color='green'>** options.</font></i>
+<a name='L698'><i><font color='green'>** By default, _WIN32 gets LUA_DL_DLL and MAC OS X gets LUA_DL_DYLD.</font></i>
+<a name='L699'><i><font color='green'>*/</font></i>
+<a name='L700'><font color='darkred'>#if</font> <b>defined</b>(<a href='../S/317.html#L38' title='Defined at 38 in deps/lua/src/luaconf.h.'>LUA_USE_DLOPEN</a>)
+<a name='L701'><font color='darkred'>#define</font> <a href='../S/279.html#L51' title='Refered from 51 in deps/lua/src/loadlib.c.'>LUA_DL_DLOPEN</a>
+<a name='L702'><font color='darkred'>#endif</font>
+<a name='L703'>
+<a name='L704'><font color='darkred'>#if</font> <b>defined</b>(<a href='../S/317.html#L33' title='Defined at 33 in deps/lua/src/luaconf.h.'>LUA_WIN</a>)
+<a name='L705'><font color='darkred'>#define</font> <a href='../S/279.html#L85' title='Refered from 85 in deps/lua/src/loadlib.c.'>LUA_DL_DLL</a>
+<a name='L706'><font color='darkred'>#endif</font>
+<a name='L707'>
+<a name='L708'>
+<a name='L709'><i><font color='green'>/*</font></i>
+<a name='L710'><i><font color='green'>@@ LUAI_EXTRASPACE allows you to add user-specific data in a lua_State</font></i>
+<a name='L711'><i><font color='green'>@* (the data goes just *before* the lua_State pointer).</font></i>
+<a name='L712'><i><font color='green'>** CHANGE (define) this if you really need that. This value must be</font></i>
+<a name='L713'><i><font color='green'>** a multiple of the maximum alignment required for your machine.</font></i>
+<a name='L714'><i><font color='green'>*/</font></i>
+<a name='L715'><font color='darkred'>#define</font> <a href='../R/271.html' title='Multiple refered from 3 places.'>LUAI_EXTRASPACE</a>         0
+<a name='L716'>
+<a name='L717'>
+<a name='L718'><i><font color='green'>/*</font></i>
+<a name='L719'><i><font color='green'>@@ luai_userstate* allow user-specific actions on threads.</font></i>
+<a name='L720'><i><font color='green'>** CHANGE them if you defined LUAI_EXTRASPACE and need to do something</font></i>
+<a name='L721'><i><font color='green'>** extra when a thread is created/deleted/resumed/yielded.</font></i>
+<a name='L722'><i><font color='green'>*/</font></i>
+<a name='L723'><font color='darkred'>#define</font> <a href='../S/275.html#L188' title='Refered from 188 in deps/lua/src/lstate.c.'>luai_userstateopen</a>(L)           ((<b>void</b>)L)
+<a name='L724'><font color='darkred'>#define</font> <a href='../S/275.html#L211' title='Refered from 211 in deps/lua/src/lstate.c.'>luai_userstateclose</a>(L)          ((<b>void</b>)L)
+<a name='L725'><font color='darkred'>#define</font> <a href='../S/272.html#L148' title='Refered from 148 in deps/lua/src/lapi.c.'>luai_userstatethread</a>(L,L1)      ((<b>void</b>)L)
+<a name='L726'><font color='darkred'>#define</font> <a href='../S/275.html#L137' title='Refered from 137 in deps/lua/src/lstate.c.'>luai_userstatefree</a>(L)           ((<b>void</b>)L)
+<a name='L727'><font color='darkred'>#define</font> <a href='../S/297.html#L424' title='Refered from 424 in deps/lua/src/ldo.c.'>luai_userstateresume</a>(L,n)       ((<b>void</b>)L)
+<a name='L728'><font color='darkred'>#define</font> <a href='../S/297.html#L444' title='Refered from 444 in deps/lua/src/ldo.c.'>luai_userstateyield</a>(L,n)        ((<b>void</b>)L)
+<a name='L729'>
+<a name='L730'>
+<a name='L731'><i><font color='green'>/*</font></i>
+<a name='L732'><i><font color='green'>@@ LUA_INTFRMLEN is the length modifier for integer conversions</font></i>
+<a name='L733'><i><font color='green'>@* in 'string.format'.</font></i>
+<a name='L734'><i><font color='green'>@@ LUA_INTFRM_T is the integer type correspoding to the previous length</font></i>
+<a name='L735'><i><font color='green'>@* modifier.</font></i>
+<a name='L736'><i><font color='green'>** CHANGE them if your system supports long long or does not support long.</font></i>
+<a name='L737'><i><font color='green'>*/</font></i>
+<a name='L738'>
+<a name='L739'><font color='darkred'>#if</font> <b>defined</b>(LUA_USELONGLONG)
+<a name='L740'>
+<a name='L741'><font color='darkred'>#define</font> <a href='../R/337.html' title='Multiple refered from 4 places.'>LUA_INTFRMLEN</a>           "ll"
+<a name='L742'><font color='darkred'>#define</font> <a href='../R/338.html' title='Multiple refered from 2 places.'>LUA_INTFRM_T</a>            <b>long</b> <b>long</b>
+<a name='L743'>
+<a name='L744'><font color='darkred'>#else</font>
+<a name='L745'>
+<a name='L746'><font color='darkred'>#define</font> <a href='../R/337.html' title='Multiple refered from 4 places.'>LUA_INTFRMLEN</a>           "l"
+<a name='L747'><font color='darkred'>#define</font> <a href='../R/338.html' title='Multiple refered from 2 places.'>LUA_INTFRM_T</a>            <b>long</b>
+<a name='L748'>
+<a name='L749'><font color='darkred'>#endif</font>
+<a name='L750'>
+<a name='L751'>
+<a name='L752'>
+<a name='L753'><i><font color='green'>/* =================================================================== */</font></i>
+<a name='L754'>
+<a name='L755'><i><font color='green'>/*</font></i>
+<a name='L756'><i><font color='green'>** Local configuration. You can use this space to add your redefinitions</font></i>
+<a name='L757'><i><font color='green'>** without modifying the main part of the file.</font></i>
+<a name='L758'><i><font color='green'>*/</font></i>
+<a name='L759'>
+<a name='L760'>
+<a name='L761'>
+<a name='L762'><font color='darkred'>#endif</font>
+<a name='L763'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

@@ -1,0 +1,285 @@
+<html>
+<head>
+<title>deps/lua/src/strbuf.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/strbuf.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L32'>[^]</a><a href='#L221'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L32' title='Defined at 32.'>die</a>
+<li><a href='#L44' title='Defined at 44.'>strbuf_init</a>
+<li><a href='#L68' title='Defined at 68.'>strbuf_new</a>
+<li><a href='#L84' title='Defined at 84.'>strbuf_set_increment</a>
+<li><a href='#L94' title='Defined at 94.'>debug_stats</a>
+<li><a href='#L104' title='Defined at 104.'>strbuf_free</a>
+<li><a href='#L116' title='Defined at 116.'>strbuf_free_to_string</a>
+<li><a href='#L134' title='Defined at 134.'>calculate_new_size</a>
+<li><a href='#L164' title='Defined at 164.'>strbuf_resize</a>
+<li><a href='#L182' title='Defined at 182.'>strbuf_append_string</a>
+<li><a href='#L202' title='Defined at 202.'>strbuf_append_fmt</a>
+<li><a href='#L221' title='Defined at 221.'>strbuf_append_fmt_retry</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* strbuf - string buffer routines</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2010-2011  Mark Pulford &lt;mark@kyne.com.au&gt;</font></i>
+<a name='L4'><i><font color='green'> *</font></i>
+<a name='L5'><i><font color='green'> * Permission is hereby granted, free of charge, to any person obtaining</font></i>
+<a name='L6'><i><font color='green'> * a copy of this software and associated documentation files (the</font></i>
+<a name='L7'><i><font color='green'> * "Software"), to deal in the Software without restriction, including</font></i>
+<a name='L8'><i><font color='green'> * without limitation the rights to use, copy, modify, merge, publish,</font></i>
+<a name='L9'><i><font color='green'> * distribute, sublicense, and/or sell copies of the Software, and to</font></i>
+<a name='L10'><i><font color='green'> * permit persons to whom the Software is furnished to do so, subject to</font></i>
+<a name='L11'><i><font color='green'> * the following conditions:</font></i>
+<a name='L12'><i><font color='green'> *</font></i>
+<a name='L13'><i><font color='green'> * The above copyright notice and this permission notice shall be</font></i>
+<a name='L14'><i><font color='green'> * included in all copies or substantial portions of the Software.</font></i>
+<a name='L15'><i><font color='green'> *</font></i>
+<a name='L16'><i><font color='green'> * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,</font></i>
+<a name='L17'><i><font color='green'> * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF</font></i>
+<a name='L18'><i><font color='green'> * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.</font></i>
+<a name='L19'><i><font color='green'> * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY</font></i>
+<a name='L20'><i><font color='green'> * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,</font></i>
+<a name='L21'><i><font color='green'> * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE</font></i>
+<a name='L22'><i><font color='green'> * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</font></i>
+<a name='L23'><i><font color='green'> */</font></i>
+<a name='L24'>
+<a name='L25'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L26'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L27'><font color='darkred'>#include</font> &lt;stdarg.h&gt;
+<a name='L28'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L29'>
+<a name='L30'><font color='darkred'>#include</font> "<a href='301.html'>strbuf.h</a>"
+<a name='L31'>
+<a name='L32'><b>void</b> <a href='../R/1851.html' title='Multiple refered from 7 places.'>die</a>(<b>const</b> <b>char</b> *fmt, ...)
+<a name='L33'><font color='red'>{</font>
+<a name='L34'>    va_list arg;
+<a name='L35'>
+<a name='L36'>    va_start(arg, fmt);
+<a name='L37'>    vfprintf(stderr, fmt, arg);
+<a name='L38'>    va_end(arg);
+<a name='L39'>    fprintf(stderr, "\n");
+<a name='L40'>
+<a name='L41'>    exit(-1);
+<a name='L42'><font color='red'>}</font>
+<a name='L43'>
+<a name='L44'><b>void</b> <a href='../R/3877.html' title='Multiple refered from 4 places.'>strbuf_init</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>int</b> len)
+<a name='L45'><font color='red'>{</font>
+<a name='L46'>    <b>int</b> size;
+<a name='L47'>
+<a name='L48'>    <b>if</b> (len &lt;= 0)
+<a name='L49'>        size = <a href='../S/301.html#L45' title='Defined at 45 in deps/lua/src/strbuf.h.'>STRBUF_DEFAULT_SIZE</a>;
+<a name='L50'>    <b>else</b>
+<a name='L51'>        size = len + 1;         <i><font color='green'>/* \0 terminator */</font></i>
+<a name='L52'>
+<a name='L53'>    s-&gt;buf = NULL;
+<a name='L54'>    s-&gt;size = size;
+<a name='L55'>    s-&gt;length = 0;
+<a name='L56'>    s-&gt;increment = <a href='../S/301.html#L48' title='Defined at 48 in deps/lua/src/strbuf.h.'>STRBUF_DEFAULT_INCREMENT</a>;
+<a name='L57'>    s-&gt;dynamic = 0;
+<a name='L58'>    s-&gt;reallocs = 0;
+<a name='L59'>    s-&gt;<a href='../S/89.html#L959' title='Defined at 959 in src/ziplist.c.'>debug</a> = 0;
+<a name='L60'>
+<a name='L61'>    s-&gt;buf = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(size);
+<a name='L62'>    <b>if</b> (!s-&gt;buf)
+<a name='L63'>        <a href='../S/274.html#L32' title='Defined at 32 in deps/lua/src/strbuf.c.'>die</a>("Out of memory");
+<a name='L64'>
+<a name='L65'>    <a href='../S/301.html#L128' title='Defined at 128 in deps/lua/src/strbuf.h.'>strbuf_ensure_null</a>(s);
+<a name='L66'><font color='red'>}</font>
+<a name='L67'>
+<a name='L68'><a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *<a href='../R/3879.html' title='Multiple refered from 2 places.'>strbuf_new</a>(<b>int</b> len)
+<a name='L69'><font color='red'>{</font>
+<a name='L70'>    <a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s;
+<a name='L71'>
+<a name='L72'>    s = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a>));
+<a name='L73'>    <b>if</b> (!s)
+<a name='L74'>        <a href='../S/274.html#L32' title='Defined at 32 in deps/lua/src/strbuf.c.'>die</a>("Out of memory");
+<a name='L75'>
+<a name='L76'>    <a href='../S/274.html#L44' title='Defined at 44 in deps/lua/src/strbuf.c.'>strbuf_init</a>(s, len);
+<a name='L77'>
+<a name='L78'>    <i><font color='green'>/* Dynamic strbuf allocation / deallocation */</font></i>
+<a name='L79'>    s-&gt;dynamic = 1;
+<a name='L80'>
+<a name='L81'>    <b>return</b> s;
+<a name='L82'><font color='red'>}</font>
+<a name='L83'>
+<a name='L84'><b>void</b> <a href='../S/301.html#L54' title='Refered from 54 in deps/lua/src/strbuf.h.'>strbuf_set_increment</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>int</b> increment)
+<a name='L85'><font color='red'>{</font>
+<a name='L86'>    <i><font color='green'>/* Increment &gt; 0:  Linear buffer growth rate</font></i>
+<a name='L87'><i><font color='green'>     * Increment &lt; -1: Exponential buffer growth rate */</font></i>
+<a name='L88'>    <b>if</b> (increment == 0 || increment == -1)
+<a name='L89'>        <a href='../S/274.html#L32' title='Defined at 32 in deps/lua/src/strbuf.c.'>die</a>("BUG: Invalid string increment");
+<a name='L90'>
+<a name='L91'>    s-&gt;increment = increment;
+<a name='L92'><font color='red'>}</font>
+<a name='L93'>
+<a name='L94'><b>static</b> <b>inline</b> <b>void</b> <a href='../R/1778.html' title='Multiple refered from 2 places.'>debug_stats</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s)
+<a name='L95'><font color='red'>{</font>
+<a name='L96'>    <b>if</b> (s-&gt;<a href='../S/89.html#L959' title='Defined at 959 in src/ziplist.c.'>debug</a>) <font color='red'>{</font>
+<a name='L97'>        fprintf(stderr, "strbuf(%lx) reallocs: %d, length: %d, size: %d\n",
+<a name='L98'>                (<b>long</b>)s, s-&gt;reallocs, s-&gt;length, s-&gt;size);
+<a name='L99'>    <font color='red'>}</font>
+<a name='L100'><font color='red'>}</font>
+<a name='L101'>
+<a name='L102'><i><font color='green'>/* If strbuf_t has not been dynamically allocated, strbuf_free() can</font></i>
+<a name='L103'><i><font color='green'> * be called any number of times strbuf_init() */</font></i>
+<a name='L104'><b>void</b> <a href='../R/3875.html' title='Multiple refered from 8 places.'>strbuf_free</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s)
+<a name='L105'><font color='red'>{</font>
+<a name='L106'>    <a href='../S/274.html#L94' title='Defined at 94 in deps/lua/src/strbuf.c.'>debug_stats</a>(s);
+<a name='L107'>
+<a name='L108'>    <b>if</b> (s-&gt;buf) <font color='red'>{</font>
+<a name='L109'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(s-&gt;buf);
+<a name='L110'>        s-&gt;buf = NULL;
+<a name='L111'>    <font color='red'>}</font>
+<a name='L112'>    <b>if</b> (s-&gt;dynamic)
+<a name='L113'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(s);
+<a name='L114'><font color='red'>}</font>
+<a name='L115'>
+<a name='L116'><b>char</b> *<a href='../S/301.html#L58' title='Refered from 58 in deps/lua/src/strbuf.h.'>strbuf_free_to_string</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>int</b> *len)
+<a name='L117'><font color='red'>{</font>
+<a name='L118'>    <b>char</b> *buf;
+<a name='L119'>
+<a name='L120'>    <a href='../S/274.html#L94' title='Defined at 94 in deps/lua/src/strbuf.c.'>debug_stats</a>(s);
+<a name='L121'>
+<a name='L122'>    <a href='../S/301.html#L128' title='Defined at 128 in deps/lua/src/strbuf.h.'>strbuf_ensure_null</a>(s);
+<a name='L123'>
+<a name='L124'>    buf = s-&gt;buf;
+<a name='L125'>    <b>if</b> (len)
+<a name='L126'>        *len = s-&gt;length;
+<a name='L127'>
+<a name='L128'>    <b>if</b> (s-&gt;dynamic)
+<a name='L129'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(s);
+<a name='L130'>
+<a name='L131'>    <b>return</b> buf;
+<a name='L132'><font color='red'>}</font>
+<a name='L133'>
+<a name='L134'><b>static</b> <b>int</b> <a href='../S/274.html#L168' title='Refered from 168 in deps/lua/src/strbuf.c.'>calculate_new_size</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>int</b> len)
+<a name='L135'><font color='red'>{</font>
+<a name='L136'>    <b>int</b> reqsize, newsize;
+<a name='L137'>
+<a name='L138'>    <b>if</b> (len &lt;= 0)
+<a name='L139'>        <a href='../S/274.html#L32' title='Defined at 32 in deps/lua/src/strbuf.c.'>die</a>("BUG: Invalid strbuf length requested");
+<a name='L140'>
+<a name='L141'>    <i><font color='green'>/* Ensure there is room for optional NULL termination */</font></i>
+<a name='L142'>    reqsize = len + 1;
+<a name='L143'>
+<a name='L144'>    <i><font color='green'>/* If the user has requested to shrink the buffer, do it exactly */</font></i>
+<a name='L145'>    <b>if</b> (s-&gt;size &gt; reqsize)
+<a name='L146'>        <b>return</b> reqsize;
+<a name='L147'>
+<a name='L148'>    newsize = s-&gt;size;
+<a name='L149'>    <b>if</b> (s-&gt;increment &lt; 0) <font color='red'>{</font>
+<a name='L150'>        <i><font color='green'>/* Exponential sizing */</font></i>
+<a name='L151'>        <b>while</b> (newsize &lt; reqsize)
+<a name='L152'>            newsize *= -s-&gt;increment;
+<a name='L153'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L154'>        <i><font color='green'>/* Linear sizing */</font></i>
+<a name='L155'>        newsize = ((newsize + s-&gt;increment - 1) / s-&gt;increment) * s-&gt;increment;
+<a name='L156'>    <font color='red'>}</font>
+<a name='L157'>
+<a name='L158'>    <b>return</b> newsize;
+<a name='L159'><font color='red'>}</font>
+<a name='L160'>
+<a name='L161'>
+<a name='L162'><i><font color='green'>/* Ensure strbuf can handle a string length bytes long (ignoring NULL</font></i>
+<a name='L163'><i><font color='green'> * optional termination). */</font></i>
+<a name='L164'><b>void</b> <a href='../R/3881.html' title='Multiple refered from 4 places.'>strbuf_resize</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>int</b> len)
+<a name='L165'><font color='red'>{</font>
+<a name='L166'>    <b>int</b> newsize;
+<a name='L167'>
+<a name='L168'>    newsize = <a href='../S/274.html#L134' title='Defined at 134 in deps/lua/src/strbuf.c.'>calculate_new_size</a>(s, len);
+<a name='L169'>
+<a name='L170'>    <b>if</b> (s-&gt;<a href='../S/89.html#L959' title='Defined at 959 in src/ziplist.c.'>debug</a> &gt; 1) <font color='red'>{</font>
+<a name='L171'>        fprintf(stderr, "strbuf(%lx) resize: %d =&gt; %d\n",
+<a name='L172'>                (<b>long</b>)s, s-&gt;size, newsize);
+<a name='L173'>    <font color='red'>}</font>
+<a name='L174'>
+<a name='L175'>    s-&gt;size = newsize;
+<a name='L176'>    s-&gt;buf = <a href='../D/3747.html' title='Multiple defined in 2 places.'>realloc</a>(s-&gt;buf, s-&gt;size);
+<a name='L177'>    <b>if</b> (!s-&gt;buf)
+<a name='L178'>        <a href='../S/274.html#L32' title='Defined at 32 in deps/lua/src/strbuf.c.'>die</a>("Out of memory");
+<a name='L179'>    s-&gt;reallocs++;
+<a name='L180'><font color='red'>}</font>
+<a name='L181'>
+<a name='L182'><b>void</b> <a href='../R/3871.html' title='Multiple refered from 2 places.'>strbuf_append_string</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>const</b> <b>char</b> *str)
+<a name='L183'><font color='red'>{</font>
+<a name='L184'>    <b>int</b> space, i;
+<a name='L185'>
+<a name='L186'>    space = <a href='../S/301.html#L88' title='Defined at 88 in deps/lua/src/strbuf.h.'>strbuf_empty_length</a>(s);
+<a name='L187'>
+<a name='L188'>    <b>for</b> (i = 0; str[i]; i++) <font color='red'>{</font>
+<a name='L189'>        <b>if</b> (space &lt; 1) <font color='red'>{</font>
+<a name='L190'>            <a href='../S/274.html#L164' title='Defined at 164 in deps/lua/src/strbuf.c.'>strbuf_resize</a>(s, s-&gt;length + 1);
+<a name='L191'>            space = <a href='../S/301.html#L88' title='Defined at 88 in deps/lua/src/strbuf.h.'>strbuf_empty_length</a>(s);
+<a name='L192'>        <font color='red'>}</font>
+<a name='L193'>
+<a name='L194'>        s-&gt;buf[s-&gt;length] = str[i];
+<a name='L195'>        s-&gt;length++;
+<a name='L196'>        space--;
+<a name='L197'>    <font color='red'>}</font>
+<a name='L198'><font color='red'>}</font>
+<a name='L199'>
+<a name='L200'><i><font color='green'>/* strbuf_append_fmt() should only be used when an upper bound</font></i>
+<a name='L201'><i><font color='green'> * is known for the output string. */</font></i>
+<a name='L202'><b>void</b> <a href='../R/3867.html' title='Multiple refered from 2 places.'>strbuf_append_fmt</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>int</b> len, <b>const</b> <b>char</b> *fmt, ...)
+<a name='L203'><font color='red'>{</font>
+<a name='L204'>    va_list arg;
+<a name='L205'>    <b>int</b> fmt_len;
+<a name='L206'>
+<a name='L207'>    <a href='../S/301.html#L93' title='Defined at 93 in deps/lua/src/strbuf.h.'>strbuf_ensure_empty_length</a>(s, len);
+<a name='L208'>
+<a name='L209'>    va_start(arg, fmt);
+<a name='L210'>    fmt_len = vsnprintf(s-&gt;buf + s-&gt;length, len, fmt, arg);
+<a name='L211'>    va_end(arg);
+<a name='L212'>
+<a name='L213'>    <b>if</b> (fmt_len &lt; 0)
+<a name='L214'>        <a href='../S/274.html#L32' title='Defined at 32 in deps/lua/src/strbuf.c.'>die</a>("BUG: Unable to convert number");  <i><font color='green'>/* This should never happen.. */</font></i>
+<a name='L215'>
+<a name='L216'>    s-&gt;length += fmt_len;
+<a name='L217'><font color='red'>}</font>
+<a name='L218'>
+<a name='L219'><i><font color='green'>/* strbuf_append_fmt_retry() can be used when the there is no known</font></i>
+<a name='L220'><i><font color='green'> * upper bound for the output string. */</font></i>
+<a name='L221'><b>void</b> <a href='../S/301.html#L69' title='Refered from 69 in deps/lua/src/strbuf.h.'>strbuf_append_fmt_retry</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>const</b> <b>char</b> *fmt, ...)
+<a name='L222'><font color='red'>{</font>
+<a name='L223'>    va_list arg;
+<a name='L224'>    <b>int</b> fmt_len, try;
+<a name='L225'>    <b>int</b> empty_len;
+<a name='L226'>
+<a name='L227'>    <i><font color='green'>/* If the first attempt to append fails, resize the buffer appropriately</font></i>
+<a name='L228'><i><font color='green'>     * and try again */</font></i>
+<a name='L229'>    <b>for</b> (try = 0; ; try++) <font color='red'>{</font>
+<a name='L230'>        va_start(arg, fmt);
+<a name='L231'>        <i><font color='green'>/* Append the new formatted string */</font></i>
+<a name='L232'>        <i><font color='green'>/* fmt_len is the length of the string required, excluding the</font></i>
+<a name='L233'><i><font color='green'>         * trailing NULL */</font></i>
+<a name='L234'>        empty_len = <a href='../S/301.html#L88' title='Defined at 88 in deps/lua/src/strbuf.h.'>strbuf_empty_length</a>(s);
+<a name='L235'>        <i><font color='green'>/* Add 1 since there is also space to store the terminating NULL. */</font></i>
+<a name='L236'>        fmt_len = vsnprintf(s-&gt;buf + s-&gt;length, empty_len + 1, fmt, arg);
+<a name='L237'>        va_end(arg);
+<a name='L238'>
+<a name='L239'>        <b>if</b> (fmt_len &lt;= empty_len)
+<a name='L240'>            <b>break</b>;  <i><font color='green'>/* SUCCESS */</font></i>
+<a name='L241'>        <b>if</b> (try &gt; 0)
+<a name='L242'>            <a href='../S/274.html#L32' title='Defined at 32 in deps/lua/src/strbuf.c.'>die</a>("BUG: length of formatted string changed");
+<a name='L243'>
+<a name='L244'>        <a href='../S/274.html#L164' title='Defined at 164 in deps/lua/src/strbuf.c.'>strbuf_resize</a>(s, s-&gt;length + fmt_len);
+<a name='L245'>    <font color='red'>}</font>
+<a name='L246'>
+<a name='L247'>    s-&gt;length += fmt_len;
+<a name='L248'><font color='red'>}</font>
+<a name='L249'>
+<a name='L250'><i><font color='green'>/* vi:ai et sw=4 ts=4:</font></i>
+<a name='L251'><i><font color='green'> */</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L32'>[^]</a><a href='#L221'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

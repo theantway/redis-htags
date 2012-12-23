@@ -1,0 +1,119 @@
+<html>
+<head>
+<title>deps/lua/src/lopcodes.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/lopcodes.c</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: lopcodes.c,v 1.37.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L4'><i><font color='green'>*/</font></i>
+<a name='L5'>
+<a name='L6'>
+<a name='L7'><font color='darkred'>#define</font> lopcodes_c
+<a name='L8'><font color='darkred'>#define</font> <a href='../R/303.html' title='Multiple refered from 2 places.'>LUA_CORE</a>
+<a name='L9'>
+<a name='L10'>
+<a name='L11'><font color='darkred'>#include</font> "<a href='273.html'>lopcodes.h</a>"
+<a name='L12'>
+<a name='L13'>
+<a name='L14'><i><font color='green'>/* ORDER OP */</font></i>
+<a name='L15'>
+<a name='L16'><b>const</b> <b>char</b> *<b>const</b> luaP_opnames[<a href='../S/273.html#L211' title='Defined at 211 in deps/lua/src/lopcodes.h.'>NUM_OPCODES</a>+1] = <font color='red'>{</font>
+<a name='L17'>  "MOVE",
+<a name='L18'>  "LOADK",
+<a name='L19'>  "LOADBOOL",
+<a name='L20'>  "LOADNIL",
+<a name='L21'>  "GETUPVAL",
+<a name='L22'>  "GETGLOBAL",
+<a name='L23'>  "GETTABLE",
+<a name='L24'>  "SETGLOBAL",
+<a name='L25'>  "SETUPVAL",
+<a name='L26'>  "SETTABLE",
+<a name='L27'>  "NEWTABLE",
+<a name='L28'>  "SELF",
+<a name='L29'>  "ADD",
+<a name='L30'>  "SUB",
+<a name='L31'>  "MUL",
+<a name='L32'>  "DIV",
+<a name='L33'>  "MOD",
+<a name='L34'>  "POW",
+<a name='L35'>  "UNM",
+<a name='L36'>  "NOT",
+<a name='L37'>  "LEN",
+<a name='L38'>  "CONCAT",
+<a name='L39'>  "JMP",
+<a name='L40'>  "EQ",
+<a name='L41'>  "LT",
+<a name='L42'>  "LE",
+<a name='L43'>  "TEST",
+<a name='L44'>  "TESTSET",
+<a name='L45'>  "CALL",
+<a name='L46'>  "TAILCALL",
+<a name='L47'>  "RETURN",
+<a name='L48'>  "FORLOOP",
+<a name='L49'>  "FORPREP",
+<a name='L50'>  "TFORLOOP",
+<a name='L51'>  "SETLIST",
+<a name='L52'>  "CLOSE",
+<a name='L53'>  "CLOSURE",
+<a name='L54'>  "VARARG",
+<a name='L55'>  NULL
+<a name='L56'><font color='red'>}</font>;
+<a name='L57'>
+<a name='L58'>
+<a name='L59'><font color='darkred'>#define</font> <a href='../R/3093.html' title='Multiple refered from 38 places.'>opmode</a>(t,a,b,c,m) (((t)&lt;&lt;7) | ((a)&lt;&lt;6) | ((b)&lt;&lt;4) | ((c)&lt;&lt;2) | (m))
+<a name='L60'>
+<a name='L61'><b>const</b> <a href='../S/310.html#L27' title='Defined at 27 in deps/lua/src/llimits.h.'>lu_byte</a> luaP_opmodes[<a href='../S/273.html#L211' title='Defined at 211 in deps/lua/src/lopcodes.h.'>NUM_OPCODES</a>] = <font color='red'>{</font>
+<a name='L62'><i><font color='green'>/*       T  A    B       C     mode                opcode       */</font></i>
+<a name='L63'>  <a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L248' title='Defined at 248 in deps/lua/src/lopcodes.h.'>OpArgR</a>, <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_MOVE */</font></i>
+<a name='L64'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABx</a>)            <i><font color='green'>/* OP_LOADK */</font></i>
+<a name='L65'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L247' title='Defined at 247 in deps/lua/src/lopcodes.h.'>OpArgU</a>, <a href='../S/273.html#L247' title='Defined at 247 in deps/lua/src/lopcodes.h.'>OpArgU</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_LOADBOOL */</font></i>
+<a name='L66'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L248' title='Defined at 248 in deps/lua/src/lopcodes.h.'>OpArgR</a>, <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_LOADNIL */</font></i>
+<a name='L67'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L247' title='Defined at 247 in deps/lua/src/lopcodes.h.'>OpArgU</a>, <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_GETUPVAL */</font></i>
+<a name='L68'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABx</a>)            <i><font color='green'>/* OP_GETGLOBAL */</font></i>
+<a name='L69'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L248' title='Defined at 248 in deps/lua/src/lopcodes.h.'>OpArgR</a>, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_GETTABLE */</font></i>
+<a name='L70'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 0, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABx</a>)            <i><font color='green'>/* OP_SETGLOBAL */</font></i>
+<a name='L71'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 0, <a href='../S/273.html#L247' title='Defined at 247 in deps/lua/src/lopcodes.h.'>OpArgU</a>, <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_SETUPVAL */</font></i>
+<a name='L72'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 0, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_SETTABLE */</font></i>
+<a name='L73'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L247' title='Defined at 247 in deps/lua/src/lopcodes.h.'>OpArgU</a>, <a href='../S/273.html#L247' title='Defined at 247 in deps/lua/src/lopcodes.h.'>OpArgU</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_NEWTABLE */</font></i>
+<a name='L74'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L248' title='Defined at 248 in deps/lua/src/lopcodes.h.'>OpArgR</a>, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_SELF */</font></i>
+<a name='L75'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_ADD */</font></i>
+<a name='L76'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_SUB */</font></i>
+<a name='L77'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_MUL */</font></i>
+<a name='L78'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_DIV */</font></i>
+<a name='L79'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_MOD */</font></i>
+<a name='L80'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_POW */</font></i>
+<a name='L81'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L248' title='Defined at 248 in deps/lua/src/lopcodes.h.'>OpArgR</a>, <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_UNM */</font></i>
+<a name='L82'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L248' title='Defined at 248 in deps/lua/src/lopcodes.h.'>OpArgR</a>, <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_NOT */</font></i>
+<a name='L83'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L248' title='Defined at 248 in deps/lua/src/lopcodes.h.'>OpArgR</a>, <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_LEN */</font></i>
+<a name='L84'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L248' title='Defined at 248 in deps/lua/src/lopcodes.h.'>OpArgR</a>, <a href='../S/273.html#L248' title='Defined at 248 in deps/lua/src/lopcodes.h.'>OpArgR</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_CONCAT */</font></i>
+<a name='L85'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 0, <a href='../S/273.html#L248' title='Defined at 248 in deps/lua/src/lopcodes.h.'>OpArgR</a>, <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iAsBx</a>)           <i><font color='green'>/* OP_JMP */</font></i>
+<a name='L86'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(1, 0, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_EQ */</font></i>
+<a name='L87'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(1, 0, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_LT */</font></i>
+<a name='L88'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(1, 0, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L249' title='Defined at 249 in deps/lua/src/lopcodes.h.'>OpArgK</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_LE */</font></i>
+<a name='L89'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(1, 1, <a href='../S/273.html#L248' title='Defined at 248 in deps/lua/src/lopcodes.h.'>OpArgR</a>, <a href='../S/273.html#L247' title='Defined at 247 in deps/lua/src/lopcodes.h.'>OpArgU</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_TEST */</font></i>
+<a name='L90'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(1, 1, <a href='../S/273.html#L248' title='Defined at 248 in deps/lua/src/lopcodes.h.'>OpArgR</a>, <a href='../S/273.html#L247' title='Defined at 247 in deps/lua/src/lopcodes.h.'>OpArgU</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_TESTSET */</font></i>
+<a name='L91'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L247' title='Defined at 247 in deps/lua/src/lopcodes.h.'>OpArgU</a>, <a href='../S/273.html#L247' title='Defined at 247 in deps/lua/src/lopcodes.h.'>OpArgU</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_CALL */</font></i>
+<a name='L92'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L247' title='Defined at 247 in deps/lua/src/lopcodes.h.'>OpArgU</a>, <a href='../S/273.html#L247' title='Defined at 247 in deps/lua/src/lopcodes.h.'>OpArgU</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_TAILCALL */</font></i>
+<a name='L93'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 0, <a href='../S/273.html#L247' title='Defined at 247 in deps/lua/src/lopcodes.h.'>OpArgU</a>, <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_RETURN */</font></i>
+<a name='L94'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L248' title='Defined at 248 in deps/lua/src/lopcodes.h.'>OpArgR</a>, <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iAsBx</a>)           <i><font color='green'>/* OP_FORLOOP */</font></i>
+<a name='L95'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L248' title='Defined at 248 in deps/lua/src/lopcodes.h.'>OpArgR</a>, <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iAsBx</a>)           <i><font color='green'>/* OP_FORPREP */</font></i>
+<a name='L96'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(1, 0, <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>, <a href='../S/273.html#L247' title='Defined at 247 in deps/lua/src/lopcodes.h.'>OpArgU</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_TFORLOOP */</font></i>
+<a name='L97'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 0, <a href='../S/273.html#L247' title='Defined at 247 in deps/lua/src/lopcodes.h.'>OpArgU</a>, <a href='../S/273.html#L247' title='Defined at 247 in deps/lua/src/lopcodes.h.'>OpArgU</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_SETLIST */</font></i>
+<a name='L98'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 0, <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>, <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_CLOSE */</font></i>
+<a name='L99'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L247' title='Defined at 247 in deps/lua/src/lopcodes.h.'>OpArgU</a>, <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABx</a>)            <i><font color='green'>/* OP_CLOSURE */</font></i>
+<a name='L100'> ,<a href='../S/306.html#L59' title='Defined at 59 in deps/lua/src/lopcodes.c.'>opmode</a>(0, 1, <a href='../S/273.html#L247' title='Defined at 247 in deps/lua/src/lopcodes.h.'>OpArgU</a>, <a href='../S/273.html#L246' title='Defined at 246 in deps/lua/src/lopcodes.h.'>OpArgN</a>, <a href='../S/273.html#L31' title='Defined at 31 in deps/lua/src/lopcodes.h.'>iABC</a>)            <i><font color='green'>/* OP_VARARG */</font></i>
+<a name='L101'><font color='red'>}</font>;
+<a name='L102'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

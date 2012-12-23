@@ -1,0 +1,275 @@
+<html>
+<head>
+<title>src/bio.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/bio.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L91'>[^]</a><a href='#L230'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L91' title='Defined at 91.'>bioInit</a>
+<li><a href='#L124' title='Defined at 124.'>bioCreateBackgroundJob</a>
+<li><a href='#L138' title='Defined at 138.'>bioProcessBackgroundJobs</a>
+<li><a href='#L187' title='Defined at 187.'>bioPendingJobsOfType</a>
+<li><a href='#L213' title='Defined at 213.'>bioWaitPendingJobsLE</a>
+<li><a href='#L230' title='Defined at 230.'>bioOlderJobOfType</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* Background I/O service for Redis.</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * This file implements operations that we need to perform in the background.</font></i>
+<a name='L4'><i><font color='green'> * Currently there is only a single operation, that is a background close(2)</font></i>
+<a name='L5'><i><font color='green'> * system call. This is needed as when the process is the last owner of a</font></i>
+<a name='L6'><i><font color='green'> * reference to a file closing it means unlinking it, and the deletion of the</font></i>
+<a name='L7'><i><font color='green'> * file is slow, blocking the server.</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> * In the future we'll either continue implementing new things we need or</font></i>
+<a name='L10'><i><font color='green'> * we'll switch to libeio. However there are probably long term uses for this</font></i>
+<a name='L11'><i><font color='green'> * file as we may want to put here Redis specific background tasks (for instance</font></i>
+<a name='L12'><i><font color='green'> * it is not impossible that we'll need a non blocking FLUSHDB/FLUSHALL</font></i>
+<a name='L13'><i><font color='green'> * implementation).</font></i>
+<a name='L14'><i><font color='green'> *</font></i>
+<a name='L15'><i><font color='green'> * DESIGN</font></i>
+<a name='L16'><i><font color='green'> * ------</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * The design is trivial, we have a structure representing a job to perform</font></i>
+<a name='L19'><i><font color='green'> * and a different thread and job queue for every job type.</font></i>
+<a name='L20'><i><font color='green'> * Every thread wait for new jobs in its queue, and process every job</font></i>
+<a name='L21'><i><font color='green'> * sequentially.</font></i>
+<a name='L22'><i><font color='green'> *</font></i>
+<a name='L23'><i><font color='green'> * Jobs of the same type are guaranteed to be processed from the least</font></i>
+<a name='L24'><i><font color='green'> * recently inserted to the most recently inserted (older jobs processed</font></i>
+<a name='L25'><i><font color='green'> * first).</font></i>
+<a name='L26'><i><font color='green'> *</font></i>
+<a name='L27'><i><font color='green'> * Currently there is no way for the creator of the job to be notified about</font></i>
+<a name='L28'><i><font color='green'> * the completion of the operation, this will only be added when/if needed.</font></i>
+<a name='L29'><i><font color='green'> *</font></i>
+<a name='L30'><i><font color='green'> * ----------------------------------------------------------------------------</font></i>
+<a name='L31'><i><font color='green'> *</font></i>
+<a name='L32'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L33'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L34'><i><font color='green'> *</font></i>
+<a name='L35'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L36'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L37'><i><font color='green'> *</font></i>
+<a name='L38'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L39'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L40'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L41'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L42'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L43'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L44'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L45'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L46'><i><font color='green'> *</font></i>
+<a name='L47'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L48'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L49'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L50'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L51'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L52'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L53'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L54'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L55'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L56'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L57'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L58'><i><font color='green'> */</font></i>
+<a name='L59'>
+<a name='L60'>
+<a name='L61'><font color='darkred'>#include</font> "<a href='32.html'>redis.h</a>"
+<a name='L62'><font color='darkred'>#include</font> "<a href='68.html'>bio.h</a>"
+<a name='L63'>
+<a name='L64'><b>static</b> pthread_mutex_t bio_mutex[<a href='../S/68.html#L40' title='Defined at 40 in src/bio.h.'>REDIS_BIO_NUM_OPS</a>];
+<a name='L65'><b>static</b> pthread_cond_t bio_condvar[<a href='../S/68.html#L40' title='Defined at 40 in src/bio.h.'>REDIS_BIO_NUM_OPS</a>];
+<a name='L66'><b>static</b> <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *bio_jobs[<a href='../S/68.html#L40' title='Defined at 40 in src/bio.h.'>REDIS_BIO_NUM_OPS</a>];
+<a name='L67'><i><font color='green'>/* The following array is used to hold the number of pending jobs for every</font></i>
+<a name='L68'><i><font color='green'> * OP type. This allows us to export the bioPendingJobsOfType() API that is</font></i>
+<a name='L69'><i><font color='green'> * useful when the main thread wants to perform some operation that may involve</font></i>
+<a name='L70'><i><font color='green'> * objects shared with the background thread. The main thread will just wait</font></i>
+<a name='L71'><i><font color='green'> * that there are no longer jobs of this type to be executed before performing</font></i>
+<a name='L72'><i><font color='green'> * the sensible operation. This data is also useful for reporting. */</font></i>
+<a name='L73'><b>static</b> <b>unsigned</b> <b>long</b> <b>long</b> bio_pending[<a href='../S/68.html#L40' title='Defined at 40 in src/bio.h.'>REDIS_BIO_NUM_OPS</a>];
+<a name='L74'>
+<a name='L75'><i><font color='green'>/* This structure represents a background Job. It is only used locally to this</font></i>
+<a name='L76'><i><font color='green'> * file as the API deos not expose the internals at all. */</font></i>
+<a name='L77'><b>struct</b> <a href='../R/1464.html' title='Multiple refered from 3 places.'>bio_job</a> <font color='red'>{</font>
+<a name='L78'>    time_t time; <i><font color='green'>/* Time at which the job was created. */</font></i>
+<a name='L79'>    <i><font color='green'>/* Job specific arguments pointers. If we need to pass more than three</font></i>
+<a name='L80'><i><font color='green'>     * arguments we can just pass a pointer to a structure or alike. */</font></i>
+<a name='L81'>    <b>void</b> *arg1, *arg2, *arg3;
+<a name='L82'><font color='red'>}</font>;
+<a name='L83'>
+<a name='L84'><b>void</b> *<a href='../S/25.html#L138' title='Defined at 138 in src/bio.c.'>bioProcessBackgroundJobs</a>(<b>void</b> *arg);
+<a name='L85'>
+<a name='L86'><i><font color='green'>/* Make sure we have enough stack to perform all the things we do in the</font></i>
+<a name='L87'><i><font color='green'> * main thread. */</font></i>
+<a name='L88'><font color='darkred'>#define</font> <a href='../S/25.html#L109' title='Refered from 109 in src/bio.c.'>REDIS_THREAD_STACK_SIZE</a> (1024*1024*4)
+<a name='L89'>
+<a name='L90'><i><font color='green'>/* Initialize the background system, spawning the thread. */</font></i>
+<a name='L91'><b>void</b> <a href='../R/1459.html' title='Multiple refered from 2 places.'>bioInit</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L92'>    pthread_attr_t attr;
+<a name='L93'>    pthread_t thread;
+<a name='L94'>    size_t stacksize;
+<a name='L95'>    <b>int</b> j;
+<a name='L96'>
+<a name='L97'>    <i><font color='green'>/* Initialization of state vars and objects */</font></i>
+<a name='L98'>    <b>for</b> (j = 0; j &lt; <a href='../S/68.html#L40' title='Defined at 40 in src/bio.h.'>REDIS_BIO_NUM_OPS</a>; j++) <font color='red'>{</font>
+<a name='L99'>        pthread_mutex_init(&amp;bio_mutex[j],NULL);
+<a name='L100'>        pthread_cond_init(&amp;bio_condvar[j],NULL);
+<a name='L101'>        bio_jobs[j] = <a href='../S/54.html#L41' title='Defined at 41 in src/adlist.c.'>listCreate</a>();
+<a name='L102'>        bio_pending[j] = 0;
+<a name='L103'>    <font color='red'>}</font>
+<a name='L104'>
+<a name='L105'>    <i><font color='green'>/* Set the stack size as by default it may be small in some system */</font></i>
+<a name='L106'>    pthread_attr_init(&amp;attr);
+<a name='L107'>    pthread_attr_getstacksize(&amp;attr,&amp;stacksize);
+<a name='L108'>    <b>if</b> (!stacksize) stacksize = 1; <i><font color='green'>/* The world is full of Solaris Fixes */</font></i>
+<a name='L109'>    <b>while</b> (stacksize &lt; <a href='../S/25.html#L88' title='Defined at 88 in src/bio.c.'>REDIS_THREAD_STACK_SIZE</a>) stacksize *= 2;
+<a name='L110'>    pthread_attr_setstacksize(&amp;attr, stacksize);
+<a name='L111'>
+<a name='L112'>    <i><font color='green'>/* Ready to spawn our threads. We use the single argument the thread</font></i>
+<a name='L113'><i><font color='green'>     * function accepts in order to pass the job ID the thread is</font></i>
+<a name='L114'><i><font color='green'>     * responsible of. */</font></i>
+<a name='L115'>    <b>for</b> (j = 0; j &lt; <a href='../S/68.html#L40' title='Defined at 40 in src/bio.h.'>REDIS_BIO_NUM_OPS</a>; j++) <font color='red'>{</font>
+<a name='L116'>        <b>void</b> *arg = (<b>void</b>*)(<b>unsigned</b> <b>long</b>) j;
+<a name='L117'>        <b>if</b> (<a href='../S/214.html#L52' title='Defined at 52 in deps/jemalloc/src/mutex.c.'>pthread_create</a>(&amp;thread,&amp;attr,<a href='../S/25.html#L138' title='Defined at 138 in src/bio.c.'>bioProcessBackgroundJobs</a>,arg) != 0) <font color='red'>{</font>
+<a name='L118'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Fatal: Can't initialize Background Jobs.");
+<a name='L119'>            exit(1);
+<a name='L120'>        <font color='red'>}</font>
+<a name='L121'>    <font color='red'>}</font>
+<a name='L122'><font color='red'>}</font>
+<a name='L123'>
+<a name='L124'><b>void</b> <a href='../R/1458.html' title='Multiple refered from 3 places.'>bioCreateBackgroundJob</a>(<b>int</b> type, <b>void</b> *arg1, <b>void</b> *arg2, <b>void</b> *arg3) <font color='red'>{</font>
+<a name='L125'>    <b>struct</b> <a href='../S/25.html#L77' title='Defined at 77 in src/bio.c.'>bio_job</a> *job = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(*job));
+<a name='L126'>
+<a name='L127'>    job-&gt;time = time(NULL);
+<a name='L128'>    job-&gt;arg1 = arg1;
+<a name='L129'>    job-&gt;arg2 = arg2;
+<a name='L130'>    job-&gt;arg3 = arg3;
+<a name='L131'>    pthread_mutex_lock(&amp;bio_mutex[type]);
+<a name='L132'>    <a href='../S/54.html#L106' title='Defined at 106 in src/adlist.c.'>listAddNodeTail</a>(bio_jobs[type],job);
+<a name='L133'>    bio_pending[type]++;
+<a name='L134'>    pthread_cond_signal(&amp;bio_condvar[type]);
+<a name='L135'>    pthread_mutex_unlock(&amp;bio_mutex[type]);
+<a name='L136'><font color='red'>}</font>
+<a name='L137'>
+<a name='L138'><b>void</b> *<a href='../R/1462.html' title='Multiple refered from 2 places.'>bioProcessBackgroundJobs</a>(<b>void</b> *arg) <font color='red'>{</font>
+<a name='L139'>    <b>struct</b> <a href='../S/25.html#L77' title='Defined at 77 in src/bio.c.'>bio_job</a> *job;
+<a name='L140'>    <b>unsigned</b> <b>long</b> type = (<b>unsigned</b> <b>long</b>) arg;
+<a name='L141'>    sigset_t sigset;
+<a name='L142'>
+<a name='L143'>    pthread_detach(pthread_self());
+<a name='L144'>    pthread_mutex_lock(&amp;bio_mutex[type]);
+<a name='L145'>    <i><font color='green'>/* Block SIGALRM so we are sure that only the main thread will</font></i>
+<a name='L146'><i><font color='green'>     * receive the watchdog signal. */</font></i>
+<a name='L147'>    sigemptyset(&amp;sigset);
+<a name='L148'>    sigaddset(&amp;sigset, SIGALRM);
+<a name='L149'>    <b>if</b> (pthread_sigmask(SIG_BLOCK, &amp;sigset, NULL))
+<a name='L150'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,
+<a name='L151'>            "Warning: can't mask SIGALRM in bio.c thread: %s", strerror(errno));
+<a name='L152'>
+<a name='L153'>    <b>while</b>(1) <font color='red'>{</font>
+<a name='L154'>        <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln;
+<a name='L155'>
+<a name='L156'>        <i><font color='green'>/* The loop always starts with the lock hold. */</font></i>
+<a name='L157'>        <b>if</b> (<a href='../S/58.html#L57' title='Defined at 57 in src/adlist.h.'>listLength</a>(bio_jobs[type]) == 0) <font color='red'>{</font>
+<a name='L158'>            pthread_cond_wait(&amp;bio_condvar[type],&amp;bio_mutex[type]);
+<a name='L159'>            <b>continue</b>;
+<a name='L160'>        <font color='red'>}</font>
+<a name='L161'>        <i><font color='green'>/* Pop the job from the queue. */</font></i>
+<a name='L162'>        ln = <a href='../S/58.html#L58' title='Defined at 58 in src/adlist.h.'>listFirst</a>(bio_jobs[type]);
+<a name='L163'>        job = ln-&gt;value;
+<a name='L164'>        <i><font color='green'>/* It is now possible to unlock the background system as we know have</font></i>
+<a name='L165'><i><font color='green'>         * a stand alone job structure to process.*/</font></i>
+<a name='L166'>        pthread_mutex_unlock(&amp;bio_mutex[type]);
+<a name='L167'>
+<a name='L168'>        <i><font color='green'>/* Process the job accordingly to its type. */</font></i>
+<a name='L169'>        <b>if</b> (type == <a href='../S/68.html#L38' title='Defined at 38 in src/bio.h.'>REDIS_BIO_CLOSE_FILE</a>) <font color='red'>{</font>
+<a name='L170'>            close((<b>long</b>)job-&gt;arg1);
+<a name='L171'>        <font color='red'>}</font> <b>else</b> <b>if</b> (type == <a href='../S/68.html#L39' title='Defined at 39 in src/bio.h.'>REDIS_BIO_AOF_FSYNC</a>) <font color='red'>{</font>
+<a name='L172'>            <a href='../D/1557.html' title='Multiple defined in 2 places.'>aof_fsync</a>((<b>long</b>)job-&gt;arg1);
+<a name='L173'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L174'>            <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Wrong job type in bioProcessBackgroundJobs().");
+<a name='L175'>        <font color='red'>}</font>
+<a name='L176'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(job);
+<a name='L177'>
+<a name='L178'>        <i><font color='green'>/* Lock again before reiterating the loop, if there are no longer</font></i>
+<a name='L179'><i><font color='green'>         * jobs to process we'll block again in pthread_cond_wait(). */</font></i>
+<a name='L180'>        pthread_mutex_lock(&amp;bio_mutex[type]);
+<a name='L181'>        <a href='../S/54.html#L159' title='Defined at 159 in src/adlist.c.'>listDelNode</a>(bio_jobs[type],ln);
+<a name='L182'>        bio_pending[type]--;
+<a name='L183'>    <font color='red'>}</font>
+<a name='L184'><font color='red'>}</font>
+<a name='L185'>
+<a name='L186'><i><font color='green'>/* Return the number of pending jobs of the specified type. */</font></i>
+<a name='L187'><b>unsigned</b> <b>long</b> <b>long</b> <a href='../R/1461.html' title='Multiple refered from 4 places.'>bioPendingJobsOfType</a>(<b>int</b> type) <font color='red'>{</font>
+<a name='L188'>    <b>unsigned</b> <b>long</b> <b>long</b> val;
+<a name='L189'>    pthread_mutex_lock(&amp;bio_mutex[type]);
+<a name='L190'>    val = bio_pending[type];
+<a name='L191'>    pthread_mutex_unlock(&amp;bio_mutex[type]);
+<a name='L192'>    <b>return</b> val;
+<a name='L193'><font color='red'>}</font>
+<a name='L194'>
+<a name='L195'><font color='darkred'>#if</font> 0 <i><font color='green'>/* We don't use the following code for now, and bioWaitPendingJobsLE</font></i>
+<a name='L196'><i><font color='green'>         probably needs a rewrite using conditional variables instead of the</font></i>
+<a name='L197'><i><font color='green'>         current implementation. */</font></i>
+<a name='L198'>         
+<a name='L199'>
+<a name='L200'><i><font color='green'>/* Wait until the number of pending jobs of the specified type are</font></i>
+<a name='L201'><i><font color='green'> * less or equal to the specified number.</font></i>
+<a name='L202'><i><font color='green'> *</font></i>
+<a name='L203'><i><font color='green'> * This function may block for long time, it should only be used to perform</font></i>
+<a name='L204'><i><font color='green'> * the following tasks:</font></i>
+<a name='L205'><i><font color='green'> *</font></i>
+<a name='L206'><i><font color='green'> * 1) To avoid that the main thread is pushing jobs of a given time so fast</font></i>
+<a name='L207'><i><font color='green'> *    that the background thread can't process them at the same speed.</font></i>
+<a name='L208'><i><font color='green'> *    So before creating a new job of a given type the main thread should</font></i>
+<a name='L209'><i><font color='green'> *    call something like: bioWaitPendingJobsLE(job_type,10000);</font></i>
+<a name='L210'><i><font color='green'> * 2) In order to perform special operations that make it necessary to be sure</font></i>
+<a name='L211'><i><font color='green'> *    no one is touching shared resourced in the background.</font></i>
+<a name='L212'><i><font color='green'> */</font></i>
+<a name='L213'><b>void</b> <a href='../S/68.html#L34' title='Refered from 34 in src/bio.h.'>bioWaitPendingJobsLE</a>(<b>int</b> type, <b>unsigned</b> <b>long</b> <b>long</b> num) <font color='red'>{</font>
+<a name='L214'>    <b>unsigned</b> <b>long</b> <b>long</b> iteration = 0;
+<a name='L215'>
+<a name='L216'>    <i><font color='green'>/* We poll the jobs queue aggressively to start, and gradually relax</font></i>
+<a name='L217'><i><font color='green'>     * the polling speed if it is going to take too much time. */</font></i>
+<a name='L218'>    <b>while</b>(1) <font color='red'>{</font>
+<a name='L219'>        iteration++;
+<a name='L220'>        <b>if</b> (iteration &gt; 1000 &amp;&amp; iteration &lt;= 10000) <font color='red'>{</font>
+<a name='L221'>            usleep(100);
+<a name='L222'>        <font color='red'>}</font> <b>else</b> <b>if</b> (iteration &gt; 10000) <font color='red'>{</font>
+<a name='L223'>            usleep(1000);
+<a name='L224'>        <font color='red'>}</font>
+<a name='L225'>        <b>if</b> (<a href='../S/25.html#L187' title='Defined at 187 in src/bio.c.'>bioPendingJobsOfType</a>(type) &lt;= num) <b>break</b>;
+<a name='L226'>    <font color='red'>}</font>
+<a name='L227'><font color='red'>}</font>
+<a name='L228'>
+<a name='L229'><i><font color='green'>/* Return the older job of the specified type. */</font></i>
+<a name='L230'>time_t <a href='../S/68.html#L35' title='Refered from 35 in src/bio.h.'>bioOlderJobOfType</a>(<b>int</b> type) <font color='red'>{</font>
+<a name='L231'>    time_t time;
+<a name='L232'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln;
+<a name='L233'>    <b>struct</b> <a href='../S/25.html#L77' title='Defined at 77 in src/bio.c.'>bio_job</a> *job;
+<a name='L234'>
+<a name='L235'>    pthread_mutex_lock(&amp;bio_mutex[type]);
+<a name='L236'>    ln = <a href='../S/58.html#L58' title='Defined at 58 in src/adlist.h.'>listFirst</a>(bio_jobs[type]);
+<a name='L237'>    <b>if</b> (ln == NULL) <font color='red'>{</font>
+<a name='L238'>        pthread_mutex_unlock(&amp;bio_mutex[type]);
+<a name='L239'>        <b>return</b> 0;
+<a name='L240'>    <font color='red'>}</font>
+<a name='L241'>    job = ln-&gt;value;
+<a name='L242'>    time = job-&gt;time;
+<a name='L243'>    pthread_mutex_unlock(&amp;bio_mutex[type]);
+<a name='L244'>    <b>return</b> time;
+<a name='L245'><font color='red'>}</font>
+<a name='L246'>
+<a name='L247'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L91'>[^]</a><a href='#L230'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

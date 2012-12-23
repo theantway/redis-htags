@@ -1,0 +1,390 @@
+<html>
+<head>
+<title>src/zmalloc.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/zmalloc.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L38'>[^]</a><a href='#L348'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L38' title='Defined at 38.'>zlibc_free</a>
+<li><a href='#L112' title='Defined at 112.'>zmalloc_default_oom</a>
+<li><a href='#L121' title='Defined at 121.'>zmalloc</a>
+<li><a href='#L135' title='Defined at 135.'>zcalloc</a>
+<li><a href='#L149' title='Defined at 149.'>zrealloc</a>
+<li><a href='#L182' title='Defined at 182.'>zmalloc_size</a>
+<li><a href='#L192' title='Defined at 192.'>zfree</a>
+<li><a href='#L210' title='Defined at 210.'>zstrdup</a>
+<li><a href='#L218' title='Defined at 218.'>zmalloc_used_memory</a>
+<li><a href='#L237' title='Defined at 237.'>zmalloc_enable_thread_safeness</a>
+<li><a href='#L241' title='Defined at 241.'>zmalloc_set_oom_handler</a>
+<li><a href='#L261' title='Defined at 261.'>zmalloc_get_rss</a>
+<li><a href='#L301' title='Defined at 301.'>zmalloc_get_rss</a>
+<li><a href='#L313' title='Defined at 313.'>zmalloc_get_rss</a>
+<li><a href='#L324' title='Defined at 324.'>zmalloc_get_fragmentation_ratio</a>
+<li><a href='#L329' title='Defined at 329.'>zmalloc_get_private_dirty</a>
+<li><a href='#L348' title='Defined at 348.'>zmalloc_get_private_dirty</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* zmalloc - total amount of allocated memory aware version of malloc()</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2009-2010, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L32'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L33'>
+<a name='L34'><i><font color='green'>/* This function provide us access to the original libc free(). This is useful</font></i>
+<a name='L35'><i><font color='green'> * for instance to free results obtained by backtrace_symbols(). We need</font></i>
+<a name='L36'><i><font color='green'> * to define this function before including zmalloc.h that may shadow the</font></i>
+<a name='L37'><i><font color='green'> * free implementation if we use jemalloc or another non standard allocator. */</font></i>
+<a name='L38'><b>void</b> <a href='../S/28.html#L79' title='Refered from 79 in src/zmalloc.h.'>zlibc_free</a>(<b>void</b> *ptr) <font color='red'>{</font>
+<a name='L39'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(ptr);
+<a name='L40'><font color='red'>}</font>
+<a name='L41'>
+<a name='L42'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L43'><font color='darkred'>#include</font> &lt;pthread.h&gt;
+<a name='L44'><font color='darkred'>#include</font> "<a href='53.html'>config.h</a>"
+<a name='L45'><font color='darkred'>#include</font> "<a href='28.html'>zmalloc.h</a>"
+<a name='L46'>
+<a name='L47'><font color='darkred'>#ifdef</font> <a href='../D/183.html' title='Multiple defined in 3 places.'>HAVE_MALLOC_SIZE</a>
+<a name='L48'><font color='darkred'>#define</font> <a href='../R/562.html' title='Multiple refered from 13 places.'>PREFIX_SIZE</a> (0)
+<a name='L49'><font color='darkred'>#else</font>
+<a name='L50'><font color='darkred'>#if</font> <b>defined</b>(__sun) || <b>defined</b>(__sparc) || <b>defined</b>(__sparc__)
+<a name='L51'><font color='darkred'>#define</font> <a href='../R/562.html' title='Multiple refered from 13 places.'>PREFIX_SIZE</a> (<b>sizeof</b>(<b>long</b> <b>long</b>))
+<a name='L52'><font color='darkred'>#else</font>
+<a name='L53'><font color='darkred'>#define</font> <a href='../R/562.html' title='Multiple refered from 13 places.'>PREFIX_SIZE</a> (<b>sizeof</b>(size_t))
+<a name='L54'><font color='darkred'>#endif</font>
+<a name='L55'><font color='darkred'>#endif</font>
+<a name='L56'>
+<a name='L57'><i><font color='green'>/* Explicitly override malloc/free etc when using tcmalloc. */</font></i>
+<a name='L58'><font color='darkred'>#if</font> <b>defined</b>(USE_TCMALLOC)
+<a name='L59'><font color='darkred'>#define</font> <a href='../R/2915.html' title='Multiple refered from 51 places.'>malloc</a>(size) tc_malloc(size)
+<a name='L60'><font color='darkred'>#define</font> <a href='../R/1523.html' title='Multiple refered from 8 places.'>calloc</a>(count,size) tc_calloc(count,size)
+<a name='L61'><font color='darkred'>#define</font> <a href='../R/3388.html' title='Multiple refered from 17 places.'>realloc</a>(ptr,size) tc_realloc(ptr,size)
+<a name='L62'><font color='darkred'>#define</font> <a href='../R/1991.html' title='Multiple refered from 175 places.'>free</a>(ptr) tc_free(ptr)
+<a name='L63'><font color='darkred'>#elif</font> <b>defined</b>(USE_JEMALLOC)
+<a name='L64'><font color='darkred'>#define</font> <a href='../R/2915.html' title='Multiple refered from 51 places.'>malloc</a>(size) <a href='../S/213.html#L829' title='Defined at 829 in deps/jemalloc/src/jemalloc.c.'>je_malloc</a>(size)
+<a name='L65'><font color='darkred'>#define</font> <a href='../R/1523.html' title='Multiple refered from 8 places.'>calloc</a>(count,size) <a href='../S/213.html#L1002' title='Defined at 1002 in deps/jemalloc/src/jemalloc.c.'>je_calloc</a>(count,size)
+<a name='L66'><font color='darkred'>#define</font> <a href='../R/3388.html' title='Multiple refered from 17 places.'>realloc</a>(ptr,size) <a href='../S/213.html#L1077' title='Defined at 1077 in deps/jemalloc/src/jemalloc.c.'>je_realloc</a>(ptr,size)
+<a name='L67'><font color='darkred'>#define</font> <a href='../R/1991.html' title='Multiple refered from 175 places.'>free</a>(ptr) <a href='../S/213.html#L1224' title='Defined at 1224 in deps/jemalloc/src/jemalloc.c.'>je_free</a>(ptr)
+<a name='L68'><font color='darkred'>#endif</font>
+<a name='L69'>
+<a name='L70'><font color='darkred'>#ifdef</font> <a href='../S/53.html#L161' title='Defined at 161 in src/config.h.'>HAVE_ATOMIC</a>
+<a name='L71'><font color='darkred'>#define</font> <a href='../S/39.html#L92' title='Refered from 92 in src/zmalloc.c.'>update_zmalloc_stat_add</a>(__n) __sync_add_and_fetch(&amp;used_memory, (__n))
+<a name='L72'><font color='darkred'>#define</font> <a href='../S/39.html#L102' title='Refered from 102 in src/zmalloc.c.'>update_zmalloc_stat_sub</a>(__n) __sync_sub_and_fetch(&amp;used_memory, (__n))
+<a name='L73'><font color='darkred'>#else</font>
+<a name='L74'><font color='darkred'>#define</font> <a href='../S/39.html#L92' title='Refered from 92 in src/zmalloc.c.'>update_zmalloc_stat_add</a>(__n) <b>do</b> <font color='red'>{</font> \
+<a name='L75'>    pthread_mutex_lock(&amp;used_memory_mutex); \
+<a name='L76'>    used_memory += (__n); \
+<a name='L77'>    pthread_mutex_unlock(&amp;used_memory_mutex); \
+<a name='L78'><font color='red'>}</font> <b>while</b>(0)
+<a name='L79'>
+<a name='L80'><font color='darkred'>#define</font> <a href='../S/39.html#L102' title='Refered from 102 in src/zmalloc.c.'>update_zmalloc_stat_sub</a>(__n) <b>do</b> <font color='red'>{</font> \
+<a name='L81'>    pthread_mutex_lock(&amp;used_memory_mutex); \
+<a name='L82'>    used_memory -= (__n); \
+<a name='L83'>    pthread_mutex_unlock(&amp;used_memory_mutex); \
+<a name='L84'><font color='red'>}</font> <b>while</b>(0)
+<a name='L85'>
+<a name='L86'><font color='darkred'>#endif</font>
+<a name='L87'>
+<a name='L88'><font color='darkred'>#define</font> <a href='../R/4066.html' title='Multiple refered from 6 places.'>update_zmalloc_stat_alloc</a>(__n) <b>do</b> <font color='red'>{</font> \
+<a name='L89'>    size_t _n = (__n); \
+<a name='L90'>    <b>if</b> (_n&amp;(<b>sizeof</b>(<b>long</b>)-1)) _n += <b>sizeof</b>(<b>long</b>)-(_n&amp;(<b>sizeof</b>(<b>long</b>)-1)); \
+<a name='L91'>    <b>if</b> (zmalloc_thread_safe) <font color='red'>{</font> \
+<a name='L92'>        <a href='../D/4453.html' title='Multiple defined in 2 places.'>update_zmalloc_stat_add</a>(_n); \
+<a name='L93'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font> \
+<a name='L94'>        used_memory += _n; \
+<a name='L95'>    <font color='red'>}</font> \
+<a name='L96'><font color='red'>}</font> <b>while</b>(0)
+<a name='L97'>
+<a name='L98'><font color='darkred'>#define</font> <a href='../R/4067.html' title='Multiple refered from 4 places.'>update_zmalloc_stat_free</a>(__n) <b>do</b> <font color='red'>{</font> \
+<a name='L99'>    size_t _n = (__n); \
+<a name='L100'>    <b>if</b> (_n&amp;(<b>sizeof</b>(<b>long</b>)-1)) _n += <b>sizeof</b>(<b>long</b>)-(_n&amp;(<b>sizeof</b>(<b>long</b>)-1)); \
+<a name='L101'>    <b>if</b> (zmalloc_thread_safe) <font color='red'>{</font> \
+<a name='L102'>        <a href='../D/4456.html' title='Multiple defined in 2 places.'>update_zmalloc_stat_sub</a>(_n); \
+<a name='L103'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font> \
+<a name='L104'>        used_memory -= _n; \
+<a name='L105'>    <font color='red'>}</font> \
+<a name='L106'><font color='red'>}</font> <b>while</b>(0)
+<a name='L107'>
+<a name='L108'><b>static</b> size_t used_memory = 0;
+<a name='L109'><b>static</b> <b>int</b> zmalloc_thread_safe = 0;
+<a name='L110'>pthread_mutex_t used_memory_mutex = PTHREAD_MUTEX_INITIALIZER;
+<a name='L111'>
+<a name='L112'><b>static</b> <b>void</b> <a href='../S/39.html#L119' title='Refered from 119 in src/zmalloc.c.'>zmalloc_default_oom</a>(size_t size) <font color='red'>{</font>
+<a name='L113'>    fprintf(stderr, "zmalloc: Out of memory trying to allocate %zu bytes\n",
+<a name='L114'>        size);
+<a name='L115'>    fflush(stderr);
+<a name='L116'>    abort();
+<a name='L117'><font color='red'>}</font>
+<a name='L118'>
+<a name='L119'><b>static</b> <b>void</b> (*zmalloc_oom_handler)(size_t) = <a href='../S/39.html#L112' title='Defined at 112 in src/zmalloc.c.'>zmalloc_default_oom</a>;
+<a name='L120'>
+<a name='L121'><b>void</b> *<a href='../R/4151.html' title='Multiple refered from 80 places.'>zmalloc</a>(size_t size) <font color='red'>{</font>
+<a name='L122'>    <b>void</b> *ptr = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(size+<a href='../D/614.html' title='Multiple defined in 3 places.'>PREFIX_SIZE</a>);
+<a name='L123'>
+<a name='L124'>    <b>if</b> (!ptr) zmalloc_oom_handler(size);
+<a name='L125'><font color='darkred'>#ifdef</font> <a href='../D/183.html' title='Multiple defined in 3 places.'>HAVE_MALLOC_SIZE</a>
+<a name='L126'>    <a href='../S/39.html#L88' title='Defined at 88 in src/zmalloc.c.'>update_zmalloc_stat_alloc</a>(<a href='../D/4548.html' title='Multiple defined in 4 places.'>zmalloc_size</a>(ptr));
+<a name='L127'>    <b>return</b> ptr;
+<a name='L128'><font color='darkred'>#else</font>
+<a name='L129'>    *((size_t*)ptr) = size;
+<a name='L130'>    <a href='../S/39.html#L88' title='Defined at 88 in src/zmalloc.c.'>update_zmalloc_stat_alloc</a>(size+<a href='../D/614.html' title='Multiple defined in 3 places.'>PREFIX_SIZE</a>);
+<a name='L131'>    <b>return</b> (<b>char</b>*)ptr+<a href='../D/614.html' title='Multiple defined in 3 places.'>PREFIX_SIZE</a>;
+<a name='L132'><font color='darkred'>#endif</font>
+<a name='L133'><font color='red'>}</font>
+<a name='L134'>
+<a name='L135'><b>void</b> *<a href='../R/4099.html' title='Multiple refered from 4 places.'>zcalloc</a>(size_t size) <font color='red'>{</font>
+<a name='L136'>    <b>void</b> *ptr = <a href='../D/1797.html' title='Multiple defined in 2 places.'>calloc</a>(1, size+<a href='../D/614.html' title='Multiple defined in 3 places.'>PREFIX_SIZE</a>);
+<a name='L137'>
+<a name='L138'>    <b>if</b> (!ptr) zmalloc_oom_handler(size);
+<a name='L139'><font color='darkred'>#ifdef</font> <a href='../D/183.html' title='Multiple defined in 3 places.'>HAVE_MALLOC_SIZE</a>
+<a name='L140'>    <a href='../S/39.html#L88' title='Defined at 88 in src/zmalloc.c.'>update_zmalloc_stat_alloc</a>(<a href='../D/4548.html' title='Multiple defined in 4 places.'>zmalloc_size</a>(ptr));
+<a name='L141'>    <b>return</b> ptr;
+<a name='L142'><font color='darkred'>#else</font>
+<a name='L143'>    *((size_t*)ptr) = size;
+<a name='L144'>    <a href='../S/39.html#L88' title='Defined at 88 in src/zmalloc.c.'>update_zmalloc_stat_alloc</a>(size+<a href='../D/614.html' title='Multiple defined in 3 places.'>PREFIX_SIZE</a>);
+<a name='L145'>    <b>return</b> (<b>char</b>*)ptr+<a href='../D/614.html' title='Multiple defined in 3 places.'>PREFIX_SIZE</a>;
+<a name='L146'><font color='darkred'>#endif</font>
+<a name='L147'><font color='red'>}</font>
+<a name='L148'>
+<a name='L149'><b>void</b> *<a href='../R/4178.html' title='Multiple refered from 12 places.'>zrealloc</a>(<b>void</b> *ptr, size_t size) <font color='red'>{</font>
+<a name='L150'><font color='darkred'>#ifndef</font> <a href='../D/183.html' title='Multiple defined in 3 places.'>HAVE_MALLOC_SIZE</a>
+<a name='L151'>    <b>void</b> *realptr;
+<a name='L152'><font color='darkred'>#endif</font>
+<a name='L153'>    size_t oldsize;
+<a name='L154'>    <b>void</b> *newptr;
+<a name='L155'>
+<a name='L156'>    <b>if</b> (ptr == NULL) <b>return</b> <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(size);
+<a name='L157'><font color='darkred'>#ifdef</font> <a href='../D/183.html' title='Multiple defined in 3 places.'>HAVE_MALLOC_SIZE</a>
+<a name='L158'>    oldsize = <a href='../D/4548.html' title='Multiple defined in 4 places.'>zmalloc_size</a>(ptr);
+<a name='L159'>    newptr = <a href='../D/3747.html' title='Multiple defined in 2 places.'>realloc</a>(ptr,size);
+<a name='L160'>    <b>if</b> (!newptr) zmalloc_oom_handler(size);
+<a name='L161'>
+<a name='L162'>    <a href='../S/39.html#L98' title='Defined at 98 in src/zmalloc.c.'>update_zmalloc_stat_free</a>(oldsize);
+<a name='L163'>    <a href='../S/39.html#L88' title='Defined at 88 in src/zmalloc.c.'>update_zmalloc_stat_alloc</a>(<a href='../D/4548.html' title='Multiple defined in 4 places.'>zmalloc_size</a>(newptr));
+<a name='L164'>    <b>return</b> newptr;
+<a name='L165'><font color='darkred'>#else</font>
+<a name='L166'>    realptr = (<b>char</b>*)ptr-<a href='../D/614.html' title='Multiple defined in 3 places.'>PREFIX_SIZE</a>;
+<a name='L167'>    oldsize = *((size_t*)realptr);
+<a name='L168'>    newptr = <a href='../D/3747.html' title='Multiple defined in 2 places.'>realloc</a>(realptr,size+<a href='../D/614.html' title='Multiple defined in 3 places.'>PREFIX_SIZE</a>);
+<a name='L169'>    <b>if</b> (!newptr) zmalloc_oom_handler(size);
+<a name='L170'>
+<a name='L171'>    *((size_t*)newptr) = size;
+<a name='L172'>    <a href='../S/39.html#L98' title='Defined at 98 in src/zmalloc.c.'>update_zmalloc_stat_free</a>(oldsize);
+<a name='L173'>    <a href='../S/39.html#L88' title='Defined at 88 in src/zmalloc.c.'>update_zmalloc_stat_alloc</a>(size);
+<a name='L174'>    <b>return</b> (<b>char</b>*)newptr+<a href='../D/614.html' title='Multiple defined in 3 places.'>PREFIX_SIZE</a>;
+<a name='L175'><font color='darkred'>#endif</font>
+<a name='L176'><font color='red'>}</font>
+<a name='L177'>
+<a name='L178'><i><font color='green'>/* Provide zmalloc_size() for systems where this function is not provided by</font></i>
+<a name='L179'><i><font color='green'> * malloc itself, given that in that case we store an header with this</font></i>
+<a name='L180'><i><font color='green'> * information as the first bytes of every allocation. */</font></i>
+<a name='L181'><font color='darkred'>#ifndef</font> <a href='../D/183.html' title='Multiple defined in 3 places.'>HAVE_MALLOC_SIZE</a>
+<a name='L182'>size_t <a href='../R/4158.html' title='Multiple refered from 7 places.'>zmalloc_size</a>(<b>void</b> *ptr) <font color='red'>{</font>
+<a name='L183'>    <b>void</b> *realptr = (<b>char</b>*)ptr-<a href='../D/614.html' title='Multiple defined in 3 places.'>PREFIX_SIZE</a>;
+<a name='L184'>    size_t size = *((size_t*)realptr);
+<a name='L185'>    <i><font color='green'>/* Assume at least that all the allocations are padded at sizeof(long) by</font></i>
+<a name='L186'><i><font color='green'>     * the underlying allocator. */</font></i>
+<a name='L187'>    <b>if</b> (size&amp;(<b>sizeof</b>(<b>long</b>)-1)) size += <b>sizeof</b>(<b>long</b>)-(size&amp;(<b>sizeof</b>(<b>long</b>)-1));
+<a name='L188'>    <b>return</b> size+<a href='../D/614.html' title='Multiple defined in 3 places.'>PREFIX_SIZE</a>;
+<a name='L189'><font color='red'>}</font>
+<a name='L190'><font color='darkred'>#endif</font>
+<a name='L191'>
+<a name='L192'><b>void</b> <a href='../R/4102.html' title='Multiple refered from 135 places.'>zfree</a>(<b>void</b> *ptr) <font color='red'>{</font>
+<a name='L193'><font color='darkred'>#ifndef</font> <a href='../D/183.html' title='Multiple defined in 3 places.'>HAVE_MALLOC_SIZE</a>
+<a name='L194'>    <b>void</b> *realptr;
+<a name='L195'>    size_t oldsize;
+<a name='L196'><font color='darkred'>#endif</font>
+<a name='L197'>
+<a name='L198'>    <b>if</b> (ptr == NULL) <b>return</b>;
+<a name='L199'><font color='darkred'>#ifdef</font> <a href='../D/183.html' title='Multiple defined in 3 places.'>HAVE_MALLOC_SIZE</a>
+<a name='L200'>    <a href='../S/39.html#L98' title='Defined at 98 in src/zmalloc.c.'>update_zmalloc_stat_free</a>(<a href='../D/4548.html' title='Multiple defined in 4 places.'>zmalloc_size</a>(ptr));
+<a name='L201'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(ptr);
+<a name='L202'><font color='darkred'>#else</font>
+<a name='L203'>    realptr = (<b>char</b>*)ptr-<a href='../D/614.html' title='Multiple defined in 3 places.'>PREFIX_SIZE</a>;
+<a name='L204'>    oldsize = *((size_t*)realptr);
+<a name='L205'>    <a href='../S/39.html#L98' title='Defined at 98 in src/zmalloc.c.'>update_zmalloc_stat_free</a>(oldsize+<a href='../D/614.html' title='Multiple defined in 3 places.'>PREFIX_SIZE</a>);
+<a name='L206'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(realptr);
+<a name='L207'><font color='darkred'>#endif</font>
+<a name='L208'><font color='red'>}</font>
+<a name='L209'>
+<a name='L210'><b>char</b> *<a href='../R/4211.html' title='Multiple refered from 18 places.'>zstrdup</a>(<b>const</b> <b>char</b> *s) <font color='red'>{</font>
+<a name='L211'>    size_t l = strlen(s)+1;
+<a name='L212'>    <b>char</b> *p = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(l);
+<a name='L213'>
+<a name='L214'>    memcpy(p,s,l);
+<a name='L215'>    <b>return</b> p;
+<a name='L216'><font color='red'>}</font>
+<a name='L217'>
+<a name='L218'>size_t <a href='../R/4160.html' title='Multiple refered from 15 places.'>zmalloc_used_memory</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L219'>    size_t um;
+<a name='L220'>
+<a name='L221'>    <b>if</b> (zmalloc_thread_safe) <font color='red'>{</font>
+<a name='L222'><font color='darkred'>#ifdef</font> <a href='../S/53.html#L161' title='Defined at 161 in src/config.h.'>HAVE_ATOMIC</a>
+<a name='L223'>        um = __sync_add_and_fetch(&amp;used_memory, 0);
+<a name='L224'><font color='darkred'>#else</font>
+<a name='L225'>        pthread_mutex_lock(&amp;used_memory_mutex);
+<a name='L226'>        um = used_memory;
+<a name='L227'>        pthread_mutex_unlock(&amp;used_memory_mutex);
+<a name='L228'><font color='darkred'>#endif</font>
+<a name='L229'>    <font color='red'>}</font>
+<a name='L230'>    <b>else</b> <font color='red'>{</font>
+<a name='L231'>        um = used_memory;
+<a name='L232'>    <font color='red'>}</font>
+<a name='L233'>
+<a name='L234'>    <b>return</b> um;
+<a name='L235'><font color='red'>}</font>
+<a name='L236'>
+<a name='L237'><b>void</b> <a href='../R/4153.html' title='Multiple refered from 2 places.'>zmalloc_enable_thread_safeness</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L238'>    zmalloc_thread_safe = 1;
+<a name='L239'><font color='red'>}</font>
+<a name='L240'>
+<a name='L241'><b>void</b> <a href='../R/4157.html' title='Multiple refered from 2 places.'>zmalloc_set_oom_handler</a>(<b>void</b> (*oom_handler)(size_t)) <font color='red'>{</font>
+<a name='L242'>    zmalloc_oom_handler = oom_handler;
+<a name='L243'><font color='red'>}</font>
+<a name='L244'>
+<a name='L245'><i><font color='green'>/* Get the RSS information in an OS-specific way.</font></i>
+<a name='L246'><i><font color='green'> *</font></i>
+<a name='L247'><i><font color='green'> * WARNING: the function zmalloc_get_rss() is not designed to be fast</font></i>
+<a name='L248'><i><font color='green'> * and may not be called in the busy loops where Redis tries to release</font></i>
+<a name='L249'><i><font color='green'> * memory expiring or swapping out objects.</font></i>
+<a name='L250'><i><font color='green'> *</font></i>
+<a name='L251'><i><font color='green'> * For this kind of "fast RSS reporting" usages use instead the</font></i>
+<a name='L252'><i><font color='green'> * function RedisEstimateRSS() that is a much faster (and less precise)</font></i>
+<a name='L253'><i><font color='green'> * version of the funciton. */</font></i>
+<a name='L254'>
+<a name='L255'><font color='darkred'>#if</font> <b>defined</b>(<a href='../S/53.html#L48' title='Defined at 48 in src/config.h.'>HAVE_PROCFS</a>)
+<a name='L256'><font color='darkred'>#include</font> &lt;unistd.h&gt;
+<a name='L257'><font color='darkred'>#include</font> &lt;sys/types.h&gt;
+<a name='L258'><font color='darkred'>#include</font> &lt;sys/stat.h&gt;
+<a name='L259'><font color='darkred'>#include</font> &lt;fcntl.h&gt;
+<a name='L260'>
+<a name='L261'>size_t <a href='../R/4156.html' title='Multiple refered from 3 places.'>zmalloc_get_rss</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L262'>    <b>int</b> page = sysconf(_SC_PAGESIZE);
+<a name='L263'>    size_t rss;
+<a name='L264'>    <b>char</b> buf[4096];
+<a name='L265'>    <b>char</b> filename[256];
+<a name='L266'>    <b>int</b> fd, count;
+<a name='L267'>    <b>char</b> *p, *x;
+<a name='L268'>
+<a name='L269'>    snprintf(filename,256,"/proc/%d/stat",getpid());
+<a name='L270'>    <b>if</b> ((fd = open(filename,O_RDONLY)) == -1) <b>return</b> 0;
+<a name='L271'>    <b>if</b> (read(fd,buf,4096) &lt;= 0) <font color='red'>{</font>
+<a name='L272'>        close(fd);
+<a name='L273'>        <b>return</b> 0;
+<a name='L274'>    <font color='red'>}</font>
+<a name='L275'>    close(fd);
+<a name='L276'>
+<a name='L277'>    p = buf;
+<a name='L278'>    count = 23; <i><font color='green'>/* RSS is the 24th field in /proc/&lt;pid&gt;/stat */</font></i>
+<a name='L279'>    <b>while</b>(p &amp;&amp; count--) <font color='red'>{</font>
+<a name='L280'>        p = strchr(p,' ');
+<a name='L281'>        <b>if</b> (p) p++;
+<a name='L282'>    <font color='red'>}</font>
+<a name='L283'>    <b>if</b> (!p) <b>return</b> 0;
+<a name='L284'>    x = strchr(p,' ');
+<a name='L285'>    <b>if</b> (!x) <b>return</b> 0;
+<a name='L286'>    *x = '\0';
+<a name='L287'>
+<a name='L288'>    rss = strtoll(p,NULL,10);
+<a name='L289'>    rss *= page;
+<a name='L290'>    <b>return</b> rss;
+<a name='L291'><font color='red'>}</font>
+<a name='L292'><font color='darkred'>#elif</font> <b>defined</b>(<a href='../S/53.html#L53' title='Defined at 53 in src/config.h.'>HAVE_TASKINFO</a>)
+<a name='L293'><font color='darkred'>#include</font> &lt;unistd.h&gt;
+<a name='L294'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L295'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L296'><font color='darkred'>#include</font> &lt;sys/types.h&gt;
+<a name='L297'><font color='darkred'>#include</font> &lt;sys/sysctl.h&gt;
+<a name='L298'><font color='darkred'>#include</font> &lt;mach/task.h&gt;
+<a name='L299'><font color='darkred'>#include</font> &lt;mach/mach_init.h&gt;
+<a name='L300'>
+<a name='L301'>size_t <a href='../R/4156.html' title='Multiple refered from 3 places.'>zmalloc_get_rss</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L302'>    task_t task = MACH_PORT_NULL;
+<a name='L303'>    <b>struct</b> task_basic_info t_info;
+<a name='L304'>    mach_msg_type_number_t t_info_count = TASK_BASIC_INFO_COUNT;
+<a name='L305'>
+<a name='L306'>    <b>if</b> (task_for_pid(current_task(), getpid(), &amp;task) != KERN_SUCCESS)
+<a name='L307'>        <b>return</b> 0;
+<a name='L308'>    task_info(task, TASK_BASIC_INFO, (task_info_t)&amp;t_info, &amp;t_info_count);
+<a name='L309'>
+<a name='L310'>    <b>return</b> t_info.resident_size;
+<a name='L311'><font color='red'>}</font>
+<a name='L312'><font color='darkred'>#else</font>
+<a name='L313'>size_t <a href='../R/4156.html' title='Multiple refered from 3 places.'>zmalloc_get_rss</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L314'>    <i><font color='green'>/* If we can't get the RSS in an OS-specific way for this system just</font></i>
+<a name='L315'><i><font color='green'>     * return the memory usage we estimated in zmalloc()..</font></i>
+<a name='L316'><i><font color='green'>     *</font></i>
+<a name='L317'><i><font color='green'>     * Fragmentation will appear to be always 1 (no fragmentation)</font></i>
+<a name='L318'><i><font color='green'>     * of course... */</font></i>
+<a name='L319'>    <b>return</b> <a href='../S/39.html#L218' title='Defined at 218 in src/zmalloc.c.'>zmalloc_used_memory</a>();
+<a name='L320'><font color='red'>}</font>
+<a name='L321'><font color='darkred'>#endif</font>
+<a name='L322'>
+<a name='L323'><i><font color='green'>/* Fragmentation = RSS / allocated-bytes */</font></i>
+<a name='L324'><b>float</b> <a href='../R/4154.html' title='Multiple refered from 2 places.'>zmalloc_get_fragmentation_ratio</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L325'>    <b>return</b> (<b>float</b>)<a href='../D/4546.html' title='Multiple defined in 3 places.'>zmalloc_get_rss</a>()/<a href='../S/39.html#L218' title='Defined at 218 in src/zmalloc.c.'>zmalloc_used_memory</a>();
+<a name='L326'><font color='red'>}</font>
+<a name='L327'>
+<a name='L328'><font color='darkred'>#if</font> <b>defined</b>(<a href='../S/53.html#L48' title='Defined at 48 in src/config.h.'>HAVE_PROCFS</a>)
+<a name='L329'>size_t <a href='../R/4155.html' title='Multiple refered from 3 places.'>zmalloc_get_private_dirty</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L330'>    <b>char</b> line[1024];
+<a name='L331'>    size_t pd = 0;
+<a name='L332'>    FILE *fp = fopen("/proc/self/smaps","r");
+<a name='L333'>
+<a name='L334'>    <b>if</b> (!fp) <b>return</b> 0;
+<a name='L335'>    <b>while</b>(fgets(line,<b>sizeof</b>(line),fp) != NULL) <font color='red'>{</font>
+<a name='L336'>        <b>if</b> (strncmp(line,"Private_Dirty:",14) == 0) <font color='red'>{</font>
+<a name='L337'>            <b>char</b> *p = strchr(line,'k');
+<a name='L338'>            <b>if</b> (p) <font color='red'>{</font>
+<a name='L339'>                *p = '\0';
+<a name='L340'>                pd += strtol(line+14,NULL,10) * 1024;
+<a name='L341'>            <font color='red'>}</font>
+<a name='L342'>        <font color='red'>}</font>
+<a name='L343'>    <font color='red'>}</font>
+<a name='L344'>    fclose(fp);
+<a name='L345'>    <b>return</b> pd;
+<a name='L346'><font color='red'>}</font>
+<a name='L347'><font color='darkred'>#else</font>
+<a name='L348'>size_t <a href='../R/4155.html' title='Multiple refered from 3 places.'>zmalloc_get_private_dirty</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L349'>    <b>return</b> 0;
+<a name='L350'><font color='red'>}</font>
+<a name='L351'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L38'>[^]</a><a href='#L348'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

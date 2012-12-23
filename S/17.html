@@ -1,0 +1,437 @@
+<html>
+<head>
+<title>src/bitops.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/bitops.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L40'>[^]</a><a href='#L358'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L40' title='Defined at 40.'>getBitOffsetFromArgument</a>
+<li><a href='#L61' title='Defined at 61.'>popcount</a>
+<li><a href='#L106' title='Defined at 106.'>setbitCommand</a>
+<li><a href='#L161' title='Defined at 161.'>getbitCommand</a>
+<li><a href='#L188' title='Defined at 188.'>bitopCommand</a>
+<li><a href='#L358' title='Defined at 358.'>bitcountCommand</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* Bit operations.</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'><font color='darkred'>#include</font> "<a href='32.html'>redis.h</a>"
+<a name='L32'>
+<a name='L33'><i><font color='green'>/* -----------------------------------------------------------------------------</font></i>
+<a name='L34'><i><font color='green'> * Helpers and low level bit functions.</font></i>
+<a name='L35'><i><font color='green'> * -------------------------------------------------------------------------- */</font></i>
+<a name='L36'>
+<a name='L37'><i><font color='green'>/* This helper function used by GETBIT / SETBIT parses the bit offset arguemnt</font></i>
+<a name='L38'><i><font color='green'> * making sure an error is returned if it is negative or if it overflows</font></i>
+<a name='L39'><i><font color='green'> * Redis 512 MB limit for the string value. */</font></i>
+<a name='L40'><b>static</b> <b>int</b> <a href='../R/2036.html' title='Multiple refered from 2 places.'>getBitOffsetFromArgument</a>(redisClient *c, robj *o, size_t *offset) <font color='red'>{</font>
+<a name='L41'>    <b>long</b> <b>long</b> loffset;
+<a name='L42'>    <b>char</b> *err = "bit offset is not an integer or out of range";
+<a name='L43'>
+<a name='L44'>    <b>if</b> (<a href='../S/71.html#L484' title='Defined at 484 in src/object.c.'>getLongLongFromObjectOrReply</a>(c,o,&amp;loffset,err) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L45'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L46'>
+<a name='L47'>    <i><font color='green'>/* Limit offset to 512MB in bytes */</font></i>
+<a name='L48'>    <b>if</b> ((loffset &lt; 0) || ((<b>unsigned</b> <b>long</b> <b>long</b>)loffset &gt;&gt; 3) &gt;= (512*1024*1024))
+<a name='L49'>    <font color='red'>{</font>
+<a name='L50'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,err);
+<a name='L51'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L52'>    <font color='red'>}</font>
+<a name='L53'>
+<a name='L54'>    *offset = (size_t)loffset;
+<a name='L55'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L56'><font color='red'>}</font>
+<a name='L57'>
+<a name='L58'><i><font color='green'>/* Count number of bits set in the binary array pointed by 's' and long</font></i>
+<a name='L59'><i><font color='green'> * 'count' bytes. The implementation of this function is required to</font></i>
+<a name='L60'><i><font color='green'> * work with a input string length up to 512 MB. */</font></i>
+<a name='L61'><b>long</b> <a href='../S/17.html#L407' title='Refered from 407 in src/bitops.c.'>popcount</a>(<b>void</b> *s, <b>long</b> count) <font color='red'>{</font>
+<a name='L62'>    <b>long</b> bits = 0;
+<a name='L63'>    <b>unsigned</b> <b>char</b> *p;
+<a name='L64'>    <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> *p4 = s;
+<a name='L65'>    <b>static</b> <b>const</b> <b>unsigned</b> <b>char</b> bitsinbyte[256] = <font color='red'>{</font>0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8<font color='red'>}</font>;
+<a name='L66'>
+<a name='L67'>    <i><font color='green'>/* Count bits 16 bytes at a time */</font></i>
+<a name='L68'>    <b>while</b>(count&gt;=16) <font color='red'>{</font>
+<a name='L69'>        <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> aux1, aux2, aux3, aux4;
+<a name='L70'>
+<a name='L71'>        aux1 = *p4++;
+<a name='L72'>        aux2 = *p4++;
+<a name='L73'>        aux3 = *p4++;
+<a name='L74'>        aux4 = *p4++;
+<a name='L75'>        count -= 16;
+<a name='L76'>
+<a name='L77'>        aux1 = aux1 - ((aux1 &gt;&gt; 1) &amp; 0x55555555);
+<a name='L78'>        aux1 = (aux1 &amp; 0x33333333) + ((aux1 &gt;&gt; 2) &amp; 0x33333333);
+<a name='L79'>        aux2 = aux2 - ((aux2 &gt;&gt; 1) &amp; 0x55555555);
+<a name='L80'>        aux2 = (aux2 &amp; 0x33333333) + ((aux2 &gt;&gt; 2) &amp; 0x33333333);
+<a name='L81'>        aux3 = aux3 - ((aux3 &gt;&gt; 1) &amp; 0x55555555);
+<a name='L82'>        aux3 = (aux3 &amp; 0x33333333) + ((aux3 &gt;&gt; 2) &amp; 0x33333333);
+<a name='L83'>        aux4 = aux4 - ((aux4 &gt;&gt; 1) &amp; 0x55555555);
+<a name='L84'>        aux4 = (aux4 &amp; 0x33333333) + ((aux4 &gt;&gt; 2) &amp; 0x33333333);
+<a name='L85'>        bits += ((((aux1 + (aux1 &gt;&gt; 4)) &amp; 0x0F0F0F0F) * 0x01010101) &gt;&gt; 24) +
+<a name='L86'>                ((((aux2 + (aux2 &gt;&gt; 4)) &amp; 0x0F0F0F0F) * 0x01010101) &gt;&gt; 24) +
+<a name='L87'>                ((((aux3 + (aux3 &gt;&gt; 4)) &amp; 0x0F0F0F0F) * 0x01010101) &gt;&gt; 24) +
+<a name='L88'>                ((((aux4 + (aux4 &gt;&gt; 4)) &amp; 0x0F0F0F0F) * 0x01010101) &gt;&gt; 24);
+<a name='L89'>    <font color='red'>}</font>
+<a name='L90'>    <i><font color='green'>/* Count the remaining bytes */</font></i>
+<a name='L91'>    p = (<b>unsigned</b> <b>char</b>*)p4;
+<a name='L92'>    <b>while</b>(count--) bits += bitsinbyte[*p++];
+<a name='L93'>    <b>return</b> bits;
+<a name='L94'><font color='red'>}</font>
+<a name='L95'>
+<a name='L96'><i><font color='green'>/* -----------------------------------------------------------------------------</font></i>
+<a name='L97'><i><font color='green'> * Bits related string commands: GETBIT, SETBIT, BITCOUNT, BITOP.</font></i>
+<a name='L98'><i><font color='green'> * -------------------------------------------------------------------------- */</font></i>
+<a name='L99'>
+<a name='L100'><font color='darkred'>#define</font> <a href='../R/42.html' title='Multiple refered from 3 places.'>BITOP_AND</a>   0
+<a name='L101'><font color='darkred'>#define</font> <a href='../R/44.html' title='Multiple refered from 3 places.'>BITOP_OR</a>    1
+<a name='L102'><font color='darkred'>#define</font> <a href='../R/45.html' title='Multiple refered from 3 places.'>BITOP_XOR</a>   2
+<a name='L103'><font color='darkred'>#define</font> <a href='../R/43.html' title='Multiple refered from 4 places.'>BITOP_NOT</a>   3
+<a name='L104'>
+<a name='L105'><i><font color='green'>/* SETBIT key offset bitvalue */</font></i>
+<a name='L106'><b>void</b> <a href='../R/3749.html' title='Multiple refered from 2 places.'>setbitCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L107'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L108'>    <b>char</b> *err = "bit is not an integer or out of range";
+<a name='L109'>    size_t bitoffset;
+<a name='L110'>    <b>int</b> byte, bit;
+<a name='L111'>    <b>int</b> byteval, bitval;
+<a name='L112'>    <b>long</b> on;
+<a name='L113'>
+<a name='L114'>    <b>if</b> (<a href='../S/17.html#L40' title='Defined at 40 in src/bitops.c.'>getBitOffsetFromArgument</a>(c,c-&gt;argv[2],&amp;bitoffset) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L115'>        <b>return</b>;
+<a name='L116'>
+<a name='L117'>    <b>if</b> (<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c,c-&gt;argv[3],&amp;on,err) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L118'>        <b>return</b>;
+<a name='L119'>
+<a name='L120'>    <i><font color='green'>/* Bits can only be set or cleared... */</font></i>
+<a name='L121'>    <b>if</b> (on &amp; ~1) <font color='red'>{</font>
+<a name='L122'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,err);
+<a name='L123'>        <b>return</b>;
+<a name='L124'>    <font color='red'>}</font>
+<a name='L125'>
+<a name='L126'>    o = <a href='../S/31.html#L70' title='Defined at 70 in src/db.c.'>lookupKeyWrite</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L127'>    <b>if</b> (o == NULL) <font color='red'>{</font>
+<a name='L128'>        o = <a href='../S/71.html#L35' title='Defined at 35 in src/object.c.'>createObject</a>(<a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>,<a href='../D/4005.html' title='Multiple defined in 2 places.'>sdsempty</a>());
+<a name='L129'>        <a href='../S/31.html#L91' title='Defined at 91 in src/db.c.'>dbAdd</a>(c-&gt;db,c-&gt;argv[1],o);
+<a name='L130'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L131'>        <b>if</b> (<a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(c,o,<a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>)) <b>return</b>;
+<a name='L132'>
+<a name='L133'>        <i><font color='green'>/* Create a copy when the object is shared or encoded. */</font></i>
+<a name='L134'>        <b>if</b> (o-&gt;refcount != 1 || o-&gt;encoding != <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>) <font color='red'>{</font>
+<a name='L135'>            <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *decoded = <a href='../S/71.html#L312' title='Defined at 312 in src/object.c.'>getDecodedObject</a>(o);
+<a name='L136'>            o = <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>(decoded-&gt;ptr, <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(decoded-&gt;ptr));
+<a name='L137'>            <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(decoded);
+<a name='L138'>            <a href='../S/31.html#L103' title='Defined at 103 in src/db.c.'>dbOverwrite</a>(c-&gt;db,c-&gt;argv[1],o);
+<a name='L139'>        <font color='red'>}</font>
+<a name='L140'>    <font color='red'>}</font>
+<a name='L141'>
+<a name='L142'>    <i><font color='green'>/* Grow sds value to the right length if necessary */</font></i>
+<a name='L143'>    byte = bitoffset &gt;&gt; 3;
+<a name='L144'>    o-&gt;ptr = <a href='../D/4009.html' title='Multiple defined in 2 places.'>sdsgrowzero</a>(o-&gt;ptr,byte+1);
+<a name='L145'>
+<a name='L146'>    <i><font color='green'>/* Get current values */</font></i>
+<a name='L147'>    byteval = ((<a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a>*)o-&gt;ptr)[byte];
+<a name='L148'>    bit = 7 - (bitoffset &amp; 0x7);
+<a name='L149'>    bitval = byteval &amp; (1 &lt;&lt; bit);
+<a name='L150'>
+<a name='L151'>    <i><font color='green'>/* Update byte with new bit value and return original value */</font></i>
+<a name='L152'>    byteval &amp;= ~(1 &lt;&lt; bit);
+<a name='L153'>    byteval |= ((on &amp; 0x1) &lt;&lt; bit);
+<a name='L154'>    ((<a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a>*)o-&gt;ptr)[byte] = byteval;
+<a name='L155'>    <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L156'>    server.dirty++;
+<a name='L157'>    <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c, bitval ? shared.cone : shared.czero);
+<a name='L158'><font color='red'>}</font>
+<a name='L159'>
+<a name='L160'><i><font color='green'>/* GETBIT key offset */</font></i>
+<a name='L161'><b>void</b> <a href='../R/2073.html' title='Multiple refered from 2 places.'>getbitCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L162'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L163'>    <b>char</b> llbuf[32];
+<a name='L164'>    size_t bitoffset;
+<a name='L165'>    size_t byte, bit;
+<a name='L166'>    size_t bitval = 0;
+<a name='L167'>
+<a name='L168'>    <b>if</b> (<a href='../S/17.html#L40' title='Defined at 40 in src/bitops.c.'>getBitOffsetFromArgument</a>(c,c-&gt;argv[2],&amp;bitoffset) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L169'>        <b>return</b>;
+<a name='L170'>
+<a name='L171'>    <b>if</b> ((o = <a href='../S/31.html#L75' title='Defined at 75 in src/db.c.'>lookupKeyReadOrReply</a>(c,c-&gt;argv[1],shared.czero)) == NULL ||
+<a name='L172'>        <a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(c,o,<a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>)) <b>return</b>;
+<a name='L173'>
+<a name='L174'>    byte = bitoffset &gt;&gt; 3;
+<a name='L175'>    bit = 7 - (bitoffset &amp; 0x7);
+<a name='L176'>    <b>if</b> (o-&gt;encoding != <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>) <font color='red'>{</font>
+<a name='L177'>        <b>if</b> (byte &lt; (size_t)<a href='../S/74.html#L220' title='Defined at 220 in src/util.c.'>ll2string</a>(llbuf,<b>sizeof</b>(llbuf),(<b>long</b>)o-&gt;ptr))
+<a name='L178'>            bitval = llbuf[byte] &amp; (1 &lt;&lt; bit);
+<a name='L179'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L180'>        <b>if</b> (byte &lt; <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(o-&gt;ptr))
+<a name='L181'>            bitval = ((<a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a>*)o-&gt;ptr)[byte] &amp; (1 &lt;&lt; bit);
+<a name='L182'>    <font color='red'>}</font>
+<a name='L183'>
+<a name='L184'>    <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c, bitval ? shared.cone : shared.czero);
+<a name='L185'><font color='red'>}</font>
+<a name='L186'>
+<a name='L187'><i><font color='green'>/* BITOP op_name target_key src_key1 src_key2 src_key3 ... src_keyN */</font></i>
+<a name='L188'><b>void</b> <a href='../R/1482.html' title='Multiple refered from 2 places.'>bitopCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L189'>    <b>char</b> *opname = c-&gt;argv[1]-&gt;ptr;
+<a name='L190'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o, *targetkey = c-&gt;argv[2];
+<a name='L191'>    <b>long</b> op, j, numkeys;
+<a name='L192'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> **objects;      <i><font color='green'>/* Array of soruce objects. */</font></i>
+<a name='L193'>    <b>unsigned</b> <b>char</b> **src; <i><font color='green'>/* Array of source strings pointers. */</font></i>
+<a name='L194'>    <b>long</b> *len, maxlen = 0; <i><font color='green'>/* Array of length of src strings, and max len. */</font></i>
+<a name='L195'>    <b>long</b> minlen = 0;    <i><font color='green'>/* Min len among the input keys. */</font></i>
+<a name='L196'>    <b>unsigned</b> <b>char</b> *res = NULL; <i><font color='green'>/* Resulting string. */</font></i>
+<a name='L197'>
+<a name='L198'>    <i><font color='green'>/* Parse the operation name. */</font></i>
+<a name='L199'>    <b>if</b> ((opname[0] == 'a' || opname[0] == 'A') &amp;&amp; !strcasecmp(opname,"and"))
+<a name='L200'>        op = <a href='../S/17.html#L100' title='Defined at 100 in src/bitops.c.'>BITOP_AND</a>;
+<a name='L201'>    <b>else</b> <b>if</b>((opname[0] == 'o' || opname[0] == 'O') &amp;&amp; !strcasecmp(opname,"or"))
+<a name='L202'>        op = <a href='../S/17.html#L101' title='Defined at 101 in src/bitops.c.'>BITOP_OR</a>;
+<a name='L203'>    <b>else</b> <b>if</b>((opname[0] == 'x' || opname[0] == 'X') &amp;&amp; !strcasecmp(opname,"xor"))
+<a name='L204'>        op = <a href='../S/17.html#L102' title='Defined at 102 in src/bitops.c.'>BITOP_XOR</a>;
+<a name='L205'>    <b>else</b> <b>if</b>((opname[0] == 'n' || opname[0] == 'N') &amp;&amp; !strcasecmp(opname,"not"))
+<a name='L206'>        op = <a href='../S/17.html#L103' title='Defined at 103 in src/bitops.c.'>BITOP_NOT</a>;
+<a name='L207'>    <b>else</b> <font color='red'>{</font>
+<a name='L208'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.syntaxerr);
+<a name='L209'>        <b>return</b>;
+<a name='L210'>    <font color='red'>}</font>
+<a name='L211'>
+<a name='L212'>    <i><font color='green'>/* Sanity check: NOT accepts only a single key argument. */</font></i>
+<a name='L213'>    <b>if</b> (op == <a href='../S/17.html#L103' title='Defined at 103 in src/bitops.c.'>BITOP_NOT</a> &amp;&amp; c-&gt;argc != 4) <font color='red'>{</font>
+<a name='L214'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"BITOP NOT must be called with a single source key.");
+<a name='L215'>        <b>return</b>;
+<a name='L216'>    <font color='red'>}</font>
+<a name='L217'>
+<a name='L218'>    <i><font color='green'>/* Lookup keys, and store pointers to the string objects into an array. */</font></i>
+<a name='L219'>    numkeys = c-&gt;argc - 3;
+<a name='L220'>    src = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<b>unsigned</b> <b>char</b>*) * numkeys);
+<a name='L221'>    len = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<b>long</b>) * numkeys);
+<a name='L222'>    objects = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a>*) * numkeys);
+<a name='L223'>    <b>for</b> (j = 0; j &lt; numkeys; j++) <font color='red'>{</font>
+<a name='L224'>        o = <a href='../S/31.html#L58' title='Defined at 58 in src/db.c.'>lookupKeyRead</a>(c-&gt;db,c-&gt;argv[j+3]);
+<a name='L225'>        <i><font color='green'>/* Handle non-existing keys as empty strings. */</font></i>
+<a name='L226'>        <b>if</b> (o == NULL) <font color='red'>{</font>
+<a name='L227'>            objects[j] = NULL;
+<a name='L228'>            src[j] = NULL;
+<a name='L229'>            len[j] = 0;
+<a name='L230'>            minlen = 0;
+<a name='L231'>            <b>continue</b>;
+<a name='L232'>        <font color='red'>}</font>
+<a name='L233'>        <i><font color='green'>/* Return an error if one of the keys is not a string. */</font></i>
+<a name='L234'>        <b>if</b> (<a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(c,o,<a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>)) <font color='red'>{</font>
+<a name='L235'>            <b>for</b> (j = j-1; j &gt;= 0; j--) <font color='red'>{</font>
+<a name='L236'>                <b>if</b> (objects[j])
+<a name='L237'>                    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(objects[j]);
+<a name='L238'>            <font color='red'>}</font>
+<a name='L239'>            <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(src);
+<a name='L240'>            <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(len);
+<a name='L241'>            <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(objects);
+<a name='L242'>            <b>return</b>;
+<a name='L243'>        <font color='red'>}</font>
+<a name='L244'>        objects[j] = <a href='../S/71.html#L312' title='Defined at 312 in src/object.c.'>getDecodedObject</a>(o);
+<a name='L245'>        src[j] = objects[j]-&gt;ptr;
+<a name='L246'>        len[j] = <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(objects[j]-&gt;ptr);
+<a name='L247'>        <b>if</b> (len[j] &gt; maxlen) maxlen = len[j];
+<a name='L248'>        <b>if</b> (j == 0 || len[j] &lt; minlen) minlen = len[j];
+<a name='L249'>    <font color='red'>}</font>
+<a name='L250'>
+<a name='L251'>    <i><font color='green'>/* Compute the bit operation, if at least one string is not empty. */</font></i>
+<a name='L252'>    <b>if</b> (maxlen) <font color='red'>{</font>
+<a name='L253'>        res = (<b>unsigned</b> <b>char</b>*) <a href='../D/4014.html' title='Multiple defined in 2 places.'>sdsnewlen</a>(NULL,maxlen);
+<a name='L254'>        <b>unsigned</b> <b>char</b> output, byte;
+<a name='L255'>        <b>long</b> i;
+<a name='L256'>
+<a name='L257'>        <i><font color='green'>/* Fast path: as far as we have data for all the input bitmaps we</font></i>
+<a name='L258'><i><font color='green'>         * can take a fast path that performs much better than the</font></i>
+<a name='L259'><i><font color='green'>         * vanilla algorithm. */</font></i>
+<a name='L260'>        j = 0;
+<a name='L261'>        <b>if</b> (minlen &amp;&amp; numkeys &lt;= 16) <font color='red'>{</font>
+<a name='L262'>            <b>unsigned</b> <b>long</b> *lp[16];
+<a name='L263'>            <b>unsigned</b> <b>long</b> *lres = (<b>unsigned</b> <b>long</b>*) res;
+<a name='L264'>
+<a name='L265'>            <i><font color='green'>/* Note: sds pointer is always aligned to 8 byte boundary. */</font></i>
+<a name='L266'>            memcpy(lp,src,<b>sizeof</b>(<b>unsigned</b> <b>long</b>*)*numkeys);
+<a name='L267'>            memcpy(res,src[0],minlen);
+<a name='L268'>
+<a name='L269'>            <i><font color='green'>/* Different branches per different operations for speed (sorry). */</font></i>
+<a name='L270'>            <b>if</b> (op == <a href='../S/17.html#L100' title='Defined at 100 in src/bitops.c.'>BITOP_AND</a>) <font color='red'>{</font>
+<a name='L271'>                <b>while</b>(minlen &gt;= <b>sizeof</b>(<b>unsigned</b> <b>long</b>)*4) <font color='red'>{</font>
+<a name='L272'>                    <b>for</b> (i = 1; i &lt; numkeys; i++) <font color='red'>{</font>
+<a name='L273'>                        lres[0] &amp;= lp[i][0];
+<a name='L274'>                        lres[1] &amp;= lp[i][1];
+<a name='L275'>                        lres[2] &amp;= lp[i][2];
+<a name='L276'>                        lres[3] &amp;= lp[i][3];
+<a name='L277'>                        lp[i]+=4;
+<a name='L278'>                    <font color='red'>}</font>
+<a name='L279'>                    lres+=4;
+<a name='L280'>                    j += <b>sizeof</b>(<b>unsigned</b> <b>long</b>)*4;
+<a name='L281'>                    minlen -= <b>sizeof</b>(<b>unsigned</b> <b>long</b>)*4;
+<a name='L282'>                <font color='red'>}</font>
+<a name='L283'>            <font color='red'>}</font> <b>else</b> <b>if</b> (op == <a href='../S/17.html#L101' title='Defined at 101 in src/bitops.c.'>BITOP_OR</a>) <font color='red'>{</font>
+<a name='L284'>                <b>while</b>(minlen &gt;= <b>sizeof</b>(<b>unsigned</b> <b>long</b>)*4) <font color='red'>{</font>
+<a name='L285'>                    <b>for</b> (i = 1; i &lt; numkeys; i++) <font color='red'>{</font>
+<a name='L286'>                        lres[0] |= lp[i][0];
+<a name='L287'>                        lres[1] |= lp[i][1];
+<a name='L288'>                        lres[2] |= lp[i][2];
+<a name='L289'>                        lres[3] |= lp[i][3];
+<a name='L290'>                        lp[i]+=4;
+<a name='L291'>                    <font color='red'>}</font>
+<a name='L292'>                    lres+=4;
+<a name='L293'>                    j += <b>sizeof</b>(<b>unsigned</b> <b>long</b>)*4;
+<a name='L294'>                    minlen -= <b>sizeof</b>(<b>unsigned</b> <b>long</b>)*4;
+<a name='L295'>                <font color='red'>}</font>
+<a name='L296'>            <font color='red'>}</font> <b>else</b> <b>if</b> (op == <a href='../S/17.html#L102' title='Defined at 102 in src/bitops.c.'>BITOP_XOR</a>) <font color='red'>{</font>
+<a name='L297'>                <b>while</b>(minlen &gt;= <b>sizeof</b>(<b>unsigned</b> <b>long</b>)*4) <font color='red'>{</font>
+<a name='L298'>                    <b>for</b> (i = 1; i &lt; numkeys; i++) <font color='red'>{</font>
+<a name='L299'>                        lres[0] ^= lp[i][0];
+<a name='L300'>                        lres[1] ^= lp[i][1];
+<a name='L301'>                        lres[2] ^= lp[i][2];
+<a name='L302'>                        lres[3] ^= lp[i][3];
+<a name='L303'>                        lp[i]+=4;
+<a name='L304'>                    <font color='red'>}</font>
+<a name='L305'>                    lres+=4;
+<a name='L306'>                    j += <b>sizeof</b>(<b>unsigned</b> <b>long</b>)*4;
+<a name='L307'>                    minlen -= <b>sizeof</b>(<b>unsigned</b> <b>long</b>)*4;
+<a name='L308'>                <font color='red'>}</font>
+<a name='L309'>            <font color='red'>}</font> <b>else</b> <b>if</b> (op == <a href='../S/17.html#L103' title='Defined at 103 in src/bitops.c.'>BITOP_NOT</a>) <font color='red'>{</font>
+<a name='L310'>                <b>while</b>(minlen &gt;= <b>sizeof</b>(<b>unsigned</b> <b>long</b>)*4) <font color='red'>{</font>
+<a name='L311'>                    lres[0] = ~lres[0];
+<a name='L312'>                    lres[1] = ~lres[1];
+<a name='L313'>                    lres[2] = ~lres[2];
+<a name='L314'>                    lres[3] = ~lres[3];
+<a name='L315'>                    lres+=4;
+<a name='L316'>                    j += <b>sizeof</b>(<b>unsigned</b> <b>long</b>)*4;
+<a name='L317'>                    minlen -= <b>sizeof</b>(<b>unsigned</b> <b>long</b>)*4;
+<a name='L318'>                <font color='red'>}</font>
+<a name='L319'>            <font color='red'>}</font>
+<a name='L320'>        <font color='red'>}</font>
+<a name='L321'>
+<a name='L322'>        <i><font color='green'>/* j is set to the next byte to process by the previous loop. */</font></i>
+<a name='L323'>        <b>for</b> (; j &lt; maxlen; j++) <font color='red'>{</font>
+<a name='L324'>            output = (len[0] &lt;= j) ? 0 : src[0][j];
+<a name='L325'>            <b>if</b> (op == <a href='../S/17.html#L103' title='Defined at 103 in src/bitops.c.'>BITOP_NOT</a>) output = ~output;
+<a name='L326'>            <b>for</b> (i = 1; i &lt; numkeys; i++) <font color='red'>{</font>
+<a name='L327'>                byte = (len[i] &lt;= j) ? 0 : src[i][j];
+<a name='L328'>                <b>switch</b>(op) <font color='red'>{</font>
+<a name='L329'>                <b>case</b> <a href='../S/17.html#L100' title='Defined at 100 in src/bitops.c.'>BITOP_AND</a>: output &amp;= byte; <b>break</b>;
+<a name='L330'>                <b>case</b> <a href='../S/17.html#L101' title='Defined at 101 in src/bitops.c.'>BITOP_OR</a>:  output |= byte; <b>break</b>;
+<a name='L331'>                <b>case</b> <a href='../S/17.html#L102' title='Defined at 102 in src/bitops.c.'>BITOP_XOR</a>: output ^= byte; <b>break</b>;
+<a name='L332'>                <font color='red'>}</font>
+<a name='L333'>            <font color='red'>}</font>
+<a name='L334'>            res[j] = output;
+<a name='L335'>        <font color='red'>}</font>
+<a name='L336'>    <font color='red'>}</font>
+<a name='L337'>    <b>for</b> (j = 0; j &lt; numkeys; j++) <font color='red'>{</font>
+<a name='L338'>        <b>if</b> (objects[j])
+<a name='L339'>            <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(objects[j]);
+<a name='L340'>    <font color='red'>}</font>
+<a name='L341'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(src);
+<a name='L342'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(len);
+<a name='L343'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(objects);
+<a name='L344'>
+<a name='L345'>    <i><font color='green'>/* Store the computed value into the target key */</font></i>
+<a name='L346'>    <b>if</b> (maxlen) <font color='red'>{</font>
+<a name='L347'>        o = <a href='../S/71.html#L35' title='Defined at 35 in src/object.c.'>createObject</a>(<a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>,res);
+<a name='L348'>        <a href='../S/31.html#L116' title='Defined at 116 in src/db.c.'>setKey</a>(c-&gt;db,targetkey,o);
+<a name='L349'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(o);
+<a name='L350'>    <font color='red'>}</font> <b>else</b> <b>if</b> (<a href='../S/31.html#L158' title='Defined at 158 in src/db.c.'>dbDelete</a>(c-&gt;db,targetkey)) <font color='red'>{</font>
+<a name='L351'>        <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,targetkey);
+<a name='L352'>    <font color='red'>}</font>
+<a name='L353'>    server.dirty++;
+<a name='L354'>    <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,maxlen); <i><font color='green'>/* Return the output string length in bytes. */</font></i>
+<a name='L355'><font color='red'>}</font>
+<a name='L356'>
+<a name='L357'><i><font color='green'>/* BITCOUNT key [start end] */</font></i>
+<a name='L358'><b>void</b> <a href='../R/1466.html' title='Multiple refered from 2 places.'>bitcountCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L359'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L360'>    <b>long</b> start, end, strlen;
+<a name='L361'>    <b>unsigned</b> <b>char</b> *p;
+<a name='L362'>    <b>char</b> llbuf[32];
+<a name='L363'>
+<a name='L364'>    <i><font color='green'>/* Lookup, check for type, and return 0 for non existing keys. */</font></i>
+<a name='L365'>    <b>if</b> ((o = <a href='../S/31.html#L75' title='Defined at 75 in src/db.c.'>lookupKeyReadOrReply</a>(c,c-&gt;argv[1],shared.czero)) == NULL ||
+<a name='L366'>        <a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(c,o,<a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>)) <b>return</b>;
+<a name='L367'>
+<a name='L368'>    <i><font color='green'>/* Set the 'p' pointer to the string, that can be just a stack allocated</font></i>
+<a name='L369'><i><font color='green'>     * array if our string was integer encoded. */</font></i>
+<a name='L370'>    <b>if</b> (o-&gt;encoding == <a href='../D/786.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_INT</a>) <font color='red'>{</font>
+<a name='L371'>        p = (<b>unsigned</b> <b>char</b>*) llbuf;
+<a name='L372'>        strlen = <a href='../S/74.html#L220' title='Defined at 220 in src/util.c.'>ll2string</a>(llbuf,<b>sizeof</b>(llbuf),(<b>long</b>)o-&gt;ptr);
+<a name='L373'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L374'>        p = (<b>unsigned</b> <b>char</b>*) o-&gt;ptr;
+<a name='L375'>        strlen = <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(o-&gt;ptr);
+<a name='L376'>    <font color='red'>}</font>
+<a name='L377'>
+<a name='L378'>    <i><font color='green'>/* Parse start/end range if any. */</font></i>
+<a name='L379'>    <b>if</b> (c-&gt;argc == 4) <font color='red'>{</font>
+<a name='L380'>        <b>if</b> (<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c,c-&gt;argv[2],&amp;start,NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L381'>            <b>return</b>;
+<a name='L382'>        <b>if</b> (<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c,c-&gt;argv[3],&amp;end,NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L383'>            <b>return</b>;
+<a name='L384'>        <i><font color='green'>/* Convert negative indexes */</font></i>
+<a name='L385'>        <b>if</b> (start &lt; 0) start = strlen+start;
+<a name='L386'>        <b>if</b> (end &lt; 0) end = strlen+end;
+<a name='L387'>        <b>if</b> (start &lt; 0) start = 0;
+<a name='L388'>        <b>if</b> (end &lt; 0) end = 0;
+<a name='L389'>        <b>if</b> (end &gt;= strlen) end = strlen-1;
+<a name='L390'>    <font color='red'>}</font> <b>else</b> <b>if</b> (c-&gt;argc == 2) <font color='red'>{</font>
+<a name='L391'>        <i><font color='green'>/* The whole string. */</font></i>
+<a name='L392'>        start = 0;
+<a name='L393'>        end = strlen-1;
+<a name='L394'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L395'>        <i><font color='green'>/* Syntax error. */</font></i>
+<a name='L396'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.syntaxerr);
+<a name='L397'>        <b>return</b>;
+<a name='L398'>    <font color='red'>}</font>
+<a name='L399'>
+<a name='L400'>    <i><font color='green'>/* Precondition: end &gt;= 0 &amp;&amp; end &lt; strlen, so the only condition where</font></i>
+<a name='L401'><i><font color='green'>     * zero can be returned is: start &gt; end. */</font></i>
+<a name='L402'>    <b>if</b> (start &gt; end) <font color='red'>{</font>
+<a name='L403'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.czero);
+<a name='L404'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L405'>        <b>long</b> bytes = end-start+1;
+<a name='L406'>
+<a name='L407'>        <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,<a href='../S/17.html#L61' title='Defined at 61 in src/bitops.c.'>popcount</a>(p+start,bytes));
+<a name='L408'>    <font color='red'>}</font>
+<a name='L409'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L40'>[^]</a><a href='#L358'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

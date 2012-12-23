@@ -1,0 +1,266 @@
+<html>
+<head>
+<title>deps/jemalloc/include/msvc_compat/stdint.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/391.html'>include</a>/<a href='../files/394.html'>msvc_compat</a>/stdint.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/48.html' title='Multiple included from 11 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>// ISO C9x  compliant stdint.h for Microsoft Visual Studio</font></i>
+<a name='L2'><i><font color='green'>// Based on ISO/IEC 9899:TC2 Committee draft (May 6, 2005) WG14/N1124 </font></i>
+<a name='L3'><i><font color='green'>// </font></i>
+<a name='L4'><i><font color='green'>//  Copyright (c) 2006-2008 Alexander Chemeris</font></i>
+<a name='L5'><i><font color='green'>// </font></i>
+<a name='L6'><i><font color='green'>// Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'>// modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'>// </font></i>
+<a name='L9'><i><font color='green'>//   1. Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'>//      this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'>// </font></i>
+<a name='L12'><i><font color='green'>//   2. Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L13'><i><font color='green'>//      notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L14'><i><font color='green'>//      documentation and/or other materials provided with the distribution.</font></i>
+<a name='L15'><i><font color='green'>// </font></i>
+<a name='L16'><i><font color='green'>//   3. The name of the author may be used to endorse or promote products</font></i>
+<a name='L17'><i><font color='green'>//      derived from this software without specific prior written permission.</font></i>
+<a name='L18'><i><font color='green'>// </font></i>
+<a name='L19'><i><font color='green'>// THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED</font></i>
+<a name='L20'><i><font color='green'>// WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF</font></i>
+<a name='L21'><i><font color='green'>// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO</font></i>
+<a name='L22'><i><font color='green'>// EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,</font></i>
+<a name='L23'><i><font color='green'>// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,</font></i>
+<a name='L24'><i><font color='green'>// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;</font></i>
+<a name='L25'><i><font color='green'>// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, </font></i>
+<a name='L26'><i><font color='green'>// WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR</font></i>
+<a name='L27'><i><font color='green'>// OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF</font></i>
+<a name='L28'><i><font color='green'>// ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'>// </font></i>
+<a name='L30'><i><font color='green'>///////////////////////////////////////////////////////////////////////////////</font></i>
+<a name='L31'>
+<a name='L32'><font color='darkred'>#ifndef</font> _MSC_VER <i><font color='green'>// [</font></i>
+<a name='L33'><font color='darkred'>#error</font> "Use this header only with Microsoft Visual C++ compilers!"
+<a name='L34'><font color='darkred'>#endif</font> <i><font color='green'>// _MSC_VER ]</font></i>
+<a name='L35'>
+<a name='L36'><font color='darkred'>#ifndef</font> <a href='../S/160.html#L37' title='Defined at 37 in deps/jemalloc/include/msvc_compat/stdint.h.'>_MSC_STDINT_H_</a> <i><font color='green'>// [</font></i>
+<a name='L37'><font color='darkred'>#define</font> <a href='../S/160.html#L36' title='Refered from 36 in deps/jemalloc/include/msvc_compat/stdint.h.'>_MSC_STDINT_H_</a>
+<a name='L38'>
+<a name='L39'><font color='darkred'>#if</font> _MSC_VER &gt; 1000
+<a name='L40'><font color='darkred'>#pragma</font> once
+<a name='L41'><font color='darkred'>#endif</font>
+<a name='L42'>
+<a name='L43'><font color='darkred'>#include</font> &lt;limits.h&gt;
+<a name='L44'>
+<a name='L45'><i><font color='green'>// For Visual Studio 6 in C++ mode and for many Visual Studio versions when</font></i>
+<a name='L46'><i><font color='green'>// compiling for ARM we should wrap &lt;wchar.h&gt; include with 'extern "C++" {}'</font></i>
+<a name='L47'><i><font color='green'>// or compiler give many errors like this:</font></i>
+<a name='L48'><i><font color='green'>//   error C2733: second C linkage of overloaded function 'wmemchr' not allowed</font></i>
+<a name='L49'><font color='darkred'>#ifdef</font> __cplusplus
+<a name='L50'><b>extern</b> "C" <font color='red'>{</font>
+<a name='L51'><font color='darkred'>#endif</font>
+<a name='L52'><font color='darkred'>#  include</font> &lt;wchar.h&gt;
+<a name='L53'><font color='darkred'>#ifdef</font> __cplusplus
+<a name='L54'><font color='red'>}</font>
+<a name='L55'><font color='darkred'>#endif</font>
+<a name='L56'>
+<a name='L57'><i><font color='green'>// Define _W64 macros to mark types changing their size, like intptr_t.</font></i>
+<a name='L58'><font color='darkred'>#ifndef</font> <a href='../D/1362.html' title='Multiple defined in 2 places.'>_W64</a>
+<a name='L59'><font color='darkred'>#  if</font> !<b>defined</b>(__midl) &amp;&amp; (<b>defined</b>(_X86_) || <b>defined</b>(_M_IX86)) &amp;&amp; _MSC_VER &gt;= 1300
+<a name='L60'><font color='darkred'>#     define</font> <a href='../R/1105.html' title='Multiple refered from 3 places.'>_W64</a> __w64
+<a name='L61'><font color='darkred'>#  else</font>
+<a name='L62'><font color='darkred'>#     define</font> <a href='../R/1105.html' title='Multiple refered from 3 places.'>_W64</a>
+<a name='L63'><font color='darkred'>#  endif</font>
+<a name='L64'><font color='darkred'>#endif</font>
+<a name='L65'>
+<a name='L66'>
+<a name='L67'><i><font color='green'>// 7.18.1 Integer types</font></i>
+<a name='L68'>
+<a name='L69'><i><font color='green'>// 7.18.1.1 Exact-width integer types</font></i>
+<a name='L70'>
+<a name='L71'><i><font color='green'>// Visual Studio 6 and Embedded Visual C++ 4 doesn't</font></i>
+<a name='L72'><i><font color='green'>// realize that, e.g. char has the same size as __int8</font></i>
+<a name='L73'><i><font color='green'>// so we give up on __intX for them.</font></i>
+<a name='L74'><font color='darkred'>#if</font> (_MSC_VER &lt; 1300)
+<a name='L75'>   <b>typedef</b> <b>signed</b> <b>char</b>       <a href='../R/2213.html' title='Multiple refered from 7 places.'>int8_t</a>;
+<a name='L76'>   <b>typedef</b> <b>signed</b> <b>short</b>      <a href='../R/2210.html' title='Multiple refered from 17 places.'>int16_t</a>;
+<a name='L77'>   <b>typedef</b> <b>signed</b> <b>int</b>        <a href='../R/2211.html' title='Multiple refered from 36 places.'>int32_t</a>;
+<a name='L78'>   <b>typedef</b> <b>unsigned</b> <b>char</b>     <a href='../R/4051.html' title='Multiple refered from 30 places.'>uint8_t</a>;
+<a name='L79'>   <b>typedef</b> <b>unsigned</b> <b>short</b>    <a href='../R/4048.html' title='Multiple refered from 9 places.'>uint16_t</a>;
+<a name='L80'>   <b>typedef</b> <b>unsigned</b> <b>int</b>      <a href='../R/4049.html' title='Multiple refered from 110 places.'>uint32_t</a>;
+<a name='L81'><font color='darkred'>#else</font>
+<a name='L82'>   <b>typedef</b> <b>signed</b> __int8     <a href='../R/2213.html' title='Multiple refered from 7 places.'>int8_t</a>;
+<a name='L83'>   <b>typedef</b> <b>signed</b> __int16    <a href='../R/2210.html' title='Multiple refered from 17 places.'>int16_t</a>;
+<a name='L84'>   <b>typedef</b> <b>signed</b> __int32    <a href='../R/2211.html' title='Multiple refered from 36 places.'>int32_t</a>;
+<a name='L85'>   <b>typedef</b> <b>unsigned</b> __int8   <a href='../R/4051.html' title='Multiple refered from 30 places.'>uint8_t</a>;
+<a name='L86'>   <b>typedef</b> <b>unsigned</b> __int16  <a href='../R/4048.html' title='Multiple refered from 9 places.'>uint16_t</a>;
+<a name='L87'>   <b>typedef</b> <b>unsigned</b> __int32  <a href='../R/4049.html' title='Multiple refered from 110 places.'>uint32_t</a>;
+<a name='L88'><font color='darkred'>#endif</font>
+<a name='L89'><b>typedef</b> <b>signed</b> __int64       <a href='../R/2212.html' title='Multiple refered from 71 places.'>int64_t</a>;
+<a name='L90'><b>typedef</b> <b>unsigned</b> __int64     <a href='../R/4050.html' title='Multiple refered from 231 places.'>uint64_t</a>;
+<a name='L91'>
+<a name='L92'>
+<a name='L93'><i><font color='green'>// 7.18.1.2 Minimum-width integer types</font></i>
+<a name='L94'><b>typedef</b> <a href='../D/2495.html' title='Multiple defined in 2 places.'>int8_t</a>    int_least8_t;
+<a name='L95'><b>typedef</b> <a href='../D/2492.html' title='Multiple defined in 2 places.'>int16_t</a>   int_least16_t;
+<a name='L96'><b>typedef</b> <a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a>   int_least32_t;
+<a name='L97'><b>typedef</b> <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>   int_least64_t;
+<a name='L98'><b>typedef</b> <a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a>   uint_least8_t;
+<a name='L99'><b>typedef</b> <a href='../D/4428.html' title='Multiple defined in 2 places.'>uint16_t</a>  uint_least16_t;
+<a name='L100'><b>typedef</b> <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a>  uint_least32_t;
+<a name='L101'><b>typedef</b> <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>  uint_least64_t;
+<a name='L102'>
+<a name='L103'><i><font color='green'>// 7.18.1.3 Fastest minimum-width integer types</font></i>
+<a name='L104'><b>typedef</b> <a href='../D/2495.html' title='Multiple defined in 2 places.'>int8_t</a>    int_fast8_t;
+<a name='L105'><b>typedef</b> <a href='../D/2492.html' title='Multiple defined in 2 places.'>int16_t</a>   int_fast16_t;
+<a name='L106'><b>typedef</b> <a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a>   int_fast32_t;
+<a name='L107'><b>typedef</b> <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>   int_fast64_t;
+<a name='L108'><b>typedef</b> <a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a>   uint_fast8_t;
+<a name='L109'><b>typedef</b> <a href='../D/4428.html' title='Multiple defined in 2 places.'>uint16_t</a>  uint_fast16_t;
+<a name='L110'><b>typedef</b> <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a>  uint_fast32_t;
+<a name='L111'><b>typedef</b> <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>  uint_fast64_t;
+<a name='L112'>
+<a name='L113'><i><font color='green'>// 7.18.1.4 Integer types capable of holding object pointers</font></i>
+<a name='L114'><font color='darkred'>#ifdef</font> _WIN64 <i><font color='green'>// [</font></i>
+<a name='L115'>   <b>typedef</b> <b>signed</b> __int64    <a href='../R/2216.html' title='Multiple refered from 6 places.'>intptr_t</a>;
+<a name='L116'>   <b>typedef</b> <b>unsigned</b> __int64  <a href='../R/4053.html' title='Multiple refered from 214 places.'>uintptr_t</a>;
+<a name='L117'><font color='darkred'>#else</font> <i><font color='green'>// _WIN64 ][</font></i>
+<a name='L118'>   <b>typedef</b> <a href='../D/1362.html' title='Multiple defined in 2 places.'>_W64</a> <b>signed</b> <b>int</b>   <a href='../R/2216.html' title='Multiple refered from 6 places.'>intptr_t</a>;
+<a name='L119'>   <b>typedef</b> <a href='../D/1362.html' title='Multiple defined in 2 places.'>_W64</a> <b>unsigned</b> <b>int</b> <a href='../R/4053.html' title='Multiple refered from 214 places.'>uintptr_t</a>;
+<a name='L120'><font color='darkred'>#endif</font> <i><font color='green'>// _WIN64 ]</font></i>
+<a name='L121'>
+<a name='L122'><i><font color='green'>// 7.18.1.5 Greatest-width integer types</font></i>
+<a name='L123'><b>typedef</b> <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>   <a href='../R/2215.html' title='Multiple refered from 7 places.'>intmax_t</a>;
+<a name='L124'><b>typedef</b> <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>  <a href='../R/4052.html' title='Multiple refered from 18 places.'>uintmax_t</a>;
+<a name='L125'>
+<a name='L126'>
+<a name='L127'><i><font color='green'>// 7.18.2 Limits of specified-width integer types</font></i>
+<a name='L128'>
+<a name='L129'><font color='darkred'>#if</font> !<b>defined</b>(__cplusplus) || <b>defined</b>(__STDC_LIMIT_MACROS) <i><font color='green'>// [   See footnote 220 at page 257 and footnote 221 at page 259</font></i>
+<a name='L130'>
+<a name='L131'><i><font color='green'>// 7.18.2.1 Limits of exact-width integer types</font></i>
+<a name='L132'><font color='darkred'>#define</font> <a href='../R/205.html' title='Multiple refered from 3 places.'>INT8_MIN</a>     ((<a href='../D/2495.html' title='Multiple defined in 2 places.'>int8_t</a>)_I8_MIN)
+<a name='L133'><font color='darkred'>#define</font> <a href='../R/204.html' title='Multiple refered from 3 places.'>INT8_MAX</a>     _I8_MAX
+<a name='L134'><font color='darkred'>#define</font> <a href='../R/196.html' title='Multiple refered from 4 places.'>INT16_MIN</a>    ((<a href='../D/2492.html' title='Multiple defined in 2 places.'>int16_t</a>)_I16_MIN)
+<a name='L135'><font color='darkred'>#define</font> <a href='../R/195.html' title='Multiple refered from 4 places.'>INT16_MAX</a>    _I16_MAX
+<a name='L136'><font color='darkred'>#define</font> <a href='../R/200.html' title='Multiple refered from 5 places.'>INT32_MIN</a>    ((<a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a>)_I32_MIN)
+<a name='L137'><font color='darkred'>#define</font> <a href='../R/199.html' title='Multiple refered from 6 places.'>INT32_MAX</a>    _I32_MAX
+<a name='L138'><font color='darkred'>#define</font> <a href='../R/203.html' title='Multiple refered from 4 places.'>INT64_MIN</a>    ((<a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a>)_I64_MIN)
+<a name='L139'><font color='darkred'>#define</font> <a href='../R/202.html' title='Multiple refered from 4 places.'>INT64_MAX</a>    _I64_MAX
+<a name='L140'><font color='darkred'>#define</font> <a href='../R/1009.html' title='Multiple refered from 2 places.'>UINT8_MAX</a>    _UI8_MAX
+<a name='L141'><font color='darkred'>#define</font> <a href='../R/1005.html' title='Multiple refered from 5 places.'>UINT16_MAX</a>   _UI16_MAX
+<a name='L142'><font color='darkred'>#define</font> <a href='../R/1006.html' title='Multiple refered from 3 places.'>UINT32_MAX</a>   _UI32_MAX
+<a name='L143'><font color='darkred'>#define</font> <a href='../R/1008.html' title='Multiple refered from 4 places.'>UINT64_MAX</a>   _UI64_MAX
+<a name='L144'>
+<a name='L145'><i><font color='green'>// 7.18.2.2 Limits of minimum-width integer types</font></i>
+<a name='L146'><font color='darkred'>#define</font> INT_LEAST8_MIN    <a href='../S/160.html#L132' title='Defined at 132 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT8_MIN</a>
+<a name='L147'><font color='darkred'>#define</font> INT_LEAST8_MAX    <a href='../S/160.html#L133' title='Defined at 133 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT8_MAX</a>
+<a name='L148'><font color='darkred'>#define</font> INT_LEAST16_MIN   <a href='../S/160.html#L134' title='Defined at 134 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT16_MIN</a>
+<a name='L149'><font color='darkred'>#define</font> INT_LEAST16_MAX   <a href='../S/160.html#L135' title='Defined at 135 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT16_MAX</a>
+<a name='L150'><font color='darkred'>#define</font> INT_LEAST32_MIN   <a href='../S/160.html#L136' title='Defined at 136 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT32_MIN</a>
+<a name='L151'><font color='darkred'>#define</font> INT_LEAST32_MAX   <a href='../S/160.html#L137' title='Defined at 137 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT32_MAX</a>
+<a name='L152'><font color='darkred'>#define</font> INT_LEAST64_MIN   <a href='../S/160.html#L138' title='Defined at 138 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT64_MIN</a>
+<a name='L153'><font color='darkred'>#define</font> INT_LEAST64_MAX   <a href='../S/160.html#L139' title='Defined at 139 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT64_MAX</a>
+<a name='L154'><font color='darkred'>#define</font> UINT_LEAST8_MAX   <a href='../S/160.html#L140' title='Defined at 140 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT8_MAX</a>
+<a name='L155'><font color='darkred'>#define</font> UINT_LEAST16_MAX  <a href='../S/160.html#L141' title='Defined at 141 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT16_MAX</a>
+<a name='L156'><font color='darkred'>#define</font> UINT_LEAST32_MAX  <a href='../S/160.html#L142' title='Defined at 142 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT32_MAX</a>
+<a name='L157'><font color='darkred'>#define</font> UINT_LEAST64_MAX  <a href='../S/160.html#L143' title='Defined at 143 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT64_MAX</a>
+<a name='L158'>
+<a name='L159'><i><font color='green'>// 7.18.2.3 Limits of fastest minimum-width integer types</font></i>
+<a name='L160'><font color='darkred'>#define</font> INT_FAST8_MIN    <a href='../S/160.html#L132' title='Defined at 132 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT8_MIN</a>
+<a name='L161'><font color='darkred'>#define</font> INT_FAST8_MAX    <a href='../S/160.html#L133' title='Defined at 133 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT8_MAX</a>
+<a name='L162'><font color='darkred'>#define</font> INT_FAST16_MIN   <a href='../S/160.html#L134' title='Defined at 134 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT16_MIN</a>
+<a name='L163'><font color='darkred'>#define</font> INT_FAST16_MAX   <a href='../S/160.html#L135' title='Defined at 135 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT16_MAX</a>
+<a name='L164'><font color='darkred'>#define</font> INT_FAST32_MIN   <a href='../S/160.html#L136' title='Defined at 136 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT32_MIN</a>
+<a name='L165'><font color='darkred'>#define</font> INT_FAST32_MAX   <a href='../S/160.html#L137' title='Defined at 137 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT32_MAX</a>
+<a name='L166'><font color='darkred'>#define</font> INT_FAST64_MIN   <a href='../S/160.html#L138' title='Defined at 138 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT64_MIN</a>
+<a name='L167'><font color='darkred'>#define</font> INT_FAST64_MAX   <a href='../S/160.html#L139' title='Defined at 139 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT64_MAX</a>
+<a name='L168'><font color='darkred'>#define</font> UINT_FAST8_MAX   <a href='../S/160.html#L140' title='Defined at 140 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT8_MAX</a>
+<a name='L169'><font color='darkred'>#define</font> UINT_FAST16_MAX  <a href='../S/160.html#L141' title='Defined at 141 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT16_MAX</a>
+<a name='L170'><font color='darkred'>#define</font> UINT_FAST32_MAX  <a href='../S/160.html#L142' title='Defined at 142 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT32_MAX</a>
+<a name='L171'><font color='darkred'>#define</font> UINT_FAST64_MAX  <a href='../S/160.html#L143' title='Defined at 143 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT64_MAX</a>
+<a name='L172'>
+<a name='L173'><i><font color='green'>// 7.18.2.4 Limits of integer types capable of holding object pointers</font></i>
+<a name='L174'><font color='darkred'>#ifdef</font> _WIN64 <i><font color='green'>// [</font></i>
+<a name='L175'><font color='darkred'>#  define</font> INTPTR_MIN   <a href='../S/160.html#L138' title='Defined at 138 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT64_MIN</a>
+<a name='L176'><font color='darkred'>#  define</font> INTPTR_MAX   <a href='../S/160.html#L139' title='Defined at 139 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT64_MAX</a>
+<a name='L177'><font color='darkred'>#  define</font> UINTPTR_MAX  <a href='../S/160.html#L143' title='Defined at 143 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT64_MAX</a>
+<a name='L178'><font color='darkred'>#else</font> <i><font color='green'>// _WIN64 ][</font></i>
+<a name='L179'><font color='darkred'>#  define</font> INTPTR_MIN   <a href='../S/160.html#L136' title='Defined at 136 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT32_MIN</a>
+<a name='L180'><font color='darkred'>#  define</font> INTPTR_MAX   <a href='../S/160.html#L137' title='Defined at 137 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT32_MAX</a>
+<a name='L181'><font color='darkred'>#  define</font> UINTPTR_MAX  <a href='../S/160.html#L142' title='Defined at 142 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT32_MAX</a>
+<a name='L182'><font color='darkred'>#endif</font> <i><font color='green'>// _WIN64 ]</font></i>
+<a name='L183'>
+<a name='L184'><i><font color='green'>// 7.18.2.5 Limits of greatest-width integer types</font></i>
+<a name='L185'><font color='darkred'>#define</font> INTMAX_MIN   <a href='../S/160.html#L138' title='Defined at 138 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT64_MIN</a>
+<a name='L186'><font color='darkred'>#define</font> INTMAX_MAX   <a href='../S/160.html#L139' title='Defined at 139 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT64_MAX</a>
+<a name='L187'><font color='darkred'>#define</font> <a href='../R/1010.html' title='Multiple refered from 5 places.'>UINTMAX_MAX</a>  <a href='../S/160.html#L143' title='Defined at 143 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT64_MAX</a>
+<a name='L188'>
+<a name='L189'><i><font color='green'>// 7.18.3 Limits of other integer types</font></i>
+<a name='L190'>
+<a name='L191'><font color='darkred'>#ifdef</font> _WIN64 <i><font color='green'>// [</font></i>
+<a name='L192'><font color='darkred'>#  define</font> PTRDIFF_MIN  _I64_MIN
+<a name='L193'><font color='darkred'>#  define</font> PTRDIFF_MAX  _I64_MAX
+<a name='L194'><font color='darkred'>#else</font>  <i><font color='green'>// _WIN64 ][</font></i>
+<a name='L195'><font color='darkred'>#  define</font> PTRDIFF_MIN  _I32_MIN
+<a name='L196'><font color='darkred'>#  define</font> PTRDIFF_MAX  _I32_MAX
+<a name='L197'><font color='darkred'>#endif</font>  <i><font color='green'>// _WIN64 ]</font></i>
+<a name='L198'>
+<a name='L199'><font color='darkred'>#define</font> SIG_ATOMIC_MIN  INT_MIN
+<a name='L200'><font color='darkred'>#define</font> SIG_ATOMIC_MAX  INT_MAX
+<a name='L201'>
+<a name='L202'><font color='darkred'>#ifndef</font> <a href='../D/1121.html' title='Multiple defined in 2 places.'>SIZE_MAX</a> <i><font color='green'>// [</font></i>
+<a name='L203'><font color='darkred'>#  ifdef</font> _WIN64 <i><font color='green'>// [</font></i>
+<a name='L204'><font color='darkred'>#     define</font> <a href='../S/160.html#L202' title='Refered from 202 in deps/jemalloc/include/msvc_compat/stdint.h.'>SIZE_MAX</a>  _UI64_MAX
+<a name='L205'><font color='darkred'>#  else</font> <i><font color='green'>// _WIN64 ][</font></i>
+<a name='L206'><font color='darkred'>#     define</font> <a href='../S/160.html#L202' title='Refered from 202 in deps/jemalloc/include/msvc_compat/stdint.h.'>SIZE_MAX</a>  _UI32_MAX
+<a name='L207'><font color='darkred'>#  endif</font> <i><font color='green'>// _WIN64 ]</font></i>
+<a name='L208'><font color='darkred'>#endif</font> <i><font color='green'>// SIZE_MAX ]</font></i>
+<a name='L209'>
+<a name='L210'><i><font color='green'>// WCHAR_MIN and WCHAR_MAX are also defined in &lt;wchar.h&gt;</font></i>
+<a name='L211'><font color='darkred'>#ifndef</font> <a href='../S/160.html#L212' title='Defined at 212 in deps/jemalloc/include/msvc_compat/stdint.h.'>WCHAR_MIN</a> <i><font color='green'>// [</font></i>
+<a name='L212'><font color='darkred'>#  define</font> <a href='../S/160.html#L211' title='Refered from 211 in deps/jemalloc/include/msvc_compat/stdint.h.'>WCHAR_MIN</a>  0
+<a name='L213'><font color='darkred'>#endif</font>  <i><font color='green'>// WCHAR_MIN ]</font></i>
+<a name='L214'><font color='darkred'>#ifndef</font> <a href='../S/160.html#L215' title='Defined at 215 in deps/jemalloc/include/msvc_compat/stdint.h.'>WCHAR_MAX</a> <i><font color='green'>// [</font></i>
+<a name='L215'><font color='darkred'>#  define</font> <a href='../S/160.html#L214' title='Refered from 214 in deps/jemalloc/include/msvc_compat/stdint.h.'>WCHAR_MAX</a>  _UI16_MAX
+<a name='L216'><font color='darkred'>#endif</font>  <i><font color='green'>// WCHAR_MAX ]</font></i>
+<a name='L217'>
+<a name='L218'><font color='darkred'>#define</font> WINT_MIN  0
+<a name='L219'><font color='darkred'>#define</font> WINT_MAX  _UI16_MAX
+<a name='L220'>
+<a name='L221'><font color='darkred'>#endif</font> <i><font color='green'>// __STDC_LIMIT_MACROS ]</font></i>
+<a name='L222'>
+<a name='L223'>
+<a name='L224'><i><font color='green'>// 7.18.4 Limits of other integer types</font></i>
+<a name='L225'>
+<a name='L226'><font color='darkred'>#if</font> !<b>defined</b>(__cplusplus) || <b>defined</b>(__STDC_CONSTANT_MACROS) <i><font color='green'>// [   See footnote 224 at page 260</font></i>
+<a name='L227'>
+<a name='L228'><i><font color='green'>// 7.18.4.1 Macros for minimum-width integer constants</font></i>
+<a name='L229'>
+<a name='L230'><font color='darkred'>#define</font> INT8_C(val)  val##i8
+<a name='L231'><font color='darkred'>#define</font> INT16_C(val) val##i16
+<a name='L232'><font color='darkred'>#define</font> INT32_C(val) val##i32
+<a name='L233'><font color='darkred'>#define</font> <a href='../S/160.html#L241' title='Refered from 241 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT64_C</a>(val) val##i64
+<a name='L234'>
+<a name='L235'><font color='darkred'>#define</font> UINT8_C(val)  val##ui8
+<a name='L236'><font color='darkred'>#define</font> UINT16_C(val) val##ui16
+<a name='L237'><font color='darkred'>#define</font> UINT32_C(val) val##ui32
+<a name='L238'><font color='darkred'>#define</font> <a href='../R/1007.html' title='Multiple refered from 154 places.'>UINT64_C</a>(val) val##ui64
+<a name='L239'>
+<a name='L240'><i><font color='green'>// 7.18.4.2 Macros for greatest-width integer constants</font></i>
+<a name='L241'><font color='darkred'>#define</font> INTMAX_C   <a href='../S/160.html#L233' title='Defined at 233 in deps/jemalloc/include/msvc_compat/stdint.h.'>INT64_C</a>
+<a name='L242'><font color='darkred'>#define</font> UINTMAX_C  <a href='../S/160.html#L238' title='Defined at 238 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT64_C</a>
+<a name='L243'>
+<a name='L244'><font color='darkred'>#endif</font> <i><font color='green'>// __STDC_CONSTANT_MACROS ]</font></i>
+<a name='L245'>
+<a name='L246'>
+<a name='L247'><font color='darkred'>#endif</font> <i><font color='green'>// _MSC_STDINT_H_ ]</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

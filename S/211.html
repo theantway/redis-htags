@@ -1,0 +1,293 @@
+<html>
+<head>
+<title>deps/jemalloc/src/zone.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/395.html'>src</a>/zone.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L10'>[^]</a><a href='#L169'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L10' title='Defined at 10.'>malloc_default_purgeable_zone</a>
+<li><a href='#L63' title='Defined at 63.'>zone_malloc</a>
+<li><a href='#L70' title='Defined at 70.'>zone_calloc</a>
+<li><a href='#L77' title='Defined at 77.'>zone_valloc</a>
+<li><a href='#L87' title='Defined at 87.'>zone_free</a>
+<li><a href='#L99' title='Defined at 99.'>zone_realloc</a>
+<li><a href='#L110' title='Defined at 110.'>zone_memalign</a>
+<li><a href='#L122' title='Defined at 122.'>zone_free_definite_size</a>
+<li><a href='#L136' title='Defined at 136.'>zone_destroy</a>
+<li><a href='#L145' title='Defined at 145.'>zone_good_size</a>
+<li><a href='#L154' title='Defined at 154.'>zone_force_lock</a>
+<li><a href='#L162' title='Defined at 162.'>zone_force_unlock</a>
+<li><a href='#L169' title='Defined at 169.'>JEMALLOC_ATTR</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#include</font> "jemalloc/internal/jemalloc_internal.h"
+<a name='L2'><font color='darkred'>#ifndef</font> JEMALLOC_ZONE
+<a name='L3'><font color='darkred'>#  error</font> "This source file is for zones on Darwin (OS X)."
+<a name='L4'><font color='darkred'>#endif</font>
+<a name='L5'>
+<a name='L6'><i><font color='green'>/*</font></i>
+<a name='L7'><i><font color='green'> * The malloc_default_purgeable_zone function is only available on &gt;= 10.6.</font></i>
+<a name='L8'><i><font color='green'> * We need to check whether it is present at runtime, thus the weak_import.</font></i>
+<a name='L9'><i><font color='green'> */</font></i>
+<a name='L10'><b>extern</b> malloc_zone_t *<a href='../R/2922.html' title='Multiple refered from 2 places.'>malloc_default_purgeable_zone</a>(<b>void</b>)
+<a name='L11'><a href='../D/250.html' title='Multiple defined in 8 places.'>JEMALLOC_ATTR</a>(weak_import);
+<a name='L12'>
+<a name='L13'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L14'><i><font color='green'>/* Data. */</font></i>
+<a name='L15'>
+<a name='L16'><b>static</b> malloc_zone_t zone;
+<a name='L17'><b>static</b> <b>struct</b> malloc_introspection_t zone_introspect;
+<a name='L18'>
+<a name='L19'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L20'><i><font color='green'>/* Function prototypes for non-inline static functions. */</font></i>
+<a name='L21'>
+<a name='L22'><b>static</b> size_t   zone_size(malloc_zone_t *zone, <b>void</b> *ptr);
+<a name='L23'><b>static</b> <b>void</b>     *zone_malloc(malloc_zone_t *zone, size_t size);
+<a name='L24'><b>static</b> <b>void</b>     *zone_calloc(malloc_zone_t *zone, size_t num, size_t size);
+<a name='L25'><b>static</b> <b>void</b>     *zone_valloc(malloc_zone_t *zone, size_t size);
+<a name='L26'><b>static</b> <b>void</b>     zone_free(malloc_zone_t *zone, <b>void</b> *ptr);
+<a name='L27'><b>static</b> <b>void</b>     *zone_realloc(malloc_zone_t *zone, <b>void</b> *ptr, size_t size);
+<a name='L28'><font color='darkred'>#if</font> (JEMALLOC_ZONE_VERSION &gt;= 5)
+<a name='L29'><b>static</b> <b>void</b>     *zone_memalign(malloc_zone_t *zone, size_t alignment,
+<a name='L30'><font color='darkred'>#endif</font>
+<a name='L31'><font color='darkred'>#if</font> (JEMALLOC_ZONE_VERSION &gt;= 6)
+<a name='L32'>    size_t size);
+<a name='L33'><b>static</b> <b>void</b>     zone_free_definite_size(malloc_zone_t *zone, <b>void</b> *ptr,
+<a name='L34'>    size_t size);
+<a name='L35'><font color='darkred'>#endif</font>
+<a name='L36'><b>static</b> <b>void</b>     *zone_destroy(malloc_zone_t *zone);
+<a name='L37'><b>static</b> size_t   zone_good_size(malloc_zone_t *zone, size_t size);
+<a name='L38'><b>static</b> <b>void</b>     zone_force_lock(malloc_zone_t *zone);
+<a name='L39'><b>static</b> <b>void</b>     zone_force_unlock(malloc_zone_t *zone);
+<a name='L40'>
+<a name='L41'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L42'><i><font color='green'>/*</font></i>
+<a name='L43'><i><font color='green'> * Functions.</font></i>
+<a name='L44'><i><font color='green'> */</font></i>
+<a name='L45'>
+<a name='L46'><b>static</b> size_t
+<a name='L47'>zone_size(malloc_zone_t *zone, <b>void</b> *ptr)
+<a name='L48'><font color='red'>{</font>
+<a name='L49'>
+<a name='L50'>        <i><font color='green'>/*</font></i>
+<a name='L51'><i><font color='green'>         * There appear to be places within Darwin (such as setenv(3)) that</font></i>
+<a name='L52'><i><font color='green'>         * cause calls to this function with pointers that *no* zone owns.  If</font></i>
+<a name='L53'><i><font color='green'>         * we knew that all pointers were owned by *some* zone, we could split</font></i>
+<a name='L54'><i><font color='green'>         * our zone into two parts, and use one as the default allocator and</font></i>
+<a name='L55'><i><font color='green'>         * the other as the default deallocator/reallocator.  Since that will</font></i>
+<a name='L56'><i><font color='green'>         * not work in practice, we must check all pointers to assure that they</font></i>
+<a name='L57'><i><font color='green'>         * reside within a mapped chunk before determining size.</font></i>
+<a name='L58'><i><font color='green'>         */</font></i>
+<a name='L59'>        <b>return</b> (<a href='../S/138.html#L208' title='Defined at 208 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>ivsalloc</a>(ptr, config_prof));
+<a name='L60'><font color='red'>}</font>
+<a name='L61'>
+<a name='L62'><b>static</b> <b>void</b> *
+<a name='L63'><a href='../S/211.html#L185' title='Refered from 185 in deps/jemalloc/src/zone.c.'>zone_malloc</a>(malloc_zone_t *zone, size_t size)
+<a name='L64'><font color='red'>{</font>
+<a name='L65'>
+<a name='L66'>        <b>return</b> (<a href='../S/213.html#L829' title='Defined at 829 in deps/jemalloc/src/jemalloc.c.'>je_malloc</a>(size));
+<a name='L67'><font color='red'>}</font>
+<a name='L68'>
+<a name='L69'><b>static</b> <b>void</b> *
+<a name='L70'><a href='../S/211.html#L186' title='Refered from 186 in deps/jemalloc/src/zone.c.'>zone_calloc</a>(malloc_zone_t *zone, size_t num, size_t size)
+<a name='L71'><font color='red'>{</font>
+<a name='L72'>
+<a name='L73'>        <b>return</b> (<a href='../S/213.html#L1002' title='Defined at 1002 in deps/jemalloc/src/jemalloc.c.'>je_calloc</a>(num, size));
+<a name='L74'><font color='red'>}</font>
+<a name='L75'>
+<a name='L76'><b>static</b> <b>void</b> *
+<a name='L77'><a href='../S/211.html#L187' title='Refered from 187 in deps/jemalloc/src/zone.c.'>zone_valloc</a>(malloc_zone_t *zone, size_t size)
+<a name='L78'><font color='red'>{</font>
+<a name='L79'>        <b>void</b> *ret = NULL; <i><font color='green'>/* Assignment avoids useless compiler warning. */</font></i>
+<a name='L80'>
+<a name='L81'>        <a href='../S/213.html#L978' title='Defined at 978 in deps/jemalloc/src/jemalloc.c.'>je_posix_memalign</a>(&amp;ret, PAGE, size);
+<a name='L82'>
+<a name='L83'>        <b>return</b> (ret);
+<a name='L84'><font color='red'>}</font>
+<a name='L85'>
+<a name='L86'><b>static</b> <b>void</b>
+<a name='L87'><a href='../S/211.html#L188' title='Refered from 188 in deps/jemalloc/src/zone.c.'>zone_free</a>(malloc_zone_t *zone, <b>void</b> *ptr)
+<a name='L88'><font color='red'>{</font>
+<a name='L89'>
+<a name='L90'>        <b>if</b> (<a href='../S/138.html#L208' title='Defined at 208 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>ivsalloc</a>(ptr, config_prof) != 0) <font color='red'>{</font>
+<a name='L91'>                <a href='../S/213.html#L1224' title='Defined at 1224 in deps/jemalloc/src/jemalloc.c.'>je_free</a>(ptr);
+<a name='L92'>                <b>return</b>;
+<a name='L93'>        <font color='red'>}</font>
+<a name='L94'>
+<a name='L95'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(ptr);
+<a name='L96'><font color='red'>}</font>
+<a name='L97'>
+<a name='L98'><b>static</b> <b>void</b> *
+<a name='L99'><a href='../S/211.html#L189' title='Refered from 189 in deps/jemalloc/src/zone.c.'>zone_realloc</a>(malloc_zone_t *zone, <b>void</b> *ptr, size_t size)
+<a name='L100'><font color='red'>{</font>
+<a name='L101'>
+<a name='L102'>        <b>if</b> (<a href='../S/138.html#L208' title='Defined at 208 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>ivsalloc</a>(ptr, config_prof) != 0)
+<a name='L103'>                <b>return</b> (<a href='../S/213.html#L1077' title='Defined at 1077 in deps/jemalloc/src/jemalloc.c.'>je_realloc</a>(ptr, size));
+<a name='L104'>
+<a name='L105'>        <b>return</b> (<a href='../D/3747.html' title='Multiple defined in 2 places.'>realloc</a>(ptr, size));
+<a name='L106'><font color='red'>}</font>
+<a name='L107'>
+<a name='L108'><font color='darkred'>#if</font> (JEMALLOC_ZONE_VERSION &gt;= 5)
+<a name='L109'><b>static</b> <b>void</b> *
+<a name='L110'><a href='../S/211.html#L197' title='Refered from 197 in deps/jemalloc/src/zone.c.'>zone_memalign</a>(malloc_zone_t *zone, size_t alignment, size_t size)
+<a name='L111'><font color='red'>{</font>
+<a name='L112'>        <b>void</b> *ret = NULL; <i><font color='green'>/* Assignment avoids useless compiler warning. */</font></i>
+<a name='L113'>
+<a name='L114'>        <a href='../S/213.html#L978' title='Defined at 978 in deps/jemalloc/src/jemalloc.c.'>je_posix_memalign</a>(&amp;ret, alignment, size);
+<a name='L115'>
+<a name='L116'>        <b>return</b> (ret);
+<a name='L117'><font color='red'>}</font>
+<a name='L118'><font color='darkred'>#endif</font>
+<a name='L119'>
+<a name='L120'><font color='darkred'>#if</font> (JEMALLOC_ZONE_VERSION &gt;= 6)
+<a name='L121'><b>static</b> <b>void</b>
+<a name='L122'><a href='../S/211.html#L200' title='Refered from 200 in deps/jemalloc/src/zone.c.'>zone_free_definite_size</a>(malloc_zone_t *zone, <b>void</b> *ptr, size_t size)
+<a name='L123'><font color='red'>{</font>
+<a name='L124'>
+<a name='L125'>        <b>if</b> (<a href='../S/138.html#L208' title='Defined at 208 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>ivsalloc</a>(ptr, config_prof) != 0) <font color='red'>{</font>
+<a name='L126'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/138.html#L208' title='Defined at 208 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>ivsalloc</a>(ptr, config_prof) == size);
+<a name='L127'>                <a href='../S/213.html#L1224' title='Defined at 1224 in deps/jemalloc/src/jemalloc.c.'>je_free</a>(ptr);
+<a name='L128'>                <b>return</b>;
+<a name='L129'>        <font color='red'>}</font>
+<a name='L130'>
+<a name='L131'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(ptr);
+<a name='L132'><font color='red'>}</font>
+<a name='L133'><font color='darkred'>#endif</font>
+<a name='L134'>
+<a name='L135'><b>static</b> <b>void</b> *
+<a name='L136'><a href='../S/211.html#L190' title='Refered from 190 in deps/jemalloc/src/zone.c.'>zone_destroy</a>(malloc_zone_t *zone)
+<a name='L137'><font color='red'>{</font>
+<a name='L138'>
+<a name='L139'>        <i><font color='green'>/* This function should never be called. */</font></i>
+<a name='L140'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L141'>        <b>return</b> (NULL);
+<a name='L142'><font color='red'>}</font>
+<a name='L143'>
+<a name='L144'><b>static</b> size_t
+<a name='L145'><a href='../S/211.html#L207' title='Refered from 207 in deps/jemalloc/src/zone.c.'>zone_good_size</a>(malloc_zone_t *zone, size_t size)
+<a name='L146'><font color='red'>{</font>
+<a name='L147'>
+<a name='L148'>        <b>if</b> (size == 0)
+<a name='L149'>                size = 1;
+<a name='L150'>        <b>return</b> (<a href='../S/138.html#L309' title='Defined at 309 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>s2u</a>(size));
+<a name='L151'><font color='red'>}</font>
+<a name='L152'>
+<a name='L153'><b>static</b> <b>void</b>
+<a name='L154'><a href='../S/211.html#L211' title='Refered from 211 in deps/jemalloc/src/zone.c.'>zone_force_lock</a>(malloc_zone_t *zone)
+<a name='L155'><font color='red'>{</font>
+<a name='L156'>
+<a name='L157'>        <b>if</b> (<a href='../D/2573.html' title='Multiple defined in 3 places.'>isthreaded</a>)
+<a name='L158'>                <a href='../D/2599.html' title='Multiple defined in 2 places.'>jemalloc_prefork</a>();
+<a name='L159'><font color='red'>}</font>
+<a name='L160'>
+<a name='L161'><b>static</b> <b>void</b>
+<a name='L162'><a href='../S/211.html#L212' title='Refered from 212 in deps/jemalloc/src/zone.c.'>zone_force_unlock</a>(malloc_zone_t *zone)
+<a name='L163'><font color='red'>{</font>
+<a name='L164'>
+<a name='L165'>        <b>if</b> (<a href='../D/2573.html' title='Multiple defined in 3 places.'>isthreaded</a>)
+<a name='L166'>                <a href='../D/2598.html' title='Multiple defined in 2 places.'>jemalloc_postfork_parent</a>();
+<a name='L167'><font color='red'>}</font>
+<a name='L168'>
+<a name='L169'><a href='../R/219.html' title='Multiple refered from 11 places.'>JEMALLOC_ATTR</a>(constructor)
+<a name='L170'><b>void</b>
+<a name='L171'>register_zone(<b>void</b>)
+<a name='L172'><font color='red'>{</font>
+<a name='L173'>
+<a name='L174'>        <i><font color='green'>/*</font></i>
+<a name='L175'><i><font color='green'>         * If something else replaced the system default zone allocator, don't</font></i>
+<a name='L176'><i><font color='green'>         * register jemalloc's.</font></i>
+<a name='L177'><i><font color='green'>         */</font></i>
+<a name='L178'>        malloc_zone_t *default_zone = malloc_default_zone();
+<a name='L179'>        <b>if</b> (!default_zone-&gt;zone_name ||
+<a name='L180'>            strcmp(default_zone-&gt;zone_name, "DefaultMallocZone") != 0) <font color='red'>{</font>
+<a name='L181'>                <b>return</b>;
+<a name='L182'>        <font color='red'>}</font>
+<a name='L183'>
+<a name='L184'>        zone.size = (<b>void</b> *)zone_size;
+<a name='L185'>        zone.<a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a> = (<b>void</b> *)<a href='../S/211.html#L63' title='Defined at 63 in deps/jemalloc/src/zone.c.'>zone_malloc</a>;
+<a name='L186'>        zone.<a href='../D/1797.html' title='Multiple defined in 2 places.'>calloc</a> = (<b>void</b> *)<a href='../S/211.html#L70' title='Defined at 70 in deps/jemalloc/src/zone.c.'>zone_calloc</a>;
+<a name='L187'>        zone.valloc = (<b>void</b> *)<a href='../S/211.html#L77' title='Defined at 77 in deps/jemalloc/src/zone.c.'>zone_valloc</a>;
+<a name='L188'>        zone.<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> = (<b>void</b> *)<a href='../S/211.html#L87' title='Defined at 87 in deps/jemalloc/src/zone.c.'>zone_free</a>;
+<a name='L189'>        zone.<a href='../D/3747.html' title='Multiple defined in 2 places.'>realloc</a> = (<b>void</b> *)<a href='../S/211.html#L99' title='Defined at 99 in deps/jemalloc/src/zone.c.'>zone_realloc</a>;
+<a name='L190'>        zone.destroy = (<b>void</b> *)<a href='../S/211.html#L136' title='Defined at 136 in deps/jemalloc/src/zone.c.'>zone_destroy</a>;
+<a name='L191'>        zone.zone_name = "jemalloc_zone";
+<a name='L192'>        zone.batch_malloc = NULL;
+<a name='L193'>        zone.batch_free = NULL;
+<a name='L194'>        zone.introspect = &amp;zone_introspect;
+<a name='L195'>        zone.<a href='../S/35.html#L2419' title='Defined at 2419 in src/redis.c.'>version</a> = JEMALLOC_ZONE_VERSION;
+<a name='L196'><font color='darkred'>#if</font> (JEMALLOC_ZONE_VERSION &gt;= 5)
+<a name='L197'>        zone.memalign = <a href='../S/211.html#L110' title='Defined at 110 in deps/jemalloc/src/zone.c.'>zone_memalign</a>;
+<a name='L198'><font color='darkred'>#endif</font>
+<a name='L199'><font color='darkred'>#if</font> (JEMALLOC_ZONE_VERSION &gt;= 6)
+<a name='L200'>        zone.free_definite_size = <a href='../S/211.html#L122' title='Defined at 122 in deps/jemalloc/src/zone.c.'>zone_free_definite_size</a>;
+<a name='L201'><font color='darkred'>#endif</font>
+<a name='L202'><font color='darkred'>#if</font> (JEMALLOC_ZONE_VERSION &gt;= 8)
+<a name='L203'>        zone.pressure_relief = NULL;
+<a name='L204'><font color='darkred'>#endif</font>
+<a name='L205'>
+<a name='L206'>        zone_introspect.enumerator = NULL;
+<a name='L207'>        zone_introspect.good_size = (<b>void</b> *)<a href='../S/211.html#L145' title='Defined at 145 in deps/jemalloc/src/zone.c.'>zone_good_size</a>;
+<a name='L208'>        zone_introspect.<a href='../D/1811.html' title='Multiple defined in 3 places.'>check</a> = NULL;
+<a name='L209'>        zone_introspect.<a href='../S/229.html#L12' title='Defined at 12 in deps/lua/etc/min.c.'>print</a> = NULL;
+<a name='L210'>        zone_introspect.log = NULL;
+<a name='L211'>        zone_introspect.force_lock = (<b>void</b> *)<a href='../S/211.html#L154' title='Defined at 154 in deps/jemalloc/src/zone.c.'>zone_force_lock</a>;
+<a name='L212'>        zone_introspect.force_unlock = (<b>void</b> *)<a href='../S/211.html#L162' title='Defined at 162 in deps/jemalloc/src/zone.c.'>zone_force_unlock</a>;
+<a name='L213'>        zone_introspect.statistics = NULL;
+<a name='L214'><font color='darkred'>#if</font> (JEMALLOC_ZONE_VERSION &gt;= 6)
+<a name='L215'>        zone_introspect.zone_locked = NULL;
+<a name='L216'><font color='darkred'>#endif</font>
+<a name='L217'><font color='darkred'>#if</font> (JEMALLOC_ZONE_VERSION &gt;= 7)
+<a name='L218'>        zone_introspect.enable_discharge_checking = NULL;
+<a name='L219'>        zone_introspect.disable_discharge_checking = NULL;
+<a name='L220'>        zone_introspect.discharge = NULL;
+<a name='L221'><font color='darkred'>#ifdef</font> __BLOCKS__
+<a name='L222'>        zone_introspect.enumerate_discharged_pointers = NULL;
+<a name='L223'><font color='darkred'>#else</font>
+<a name='L224'>        zone_introspect.enumerate_unavailable_without_blocks = NULL;
+<a name='L225'><font color='darkred'>#endif</font>
+<a name='L226'><font color='darkred'>#endif</font>
+<a name='L227'>
+<a name='L228'>        <i><font color='green'>/*</font></i>
+<a name='L229'><i><font color='green'>         * The default purgeable zone is created lazily by OSX's libc.  It uses</font></i>
+<a name='L230'><i><font color='green'>         * the default zone when it is created for "small" allocations</font></i>
+<a name='L231'><i><font color='green'>         * (&lt; 15 KiB), but assumes the default zone is a scalable_zone.  This</font></i>
+<a name='L232'><i><font color='green'>         * obviously fails when the default zone is the jemalloc zone, so</font></i>
+<a name='L233'><i><font color='green'>         * malloc_default_purgeable_zone is called beforehand so that the</font></i>
+<a name='L234'><i><font color='green'>         * default purgeable zone is created when the default zone is still</font></i>
+<a name='L235'><i><font color='green'>         * a scalable_zone.  As purgeable zones only exist on &gt;= 10.6, we need</font></i>
+<a name='L236'><i><font color='green'>         * to check for the existence of malloc_default_purgeable_zone() at</font></i>
+<a name='L237'><i><font color='green'>         * run time.</font></i>
+<a name='L238'><i><font color='green'>         */</font></i>
+<a name='L239'>        <b>if</b> (<a href='../S/211.html#L10' title='Defined at 10 in deps/jemalloc/src/zone.c.'>malloc_default_purgeable_zone</a> != NULL)
+<a name='L240'>                <a href='../S/211.html#L10' title='Defined at 10 in deps/jemalloc/src/zone.c.'>malloc_default_purgeable_zone</a>();
+<a name='L241'>
+<a name='L242'>        <i><font color='green'>/* Register the custom zone.  At this point it won't be the default. */</font></i>
+<a name='L243'>        malloc_zone_register(&amp;zone);
+<a name='L244'>
+<a name='L245'>        <i><font color='green'>/*</font></i>
+<a name='L246'><i><font color='green'>         * Unregister and reregister the default zone.  On OSX &gt;= 10.6,</font></i>
+<a name='L247'><i><font color='green'>         * unregistering takes the last registered zone and places it at the</font></i>
+<a name='L248'><i><font color='green'>         * location of the specified zone.  Unregistering the default zone thus</font></i>
+<a name='L249'><i><font color='green'>         * makes the last registered one the default.  On OSX &lt; 10.6,</font></i>
+<a name='L250'><i><font color='green'>         * unregistering shifts all registered zones.  The first registered zone</font></i>
+<a name='L251'><i><font color='green'>         * then becomes the default.</font></i>
+<a name='L252'><i><font color='green'>         */</font></i>
+<a name='L253'>        <b>do</b> <font color='red'>{</font>
+<a name='L254'>                default_zone = malloc_default_zone();
+<a name='L255'>                malloc_zone_unregister(default_zone);
+<a name='L256'>                malloc_zone_register(default_zone);
+<a name='L257'>        <font color='red'>}</font> <b>while</b> (malloc_default_zone() != &amp;zone);
+<a name='L258'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L10'>[^]</a><a href='#L169'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

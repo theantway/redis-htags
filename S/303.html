@@ -1,0 +1,197 @@
+<html>
+<head>
+<title>deps/lua/src/ldump.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/ldump.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L29'>[^]</a><a href='#L153'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L29' title='Defined at 29.'>DumpBlock</a>
+<li><a href='#L39' title='Defined at 39.'>DumpChar</a>
+<li><a href='#L45' title='Defined at 45.'>DumpInt</a>
+<li><a href='#L50' title='Defined at 50.'>DumpNumber</a>
+<li><a href='#L55' title='Defined at 55.'>DumpVector</a>
+<li><a href='#L61' title='Defined at 61.'>DumpString</a>
+<li><a href='#L80' title='Defined at 80.'>DumpConstants</a>
+<li><a href='#L111' title='Defined at 111.'>DumpDebug</a>
+<li><a href='#L129' title='Defined at 129.'>DumpFunction</a>
+<li><a href='#L143' title='Defined at 143.'>DumpHeader</a>
+<li><a href='#L153' title='Defined at 153.'>luaU_dump</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: ldump.c,v 2.8.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** save precompiled Lua chunks</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'><font color='darkred'>#include</font> &lt;stddef.h&gt;
+<a name='L8'>
+<a name='L9'><font color='darkred'>#define</font> ldump_c
+<a name='L10'><font color='darkred'>#define</font> <a href='../R/303.html' title='Multiple refered from 2 places.'>LUA_CORE</a>
+<a name='L11'>
+<a name='L12'><font color='darkred'>#include</font> "<a href='266.html'>lua.h</a>"
+<a name='L13'>
+<a name='L14'><font color='darkred'>#include</font> "<a href='282.html'>lobject.h</a>"
+<a name='L15'><font color='darkred'>#include</font> "<a href='298.html'>lstate.h</a>"
+<a name='L16'><font color='darkred'>#include</font> "<a href='271.html'>lundump.h</a>"
+<a name='L17'>
+<a name='L18'><b>typedef</b> <b>struct</b> <font color='red'>{</font>
+<a name='L19'> <a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a>* L;
+<a name='L20'> lua_Writer <a href='../D/4477.html' title='Multiple defined in 2 places.'>writer</a>;
+<a name='L21'> <b>void</b>* data;
+<a name='L22'> <b>int</b> strip;
+<a name='L23'> <b>int</b> status;
+<a name='L24'><font color='red'>}</font> <a href='../S/303.html#L155' title='Refered from 155 in deps/lua/src/ldump.c.'>DumpState</a>;
+<a name='L25'>
+<a name='L26'><font color='darkred'>#define</font> <a href='../R/135.html' title='Multiple refered from 2 places.'>DumpMem</a>(b,n,size,D)     <a href='../S/303.html#L29' title='Defined at 29 in deps/lua/src/ldump.c.'>DumpBlock</a>(b,(n)*(size),D)
+<a name='L27'><font color='darkred'>#define</font> <a href='../R/139.html' title='Multiple refered from 5 places.'>DumpVar</a>(x,D)            <a href='../S/303.html#L26' title='Defined at 26 in deps/lua/src/ldump.c.'>DumpMem</a>(&amp;x,1,<b>sizeof</b>(x),D)
+<a name='L28'>
+<a name='L29'><b>static</b> <b>void</b> <a href='../R/127.html' title='Multiple refered from 3 places.'>DumpBlock</a>(<b>const</b> <b>void</b>* b, size_t size, DumpState* D)
+<a name='L30'><font color='red'>{</font>
+<a name='L31'> <b>if</b> (D-&gt;status==0)
+<a name='L32'> <font color='red'>{</font>
+<a name='L33'>  <a href='../S/310.html#L111' title='Defined at 111 in deps/lua/src/llimits.h.'>lua_unlock</a>(D-&gt;L);
+<a name='L34'>  D-&gt;status=(*D-&gt;<a href='../D/4477.html' title='Multiple defined in 2 places.'>writer</a>)(D-&gt;L,b,size,D-&gt;data);
+<a name='L35'>  <a href='../S/310.html#L110' title='Defined at 110 in deps/lua/src/llimits.h.'>lua_lock</a>(D-&gt;L);
+<a name='L36'> <font color='red'>}</font>
+<a name='L37'><font color='red'>}</font>
+<a name='L38'>
+<a name='L39'><b>static</b> <b>void</b> <a href='../R/128.html' title='Multiple refered from 6 places.'>DumpChar</a>(<b>int</b> y, DumpState* D)
+<a name='L40'><font color='red'>{</font>
+<a name='L41'> <b>char</b> x=(<b>char</b>)y;
+<a name='L42'> <a href='../S/303.html#L27' title='Defined at 27 in deps/lua/src/ldump.c.'>DumpVar</a>(x,D);
+<a name='L43'><font color='red'>}</font>
+<a name='L44'>
+<a name='L45'><b>static</b> <b>void</b> <a href='../R/134.html' title='Multiple refered from 9 places.'>DumpInt</a>(<b>int</b> x, DumpState* D)
+<a name='L46'><font color='red'>{</font>
+<a name='L47'> <a href='../S/303.html#L27' title='Defined at 27 in deps/lua/src/ldump.c.'>DumpVar</a>(x,D);
+<a name='L48'><font color='red'>}</font>
+<a name='L49'>
+<a name='L50'><b>static</b> <b>void</b> <a href='../S/303.html#L96' title='Refered from 96 in deps/lua/src/ldump.c.'>DumpNumber</a>(lua_Number x, DumpState* D)
+<a name='L51'><font color='red'>{</font>
+<a name='L52'> <a href='../S/303.html#L27' title='Defined at 27 in deps/lua/src/ldump.c.'>DumpVar</a>(x,D);
+<a name='L53'><font color='red'>}</font>
+<a name='L54'>
+<a name='L55'><b>static</b> <b>void</b> <a href='../R/140.html' title='Multiple refered from 2 places.'>DumpVector</a>(<b>const</b> <b>void</b>* b, <b>int</b> n, size_t size, DumpState* D)
+<a name='L56'><font color='red'>{</font>
+<a name='L57'> <a href='../S/303.html#L45' title='Defined at 45 in deps/lua/src/ldump.c.'>DumpInt</a>(n,D);
+<a name='L58'> <a href='../S/303.html#L26' title='Defined at 26 in deps/lua/src/ldump.c.'>DumpMem</a>(b,n,size,D);
+<a name='L59'><font color='red'>}</font>
+<a name='L60'>
+<a name='L61'><b>static</b> <b>void</b> <a href='../R/138.html' title='Multiple refered from 4 places.'>DumpString</a>(<b>const</b> TString* s, DumpState* D)
+<a name='L62'><font color='red'>{</font>
+<a name='L63'> <b>if</b> (s==NULL || <a href='../S/282.html#L210' title='Defined at 210 in deps/lua/src/lobject.h.'>getstr</a>(s)==NULL)
+<a name='L64'> <font color='red'>{</font>
+<a name='L65'>  size_t size=0;
+<a name='L66'>  <a href='../S/303.html#L27' title='Defined at 27 in deps/lua/src/ldump.c.'>DumpVar</a>(size,D);
+<a name='L67'> <font color='red'>}</font>
+<a name='L68'> <b>else</b>
+<a name='L69'> <font color='red'>{</font>
+<a name='L70'>  size_t size=s-&gt;tsv.len+1;             <i><font color='green'>/* include trailing '\0' */</font></i>
+<a name='L71'>  <a href='../S/303.html#L27' title='Defined at 27 in deps/lua/src/ldump.c.'>DumpVar</a>(size,D);
+<a name='L72'>  <a href='../S/303.html#L29' title='Defined at 29 in deps/lua/src/ldump.c.'>DumpBlock</a>(<a href='../S/282.html#L210' title='Defined at 210 in deps/lua/src/lobject.h.'>getstr</a>(s),size,D);
+<a name='L73'> <font color='red'>}</font>
+<a name='L74'><font color='red'>}</font>
+<a name='L75'>
+<a name='L76'><font color='darkred'>#define</font> <a href='../S/303.html#L138' title='Refered from 138 in deps/lua/src/ldump.c.'>DumpCode</a>(f,D)    <a href='../S/303.html#L55' title='Defined at 55 in deps/lua/src/ldump.c.'>DumpVector</a>(f-&gt;code,f-&gt;sizecode,<b>sizeof</b>(<a href='../S/310.html#L88' title='Defined at 88 in deps/lua/src/llimits.h.'>Instruction</a>),D)
+<a name='L77'>
+<a name='L78'><b>static</b> <b>void</b> <a href='../S/303.html#L129' title='Defined at 129 in deps/lua/src/ldump.c.'>DumpFunction</a>(<b>const</b> Proto* f, <b>const</b> TString* p, DumpState* D);
+<a name='L79'>
+<a name='L80'><b>static</b> <b>void</b> <a href='../S/303.html#L139' title='Refered from 139 in deps/lua/src/ldump.c.'>DumpConstants</a>(<b>const</b> Proto* f, DumpState* D)
+<a name='L81'><font color='red'>{</font>
+<a name='L82'> <b>int</b> i,n=f-&gt;sizek;
+<a name='L83'> <a href='../S/303.html#L45' title='Defined at 45 in deps/lua/src/ldump.c.'>DumpInt</a>(n,D);
+<a name='L84'> <b>for</b> (i=0; i&lt;n; i++)
+<a name='L85'> <font color='red'>{</font>
+<a name='L86'>  <b>const</b> <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a>* o=&amp;f-&gt;k[i];
+<a name='L87'>  <a href='../S/303.html#L39' title='Defined at 39 in deps/lua/src/ldump.c.'>DumpChar</a>(<a href='../S/282.html#L90' title='Defined at 90 in deps/lua/src/lobject.h.'>ttype</a>(o),D);
+<a name='L88'>  <b>switch</b> (<a href='../S/282.html#L90' title='Defined at 90 in deps/lua/src/lobject.h.'>ttype</a>(o))
+<a name='L89'>  <font color='red'>{</font>
+<a name='L90'>   <b>case</b> <a href='../S/266.html#L74' title='Defined at 74 in deps/lua/src/lua.h.'>LUA_TNIL</a>:
+<a name='L91'>        <b>break</b>;
+<a name='L92'>   <b>case</b> <a href='../S/266.html#L75' title='Defined at 75 in deps/lua/src/lua.h.'>LUA_TBOOLEAN</a>:
+<a name='L93'>        <a href='../S/303.html#L39' title='Defined at 39 in deps/lua/src/ldump.c.'>DumpChar</a>(<a href='../S/282.html#L100' title='Defined at 100 in deps/lua/src/lobject.h.'>bvalue</a>(o),D);
+<a name='L94'>        <b>break</b>;
+<a name='L95'>   <b>case</b> <a href='../S/266.html#L77' title='Defined at 77 in deps/lua/src/lua.h.'>LUA_TNUMBER</a>:
+<a name='L96'>        <a href='../S/303.html#L50' title='Defined at 50 in deps/lua/src/ldump.c.'>DumpNumber</a>(<a href='../S/282.html#L93' title='Defined at 93 in deps/lua/src/lobject.h.'>nvalue</a>(o),D);
+<a name='L97'>        <b>break</b>;
+<a name='L98'>   <b>case</b> <a href='../S/266.html#L78' title='Defined at 78 in deps/lua/src/lua.h.'>LUA_TSTRING</a>:
+<a name='L99'>        <a href='../S/303.html#L61' title='Defined at 61 in deps/lua/src/ldump.c.'>DumpString</a>(<a href='../S/282.html#L94' title='Defined at 94 in deps/lua/src/lobject.h.'>rawtsvalue</a>(o),D);
+<a name='L100'>        <b>break</b>;
+<a name='L101'>   <b>default</b>:
+<a name='L102'>        <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(0);                  <i><font color='green'>/* cannot happen */</font></i>
+<a name='L103'>        <b>break</b>;
+<a name='L104'>  <font color='red'>}</font>
+<a name='L105'> <font color='red'>}</font>
+<a name='L106'> n=f-&gt;sizep;
+<a name='L107'> <a href='../S/303.html#L45' title='Defined at 45 in deps/lua/src/ldump.c.'>DumpInt</a>(n,D);
+<a name='L108'> <b>for</b> (i=0; i&lt;n; i++) <a href='../S/303.html#L129' title='Defined at 129 in deps/lua/src/ldump.c.'>DumpFunction</a>(f-&gt;p[i],f-&gt;source,D);
+<a name='L109'><font color='red'>}</font>
+<a name='L110'>
+<a name='L111'><b>static</b> <b>void</b> <a href='../S/303.html#L140' title='Refered from 140 in deps/lua/src/ldump.c.'>DumpDebug</a>(<b>const</b> Proto* f, DumpState* D)
+<a name='L112'><font color='red'>{</font>
+<a name='L113'> <b>int</b> i,n;
+<a name='L114'> n= (D-&gt;strip) ? 0 : f-&gt;sizelineinfo;
+<a name='L115'> <a href='../S/303.html#L55' title='Defined at 55 in deps/lua/src/ldump.c.'>DumpVector</a>(f-&gt;lineinfo,n,<b>sizeof</b>(<b>int</b>),D);
+<a name='L116'> n= (D-&gt;strip) ? 0 : f-&gt;sizelocvars;
+<a name='L117'> <a href='../S/303.html#L45' title='Defined at 45 in deps/lua/src/ldump.c.'>DumpInt</a>(n,D);
+<a name='L118'> <b>for</b> (i=0; i&lt;n; i++)
+<a name='L119'> <font color='red'>{</font>
+<a name='L120'>  <a href='../S/303.html#L61' title='Defined at 61 in deps/lua/src/ldump.c.'>DumpString</a>(f-&gt;locvars[i].varname,D);
+<a name='L121'>  <a href='../S/303.html#L45' title='Defined at 45 in deps/lua/src/ldump.c.'>DumpInt</a>(f-&gt;locvars[i].startpc,D);
+<a name='L122'>  <a href='../S/303.html#L45' title='Defined at 45 in deps/lua/src/ldump.c.'>DumpInt</a>(f-&gt;locvars[i].endpc,D);
+<a name='L123'> <font color='red'>}</font>
+<a name='L124'> n= (D-&gt;strip) ? 0 : f-&gt;sizeupvalues;
+<a name='L125'> <a href='../S/303.html#L45' title='Defined at 45 in deps/lua/src/ldump.c.'>DumpInt</a>(n,D);
+<a name='L126'> <b>for</b> (i=0; i&lt;n; i++) <a href='../S/303.html#L61' title='Defined at 61 in deps/lua/src/ldump.c.'>DumpString</a>(f-&gt;upvalues[i],D);
+<a name='L127'><font color='red'>}</font>
+<a name='L128'>
+<a name='L129'><b>static</b> <b>void</b> <a href='../R/132.html' title='Multiple refered from 3 places.'>DumpFunction</a>(<b>const</b> Proto* f, <b>const</b> TString* p, DumpState* D)
+<a name='L130'><font color='red'>{</font>
+<a name='L131'> <a href='../S/303.html#L61' title='Defined at 61 in deps/lua/src/ldump.c.'>DumpString</a>((f-&gt;source==p || D-&gt;strip) ? NULL : f-&gt;source,D);
+<a name='L132'> <a href='../S/303.html#L45' title='Defined at 45 in deps/lua/src/ldump.c.'>DumpInt</a>(f-&gt;linedefined,D);
+<a name='L133'> <a href='../S/303.html#L45' title='Defined at 45 in deps/lua/src/ldump.c.'>DumpInt</a>(f-&gt;lastlinedefined,D);
+<a name='L134'> <a href='../S/303.html#L39' title='Defined at 39 in deps/lua/src/ldump.c.'>DumpChar</a>(f-&gt;nups,D);
+<a name='L135'> <a href='../S/303.html#L39' title='Defined at 39 in deps/lua/src/ldump.c.'>DumpChar</a>(f-&gt;numparams,D);
+<a name='L136'> <a href='../S/303.html#L39' title='Defined at 39 in deps/lua/src/ldump.c.'>DumpChar</a>(f-&gt;is_vararg,D);
+<a name='L137'> <a href='../S/303.html#L39' title='Defined at 39 in deps/lua/src/ldump.c.'>DumpChar</a>(f-&gt;maxstacksize,D);
+<a name='L138'> <a href='../S/303.html#L76' title='Defined at 76 in deps/lua/src/ldump.c.'>DumpCode</a>(f,D);
+<a name='L139'> <a href='../S/303.html#L80' title='Defined at 80 in deps/lua/src/ldump.c.'>DumpConstants</a>(f,D);
+<a name='L140'> <a href='../S/303.html#L111' title='Defined at 111 in deps/lua/src/ldump.c.'>DumpDebug</a>(f,D);
+<a name='L141'><font color='red'>}</font>
+<a name='L142'>
+<a name='L143'><b>static</b> <b>void</b> <a href='../S/303.html#L161' title='Refered from 161 in deps/lua/src/ldump.c.'>DumpHeader</a>(DumpState* D)
+<a name='L144'><font color='red'>{</font>
+<a name='L145'> <b>char</b> h[<a href='../S/271.html#L34' title='Defined at 34 in deps/lua/src/lundump.h.'>LUAC_HEADERSIZE</a>];
+<a name='L146'> <a href='../S/308.html#L214' title='Defined at 214 in deps/lua/src/lundump.c.'>luaU_header</a>(h);
+<a name='L147'> <a href='../S/303.html#L29' title='Defined at 29 in deps/lua/src/ldump.c.'>DumpBlock</a>(h,<a href='../S/271.html#L34' title='Defined at 34 in deps/lua/src/lundump.h.'>LUAC_HEADERSIZE</a>,D);
+<a name='L148'><font color='red'>}</font>
+<a name='L149'>
+<a name='L150'><i><font color='green'>/*</font></i>
+<a name='L151'><i><font color='green'>** dump Lua function as precompiled chunk</font></i>
+<a name='L152'><i><font color='green'>*/</font></i>
+<a name='L153'><b>int</b> <a href='../R/2718.html' title='Multiple refered from 3 places.'>luaU_dump</a> (lua_State* L, <b>const</b> Proto* f, lua_Writer w, <b>void</b>* data, <b>int</b> strip)
+<a name='L154'><font color='red'>{</font>
+<a name='L155'> <a href='../S/303.html#L24' title='Defined at 24 in deps/lua/src/ldump.c.'>DumpState</a> D;
+<a name='L156'> D.L=L;
+<a name='L157'> D.<a href='../D/4477.html' title='Multiple defined in 2 places.'>writer</a>=w;
+<a name='L158'> D.data=data;
+<a name='L159'> D.strip=strip;
+<a name='L160'> D.status=0;
+<a name='L161'> <a href='../S/303.html#L143' title='Defined at 143 in deps/lua/src/ldump.c.'>DumpHeader</a>(&amp;D);
+<a name='L162'> <a href='../S/303.html#L129' title='Defined at 129 in deps/lua/src/ldump.c.'>DumpFunction</a>(f,NULL,&amp;D);
+<a name='L163'> <b>return</b> D.status;
+<a name='L164'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L29'>[^]</a><a href='#L153'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

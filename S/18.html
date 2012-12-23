@@ -1,0 +1,274 @@
+<html>
+<head>
+<title>src/migrate.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/migrate.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L10'>[^]</a><a href='#L129'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L10' title='Defined at 10.'>createDumpPayload</a>
+<li><a href='#L43' title='Defined at 43.'>verifyDumpPayload</a>
+<li><a href='#L65' title='Defined at 65.'>dumpCommand</a>
+<li><a href='#L86' title='Defined at 86.'>restoreCommand</a>
+<li><a href='#L129' title='Defined at 129.'>migrateCommand</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#include</font> "<a href='32.html'>redis.h</a>"
+<a name='L2'><font color='darkred'>#include</font> "<a href='42.html'>endianconv.h</a>"
+<a name='L3'>
+<a name='L4'><i><font color='green'>/* -----------------------------------------------------------------------------</font></i>
+<a name='L5'><i><font color='green'> * DUMP, RESTORE and MIGRATE commands</font></i>
+<a name='L6'><i><font color='green'> * -------------------------------------------------------------------------- */</font></i>
+<a name='L7'>
+<a name='L8'><i><font color='green'>/* Generates a DUMP-format representation of the object 'o', adding it to the</font></i>
+<a name='L9'><i><font color='green'> * io stream pointed by 'rio'. This function can't fail. */</font></i>
+<a name='L10'><b>void</b> <a href='../R/1692.html' title='Multiple refered from 2 places.'>createDumpPayload</a>(rio *payload, robj *o) <font color='red'>{</font>
+<a name='L11'>    <b>unsigned</b> <b>char</b> buf[2];
+<a name='L12'>    <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> crc;
+<a name='L13'>
+<a name='L14'>    <i><font color='green'>/* Serialize the object in a RDB-like format. It consist of an object type</font></i>
+<a name='L15'><i><font color='green'>     * byte followed by the serialized object. This is understood by RESTORE. */</font></i>
+<a name='L16'>    <a href='../S/76.html#L115' title='Defined at 115 in src/rio.c.'>rioInitWithBuffer</a>(payload,<a href='../D/4005.html' title='Multiple defined in 2 places.'>sdsempty</a>());
+<a name='L17'>    <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(<a href='../S/87.html#L430' title='Defined at 430 in src/rdb.c.'>rdbSaveObjectType</a>(payload,o));
+<a name='L18'>    <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(<a href='../S/87.html#L478' title='Defined at 478 in src/rdb.c.'>rdbSaveObject</a>(payload,o));
+<a name='L19'>
+<a name='L20'>    <i><font color='green'>/* Write the footer, this is how it looks like:</font></i>
+<a name='L21'><i><font color='green'>     * ----------------+---------------------+---------------+</font></i>
+<a name='L22'><i><font color='green'>     * ... RDB payload | 2 bytes RDB version | 8 bytes CRC64 |</font></i>
+<a name='L23'><i><font color='green'>     * ----------------+---------------------+---------------+</font></i>
+<a name='L24'><i><font color='green'>     * RDB version and CRC are both in little endian.</font></i>
+<a name='L25'><i><font color='green'>     */</font></i>
+<a name='L26'>
+<a name='L27'>    <i><font color='green'>/* RDB version */</font></i>
+<a name='L28'>    buf[0] = <a href='../S/91.html#L41' title='Defined at 41 in src/rdb.h.'>REDIS_RDB_VERSION</a> &amp; 0xff;
+<a name='L29'>    buf[1] = (<a href='../S/91.html#L41' title='Defined at 41 in src/rdb.h.'>REDIS_RDB_VERSION</a> &gt;&gt; 8) &amp; 0xff;
+<a name='L30'>    payload-&gt;io.buffer.ptr = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(payload-&gt;io.buffer.ptr,buf,2);
+<a name='L31'>
+<a name='L32'>    <i><font color='green'>/* CRC64 */</font></i>
+<a name='L33'>    crc = <a href='../S/77.html#L173' title='Defined at 173 in src/crc64.c.'>crc64</a>(0,(<b>unsigned</b> <b>char</b>*)payload-&gt;io.buffer.ptr,
+<a name='L34'>                <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(payload-&gt;io.buffer.ptr));
+<a name='L35'>    <a href='../D/3348.html' title='Multiple defined in 2 places.'>memrev64ifbe</a>(&amp;crc);
+<a name='L36'>    payload-&gt;io.buffer.ptr = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(payload-&gt;io.buffer.ptr,&amp;crc,8);
+<a name='L37'><font color='red'>}</font>
+<a name='L38'>
+<a name='L39'><i><font color='green'>/* Verify that the RDB version of the dump payload matches the one of this Redis</font></i>
+<a name='L40'><i><font color='green'> * instance and that the checksum is ok.</font></i>
+<a name='L41'><i><font color='green'> * If the DUMP payload looks valid REDIS_OK is returned, otherwise REDIS_ERR</font></i>
+<a name='L42'><i><font color='green'> * is returned. */</font></i>
+<a name='L43'><b>int</b> <a href='../S/18.html#L107' title='Refered from 107 in src/migrate.c.'>verifyDumpPayload</a>(<b>unsigned</b> <b>char</b> *p, size_t len) <font color='red'>{</font>
+<a name='L44'>    <b>unsigned</b> <b>char</b> *footer;
+<a name='L45'>    <a href='../D/4428.html' title='Multiple defined in 2 places.'>uint16_t</a> rdbver;
+<a name='L46'>    <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> crc;
+<a name='L47'>
+<a name='L48'>    <i><font color='green'>/* At least 2 bytes of RDB version and 8 of CRC64 should be present. */</font></i>
+<a name='L49'>    <b>if</b> (len &lt; 10) <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L50'>    footer = p+(len-10);
+<a name='L51'>
+<a name='L52'>    <i><font color='green'>/* Verify RDB version */</font></i>
+<a name='L53'>    rdbver = (footer[1] &lt;&lt; 8) | footer[0];
+<a name='L54'>    <b>if</b> (rdbver != <a href='../S/91.html#L41' title='Defined at 41 in src/rdb.h.'>REDIS_RDB_VERSION</a>) <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L55'>
+<a name='L56'>    <i><font color='green'>/* Verify CRC64 */</font></i>
+<a name='L57'>    crc = <a href='../S/77.html#L173' title='Defined at 173 in src/crc64.c.'>crc64</a>(0,p,len-8);
+<a name='L58'>    <a href='../D/3348.html' title='Multiple defined in 2 places.'>memrev64ifbe</a>(&amp;crc);
+<a name='L59'>    <b>return</b> (memcmp(&amp;crc,footer+2,8) == 0) ? <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a> : <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L60'><font color='red'>}</font>
+<a name='L61'>
+<a name='L62'><i><font color='green'>/* DUMP keyname</font></i>
+<a name='L63'><i><font color='green'> * DUMP is actually not used by Redis Cluster but it is the obvious</font></i>
+<a name='L64'><i><font color='green'> * complement of RESTORE and can be useful for different applications. */</font></i>
+<a name='L65'><b>void</b> <a href='../R/1877.html' title='Multiple refered from 2 places.'>dumpCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L66'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o, *dumpobj;
+<a name='L67'>    <a href='../S/65.html#L67' title='Defined at 67 in src/rio.h.'>rio</a> payload;
+<a name='L68'>
+<a name='L69'>    <i><font color='green'>/* Check if the key is here. */</font></i>
+<a name='L70'>    <b>if</b> ((o = <a href='../S/31.html#L58' title='Defined at 58 in src/db.c.'>lookupKeyRead</a>(c-&gt;db,c-&gt;argv[1])) == NULL) <font color='red'>{</font>
+<a name='L71'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.nullbulk);
+<a name='L72'>        <b>return</b>;
+<a name='L73'>    <font color='red'>}</font>
+<a name='L74'>
+<a name='L75'>    <i><font color='green'>/* Create the DUMP encoded representation. */</font></i>
+<a name='L76'>    <a href='../S/18.html#L10' title='Defined at 10 in src/migrate.c.'>createDumpPayload</a>(&amp;payload,o);
+<a name='L77'>
+<a name='L78'>    <i><font color='green'>/* Transfer to the client */</font></i>
+<a name='L79'>    dumpobj = <a href='../S/71.html#L35' title='Defined at 35 in src/object.c.'>createObject</a>(<a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>,payload.io.buffer.ptr);
+<a name='L80'>    <a href='../S/86.html#L475' title='Defined at 475 in src/networking.c.'>addReplyBulk</a>(c,dumpobj);
+<a name='L81'>    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(dumpobj);
+<a name='L82'>    <b>return</b>;
+<a name='L83'><font color='red'>}</font>
+<a name='L84'>
+<a name='L85'><i><font color='green'>/* RESTORE key ttl serialized-value */</font></i>
+<a name='L86'><b>void</b> <a href='../R/3545.html' title='Multiple refered from 2 places.'>restoreCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L87'>    <b>long</b> ttl;
+<a name='L88'>    <a href='../S/65.html#L67' title='Defined at 67 in src/rio.h.'>rio</a> payload;
+<a name='L89'>    <b>int</b> type;
+<a name='L90'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *obj;
+<a name='L91'>
+<a name='L92'>    <i><font color='green'>/* Make sure this key does not already exist here... */</font></i>
+<a name='L93'>    <b>if</b> (<a href='../S/31.html#L70' title='Defined at 70 in src/db.c.'>lookupKeyWrite</a>(c-&gt;db,c-&gt;argv[1]) != NULL) <font color='red'>{</font>
+<a name='L94'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"Target key name is busy.");
+<a name='L95'>        <b>return</b>;
+<a name='L96'>    <font color='red'>}</font>
+<a name='L97'>
+<a name='L98'>    <i><font color='green'>/* Check if the TTL value makes sense */</font></i>
+<a name='L99'>    <b>if</b> (<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c,c-&gt;argv[2],&amp;ttl,NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L100'>        <b>return</b>;
+<a name='L101'>    <font color='red'>}</font> <b>else</b> <b>if</b> (ttl &lt; 0) <font color='red'>{</font>
+<a name='L102'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"Invalid TTL value, must be &gt;= 0");
+<a name='L103'>        <b>return</b>;
+<a name='L104'>    <font color='red'>}</font>
+<a name='L105'>
+<a name='L106'>    <i><font color='green'>/* Verify RDB version and data checksum. */</font></i>
+<a name='L107'>    <b>if</b> (<a href='../S/18.html#L43' title='Defined at 43 in src/migrate.c.'>verifyDumpPayload</a>(c-&gt;argv[3]-&gt;ptr,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(c-&gt;argv[3]-&gt;ptr)) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>) <font color='red'>{</font>
+<a name='L108'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"DUMP payload version or checksum are wrong");
+<a name='L109'>        <b>return</b>;
+<a name='L110'>    <font color='red'>}</font>
+<a name='L111'>
+<a name='L112'>    <a href='../S/76.html#L115' title='Defined at 115 in src/rio.c.'>rioInitWithBuffer</a>(&amp;payload,c-&gt;argv[3]-&gt;ptr);
+<a name='L113'>    <b>if</b> (((type = <a href='../S/87.html#L470' title='Defined at 470 in src/rdb.c.'>rdbLoadObjectType</a>(&amp;payload)) == -1) ||
+<a name='L114'>        ((obj = <a href='../S/87.html#L770' title='Defined at 770 in src/rdb.c.'>rdbLoadObject</a>(type,&amp;payload)) == NULL))
+<a name='L115'>    <font color='red'>{</font>
+<a name='L116'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"Bad data format");
+<a name='L117'>        <b>return</b>;
+<a name='L118'>    <font color='red'>}</font>
+<a name='L119'>
+<a name='L120'>    <i><font color='green'>/* Create the key and set the TTL if any */</font></i>
+<a name='L121'>    <a href='../S/31.html#L91' title='Defined at 91 in src/db.c.'>dbAdd</a>(c-&gt;db,c-&gt;argv[1],obj);
+<a name='L122'>    <b>if</b> (ttl) <a href='../S/31.html#L453' title='Defined at 453 in src/db.c.'>setExpire</a>(c-&gt;db,c-&gt;argv[1],<a href='../D/3402.html' title='Multiple defined in 3 places.'>mstime</a>()+ttl);
+<a name='L123'>    <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L124'>    <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L125'>    server.dirty++;
+<a name='L126'><font color='red'>}</font>
+<a name='L127'>
+<a name='L128'><i><font color='green'>/* MIGRATE host port key dbid timeout */</font></i>
+<a name='L129'><b>void</b> <a href='../R/3014.html' title='Multiple refered from 2 places.'>migrateCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L130'>    <b>int</b> fd;
+<a name='L131'>    <b>long</b> timeout;
+<a name='L132'>    <b>long</b> dbid;
+<a name='L133'>    <b>long</b> <b>long</b> ttl = 0, expireat;
+<a name='L134'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L135'>    <a href='../S/65.html#L67' title='Defined at 67 in src/rio.h.'>rio</a> cmd, payload;
+<a name='L136'>
+<a name='L137'>    <i><font color='green'>/* Sanity check */</font></i>
+<a name='L138'>    <b>if</b> (<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c,c-&gt;argv[5],&amp;timeout,NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L139'>        <b>return</b>;
+<a name='L140'>    <b>if</b> (<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c,c-&gt;argv[4],&amp;dbid,NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L141'>        <b>return</b>;
+<a name='L142'>    <b>if</b> (timeout &lt;= 0) timeout = 1000;
+<a name='L143'>
+<a name='L144'>    <i><font color='green'>/* Check if the key is here. If not we reply with success as there is</font></i>
+<a name='L145'><i><font color='green'>     * nothing to migrate (for instance the key expired in the meantime), but</font></i>
+<a name='L146'><i><font color='green'>     * we include such information in the reply string. */</font></i>
+<a name='L147'>    <b>if</b> ((o = <a href='../S/31.html#L58' title='Defined at 58 in src/db.c.'>lookupKeyRead</a>(c-&gt;db,c-&gt;argv[3])) == NULL) <font color='red'>{</font>
+<a name='L148'>        <a href='../S/86.html#L304' title='Defined at 304 in src/networking.c.'>addReplySds</a>(c,<a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>("+NOKEY\r\n"));
+<a name='L149'>        <b>return</b>;
+<a name='L150'>    <font color='red'>}</font>
+<a name='L151'>    
+<a name='L152'>    <i><font color='green'>/* Connect */</font></i>
+<a name='L153'>    fd = <a href='../S/50.html#L188' title='Defined at 188 in src/anet.c.'>anetTcpNonBlockConnect</a>(server.neterr,c-&gt;argv[1]-&gt;ptr,
+<a name='L154'>                atoi(c-&gt;argv[2]-&gt;ptr));
+<a name='L155'>    <b>if</b> (fd == -1) <font color='red'>{</font>
+<a name='L156'>        <a href='../S/86.html#L334' title='Defined at 334 in src/networking.c.'>addReplyErrorFormat</a>(c,"Can't connect to target node: %s",
+<a name='L157'>            server.neterr);
+<a name='L158'>        <b>return</b>;
+<a name='L159'>    <font color='red'>}</font>
+<a name='L160'>    <b>if</b> ((<a href='../S/36.html#L396' title='Defined at 396 in src/ae.c.'>aeWait</a>(fd,<a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>,timeout) &amp; <a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>) == 0) <font color='red'>{</font>
+<a name='L161'>        close(fd);
+<a name='L162'>        <a href='../S/86.html#L304' title='Defined at 304 in src/networking.c.'>addReplySds</a>(c,<a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>("-IOERR error or timeout connecting to the client\r\n"));
+<a name='L163'>        <b>return</b>;
+<a name='L164'>    <font color='red'>}</font>
+<a name='L165'>
+<a name='L166'>    <i><font color='green'>/* Create RESTORE payload and generate the protocol to call the command. */</font></i>
+<a name='L167'>    <a href='../S/76.html#L115' title='Defined at 115 in src/rio.c.'>rioInitWithBuffer</a>(&amp;cmd,<a href='../D/4005.html' title='Multiple defined in 2 places.'>sdsempty</a>());
+<a name='L168'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,NULL,<a href='../S/76.html#L132' title='Defined at 132 in src/rio.c.'>rioWriteBulkCount</a>(&amp;cmd,'*',2));
+<a name='L169'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,NULL,<a href='../S/76.html#L145' title='Defined at 145 in src/rio.c.'>rioWriteBulkString</a>(&amp;cmd,"SELECT",6));
+<a name='L170'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,NULL,<a href='../S/76.html#L155' title='Defined at 155 in src/rio.c.'>rioWriteBulkLongLong</a>(&amp;cmd,dbid));
+<a name='L171'>
+<a name='L172'>    expireat = <a href='../S/31.html#L465' title='Defined at 465 in src/db.c.'>getExpire</a>(c-&gt;db,c-&gt;argv[3]);
+<a name='L173'>    <b>if</b> (expireat != -1) <font color='red'>{</font>
+<a name='L174'>        ttl = expireat-<a href='../D/3402.html' title='Multiple defined in 3 places.'>mstime</a>();
+<a name='L175'>        <b>if</b> (ttl &lt; 1) ttl = 1;
+<a name='L176'>    <font color='red'>}</font>
+<a name='L177'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,NULL,<a href='../S/76.html#L132' title='Defined at 132 in src/rio.c.'>rioWriteBulkCount</a>(&amp;cmd,'*',4));
+<a name='L178'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,NULL,<a href='../S/76.html#L145' title='Defined at 145 in src/rio.c.'>rioWriteBulkString</a>(&amp;cmd,"RESTORE",7));
+<a name='L179'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,NULL,c-&gt;argv[3]-&gt;encoding == <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>);
+<a name='L180'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,NULL,<a href='../S/76.html#L145' title='Defined at 145 in src/rio.c.'>rioWriteBulkString</a>(&amp;cmd,c-&gt;argv[3]-&gt;ptr,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(c-&gt;argv[3]-&gt;ptr)));
+<a name='L181'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,NULL,<a href='../S/76.html#L155' title='Defined at 155 in src/rio.c.'>rioWriteBulkLongLong</a>(&amp;cmd,ttl));
+<a name='L182'>
+<a name='L183'>    <i><font color='green'>/* Finally the last argument that is the serailized object payload</font></i>
+<a name='L184'><i><font color='green'>     * in the DUMP format. */</font></i>
+<a name='L185'>    <a href='../S/18.html#L10' title='Defined at 10 in src/migrate.c.'>createDumpPayload</a>(&amp;payload,o);
+<a name='L186'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,NULL,<a href='../S/76.html#L145' title='Defined at 145 in src/rio.c.'>rioWriteBulkString</a>(&amp;cmd,payload.io.buffer.ptr,
+<a name='L187'>                                <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(payload.io.buffer.ptr)));
+<a name='L188'>    <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(payload.io.buffer.ptr);
+<a name='L189'>
+<a name='L190'>    <i><font color='green'>/* Tranfer the query to the other node in 64K chunks. */</font></i>
+<a name='L191'>    <font color='red'>{</font>
+<a name='L192'>        <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> buf = cmd.io.buffer.ptr;
+<a name='L193'>        size_t <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> = 0, towrite;
+<a name='L194'>        <b>int</b> nwritten = 0;
+<a name='L195'>
+<a name='L196'>        <b>while</b> ((towrite = <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(buf)-<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>) &gt; 0) <font color='red'>{</font>
+<a name='L197'>            towrite = (towrite &gt; (64*1024) ? (64*1024) : towrite);
+<a name='L198'>            nwritten = <a href='../S/78.html#L49' title='Defined at 49 in src/syncio.c.'>syncWrite</a>(fd,buf+<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>,towrite,timeout);
+<a name='L199'>            <b>if</b> (nwritten != (<b>signed</b>)towrite) <b>goto</b> socket_wr_err;
+<a name='L200'>            <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> += nwritten;
+<a name='L201'>        <font color='red'>}</font>
+<a name='L202'>    <font color='red'>}</font>
+<a name='L203'>
+<a name='L204'>    <i><font color='green'>/* Read back the reply. */</font></i>
+<a name='L205'>    <font color='red'>{</font>
+<a name='L206'>        <b>char</b> buf1[1024];
+<a name='L207'>        <b>char</b> buf2[1024];
+<a name='L208'>
+<a name='L209'>        <i><font color='green'>/* Read the two replies */</font></i>
+<a name='L210'>        <b>if</b> (<a href='../S/78.html#L125' title='Defined at 125 in src/syncio.c.'>syncReadLine</a>(fd, buf1, <b>sizeof</b>(buf1), timeout) &lt;= 0)
+<a name='L211'>            <b>goto</b> socket_rd_err;
+<a name='L212'>        <b>if</b> (<a href='../S/78.html#L125' title='Defined at 125 in src/syncio.c.'>syncReadLine</a>(fd, buf2, <b>sizeof</b>(buf2), timeout) &lt;= 0)
+<a name='L213'>            <b>goto</b> socket_rd_err;
+<a name='L214'>        <b>if</b> (buf1[0] == '-' || buf2[0] == '-') <font color='red'>{</font>
+<a name='L215'>            <a href='../S/86.html#L334' title='Defined at 334 in src/networking.c.'>addReplyErrorFormat</a>(c,"Target instance replied with error: %s",
+<a name='L216'>                (buf1[0] == '-') ? buf1+1 : buf2+1);
+<a name='L217'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L218'>            <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *aux;
+<a name='L219'>
+<a name='L220'>            <a href='../S/31.html#L158' title='Defined at 158 in src/db.c.'>dbDelete</a>(c-&gt;db,c-&gt;argv[3]);
+<a name='L221'>            <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[3]);
+<a name='L222'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L223'>            server.dirty++;
+<a name='L224'>
+<a name='L225'>            <i><font color='green'>/* Translate MIGRATE as DEL for replication/AOF. */</font></i>
+<a name='L226'>            aux = <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>("DEL",3);
+<a name='L227'>            <a href='../S/86.html#L1199' title='Defined at 1199 in src/networking.c.'>rewriteClientCommandVector</a>(c,2,aux,c-&gt;argv[3]);
+<a name='L228'>            <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(aux);
+<a name='L229'>        <font color='red'>}</font>
+<a name='L230'>    <font color='red'>}</font>
+<a name='L231'>
+<a name='L232'>    <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(cmd.io.buffer.ptr);
+<a name='L233'>    close(fd);
+<a name='L234'>    <b>return</b>;
+<a name='L235'>
+<a name='L236'>socket_wr_err:
+<a name='L237'>    <a href='../S/86.html#L304' title='Defined at 304 in src/networking.c.'>addReplySds</a>(c,<a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>("-IOERR error or timeout writing to target instance\r\n"));
+<a name='L238'>    <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(cmd.io.buffer.ptr);
+<a name='L239'>    close(fd);
+<a name='L240'>    <b>return</b>;
+<a name='L241'>
+<a name='L242'>socket_rd_err:
+<a name='L243'>    <a href='../S/86.html#L304' title='Defined at 304 in src/networking.c.'>addReplySds</a>(c,<a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>("-IOERR error or timeout reading from target node\r\n"));
+<a name='L244'>    <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(cmd.io.buffer.ptr);
+<a name='L245'>    close(fd);
+<a name='L246'>    <b>return</b>;
+<a name='L247'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L10'>[^]</a><a href='#L129'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

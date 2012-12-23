@@ -1,0 +1,255 @@
+<html>
+<head>
+<title>src/sha1.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/sha1.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L58'>[^]</a><a href='#L207'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L58' title='Defined at 58.'>SHA1Transform</a>
+<li><a href='#L119' title='Defined at 119.'>SHA1Init</a>
+<li><a href='#L133' title='Defined at 133.'>SHA1Update</a>
+<li><a href='#L158' title='Defined at 158.'>SHA1Final</a>
+<li><a href='#L207' title='Defined at 207.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'>
+<a name='L2'><i><font color='green'>/* from valgrind tests */</font></i>
+<a name='L3'>
+<a name='L4'><i><font color='green'>/* ================ sha1.c ================ */</font></i>
+<a name='L5'><i><font color='green'>/*</font></i>
+<a name='L6'><i><font color='green'>SHA-1 in C</font></i>
+<a name='L7'><i><font color='green'>By Steve Reid &lt;steve@edmweb.com&gt;</font></i>
+<a name='L8'><i><font color='green'>100% Public Domain</font></i>
+<a name='L9'><i><font color='green'></font></i>
+<a name='L10'><i><font color='green'>Test Vectors (from FIPS PUB 180-1)</font></i>
+<a name='L11'><i><font color='green'>"abc"</font></i>
+<a name='L12'><i><font color='green'>  A9993E36 4706816A BA3E2571 7850C26C 9CD0D89D</font></i>
+<a name='L13'><i><font color='green'>"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"</font></i>
+<a name='L14'><i><font color='green'>  84983E44 1C3BD26E BAAE4AA1 F95129E5 E54670F1</font></i>
+<a name='L15'><i><font color='green'>A million repetitions of "a"</font></i>
+<a name='L16'><i><font color='green'>  34AA973C D4C4DAA4 F61EEB2B DBAD2731 6534016F</font></i>
+<a name='L17'><i><font color='green'>*/</font></i>
+<a name='L18'>
+<a name='L19'><i><font color='green'>/* #define LITTLE_ENDIAN * This should be #define'd already, if true. */</font></i>
+<a name='L20'><i><font color='green'>/* #define SHA1HANDSOFF * Copies data before messing with it. */</font></i>
+<a name='L21'>
+<a name='L22'><font color='darkred'>#define</font> <a href='../R/874.html' title='Multiple refered from 2 places.'>SHA1HANDSOFF</a>
+<a name='L23'>
+<a name='L24'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L25'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L26'><font color='darkred'>#include</font> &lt;sys/types.h&gt;  <i><font color='green'>/* for u_int*_t */</font></i>
+<a name='L27'><font color='darkred'>#if</font> <b>defined</b>(__sun)
+<a name='L28'><font color='darkred'>#include</font> "<a href='90.html'>solarisfixes.h</a>"
+<a name='L29'><font color='darkred'>#endif</font>
+<a name='L30'><font color='darkred'>#include</font> "<a href='30.html'>sha1.h</a>"
+<a name='L31'><font color='darkred'>#include</font> "<a href='53.html'>config.h</a>"
+<a name='L32'>
+<a name='L33'><font color='darkred'>#define</font> <a href='../R/3580.html' title='Multiple refered from 8 places.'>rol</a>(value, bits) (((value) &lt;&lt; (bits)) | ((value) &gt;&gt; (32 - (bits))))
+<a name='L34'>
+<a name='L35'><i><font color='green'>/* blk0() and blk() perform the initial expand. */</font></i>
+<a name='L36'><i><font color='green'>/* I got the idea of expanding during the round function from SSLeay */</font></i>
+<a name='L37'><font color='darkred'>#if</font> <a href='../D/52.html' title='Multiple defined in 4 places.'>BYTE_ORDER</a> == <a href='../S/53.html#L116' title='Defined at 116 in src/config.h.'>LITTLE_ENDIAN</a>
+<a name='L38'><font color='darkred'>#define</font> <a href='../S/80.html#L49' title='Refered from 49 in src/sha1.c.'>blk0</a>(i) (<a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a>-&gt;l[i] = (<a href='../S/80.html#L33' title='Defined at 33 in src/sha1.c.'>rol</a>(<a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a>-&gt;l[i],24)&amp;0xFF00FF00) \
+<a name='L39'>    |(<a href='../S/80.html#L33' title='Defined at 33 in src/sha1.c.'>rol</a>(<a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a>-&gt;l[i],8)&amp;0x00FF00FF))
+<a name='L40'><font color='darkred'>#elif</font> <a href='../D/52.html' title='Multiple defined in 4 places.'>BYTE_ORDER</a> == <a href='../S/53.html#L117' title='Defined at 117 in src/config.h.'>BIG_ENDIAN</a>
+<a name='L41'><font color='darkred'>#define</font> <a href='../S/80.html#L49' title='Refered from 49 in src/sha1.c.'>blk0</a>(i) <a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a>-&gt;l[i]
+<a name='L42'><font color='darkred'>#else</font>
+<a name='L43'><font color='darkred'>#error</font> "Endianness not defined!"
+<a name='L44'><font color='darkred'>#endif</font>
+<a name='L45'><font color='darkred'>#define</font> <a href='../R/1485.html' title='Multiple refered from 4 places.'>blk</a>(i) (<a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a>-&gt;l[i&amp;15] = <a href='../S/80.html#L33' title='Defined at 33 in src/sha1.c.'>rol</a>(<a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a>-&gt;l[(i+13)&amp;15]^<a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a>-&gt;l[(i+8)&amp;15] \
+<a name='L46'>    ^<a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a>-&gt;l[(i+2)&amp;15]^<a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a>-&gt;l[i&amp;15],1))
+<a name='L47'>
+<a name='L48'><i><font color='green'>/* (R0+R1), R2, R3, R4 are the different operations used in SHA1 */</font></i>
+<a name='L49'><font color='darkred'>#define</font> <a href='../R/591.html' title='Multiple refered from 4 places.'>R0</a>(v,w,x,y,z,i) z+=((w&amp;(x^y))^y)+<a href='../D/1760.html' title='Multiple defined in 2 places.'>blk0</a>(i)+0x5A827999+<a href='../S/80.html#L33' title='Defined at 33 in src/sha1.c.'>rol</a>(v,5);w=<a href='../S/80.html#L33' title='Defined at 33 in src/sha1.c.'>rol</a>(w,30);
+<a name='L50'><font color='darkred'>#define</font> <a href='../S/80.html#L87' title='Refered from 87 in src/sha1.c.'>R1</a>(v,w,x,y,z,i) z+=((w&amp;(x^y))^y)+<a href='../S/80.html#L45' title='Defined at 45 in src/sha1.c.'>blk</a>(i)+0x5A827999+<a href='../S/80.html#L33' title='Defined at 33 in src/sha1.c.'>rol</a>(v,5);w=<a href='../S/80.html#L33' title='Defined at 33 in src/sha1.c.'>rol</a>(w,30);
+<a name='L51'><font color='darkred'>#define</font> <a href='../R/593.html' title='Multiple refered from 5 places.'>R2</a>(v,w,x,y,z,i) z+=(w^x^y)+<a href='../S/80.html#L45' title='Defined at 45 in src/sha1.c.'>blk</a>(i)+0x6ED9EBA1+<a href='../S/80.html#L33' title='Defined at 33 in src/sha1.c.'>rol</a>(v,5);w=<a href='../S/80.html#L33' title='Defined at 33 in src/sha1.c.'>rol</a>(w,30);
+<a name='L52'><font color='darkred'>#define</font> <a href='../R/594.html' title='Multiple refered from 5 places.'>R3</a>(v,w,x,y,z,i) z+=(((w|x)&amp;y)|(w&amp;x))+<a href='../S/80.html#L45' title='Defined at 45 in src/sha1.c.'>blk</a>(i)+0x8F1BBCDC+<a href='../S/80.html#L33' title='Defined at 33 in src/sha1.c.'>rol</a>(v,5);w=<a href='../S/80.html#L33' title='Defined at 33 in src/sha1.c.'>rol</a>(w,30);
+<a name='L53'><font color='darkred'>#define</font> <a href='../R/595.html' title='Multiple refered from 5 places.'>R4</a>(v,w,x,y,z,i) z+=(w^x^y)+<a href='../S/80.html#L45' title='Defined at 45 in src/sha1.c.'>blk</a>(i)+0xCA62C1D6+<a href='../S/80.html#L33' title='Defined at 33 in src/sha1.c.'>rol</a>(v,5);w=<a href='../S/80.html#L33' title='Defined at 33 in src/sha1.c.'>rol</a>(w,30);
+<a name='L54'>
+<a name='L55'>
+<a name='L56'><i><font color='green'>/* Hash a single 512-bit block. This is the core of the algorithm. */</font></i>
+<a name='L57'>
+<a name='L58'><b>void</b> <a href='../R/876.html' title='Multiple refered from 3 places.'>SHA1Transform</a>(<a href='../S/90.html#L49' title='Defined at 49 in src/solarisfixes.h.'>u_int32_t</a> state[5], <b>const</b> <b>unsigned</b> <b>char</b> buffer[64])
+<a name='L59'><font color='red'>{</font>
+<a name='L60'><a href='../S/90.html#L49' title='Defined at 49 in src/solarisfixes.h.'>u_int32_t</a> a, b, c, d, e;
+<a name='L61'><b>typedef</b> <b>union</b> <font color='red'>{</font>
+<a name='L62'>    <b>unsigned</b> <b>char</b> c[64];
+<a name='L63'>    <a href='../S/90.html#L49' title='Defined at 49 in src/solarisfixes.h.'>u_int32_t</a> l[16];
+<a name='L64'><font color='red'>}</font> <a href='../R/60.html' title='Multiple refered from 2 places.'>CHAR64LONG16</a>;
+<a name='L65'><font color='darkred'>#ifdef</font> <a href='../S/80.html#L22' title='Defined at 22 in src/sha1.c.'>SHA1HANDSOFF</a>
+<a name='L66'><a href='../S/80.html#L64' title='Defined at 64 in src/sha1.c.'>CHAR64LONG16</a> <a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a>[1];  <i><font color='green'>/* use array to appear as a pointer */</font></i>
+<a name='L67'>    memcpy(<a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a>, buffer, 64);
+<a name='L68'><font color='darkred'>#else</font>
+<a name='L69'>    <i><font color='green'>/* The following had better never be used because it causes the</font></i>
+<a name='L70'><i><font color='green'>     * pointer-to-const buffer to be cast into a pointer to non-const.</font></i>
+<a name='L71'><i><font color='green'>     * And the result is written through.  I threw a "const" in, hoping</font></i>
+<a name='L72'><i><font color='green'>     * this will cause a diagnostic.</font></i>
+<a name='L73'><i><font color='green'>     */</font></i>
+<a name='L74'><a href='../S/80.html#L64' title='Defined at 64 in src/sha1.c.'>CHAR64LONG16</a>* <a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a> = (<b>const</b> <a href='../S/80.html#L64' title='Defined at 64 in src/sha1.c.'>CHAR64LONG16</a>*)buffer;
+<a name='L75'><font color='darkred'>#endif</font>
+<a name='L76'>    <i><font color='green'>/* Copy context-&gt;state[] to working vars */</font></i>
+<a name='L77'>    a = state[0];
+<a name='L78'>    b = state[1];
+<a name='L79'>    c = state[2];
+<a name='L80'>    d = state[3];
+<a name='L81'>    e = state[4];
+<a name='L82'>    <i><font color='green'>/* 4 rounds of 20 operations each. Loop unrolled. */</font></i>
+<a name='L83'>    <a href='../S/80.html#L49' title='Defined at 49 in src/sha1.c.'>R0</a>(a,b,c,d,e, 0); <a href='../S/80.html#L49' title='Defined at 49 in src/sha1.c.'>R0</a>(e,a,b,c,d, 1); <a href='../S/80.html#L49' title='Defined at 49 in src/sha1.c.'>R0</a>(d,e,a,b,c, 2); <a href='../S/80.html#L49' title='Defined at 49 in src/sha1.c.'>R0</a>(c,d,e,a,b, 3);
+<a name='L84'>    <a href='../S/80.html#L49' title='Defined at 49 in src/sha1.c.'>R0</a>(b,c,d,e,a, 4); <a href='../S/80.html#L49' title='Defined at 49 in src/sha1.c.'>R0</a>(a,b,c,d,e, 5); <a href='../S/80.html#L49' title='Defined at 49 in src/sha1.c.'>R0</a>(e,a,b,c,d, 6); <a href='../S/80.html#L49' title='Defined at 49 in src/sha1.c.'>R0</a>(d,e,a,b,c, 7);
+<a name='L85'>    <a href='../S/80.html#L49' title='Defined at 49 in src/sha1.c.'>R0</a>(c,d,e,a,b, 8); <a href='../S/80.html#L49' title='Defined at 49 in src/sha1.c.'>R0</a>(b,c,d,e,a, 9); <a href='../S/80.html#L49' title='Defined at 49 in src/sha1.c.'>R0</a>(a,b,c,d,e,10); <a href='../S/80.html#L49' title='Defined at 49 in src/sha1.c.'>R0</a>(e,a,b,c,d,11);
+<a name='L86'>    <a href='../S/80.html#L49' title='Defined at 49 in src/sha1.c.'>R0</a>(d,e,a,b,c,12); <a href='../S/80.html#L49' title='Defined at 49 in src/sha1.c.'>R0</a>(c,d,e,a,b,13); <a href='../S/80.html#L49' title='Defined at 49 in src/sha1.c.'>R0</a>(b,c,d,e,a,14); <a href='../S/80.html#L49' title='Defined at 49 in src/sha1.c.'>R0</a>(a,b,c,d,e,15);
+<a name='L87'>    <a href='../S/80.html#L50' title='Defined at 50 in src/sha1.c.'>R1</a>(e,a,b,c,d,16); <a href='../S/80.html#L50' title='Defined at 50 in src/sha1.c.'>R1</a>(d,e,a,b,c,17); <a href='../S/80.html#L50' title='Defined at 50 in src/sha1.c.'>R1</a>(c,d,e,a,b,18); <a href='../S/80.html#L50' title='Defined at 50 in src/sha1.c.'>R1</a>(b,c,d,e,a,19);
+<a name='L88'>    <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(a,b,c,d,e,20); <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(e,a,b,c,d,21); <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(d,e,a,b,c,22); <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(c,d,e,a,b,23);
+<a name='L89'>    <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(b,c,d,e,a,24); <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(a,b,c,d,e,25); <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(e,a,b,c,d,26); <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(d,e,a,b,c,27);
+<a name='L90'>    <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(c,d,e,a,b,28); <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(b,c,d,e,a,29); <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(a,b,c,d,e,30); <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(e,a,b,c,d,31);
+<a name='L91'>    <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(d,e,a,b,c,32); <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(c,d,e,a,b,33); <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(b,c,d,e,a,34); <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(a,b,c,d,e,35);
+<a name='L92'>    <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(e,a,b,c,d,36); <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(d,e,a,b,c,37); <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(c,d,e,a,b,38); <a href='../S/80.html#L51' title='Defined at 51 in src/sha1.c.'>R2</a>(b,c,d,e,a,39);
+<a name='L93'>    <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(a,b,c,d,e,40); <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(e,a,b,c,d,41); <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(d,e,a,b,c,42); <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(c,d,e,a,b,43);
+<a name='L94'>    <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(b,c,d,e,a,44); <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(a,b,c,d,e,45); <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(e,a,b,c,d,46); <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(d,e,a,b,c,47);
+<a name='L95'>    <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(c,d,e,a,b,48); <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(b,c,d,e,a,49); <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(a,b,c,d,e,50); <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(e,a,b,c,d,51);
+<a name='L96'>    <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(d,e,a,b,c,52); <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(c,d,e,a,b,53); <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(b,c,d,e,a,54); <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(a,b,c,d,e,55);
+<a name='L97'>    <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(e,a,b,c,d,56); <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(d,e,a,b,c,57); <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(c,d,e,a,b,58); <a href='../S/80.html#L52' title='Defined at 52 in src/sha1.c.'>R3</a>(b,c,d,e,a,59);
+<a name='L98'>    <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(a,b,c,d,e,60); <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(e,a,b,c,d,61); <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(d,e,a,b,c,62); <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(c,d,e,a,b,63);
+<a name='L99'>    <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(b,c,d,e,a,64); <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(a,b,c,d,e,65); <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(e,a,b,c,d,66); <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(d,e,a,b,c,67);
+<a name='L100'>    <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(c,d,e,a,b,68); <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(b,c,d,e,a,69); <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(a,b,c,d,e,70); <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(e,a,b,c,d,71);
+<a name='L101'>    <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(d,e,a,b,c,72); <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(c,d,e,a,b,73); <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(b,c,d,e,a,74); <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(a,b,c,d,e,75);
+<a name='L102'>    <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(e,a,b,c,d,76); <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(d,e,a,b,c,77); <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(c,d,e,a,b,78); <a href='../S/80.html#L53' title='Defined at 53 in src/sha1.c.'>R4</a>(b,c,d,e,a,79);
+<a name='L103'>    <i><font color='green'>/* Add the working vars back into context.state[] */</font></i>
+<a name='L104'>    state[0] += a;
+<a name='L105'>    state[1] += b;
+<a name='L106'>    state[2] += c;
+<a name='L107'>    state[3] += d;
+<a name='L108'>    state[4] += e;
+<a name='L109'>    <i><font color='green'>/* Wipe variables */</font></i>
+<a name='L110'>    a = b = c = d = e = 0;
+<a name='L111'><font color='darkred'>#ifdef</font> <a href='../S/80.html#L22' title='Defined at 22 in src/sha1.c.'>SHA1HANDSOFF</a>
+<a name='L112'>    memset(<a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a>, '\0', <b>sizeof</b>(<a href='../S/304.html#L881' title='Defined at 881 in deps/lua/src/lparser.c.'>block</a>));
+<a name='L113'><font color='darkred'>#endif</font>
+<a name='L114'><font color='red'>}</font>
+<a name='L115'>
+<a name='L116'>
+<a name='L117'><i><font color='green'>/* SHA1Init - Initialize new context */</font></i>
+<a name='L118'>
+<a name='L119'><b>void</b> <a href='../R/875.html' title='Multiple refered from 5 places.'>SHA1Init</a>(<a href='../S/30.html#L12' title='Defined at 12 in src/sha1.h.'>SHA1_CTX</a>* context)
+<a name='L120'><font color='red'>{</font>
+<a name='L121'>    <i><font color='green'>/* SHA1 initialization constants */</font></i>
+<a name='L122'>    context-&gt;state[0] = 0x67452301;
+<a name='L123'>    context-&gt;state[1] = 0xEFCDAB89;
+<a name='L124'>    context-&gt;state[2] = 0x98BADCFE;
+<a name='L125'>    context-&gt;state[3] = 0x10325476;
+<a name='L126'>    context-&gt;state[4] = 0xC3D2E1F0;
+<a name='L127'>    context-&gt;count[0] = context-&gt;count[1] = 0;
+<a name='L128'><font color='red'>}</font>
+<a name='L129'>
+<a name='L130'>
+<a name='L131'><i><font color='green'>/* Run your data through this. */</font></i>
+<a name='L132'>
+<a name='L133'><b>void</b> <a href='../R/877.html' title='Multiple refered from 8 places.'>SHA1Update</a>(<a href='../S/30.html#L12' title='Defined at 12 in src/sha1.h.'>SHA1_CTX</a>* context, <b>const</b> <b>unsigned</b> <b>char</b>* data, <a href='../S/90.html#L49' title='Defined at 49 in src/solarisfixes.h.'>u_int32_t</a> len)
+<a name='L134'><font color='red'>{</font>
+<a name='L135'><a href='../S/90.html#L49' title='Defined at 49 in src/solarisfixes.h.'>u_int32_t</a> i;
+<a name='L136'><a href='../S/90.html#L49' title='Defined at 49 in src/solarisfixes.h.'>u_int32_t</a> j;
+<a name='L137'>
+<a name='L138'>    j = context-&gt;count[0];
+<a name='L139'>    <b>if</b> ((context-&gt;count[0] += len &lt;&lt; 3) &lt; j)
+<a name='L140'>        context-&gt;count[1]++;
+<a name='L141'>    context-&gt;count[1] += (len&gt;&gt;29);
+<a name='L142'>    j = (j &gt;&gt; 3) &amp; 63;
+<a name='L143'>    <b>if</b> ((j + len) &gt; 63) <font color='red'>{</font>
+<a name='L144'>        memcpy(&amp;context-&gt;buffer[j], data, (i = 64-j));
+<a name='L145'>        <a href='../S/80.html#L58' title='Defined at 58 in src/sha1.c.'>SHA1Transform</a>(context-&gt;state, context-&gt;buffer);
+<a name='L146'>        <b>for</b> ( ; i + 63 &lt; len; i += 64) <font color='red'>{</font>
+<a name='L147'>            <a href='../S/80.html#L58' title='Defined at 58 in src/sha1.c.'>SHA1Transform</a>(context-&gt;state, &amp;data[i]);
+<a name='L148'>        <font color='red'>}</font>
+<a name='L149'>        j = 0;
+<a name='L150'>    <font color='red'>}</font>
+<a name='L151'>    <b>else</b> i = 0;
+<a name='L152'>    memcpy(&amp;context-&gt;buffer[j], &amp;data[i], len - i);
+<a name='L153'><font color='red'>}</font>
+<a name='L154'>
+<a name='L155'>
+<a name='L156'><i><font color='green'>/* Add padding and return the message digest. */</font></i>
+<a name='L157'>
+<a name='L158'><b>void</b> <a href='../R/873.html' title='Multiple refered from 5 places.'>SHA1Final</a>(<b>unsigned</b> <b>char</b> digest[20], <a href='../S/30.html#L12' title='Defined at 12 in src/sha1.h.'>SHA1_CTX</a>* context)
+<a name='L159'><font color='red'>{</font>
+<a name='L160'><b>unsigned</b> i;
+<a name='L161'><b>unsigned</b> <b>char</b> finalcount[8];
+<a name='L162'><b>unsigned</b> <b>char</b> c;
+<a name='L163'>
+<a name='L164'><font color='darkred'>#if</font> 0   <i><font color='green'>/* untested "improvement" by DHR */</font></i>
+<a name='L165'>    <i><font color='green'>/* Convert context-&gt;count to a sequence of bytes</font></i>
+<a name='L166'><i><font color='green'>     * in finalcount.  Second element first, but</font></i>
+<a name='L167'><i><font color='green'>     * big-endian order within element.</font></i>
+<a name='L168'><i><font color='green'>     * But we do it all backwards.</font></i>
+<a name='L169'><i><font color='green'>     */</font></i>
+<a name='L170'>    <b>unsigned</b> <b>char</b> *fcp = &amp;finalcount[8];
+<a name='L171'>
+<a name='L172'>    <b>for</b> (i = 0; i &lt; 2; i++)
+<a name='L173'>    <font color='red'>{</font>
+<a name='L174'>        <a href='../S/90.html#L49' title='Defined at 49 in src/solarisfixes.h.'>u_int32_t</a> t = context-&gt;count[i];
+<a name='L175'>        <b>int</b> j;
+<a name='L176'>
+<a name='L177'>        <b>for</b> (j = 0; j &lt; 4; t &gt;&gt;= 8, j++)
+<a name='L178'>            *--fcp = (<b>unsigned</b> <b>char</b>) t
+<a name='L179'>    <font color='red'>}</font>
+<a name='L180'><font color='darkred'>#else</font>
+<a name='L181'>    <b>for</b> (i = 0; i &lt; 8; i++) <font color='red'>{</font>
+<a name='L182'>        finalcount[i] = (<b>unsigned</b> <b>char</b>)((context-&gt;count[(i &gt;= 4 ? 0 : 1)]
+<a name='L183'>         &gt;&gt; ((3-(i &amp; 3)) * 8) ) &amp; 255);  <i><font color='green'>/* Endian independent */</font></i>
+<a name='L184'>    <font color='red'>}</font>
+<a name='L185'><font color='darkred'>#endif</font>
+<a name='L186'>    c = 0200;
+<a name='L187'>    <a href='../S/80.html#L133' title='Defined at 133 in src/sha1.c.'>SHA1Update</a>(context, &amp;c, 1);
+<a name='L188'>    <b>while</b> ((context-&gt;count[0] &amp; 504) != 448) <font color='red'>{</font>
+<a name='L189'>        c = 0000;
+<a name='L190'>        <a href='../S/80.html#L133' title='Defined at 133 in src/sha1.c.'>SHA1Update</a>(context, &amp;c, 1);
+<a name='L191'>    <font color='red'>}</font>
+<a name='L192'>    <a href='../S/80.html#L133' title='Defined at 133 in src/sha1.c.'>SHA1Update</a>(context, finalcount, 8);  <i><font color='green'>/* Should cause a SHA1Transform() */</font></i>
+<a name='L193'>    <b>for</b> (i = 0; i &lt; 20; i++) <font color='red'>{</font>
+<a name='L194'>        digest[i] = (<b>unsigned</b> <b>char</b>)
+<a name='L195'>         ((context-&gt;state[i&gt;&gt;2] &gt;&gt; ((3-(i &amp; 3)) * 8) ) &amp; 255);
+<a name='L196'>    <font color='red'>}</font>
+<a name='L197'>    <i><font color='green'>/* Wipe variables */</font></i>
+<a name='L198'>    memset(context, '\0', <b>sizeof</b>(*context));
+<a name='L199'>    memset(&amp;finalcount, '\0', <b>sizeof</b>(finalcount));
+<a name='L200'><font color='red'>}</font>
+<a name='L201'><i><font color='green'>/* ================ end of sha1.c ================ */</font></i>
+<a name='L202'>
+<a name='L203'><font color='darkred'>#if</font> 0
+<a name='L204'><font color='darkred'>#define</font> <a href='../R/50.html' title='Multiple refered from 3 places.'>BUFSIZE</a> 4096
+<a name='L205'>
+<a name='L206'><b>int</b>
+<a name='L207'>main(<b>int</b> argc, <b>char</b> **argv)
+<a name='L208'><font color='red'>{</font>
+<a name='L209'>    <a href='../S/30.html#L12' title='Defined at 12 in src/sha1.h.'>SHA1_CTX</a> ctx;
+<a name='L210'>    <b>unsigned</b> <b>char</b> <a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a>[20], buf[<a href='../S/80.html#L204' title='Defined at 204 in src/sha1.c.'>BUFSIZE</a>];
+<a name='L211'>    <b>int</b> i;
+<a name='L212'>
+<a name='L213'>    <b>for</b>(i=0;i&lt;<a href='../S/80.html#L204' title='Defined at 204 in src/sha1.c.'>BUFSIZE</a>;i++)
+<a name='L214'>        buf[i] = i;
+<a name='L215'>
+<a name='L216'>    <a href='../S/80.html#L119' title='Defined at 119 in src/sha1.c.'>SHA1Init</a>(&amp;ctx);
+<a name='L217'>    <b>for</b>(i=0;i&lt;1000;i++)
+<a name='L218'>        <a href='../S/80.html#L133' title='Defined at 133 in src/sha1.c.'>SHA1Update</a>(&amp;ctx, buf, <a href='../S/80.html#L204' title='Defined at 204 in src/sha1.c.'>BUFSIZE</a>);
+<a name='L219'>    <a href='../S/80.html#L158' title='Defined at 158 in src/sha1.c.'>SHA1Final</a>(<a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a>, &amp;ctx);
+<a name='L220'>
+<a name='L221'>    printf("SHA1=");
+<a name='L222'>    <b>for</b>(i=0;i&lt;20;i++)
+<a name='L223'>        printf("%02x", <a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a>[i]);
+<a name='L224'>    printf("\n");
+<a name='L225'>    <b>return</b> 0;
+<a name='L226'><font color='red'>}</font>
+<a name='L227'>
+<a name='L228'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L58'>[^]</a><a href='#L207'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

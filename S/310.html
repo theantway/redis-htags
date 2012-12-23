@@ -1,0 +1,147 @@
+<html>
+<head>
+<title>deps/lua/src/llimits.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/llimits.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/111.html' title='Multiple included from 5 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: llimits.h,v 1.69.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Limits, basic types, and some other `installation-dependent' definitions</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'><font color='darkred'>#ifndef</font> <a href='../S/310.html#L8' title='Defined at 8 in deps/lua/src/llimits.h.'>llimits_h</a>
+<a name='L8'><font color='darkred'>#define</font> <a href='../S/310.html#L7' title='Refered from 7 in deps/lua/src/llimits.h.'>llimits_h</a>
+<a name='L9'>
+<a name='L10'>
+<a name='L11'><font color='darkred'>#include</font> &lt;limits.h&gt;
+<a name='L12'><font color='darkred'>#include</font> &lt;stddef.h&gt;
+<a name='L13'>
+<a name='L14'>
+<a name='L15'><font color='darkred'>#include</font> "<a href='266.html'>lua.h</a>"
+<a name='L16'>
+<a name='L17'>
+<a name='L18'><b>typedef</b> <a href='../D/331.html' title='Multiple defined in 2 places.'>LUAI_UINT32</a> <a href='../R/2489.html' title='Multiple refered from 4 places.'>lu_int32</a>;
+<a name='L19'>
+<a name='L20'><b>typedef</b> <a href='../D/332.html' title='Multiple defined in 2 places.'>LUAI_UMEM</a> <a href='../R/2490.html' title='Multiple refered from 10 places.'>lu_mem</a>;
+<a name='L21'>
+<a name='L22'><b>typedef</b> <a href='../D/327.html' title='Multiple defined in 2 places.'>LUAI_MEM</a> <a href='../R/2342.html' title='Multiple refered from 3 places.'>l_mem</a>;
+<a name='L23'>
+<a name='L24'>
+<a name='L25'>
+<a name='L26'><i><font color='green'>/* chars used as small naturals (so that `char' is reserved for characters) */</font></i>
+<a name='L27'><b>typedef</b> <b>unsigned</b> <b>char</b> <a href='../R/2488.html' title='Multiple refered from 34 places.'>lu_byte</a>;
+<a name='L28'>
+<a name='L29'>
+<a name='L30'><font color='darkred'>#define</font> <a href='../R/451.html' title='Multiple refered from 5 places.'>MAX_SIZET</a>       ((size_t)(~(size_t)0)-2)
+<a name='L31'>
+<a name='L32'><font color='darkred'>#define</font> <a href='../R/448.html' title='Multiple refered from 3 places.'>MAX_LUMEM</a>       ((<a href='../S/310.html#L20' title='Defined at 20 in deps/lua/src/llimits.h.'>lu_mem</a>)(~(<a href='../S/310.html#L20' title='Defined at 20 in deps/lua/src/llimits.h.'>lu_mem</a>)0)-2)
+<a name='L33'>
+<a name='L34'>
+<a name='L35'><font color='darkred'>#define</font> <a href='../R/445.html' title='Multiple refered from 10 places.'>MAX_INT</a> (INT_MAX-2)  <i><font color='green'>/* maximum value of an int (-2 for safety) */</font></i>
+<a name='L36'>
+<a name='L37'><i><font color='green'>/*</font></i>
+<a name='L38'><i><font color='green'>** conversion of pointer to integer</font></i>
+<a name='L39'><i><font color='green'>** this is for hashing only; there is no problem if the integer</font></i>
+<a name='L40'><i><font color='green'>** cannot hold the whole pointer value</font></i>
+<a name='L41'><i><font color='green'>*/</font></i>
+<a name='L42'><font color='darkred'>#define</font> <a href='../S/259.html#L63' title='Refered from 63 in deps/lua/src/ltable.c.'>IntPoint</a>(p)  ((<b>unsigned</b> <b>int</b>)(<a href='../S/310.html#L20' title='Defined at 20 in deps/lua/src/llimits.h.'>lu_mem</a>)(p))
+<a name='L43'>
+<a name='L44'>
+<a name='L45'>
+<a name='L46'><i><font color='green'>/* type to ensure maximum alignment */</font></i>
+<a name='L47'><b>typedef</b> <a href='../S/317.html#L595' title='Defined at 595 in deps/lua/src/luaconf.h.'>LUAI_USER_ALIGNMENT_T</a> <a href='../R/405.html' title='Multiple refered from 2 places.'>L_Umaxalign</a>;
+<a name='L48'>
+<a name='L49'>
+<a name='L50'><i><font color='green'>/* result of a `usual argument conversion' over lua_Number */</font></i>
+<a name='L51'><b>typedef</b> <a href='../S/317.html#L511' title='Defined at 511 in deps/lua/src/luaconf.h.'>LUAI_UACNUMBER</a> <a href='../S/311.html#L139' title='Refered from 139 in deps/lua/src/lobject.c.'>l_uacNumber</a>;
+<a name='L52'>
+<a name='L53'>
+<a name='L54'><i><font color='green'>/* internal assertions for in-house debugging */</font></i>
+<a name='L55'><font color='darkred'>#ifdef</font> <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>
+<a name='L56'>
+<a name='L57'><font color='darkred'>#define</font> <a href='../R/1548.html' title='Multiple refered from 23 places.'>check_exp</a>(c,e)          (<a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(c), (e))
+<a name='L58'><font color='darkred'>#define</font> <a href='../R/1295.html' title='Multiple refered from 18 places.'>api_check</a>(l,e)          <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(e)
+<a name='L59'>
+<a name='L60'><font color='darkred'>#else</font>
+<a name='L61'>
+<a name='L62'><font color='darkred'>#define</font> <a href='../R/2756.html' title='Multiple refered from 131 places.'>lua_assert</a>(c)           ((<b>void</b>)0)
+<a name='L63'><font color='darkred'>#define</font> <a href='../R/1548.html' title='Multiple refered from 23 places.'>check_exp</a>(c,e)          (e)
+<a name='L64'><font color='darkred'>#define</font> <a href='../R/1295.html' title='Multiple refered from 18 places.'>api_check</a>               <a href='../D/3215.html' title='Multiple defined in 2 places.'>luai_apicheck</a>
+<a name='L65'>
+<a name='L66'><font color='darkred'>#endif</font>
+<a name='L67'>
+<a name='L68'>
+<a name='L69'><font color='darkred'>#ifndef</font> <a href='../S/310.html#L70' title='Defined at 70 in deps/lua/src/llimits.h.'>UNUSED</a>
+<a name='L70'><font color='darkred'>#define</font> <a href='../R/1017.html' title='Multiple refered from 22 places.'>UNUSED</a>(x)       ((<b>void</b>)(x))     <i><font color='green'>/* to avoid warnings */</font></i>
+<a name='L71'><font color='darkred'>#endif</font>
+<a name='L72'>
+<a name='L73'>
+<a name='L74'><font color='darkred'>#ifndef</font> <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>
+<a name='L75'><font color='darkred'>#define</font> <a href='../R/1528.html' title='Multiple refered from 79 places.'>cast</a>(t, exp)    ((t)(exp))
+<a name='L76'><font color='darkred'>#endif</font>
+<a name='L77'>
+<a name='L78'><font color='darkred'>#define</font> <a href='../R/1529.html' title='Multiple refered from 18 places.'>cast_byte</a>(i)    <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/310.html#L27' title='Defined at 27 in deps/lua/src/llimits.h.'>lu_byte</a>, (i))
+<a name='L79'><font color='darkred'>#define</font> <a href='../R/1531.html' title='Multiple refered from 13 places.'>cast_num</a>(i)     <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/266.html#L99' title='Defined at 99 in deps/lua/src/lua.h.'>lua_Number</a>, (i))
+<a name='L80'><font color='darkred'>#define</font> <a href='../R/1530.html' title='Multiple refered from 22 places.'>cast_int</a>(i)     <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>int</b>, (i))
+<a name='L81'>
+<a name='L82'>
+<a name='L83'>
+<a name='L84'><i><font color='green'>/*</font></i>
+<a name='L85'><i><font color='green'>** type for virtual-machine instructions</font></i>
+<a name='L86'><i><font color='green'>** must be an unsigned with (at least) 4 bytes (see details in lopcodes.h)</font></i>
+<a name='L87'><i><font color='green'>*/</font></i>
+<a name='L88'><b>typedef</b> <a href='../S/310.html#L18' title='Defined at 18 in deps/lua/src/llimits.h.'>lu_int32</a> <a href='../R/215.html' title='Multiple refered from 46 places.'>Instruction</a>;
+<a name='L89'>
+<a name='L90'>
+<a name='L91'>
+<a name='L92'><i><font color='green'>/* maximum stack for a Lua function */</font></i>
+<a name='L93'><font color='darkred'>#define</font> <a href='../R/441.html' title='Multiple refered from 2 places.'>MAXSTACK</a>        250
+<a name='L94'>
+<a name='L95'>
+<a name='L96'>
+<a name='L97'><i><font color='green'>/* minimum size for the string table (must be power of 2) */</font></i>
+<a name='L98'><font color='darkred'>#ifndef</font> <a href='../S/310.html#L99' title='Defined at 99 in deps/lua/src/llimits.h.'>MINSTRTABSIZE</a>
+<a name='L99'><font color='darkred'>#define</font> <a href='../R/455.html' title='Multiple refered from 3 places.'>MINSTRTABSIZE</a>   32
+<a name='L100'><font color='darkred'>#endif</font>
+<a name='L101'>
+<a name='L102'>
+<a name='L103'><i><font color='green'>/* minimum size for string buffer */</font></i>
+<a name='L104'><font color='darkred'>#ifndef</font> <a href='../S/310.html#L105' title='Defined at 105 in deps/lua/src/llimits.h.'>LUA_MINBUFFER</a>
+<a name='L105'><font color='darkred'>#define</font> <a href='../R/350.html' title='Multiple refered from 4 places.'>LUA_MINBUFFER</a>   32
+<a name='L106'><font color='darkred'>#endif</font>
+<a name='L107'>
+<a name='L108'>
+<a name='L109'><font color='darkred'>#ifndef</font> <a href='../S/310.html#L110' title='Defined at 110 in deps/lua/src/llimits.h.'>lua_lock</a>
+<a name='L110'><font color='darkred'>#define</font> <a href='../R/2800.html' title='Multiple refered from 64 places.'>lua_lock</a>(L)     ((<b>void</b>) 0) 
+<a name='L111'><font color='darkred'>#define</font> <a href='../R/2868.html' title='Multiple refered from 65 places.'>lua_unlock</a>(L)   ((<b>void</b>) 0)
+<a name='L112'><font color='darkred'>#endif</font>
+<a name='L113'>
+<a name='L114'><font color='darkred'>#ifndef</font> <a href='../S/310.html#L115' title='Defined at 115 in deps/lua/src/llimits.h.'>luai_threadyield</a>
+<a name='L115'><font color='darkred'>#define</font> <a href='../R/2888.html' title='Multiple refered from 2 places.'>luai_threadyield</a>(L)     <font color='red'>{</font><a href='../S/310.html#L111' title='Defined at 111 in deps/lua/src/llimits.h.'>lua_unlock</a>(L); <a href='../S/310.html#L110' title='Defined at 110 in deps/lua/src/llimits.h.'>lua_lock</a>(L);<font color='red'>}</font>
+<a name='L116'><font color='darkred'>#endif</font>
+<a name='L117'>
+<a name='L118'>
+<a name='L119'><i><font color='green'>/*</font></i>
+<a name='L120'><i><font color='green'>** macro to control inclusion of some hard tests on stack reallocation</font></i>
+<a name='L121'><i><font color='green'>*/</font></i> 
+<a name='L122'><font color='darkred'>#ifndef</font> HARDSTACKTESTS
+<a name='L123'><font color='darkred'>#define</font> <a href='../R/1667.html' title='Multiple refered from 5 places.'>condhardstacktests</a>(x)   ((<b>void</b>)0)
+<a name='L124'><font color='darkred'>#else</font>
+<a name='L125'><font color='darkred'>#define</font> <a href='../R/1667.html' title='Multiple refered from 5 places.'>condhardstacktests</a>(x)   x
+<a name='L126'><font color='darkred'>#endif</font>
+<a name='L127'>
+<a name='L128'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<html>
+<head>
+<title>deps/hiredis/sds.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/388.html'>hiredis</a>/sds.h</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L45'>[^]</a><a href='#L50'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/18.html' title='Multiple included from 10 places.'>INCLUDED FROM</a></h2>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L45' title='Defined at 45.'>sdslen</a>
+<li><a href='#L50' title='Defined at 50.'>sdsavail</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* SDSLib, A C dynamic strings library</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2006-2010, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'><font color='darkred'>#ifndef</font> <a href='../D/1388.html' title='Multiple defined in 2 places.'>__SDS_H</a>
+<a name='L32'><font color='darkred'>#define</font> <a href='../R/1129.html' title='Multiple refered from 2 places.'>__SDS_H</a>
+<a name='L33'>
+<a name='L34'><font color='darkred'>#include</font> &lt;sys/types.h&gt;
+<a name='L35'><font color='darkred'>#include</font> &lt;stdarg.h&gt;
+<a name='L36'>
+<a name='L37'><b>typedef</b> <b>char</b> *<a href='../R/3617.html' title='Multiple refered from 204 places.'>sds</a>;
+<a name='L38'>
+<a name='L39'><b>struct</b> <a href='../R/3640.html' title='Multiple refered from 45 places.'>sdshdr</a> <font color='red'>{</font>
+<a name='L40'>    <b>int</b> len;
+<a name='L41'>    <b>int</b> <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>;
+<a name='L42'>    <b>char</b> buf[];
+<a name='L43'><font color='red'>}</font>;
+<a name='L44'>
+<a name='L45'><b>static</b> <b>inline</b> size_t <a href='../R/3641.html' title='Multiple refered from 234 places.'>sdslen</a>(<b>const</b> sds s) <font color='red'>{</font>
+<a name='L46'>    <b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a> *sh = (<b>void</b>*)(s-(<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)));
+<a name='L47'>    <b>return</b> sh-&gt;len;
+<a name='L48'><font color='red'>}</font>
+<a name='L49'>
+<a name='L50'><b>static</b> <b>inline</b> size_t <a href='../R/3623.html' title='Multiple refered from 8 places.'>sdsavail</a>(<b>const</b> sds s) <font color='red'>{</font>
+<a name='L51'>    <b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a> *sh = (<b>void</b>*)(s-(<b>sizeof</b>(<b>struct</b> <a href='../D/4010.html' title='Multiple defined in 2 places.'>sdshdr</a>)));
+<a name='L52'>    <b>return</b> sh-&gt;<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>;
+<a name='L53'><font color='red'>}</font>
+<a name='L54'>
+<a name='L55'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../D/4014.html' title='Multiple defined in 2 places.'>sdsnewlen</a>(<b>const</b> <b>void</b> *init, size_t initlen);
+<a name='L56'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>(<b>const</b> <b>char</b> *init);
+<a name='L57'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../D/4005.html' title='Multiple defined in 2 places.'>sdsempty</a>(<b>void</b>);
+<a name='L58'>size_t <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(<b>const</b> sds s);
+<a name='L59'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../D/4004.html' title='Multiple defined in 2 places.'>sdsdup</a>(<b>const</b> sds s);
+<a name='L60'><b>void</b> <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(sds s);
+<a name='L61'>size_t <a href='../D/3993.html' title='Multiple defined in 2 places.'>sdsavail</a>(sds s);
+<a name='L62'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../D/4009.html' title='Multiple defined in 2 places.'>sdsgrowzero</a>(sds s, size_t len);
+<a name='L63'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(sds s, <b>const</b> <b>void</b> *t, size_t len);
+<a name='L64'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../D/3994.html' title='Multiple defined in 2 places.'>sdscat</a>(sds s, <b>const</b> <b>char</b> *t);
+<a name='L65'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../D/4003.html' title='Multiple defined in 2 places.'>sdscpylen</a>(sds s, <b>char</b> *t, size_t len);
+<a name='L66'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../D/4002.html' title='Multiple defined in 2 places.'>sdscpy</a>(sds s, <b>char</b> *t);
+<a name='L67'>
+<a name='L68'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../D/3999.html' title='Multiple defined in 2 places.'>sdscatvprintf</a>(sds s, <b>const</b> <b>char</b> *fmt, va_list ap);
+<a name='L69'><font color='darkred'>#ifdef</font> __GNUC__
+<a name='L70'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(sds s, <b>const</b> <b>char</b> *fmt, ...)
+<a name='L71'>    <b>__attribute__</b>((format(printf, 2, 3)));
+<a name='L72'><font color='darkred'>#else</font>
+<a name='L73'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(sds s, <b>const</b> <b>char</b> *fmt, ...);
+<a name='L74'><font color='darkred'>#endif</font>
+<a name='L75'>
+<a name='L76'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../D/4021.html' title='Multiple defined in 2 places.'>sdstrim</a>(sds s, <b>const</b> <b>char</b> *cset);
+<a name='L77'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../D/4015.html' title='Multiple defined in 2 places.'>sdsrange</a>(sds s, <b>int</b> start, <b>int</b> end);
+<a name='L78'><b>void</b> <a href='../D/4022.html' title='Multiple defined in 2 places.'>sdsupdatelen</a>(sds s);
+<a name='L79'><b>int</b> <a href='../D/4001.html' title='Multiple defined in 2 places.'>sdscmp</a>(sds s1, sds s2);
+<a name='L80'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> *<a href='../D/4018.html' title='Multiple defined in 2 places.'>sdssplitlen</a>(<b>char</b> *s, <b>int</b> len, <b>char</b> *sep, <b>int</b> seplen, <b>int</b> *count);
+<a name='L81'><b>void</b> <a href='../D/4007.html' title='Multiple defined in 2 places.'>sdsfreesplitres</a>(sds *tokens, <b>int</b> count);
+<a name='L82'><b>void</b> <a href='../D/4019.html' title='Multiple defined in 2 places.'>sdstolower</a>(sds s);
+<a name='L83'><b>void</b> <a href='../D/4020.html' title='Multiple defined in 2 places.'>sdstoupper</a>(sds s);
+<a name='L84'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../D/4008.html' title='Multiple defined in 2 places.'>sdsfromlonglong</a>(<b>long</b> <b>long</b> value);
+<a name='L85'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> <a href='../D/3997.html' title='Multiple defined in 2 places.'>sdscatrepr</a>(sds s, <b>char</b> *p, size_t len);
+<a name='L86'><a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> *<a href='../D/4016.html' title='Multiple defined in 2 places.'>sdssplitargs</a>(<b>char</b> *line, <b>int</b> *argc);
+<a name='L87'>
+<a name='L88'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L45'>[^]</a><a href='#L50'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

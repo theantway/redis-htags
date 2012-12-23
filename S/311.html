@@ -1,0 +1,245 @@
+<html>
+<head>
+<title>deps/lua/src/lobject.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/lobject.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L35'>[^]</a><a href='#L182'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L35' title='Defined at 35.'>luaO_int2fb</a>
+<li><a href='#L47' title='Defined at 47.'>luaO_fb2int</a>
+<li><a href='#L54' title='Defined at 54.'>luaO_log2</a>
+<li><a href='#L72' title='Defined at 72.'>luaO_rawequalObj</a>
+<li><a href='#L90' title='Defined at 90.'>luaO_str2d</a>
+<li><a href='#L104' title='Defined at 104.'>pushstr</a>
+<li><a href='#L111' title='Defined at 111.'>luaO_pushvfstring</a>
+<li><a href='#L172' title='Defined at 172.'>luaO_pushfstring</a>
+<li><a href='#L182' title='Defined at 182.'>luaO_chunkid</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: lobject.c,v 2.22.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Some generic functions over Lua objects</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'><font color='darkred'>#include</font> &lt;ctype.h&gt;
+<a name='L8'><font color='darkred'>#include</font> &lt;stdarg.h&gt;
+<a name='L9'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L10'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L11'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L12'>
+<a name='L13'><font color='darkred'>#define</font> lobject_c
+<a name='L14'><font color='darkred'>#define</font> <a href='../R/303.html' title='Multiple refered from 2 places.'>LUA_CORE</a>
+<a name='L15'>
+<a name='L16'><font color='darkred'>#include</font> "<a href='266.html'>lua.h</a>"
+<a name='L17'>
+<a name='L18'><font color='darkred'>#include</font> "<a href='296.html'>ldo.h</a>"
+<a name='L19'><font color='darkred'>#include</font> "<a href='278.html'>lmem.h</a>"
+<a name='L20'><font color='darkred'>#include</font> "<a href='282.html'>lobject.h</a>"
+<a name='L21'><font color='darkred'>#include</font> "<a href='298.html'>lstate.h</a>"
+<a name='L22'><font color='darkred'>#include</font> "<a href='268.html'>lstring.h</a>"
+<a name='L23'><font color='darkred'>#include</font> "<a href='262.html'>lvm.h</a>"
+<a name='L24'>
+<a name='L25'>
+<a name='L26'>
+<a name='L27'><b>const</b> <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> luaO_nilobject_ = <font color='red'>{</font><font color='red'>{</font>NULL<font color='red'>}</font>, <a href='../S/266.html#L74' title='Defined at 74 in deps/lua/src/lua.h.'>LUA_TNIL</a><font color='red'>}</font>;
+<a name='L28'>
+<a name='L29'>
+<a name='L30'><i><font color='green'>/*</font></i>
+<a name='L31'><i><font color='green'>** converts an integer to a "floating point byte", represented as</font></i>
+<a name='L32'><i><font color='green'>** (eeeeexxx), where the real value is (1xxx) * 2^(eeeee - 1) if</font></i>
+<a name='L33'><i><font color='green'>** eeeee != 0 and (xxx) otherwise.</font></i>
+<a name='L34'><i><font color='green'>*/</font></i>
+<a name='L35'><b>int</b> <a href='../R/2690.html' title='Multiple refered from 3 places.'>luaO_int2fb</a> (<b>unsigned</b> <b>int</b> x) <font color='red'>{</font>
+<a name='L36'>  <b>int</b> e = 0;  <i><font color='green'>/* expoent */</font></i>
+<a name='L37'>  <b>while</b> (x &gt;= 16) <font color='red'>{</font>
+<a name='L38'>    x = (x+1) &gt;&gt; 1;
+<a name='L39'>    e++;
+<a name='L40'>  <font color='red'>}</font>
+<a name='L41'>  <b>if</b> (x &lt; 8) <b>return</b> x;
+<a name='L42'>  <b>else</b> <b>return</b> ((e+1) &lt;&lt; 3) | (<a href='../S/310.html#L80' title='Defined at 80 in deps/lua/src/llimits.h.'>cast_int</a>(x) - 8);
+<a name='L43'><font color='red'>}</font>
+<a name='L44'>
+<a name='L45'>
+<a name='L46'><i><font color='green'>/* converts back */</font></i>
+<a name='L47'><b>int</b> <a href='../R/2689.html' title='Multiple refered from 2 places.'>luaO_fb2int</a> (<b>int</b> x) <font color='red'>{</font>
+<a name='L48'>  <b>int</b> e = (x &gt;&gt; 3) &amp; 31;
+<a name='L49'>  <b>if</b> (e == 0) <b>return</b> x;
+<a name='L50'>  <b>else</b> <b>return</b> ((x &amp; 7)+8) &lt;&lt; (e - 1);
+<a name='L51'><font color='red'>}</font>
+<a name='L52'>
+<a name='L53'>
+<a name='L54'><b>int</b> <a href='../R/2691.html' title='Multiple refered from 2 places.'>luaO_log2</a> (<b>unsigned</b> <b>int</b> x) <font color='red'>{</font>
+<a name='L55'>  <b>static</b> <b>const</b> <a href='../S/310.html#L27' title='Defined at 27 in deps/lua/src/llimits.h.'>lu_byte</a> log_2[256] = <font color='red'>{</font>
+<a name='L56'>    0,1,2,2,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
+<a name='L57'>    6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+<a name='L58'>    7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+<a name='L59'>    7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+<a name='L60'>    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
+<a name='L61'>    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
+<a name='L62'>    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
+<a name='L63'>    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8
+<a name='L64'>  <font color='red'>}</font>;
+<a name='L65'>  <b>int</b> l = -1;
+<a name='L66'>  <b>while</b> (x &gt;= 256) <font color='red'>{</font> l += 8; x &gt;&gt;= 8; <font color='red'>}</font>
+<a name='L67'>  <b>return</b> l + log_2[x];
+<a name='L68'>
+<a name='L69'><font color='red'>}</font>
+<a name='L70'>
+<a name='L71'>
+<a name='L72'><b>int</b> <a href='../R/2695.html' title='Multiple refered from 7 places.'>luaO_rawequalObj</a> (<b>const</b> TValue *t1, <b>const</b> TValue *t2) <font color='red'>{</font>
+<a name='L73'>  <b>if</b> (<a href='../S/282.html#L90' title='Defined at 90 in deps/lua/src/lobject.h.'>ttype</a>(t1) != <a href='../S/282.html#L90' title='Defined at 90 in deps/lua/src/lobject.h.'>ttype</a>(t2)) <b>return</b> 0;
+<a name='L74'>  <b>else</b> <b>switch</b> (<a href='../S/282.html#L90' title='Defined at 90 in deps/lua/src/lobject.h.'>ttype</a>(t1)) <font color='red'>{</font>
+<a name='L75'>    <b>case</b> <a href='../S/266.html#L74' title='Defined at 74 in deps/lua/src/lua.h.'>LUA_TNIL</a>:
+<a name='L76'>      <b>return</b> 1;
+<a name='L77'>    <b>case</b> <a href='../S/266.html#L77' title='Defined at 77 in deps/lua/src/lua.h.'>LUA_TNUMBER</a>:
+<a name='L78'>      <b>return</b> <a href='../S/317.html#L540' title='Defined at 540 in deps/lua/src/luaconf.h.'>luai_numeq</a>(<a href='../S/282.html#L93' title='Defined at 93 in deps/lua/src/lobject.h.'>nvalue</a>(t1), <a href='../S/282.html#L93' title='Defined at 93 in deps/lua/src/lobject.h.'>nvalue</a>(t2));
+<a name='L79'>    <b>case</b> <a href='../S/266.html#L75' title='Defined at 75 in deps/lua/src/lua.h.'>LUA_TBOOLEAN</a>:
+<a name='L80'>      <b>return</b> <a href='../S/282.html#L100' title='Defined at 100 in deps/lua/src/lobject.h.'>bvalue</a>(t1) == <a href='../S/282.html#L100' title='Defined at 100 in deps/lua/src/lobject.h.'>bvalue</a>(t2);  <i><font color='green'>/* boolean true must be 1 !! */</font></i>
+<a name='L81'>    <b>case</b> <a href='../S/266.html#L76' title='Defined at 76 in deps/lua/src/lua.h.'>LUA_TLIGHTUSERDATA</a>:
+<a name='L82'>      <b>return</b> <a href='../S/282.html#L92' title='Defined at 92 in deps/lua/src/lobject.h.'>pvalue</a>(t1) == <a href='../S/282.html#L92' title='Defined at 92 in deps/lua/src/lobject.h.'>pvalue</a>(t2);
+<a name='L83'>    <b>default</b>:
+<a name='L84'>      <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(<a href='../S/282.html#L189' title='Defined at 189 in deps/lua/src/lobject.h.'>iscollectable</a>(t1));
+<a name='L85'>      <b>return</b> <a href='../S/282.html#L91' title='Defined at 91 in deps/lua/src/lobject.h.'>gcvalue</a>(t1) == <a href='../S/282.html#L91' title='Defined at 91 in deps/lua/src/lobject.h.'>gcvalue</a>(t2);
+<a name='L86'>  <font color='red'>}</font>
+<a name='L87'><font color='red'>}</font>
+<a name='L88'>
+<a name='L89'>
+<a name='L90'><b>int</b> <a href='../R/2696.html' title='Multiple refered from 4 places.'>luaO_str2d</a> (<b>const</b> <b>char</b> *s, lua_Number *result) <font color='red'>{</font>
+<a name='L91'>  <b>char</b> *endptr;
+<a name='L92'>  *result = <a href='../S/317.html#L525' title='Defined at 525 in deps/lua/src/luaconf.h.'>lua_str2number</a>(s, &amp;endptr);
+<a name='L93'>  <b>if</b> (endptr == s) <b>return</b> 0;  <i><font color='green'>/* conversion failed */</font></i>
+<a name='L94'>  <b>if</b> (*endptr == 'x' || *endptr == 'X')  <i><font color='green'>/* maybe an hexadecimal constant? */</font></i>
+<a name='L95'>    *result = <a href='../S/310.html#L79' title='Defined at 79 in deps/lua/src/llimits.h.'>cast_num</a>(strtoul(s, &amp;endptr, 16));
+<a name='L96'>  <b>if</b> (*endptr == '\0') <b>return</b> 1;  <i><font color='green'>/* most common case */</font></i>
+<a name='L97'>  <b>while</b> (isspace(<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>unsigned</b> <b>char</b>, *endptr))) endptr++;
+<a name='L98'>  <b>if</b> (*endptr != '\0') <b>return</b> 0;  <i><font color='green'>/* invalid trailing characters? */</font></i>
+<a name='L99'>  <b>return</b> 1;
+<a name='L100'><font color='red'>}</font>
+<a name='L101'>
+<a name='L102'>
+<a name='L103'>
+<a name='L104'><b>static</b> <b>void</b> <a href='../R/3273.html' title='Multiple refered from 7 places.'>pushstr</a> (lua_State *L, <b>const</b> <b>char</b> *str) <font color='red'>{</font>
+<a name='L105'>  <a href='../S/282.html#L175' title='Defined at 175 in deps/lua/src/lobject.h.'>setsvalue2s</a>(L, L-&gt;top, <a href='../S/268.html#L20' title='Defined at 20 in deps/lua/src/lstring.h.'>luaS_new</a>(L, str));
+<a name='L106'>  <a href='../S/296.html#L22' title='Defined at 22 in deps/lua/src/ldo.h.'>incr_top</a>(L);
+<a name='L107'><font color='red'>}</font>
+<a name='L108'>
+<a name='L109'>
+<a name='L110'><i><font color='green'>/* this function handles only `%d', `%c', %f, %p, and `%s' formats */</font></i>
+<a name='L111'><b>const</b> <b>char</b> *<a href='../R/2694.html' title='Multiple refered from 5 places.'>luaO_pushvfstring</a> (lua_State *L, <b>const</b> <b>char</b> *fmt, va_list argp) <font color='red'>{</font>
+<a name='L112'>  <b>int</b> n = 1;
+<a name='L113'>  <a href='../S/311.html#L104' title='Defined at 104 in deps/lua/src/lobject.c.'>pushstr</a>(L, "");
+<a name='L114'>  <b>for</b> (;;) <font color='red'>{</font>
+<a name='L115'>    <b>const</b> <b>char</b> *e = strchr(fmt, '%');
+<a name='L116'>    <b>if</b> (e == NULL) <b>break</b>;
+<a name='L117'>    <a href='../S/282.html#L175' title='Defined at 175 in deps/lua/src/lobject.h.'>setsvalue2s</a>(L, L-&gt;top, <a href='../S/284.html#L75' title='Defined at 75 in deps/lua/src/lstring.c.'>luaS_newlstr</a>(L, fmt, e-fmt));
+<a name='L118'>    <a href='../S/296.html#L22' title='Defined at 22 in deps/lua/src/ldo.h.'>incr_top</a>(L);
+<a name='L119'>    <b>switch</b> (*(e+1)) <font color='red'>{</font>
+<a name='L120'>      <b>case</b> 's': <font color='red'>{</font>
+<a name='L121'>        <b>const</b> <b>char</b> *s = va_arg(argp, <b>char</b> *);
+<a name='L122'>        <b>if</b> (s == NULL) s = "(null)";
+<a name='L123'>        <a href='../S/311.html#L104' title='Defined at 104 in deps/lua/src/lobject.c.'>pushstr</a>(L, s);
+<a name='L124'>        <b>break</b>;
+<a name='L125'>      <font color='red'>}</font>
+<a name='L126'>      <b>case</b> 'c': <font color='red'>{</font>
+<a name='L127'>        <b>char</b> buff[2];
+<a name='L128'>        buff[0] = <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>char</b>, va_arg(argp, <b>int</b>));
+<a name='L129'>        buff[1] = '\0';
+<a name='L130'>        <a href='../S/311.html#L104' title='Defined at 104 in deps/lua/src/lobject.c.'>pushstr</a>(L, buff);
+<a name='L131'>        <b>break</b>;
+<a name='L132'>      <font color='red'>}</font>
+<a name='L133'>      <b>case</b> 'd': <font color='red'>{</font>
+<a name='L134'>        <a href='../S/282.html#L119' title='Defined at 119 in deps/lua/src/lobject.h.'>setnvalue</a>(L-&gt;top, <a href='../S/310.html#L79' title='Defined at 79 in deps/lua/src/llimits.h.'>cast_num</a>(va_arg(argp, <b>int</b>)));
+<a name='L135'>        <a href='../S/296.html#L22' title='Defined at 22 in deps/lua/src/ldo.h.'>incr_top</a>(L);
+<a name='L136'>        <b>break</b>;
+<a name='L137'>      <font color='red'>}</font>
+<a name='L138'>      <b>case</b> 'f': <font color='red'>{</font>
+<a name='L139'>        <a href='../S/282.html#L119' title='Defined at 119 in deps/lua/src/lobject.h.'>setnvalue</a>(L-&gt;top, <a href='../S/310.html#L79' title='Defined at 79 in deps/lua/src/llimits.h.'>cast_num</a>(va_arg(argp, <a href='../S/310.html#L51' title='Defined at 51 in deps/lua/src/llimits.h.'>l_uacNumber</a>)));
+<a name='L140'>        <a href='../S/296.html#L22' title='Defined at 22 in deps/lua/src/ldo.h.'>incr_top</a>(L);
+<a name='L141'>        <b>break</b>;
+<a name='L142'>      <font color='red'>}</font>
+<a name='L143'>      <b>case</b> 'p': <font color='red'>{</font>
+<a name='L144'>        <b>char</b> buff[4*<b>sizeof</b>(<b>void</b> *) + 8]; <i><font color='green'>/* should be enough space for a `%p' */</font></i>
+<a name='L145'>        sprintf(buff, "%p", va_arg(argp, <b>void</b> *));
+<a name='L146'>        <a href='../S/311.html#L104' title='Defined at 104 in deps/lua/src/lobject.c.'>pushstr</a>(L, buff);
+<a name='L147'>        <b>break</b>;
+<a name='L148'>      <font color='red'>}</font>
+<a name='L149'>      <b>case</b> '%': <font color='red'>{</font>
+<a name='L150'>        <a href='../S/311.html#L104' title='Defined at 104 in deps/lua/src/lobject.c.'>pushstr</a>(L, "%");
+<a name='L151'>        <b>break</b>;
+<a name='L152'>      <font color='red'>}</font>
+<a name='L153'>      <b>default</b>: <font color='red'>{</font>
+<a name='L154'>        <b>char</b> buff[3];
+<a name='L155'>        buff[0] = '%';
+<a name='L156'>        buff[1] = *(e+1);
+<a name='L157'>        buff[2] = '\0';
+<a name='L158'>        <a href='../S/311.html#L104' title='Defined at 104 in deps/lua/src/lobject.c.'>pushstr</a>(L, buff);
+<a name='L159'>        <b>break</b>;
+<a name='L160'>      <font color='red'>}</font>
+<a name='L161'>    <font color='red'>}</font>
+<a name='L162'>    n += 2;
+<a name='L163'>    fmt = e+2;
+<a name='L164'>  <font color='red'>}</font>
+<a name='L165'>  <a href='../S/311.html#L104' title='Defined at 104 in deps/lua/src/lobject.c.'>pushstr</a>(L, fmt);
+<a name='L166'>  <a href='../S/290.html#L278' title='Defined at 278 in deps/lua/src/lvm.c.'>luaV_concat</a>(L, n+1, <a href='../S/310.html#L80' title='Defined at 80 in deps/lua/src/llimits.h.'>cast_int</a>(L-&gt;top - L-&gt;base) - 1);
+<a name='L167'>  L-&gt;top -= n;
+<a name='L168'>  <b>return</b> <a href='../S/282.html#L211' title='Defined at 211 in deps/lua/src/lobject.h.'>svalue</a>(L-&gt;top - 1);
+<a name='L169'><font color='red'>}</font>
+<a name='L170'>
+<a name='L171'>
+<a name='L172'><b>const</b> <b>char</b> *<a href='../R/2693.html' title='Multiple refered from 11 places.'>luaO_pushfstring</a> (lua_State *L, <b>const</b> <b>char</b> *fmt, ...) <font color='red'>{</font>
+<a name='L173'>  <b>const</b> <b>char</b> *msg;
+<a name='L174'>  va_list argp;
+<a name='L175'>  va_start(argp, fmt);
+<a name='L176'>  msg = <a href='../S/311.html#L111' title='Defined at 111 in deps/lua/src/lobject.c.'>luaO_pushvfstring</a>(L, fmt, argp);
+<a name='L177'>  va_end(argp);
+<a name='L178'>  <b>return</b> msg;
+<a name='L179'><font color='red'>}</font>
+<a name='L180'>
+<a name='L181'>
+<a name='L182'><b>void</b> <a href='../R/2688.html' title='Multiple refered from 5 places.'>luaO_chunkid</a> (<b>char</b> *out, <b>const</b> <b>char</b> *source, size_t bufflen) <font color='red'>{</font>
+<a name='L183'>  <b>if</b> (*source == '=') <font color='red'>{</font>
+<a name='L184'>    strncpy(out, source+1, <a href='../S/260.html#L392' title='Defined at 392 in deps/lua/src/lauxlib.c.'>bufflen</a>);  <i><font color='green'>/* remove first char */</font></i>
+<a name='L185'>    out[<a href='../S/260.html#L392' title='Defined at 392 in deps/lua/src/lauxlib.c.'>bufflen</a>-1] = '\0';  <i><font color='green'>/* ensures null termination */</font></i>
+<a name='L186'>  <font color='red'>}</font>
+<a name='L187'>  <b>else</b> <font color='red'>{</font>  <i><font color='green'>/* out = "source", or "...source" */</font></i>
+<a name='L188'>    <b>if</b> (*source == '@') <font color='red'>{</font>
+<a name='L189'>      size_t l;
+<a name='L190'>      source++;  <i><font color='green'>/* skip the `@' */</font></i>
+<a name='L191'>      <a href='../S/260.html#L392' title='Defined at 392 in deps/lua/src/lauxlib.c.'>bufflen</a> -= <b>sizeof</b>(" '...' ");
+<a name='L192'>      l = strlen(source);
+<a name='L193'>      strcpy(out, "");
+<a name='L194'>      <b>if</b> (l &gt; <a href='../S/260.html#L392' title='Defined at 392 in deps/lua/src/lauxlib.c.'>bufflen</a>) <font color='red'>{</font>
+<a name='L195'>        source += (l-<a href='../S/260.html#L392' title='Defined at 392 in deps/lua/src/lauxlib.c.'>bufflen</a>);  <i><font color='green'>/* get last part of file name */</font></i>
+<a name='L196'>        strcat(out, "...");
+<a name='L197'>      <font color='red'>}</font>
+<a name='L198'>      strcat(out, source);
+<a name='L199'>    <font color='red'>}</font>
+<a name='L200'>    <b>else</b> <font color='red'>{</font>  <i><font color='green'>/* out = [string "string"] */</font></i>
+<a name='L201'>      size_t len = strcspn(source, "\n\r");  <i><font color='green'>/* stop at first newline */</font></i>
+<a name='L202'>      <a href='../S/260.html#L392' title='Defined at 392 in deps/lua/src/lauxlib.c.'>bufflen</a> -= <b>sizeof</b>(" [string \"...\"] ");
+<a name='L203'>      <b>if</b> (len &gt; <a href='../S/260.html#L392' title='Defined at 392 in deps/lua/src/lauxlib.c.'>bufflen</a>) len = <a href='../S/260.html#L392' title='Defined at 392 in deps/lua/src/lauxlib.c.'>bufflen</a>;
+<a name='L204'>      strcpy(out, "[string \"");
+<a name='L205'>      <b>if</b> (source[len] != '\0') <font color='red'>{</font>  <i><font color='green'>/* must truncate? */</font></i>
+<a name='L206'>        strncat(out, source, len);
+<a name='L207'>        strcat(out, "...");
+<a name='L208'>      <font color='red'>}</font>
+<a name='L209'>      <b>else</b>
+<a name='L210'>        strcat(out, source);
+<a name='L211'>      strcat(out, "\"]");
+<a name='L212'>    <font color='red'>}</font>
+<a name='L213'>  <font color='red'>}</font>
+<a name='L214'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L35'>[^]</a><a href='#L182'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<html>
+<head>
+<title>src/ziplist.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/ziplist.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/225.html' title='Multiple included from 2 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2009-2012, Pieter Noordhuis &lt;pcnoordhuis at gmail dot com&gt;</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'><font color='darkred'>#define</font> <a href='../R/1062.html' title='Multiple refered from 14 places.'>ZIPLIST_HEAD</a> 0
+<a name='L32'><font color='darkred'>#define</font> <a href='../R/1066.html' title='Multiple refered from 27 places.'>ZIPLIST_TAIL</a> 1
+<a name='L33'>
+<a name='L34'><b>unsigned</b> <b>char</b> *<a href='../S/89.html#L418' title='Defined at 418 in src/ziplist.c.'>ziplistNew</a>(<b>void</b>);
+<a name='L35'><b>unsigned</b> <b>char</b> *<a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(<b>unsigned</b> <b>char</b> *zl, <b>unsigned</b> <b>char</b> *s, <b>unsigned</b> <b>int</b> slen, <b>int</b> where);
+<a name='L36'><b>unsigned</b> <b>char</b> *<a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(<b>unsigned</b> <b>char</b> *zl, <b>int</b> index);
+<a name='L37'><b>unsigned</b> <b>char</b> *<a href='../S/89.html#L705' title='Defined at 705 in src/ziplist.c.'>ziplistNext</a>(<b>unsigned</b> <b>char</b> *zl, <b>unsigned</b> <b>char</b> *p);
+<a name='L38'><b>unsigned</b> <b>char</b> *<a href='../S/89.html#L724' title='Defined at 724 in src/ziplist.c.'>ziplistPrev</a>(<b>unsigned</b> <b>char</b> *zl, <b>unsigned</b> <b>char</b> *p);
+<a name='L39'><b>unsigned</b> <b>int</b> <a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(<b>unsigned</b> <b>char</b> *p, <b>unsigned</b> <b>char</b> **sval, <b>unsigned</b> <b>int</b> *slen, <b>long</b> <b>long</b> *lval);
+<a name='L40'><b>unsigned</b> <b>char</b> *<a href='../S/89.html#L766' title='Defined at 766 in src/ziplist.c.'>ziplistInsert</a>(<b>unsigned</b> <b>char</b> *zl, <b>unsigned</b> <b>char</b> *p, <b>unsigned</b> <b>char</b> *s, <b>unsigned</b> <b>int</b> slen);
+<a name='L41'><b>unsigned</b> <b>char</b> *<a href='../S/89.html#L773' title='Defined at 773 in src/ziplist.c.'>ziplistDelete</a>(<b>unsigned</b> <b>char</b> *zl, <b>unsigned</b> <b>char</b> **p);
+<a name='L42'><b>unsigned</b> <b>char</b> *<a href='../S/89.html#L786' title='Defined at 786 in src/ziplist.c.'>ziplistDeleteRange</a>(<b>unsigned</b> <b>char</b> *zl, <b>unsigned</b> <b>int</b> index, <b>unsigned</b> <b>int</b> num);
+<a name='L43'><b>unsigned</b> <b>int</b> <a href='../S/89.html#L792' title='Defined at 792 in src/ziplist.c.'>ziplistCompare</a>(<b>unsigned</b> <b>char</b> *p, <b>unsigned</b> <b>char</b> *s, <b>unsigned</b> <b>int</b> slen);
+<a name='L44'><b>unsigned</b> <b>char</b> *<a href='../S/89.html#L819' title='Defined at 819 in src/ziplist.c.'>ziplistFind</a>(<b>unsigned</b> <b>char</b> *p, <b>unsigned</b> <b>char</b> *vstr, <b>unsigned</b> <b>int</b> vlen, <b>unsigned</b> <b>int</b> skip);
+<a name='L45'><b>unsigned</b> <b>int</b> <a href='../S/89.html#L879' title='Defined at 879 in src/ziplist.c.'>ziplistLen</a>(<b>unsigned</b> <b>char</b> *zl);
+<a name='L46'>size_t <a href='../S/89.html#L897' title='Defined at 897 in src/ziplist.c.'>ziplistBlobLen</a>(<b>unsigned</b> <b>char</b> *zl);
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<html>
+<head>
+<title>tcache_t</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/146.html#L334'>tcache_t</a>          334 deps/jemalloc/include/jemalloc/internal/arena.h 	ql_head(tcache_t)	tcache_ql;
+<a href='../S/146.html#L862'>tcache_t</a>          862 deps/jemalloc/include/jemalloc/internal/arena.h 	tcache_t *tcache;
+<a href='../S/146.html#L940'>tcache_t</a>          940 deps/jemalloc/include/jemalloc/internal/arena.h 	tcache_t *tcache;
+<a href='../S/151.html#L13'>tcache_t</a>           13 deps/jemalloc/include/jemalloc/internal/tcache.h #define	TCACHE_STATE_DISABLED		((tcache_t *)(uintptr_t)1)
+<a href='../S/151.html#L14'>tcache_t</a>           14 deps/jemalloc/include/jemalloc/internal/tcache.h #define	TCACHE_STATE_REINCARNATED	((tcache_t *)(uintptr_t)2)
+<a href='../S/151.html#L15'>tcache_t</a>           15 deps/jemalloc/include/jemalloc/internal/tcache.h #define	TCACHE_STATE_PURGATORY		((tcache_t *)(uintptr_t)3)
+<a href='../S/151.html#L71'>tcache_t</a>           71 deps/jemalloc/include/jemalloc/internal/tcache.h 	ql_elm(tcache_t) link;		/* Used for aggregating stats. */
+<a href='../S/151.html#L104'>tcache_t</a>          104 deps/jemalloc/include/jemalloc/internal/tcache.h void	tcache_event_hard(tcache_t *tcache);
+<a href='../S/151.html#L105'>tcache_t</a>          105 deps/jemalloc/include/jemalloc/internal/tcache.h void	*tcache_alloc_small_hard(tcache_t *tcache, tcache_bin_t *tbin,
+<a href='../S/151.html#L108'>tcache_t</a>          108 deps/jemalloc/include/jemalloc/internal/tcache.h     tcache_t *tcache);
+<a href='../S/151.html#L110'>tcache_t</a>          110 deps/jemalloc/include/jemalloc/internal/tcache.h     tcache_t *tcache);
+<a href='../S/151.html#L111'>tcache_t</a>          111 deps/jemalloc/include/jemalloc/internal/tcache.h void	tcache_arena_associate(tcache_t *tcache, arena_t *arena);
+<a href='../S/151.html#L112'>tcache_t</a>          112 deps/jemalloc/include/jemalloc/internal/tcache.h void	tcache_arena_dissociate(tcache_t *tcache);
+<a href='../S/151.html#L113'>tcache_t</a>          113 deps/jemalloc/include/jemalloc/internal/tcache.h tcache_t *tcache_create(arena_t *arena);
+<a href='../S/151.html#L114'>tcache_t</a>          114 deps/jemalloc/include/jemalloc/internal/tcache.h void	tcache_destroy(tcache_t *tcache);
+<a href='../S/151.html#L116'>tcache_t</a>          116 deps/jemalloc/include/jemalloc/internal/tcache.h void	tcache_stats_merge(tcache_t *tcache, arena_t *arena);
+<a href='../S/151.html#L125'>tcache_t</a>          125 deps/jemalloc/include/jemalloc/internal/tcache.h malloc_tsd_protos(JEMALLOC_ATTR(unused), tcache, tcache_t *)
+<a href='../S/151.html#L128'>tcache_t</a>          128 deps/jemalloc/include/jemalloc/internal/tcache.h void	tcache_event(tcache_t *tcache);
+<a href='../S/151.html#L131'>tcache_t</a>          131 deps/jemalloc/include/jemalloc/internal/tcache.h tcache_t *tcache_get(bool create);
+<a href='../S/151.html#L134'>tcache_t</a>          134 deps/jemalloc/include/jemalloc/internal/tcache.h void	*tcache_alloc_small(tcache_t *tcache, size_t size, bool zero);
+<a href='../S/151.html#L135'>tcache_t</a>          135 deps/jemalloc/include/jemalloc/internal/tcache.h void	*tcache_alloc_large(tcache_t *tcache, size_t size, bool zero);
+<a href='../S/151.html#L136'>tcache_t</a>          136 deps/jemalloc/include/jemalloc/internal/tcache.h void	tcache_dalloc_small(tcache_t *tcache, void *ptr, size_t binind);
+<a href='../S/151.html#L137'>tcache_t</a>          137 deps/jemalloc/include/jemalloc/internal/tcache.h void	tcache_dalloc_large(tcache_t *tcache, void *ptr, size_t size);
+<a href='../S/151.html#L142'>tcache_t</a>          142 deps/jemalloc/include/jemalloc/internal/tcache.h malloc_tsd_externs(tcache, tcache_t *)
+<a href='../S/151.html#L143'>tcache_t</a>          143 deps/jemalloc/include/jemalloc/internal/tcache.h malloc_tsd_funcs(JEMALLOC_INLINE, tcache, tcache_t *, NULL,
+<a href='../S/151.html#L153'>tcache_t</a>          153 deps/jemalloc/include/jemalloc/internal/tcache.h 	tcache_t *tcache;
+<a href='../S/151.html#L185'>tcache_t</a>          185 deps/jemalloc/include/jemalloc/internal/tcache.h 	tcache_t *tcache;
+<a href='../S/151.html#L209'>tcache_t</a>          209 deps/jemalloc/include/jemalloc/internal/tcache.h JEMALLOC_INLINE tcache_t *
+<a href='../S/151.html#L212'>tcache_t</a>          212 deps/jemalloc/include/jemalloc/internal/tcache.h 	tcache_t *tcache;
+<a href='../S/151.html#L262'>tcache_t</a>          262 deps/jemalloc/include/jemalloc/internal/tcache.h tcache_event(tcache_t *tcache)
+<a href='../S/151.html#L291'>tcache_t</a>          291 deps/jemalloc/include/jemalloc/internal/tcache.h tcache_alloc_small(tcache_t *tcache, size_t size, bool zero)
+<a href='../S/151.html#L334'>tcache_t</a>          334 deps/jemalloc/include/jemalloc/internal/tcache.h tcache_alloc_large(tcache_t *tcache, size_t size, bool zero)
+<a href='../S/151.html#L386'>tcache_t</a>          386 deps/jemalloc/include/jemalloc/internal/tcache.h tcache_dalloc_small(tcache_t *tcache, void *ptr, size_t binind)
+<a href='../S/151.html#L410'>tcache_t</a>          410 deps/jemalloc/include/jemalloc/internal/tcache.h tcache_dalloc_large(tcache_t *tcache, void *ptr, size_t size)
+<a href='../S/206.html#L1205'>tcache_t</a>         1205 deps/jemalloc/src/ctl.c 			tcache_t *tcache;
+<a href='../S/213.html#L220'>tcache_t</a>          220 deps/jemalloc/src/jemalloc.c 				tcache_t *tcache;
+<a href='../S/198.html#L7'>tcache_t</a>            7 deps/jemalloc/src/tcache.c malloc_tsd_data(, tcache, tcache_t *, NULL)
+<a href='../S/198.html#L28'>tcache_t</a>           28 deps/jemalloc/src/tcache.c tcache_event_hard(tcache_t *tcache)
+<a href='../S/198.html#L68'>tcache_t</a>           68 deps/jemalloc/src/tcache.c tcache_alloc_small_hard(tcache_t *tcache, tcache_bin_t *tbin, size_t binind)
+<a href='../S/198.html#L83'>tcache_t</a>           83 deps/jemalloc/src/tcache.c     tcache_t *tcache)
+<a href='../S/198.html#L165'>tcache_t</a>          165 deps/jemalloc/src/tcache.c     tcache_t *tcache)
+<a href='../S/198.html#L238'>tcache_t</a>          238 deps/jemalloc/src/tcache.c tcache_arena_associate(tcache_t *tcache, arena_t *arena)
+<a href='../S/198.html#L252'>tcache_t</a>          252 deps/jemalloc/src/tcache.c tcache_arena_dissociate(tcache_t *tcache)
+<a href='../S/198.html#L264'>tcache_t</a>          264 deps/jemalloc/src/tcache.c tcache_t *
+<a href='../S/198.html#L267'>tcache_t</a>          267 deps/jemalloc/src/tcache.c 	tcache_t *tcache;
+<a href='../S/198.html#L271'>tcache_t</a>          271 deps/jemalloc/src/tcache.c 	size = offsetof(tcache_t, tbins) + (sizeof(tcache_bin_t) * nhbins);
+<a href='../S/198.html#L287'>tcache_t</a>          287 deps/jemalloc/src/tcache.c 		tcache = (tcache_t *)arena_malloc_small(arena, size, true);
+<a href='../S/198.html#L289'>tcache_t</a>          289 deps/jemalloc/src/tcache.c 		tcache = (tcache_t *)arena_malloc_large(arena, size, true);
+<a href='../S/198.html#L291'>tcache_t</a>          291 deps/jemalloc/src/tcache.c 		tcache = (tcache_t *)icallocx(size, false, arena);
+<a href='../S/198.html#L312'>tcache_t</a>          312 deps/jemalloc/src/tcache.c tcache_destroy(tcache_t *tcache)
+<a href='../S/198.html#L373'>tcache_t</a>          373 deps/jemalloc/src/tcache.c 	tcache_t *tcache = *(tcache_t **)arg;
+<a href='../S/198.html#L401'>tcache_t</a>          401 deps/jemalloc/src/tcache.c tcache_stats_merge(tcache_t *tcache, arena_t *arena)
+</pre>
+</body>
+</html>

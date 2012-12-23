@@ -1,0 +1,72 @@
+<html>
+<head>
+<title>client</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/69.html#L637'>client</a>            637 src/debug.c        sds client;
+<a href='../S/69.html#L641'>client</a>            641 src/debug.c        client = getClientInfoString(cc);
+<a href='../S/69.html#L642'>client</a>            642 src/debug.c        redisLog(REDIS_WARNING,"client: %s", client);
+<a href='../S/69.html#L643'>client</a>            643 src/debug.c        sdsfree(client);
+<a href='../S/86.html#L833'>client</a>            833 src/networking.c         sds client = getClientInfoString(c);
+<a href='../S/86.html#L835'>client</a>            835 src/networking.c             "Protocol error from client: %s", client);
+<a href='../S/86.html#L836'>client</a>            836 src/networking.c         sdsfree(client);
+<a href='../S/86.html#L1098'>client</a>           1098 src/networking.c     if (!(client-&gt;flags &amp; REDIS_UNIX_SOCKET))
+<a href='../S/86.html#L1099'>client</a>           1099 src/networking.c         anetPeerToString(client-&gt;fd,ip,&amp;port);
+<a href='../S/86.html#L1101'>client</a>           1101 src/networking.c     if (client-&gt;flags &amp; REDIS_SLAVE) {
+<a href='../S/86.html#L1102'>client</a>           1102 src/networking.c         if (client-&gt;flags &amp; REDIS_MONITOR)
+<a href='../S/86.html#L1107'>client</a>           1107 src/networking.c     if (client-&gt;flags &amp; REDIS_MASTER) *p++ = 'M';
+<a href='../S/86.html#L1108'>client</a>           1108 src/networking.c     if (client-&gt;flags &amp; REDIS_MULTI) *p++ = 'x';
+<a href='../S/86.html#L1109'>client</a>           1109 src/networking.c     if (client-&gt;flags &amp; REDIS_BLOCKED) *p++ = 'b';
+<a href='../S/86.html#L1110'>client</a>           1110 src/networking.c     if (client-&gt;flags &amp; REDIS_DIRTY_CAS) *p++ = 'd';
+<a href='../S/86.html#L1111'>client</a>           1111 src/networking.c     if (client-&gt;flags &amp; REDIS_CLOSE_AFTER_REPLY) *p++ = 'c';
+<a href='../S/86.html#L1112'>client</a>           1112 src/networking.c     if (client-&gt;flags &amp; REDIS_UNBLOCKED) *p++ = 'u';
+<a href='../S/86.html#L1113'>client</a>           1113 src/networking.c     if (client-&gt;flags &amp; REDIS_CLOSE_ASAP) *p++ = 'A';
+<a href='../S/86.html#L1114'>client</a>           1114 src/networking.c     if (client-&gt;flags &amp; REDIS_UNIX_SOCKET) *p++ = 'U';
+<a href='../S/86.html#L1118'>client</a>           1118 src/networking.c     emask = client-&gt;fd == -1 ? 0 : aeGetFileEvents(server.el,client-&gt;fd);
+<a href='../S/86.html#L1125'>client</a>           1125 src/networking.c         (client-&gt;flags &amp; REDIS_UNIX_SOCKET) ? server.unixsocket : ip,
+<a href='../S/86.html#L1126'>client</a>           1126 src/networking.c         port,client-&gt;fd,
+<a href='../S/86.html#L1127'>client</a>           1127 src/networking.c         (long)(server.unixtime - client-&gt;ctime),
+<a href='../S/86.html#L1128'>client</a>           1128 src/networking.c         (long)(server.unixtime - client-&gt;lastinteraction),
+<a href='../S/86.html#L1130'>client</a>           1130 src/networking.c         client-&gt;db-&gt;id,
+<a href='../S/86.html#L1131'>client</a>           1131 src/networking.c         (int) dictSize(client-&gt;pubsub_channels),
+<a href='../S/86.html#L1132'>client</a>           1132 src/networking.c         (int) listLength(client-&gt;pubsub_patterns),
+<a href='../S/86.html#L1133'>client</a>           1133 src/networking.c         (client-&gt;flags &amp; REDIS_MULTI) ? client-&gt;mstate.count : -1,
+<a href='../S/86.html#L1134'>client</a>           1134 src/networking.c         (unsigned long) sdslen(client-&gt;querybuf),
+<a href='../S/86.html#L1135'>client</a>           1135 src/networking.c         (unsigned long) sdsavail(client-&gt;querybuf),
+<a href='../S/86.html#L1136'>client</a>           1136 src/networking.c         (unsigned long) client-&gt;bufpos,
+<a href='../S/86.html#L1137'>client</a>           1137 src/networking.c         (unsigned long) listLength(client-&gt;reply),
+<a href='../S/86.html#L1138'>client</a>           1138 src/networking.c         getClientOutputBufferMemoryUsage(client),
+<a href='../S/86.html#L1140'>client</a>           1140 src/networking.c         client-&gt;lastcmd ? client-&gt;lastcmd-&gt;name : "NULL");
+<a href='../S/86.html#L1146'>client</a>           1146 src/networking.c     redisClient *client;
+<a href='../S/86.html#L1153'>client</a>           1153 src/networking.c         client = listNodeValue(ln);
+<a href='../S/86.html#L1154'>client</a>           1154 src/networking.c         cs = getClientInfoString(client);
+<a href='../S/86.html#L1165'>client</a>           1165 src/networking.c     redisClient *client;
+<a href='../S/86.html#L1177'>client</a>           1177 src/networking.c             client = listNodeValue(ln);
+<a href='../S/86.html#L1178'>client</a>           1178 src/networking.c             if (anetPeerToString(client-&gt;fd,ip,&amp;port) == -1) continue;
+<a href='../S/86.html#L1182'>client</a>           1182 src/networking.c                 if (c == client) {
+<a href='../S/86.html#L1183'>client</a>           1183 src/networking.c                     client-&gt;flags |= REDIS_CLOSE_AFTER_REPLY;
+<a href='../S/86.html#L1185'>client</a>           1185 src/networking.c                     freeClient(client);
+<a href='../S/86.html#L1345'>client</a>           1345 src/networking.c         sds client = getClientInfoString(c);
+<a href='../S/86.html#L1348'>client</a>           1348 src/networking.c         redisLog(REDIS_WARNING,"Client %s scheduled to be closed ASAP for overcoming of output buffer limits.", client);
+<a href='../S/86.html#L1349'>client</a>           1349 src/networking.c         sdsfree(client);
+<a href='../S/46.html#L46'>client</a>             46 src/pubsub.c       return (pa-&gt;client == pb-&gt;client) &amp;&amp;
+<a href='../S/46.html#L131'>client</a>            131 src/pubsub.c           pat-&gt;client = c;
+<a href='../S/46.html#L153'>client</a>            153 src/pubsub.c           pat.client = c;
+<a href='../S/46.html#L238'>client</a>            238 src/pubsub.c                   addReply(pat-&gt;client,shared.mbulkhdr[4]);
+<a href='../S/46.html#L239'>client</a>            239 src/pubsub.c                   addReply(pat-&gt;client,shared.pmessagebulk);
+<a href='../S/46.html#L240'>client</a>            240 src/pubsub.c                   addReplyBulk(pat-&gt;client,pat-&gt;pattern);
+<a href='../S/46.html#L241'>client</a>            241 src/pubsub.c                   addReplyBulk(pat-&gt;client,channel);
+<a href='../S/46.html#L242'>client</a>            242 src/pubsub.c                   addReplyBulk(pat-&gt;client,message);
+<a href='../S/94.html#L173'>client</a>            173 src/redis-benchmark.c     client c = privdata;
+<a href='../S/94.html#L216'>client</a>            216 src/redis-benchmark.c     client c = privdata;
+<a href='../S/94.html#L252'>client</a>            252 src/redis-benchmark.c static client createClient(char *cmd, size_t len) {
+<a href='../S/94.html#L254'>client</a>            254 src/redis-benchmark.c     client c = zmalloc(sizeof(struct _client));
+<a href='../S/94.html#L345'>client</a>            345 src/redis-benchmark.c     client c;
+<a href='../S/94.html#L511'>client</a>            511 src/redis-benchmark.c     client c;
+<a href='../S/32.html#L668'>client</a>            668 src/redis.h        redisClient *client;
+</pre>
+</body>
+</html>

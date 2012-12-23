@@ -1,0 +1,82 @@
+<html>
+<head>
+<title>deps/hiredis/example-ae.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/388.html'>hiredis</a>/example-ae.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L12'>[^]</a><a href='#L37'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L12' title='Defined at 12.'>getCallback</a>
+<li><a href='#L21' title='Defined at 21.'>connectCallback</a>
+<li><a href='#L29' title='Defined at 29.'>disconnectCallback</a>
+<li><a href='#L37' title='Defined at 37.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L2'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L3'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L4'><font color='darkred'>#include</font> &lt;signal.h&gt;
+<a name='L5'><font color='darkred'>#include</font> "<a href='121.html'>hiredis.h</a>"
+<a name='L6'><font color='darkred'>#include</font> "<a href='124.html'>async.h</a>"
+<a name='L7'><font color='darkred'>#include</font> "<a href='../I/1.html'>adapters/ae.h</a>"
+<a name='L8'>
+<a name='L9'><i><font color='green'>/* Put event loop in the global scope, so it can be explicitly stopped */</font></i>
+<a name='L10'><b>static</b> <a href='../D/1510.html' title='Multiple defined in 2 places.'>aeEventLoop</a> *loop;
+<a name='L11'>
+<a name='L12'><b>void</b> <a href='../R/2038.html' title='Multiple refered from 3 places.'>getCallback</a>(redisAsyncContext *c, <b>void</b> *r, <b>void</b> *privdata) <font color='red'>{</font>
+<a name='L13'>    <a href='../D/3855.html' title='Multiple defined in 2 places.'>redisReply</a> *reply = r;
+<a name='L14'>    <b>if</b> (reply == NULL) <b>return</b>;
+<a name='L15'>    printf("argv[%s]: %s\n", (<b>char</b>*)privdata, reply-&gt;str);
+<a name='L16'>
+<a name='L17'>    <i><font color='green'>/* Disconnect after receiving the reply to GET */</font></i>
+<a name='L18'>    <a href='../S/104.html#L307' title='Defined at 307 in deps/hiredis/async.c.'>redisAsyncDisconnect</a>(c);
+<a name='L19'><font color='red'>}</font>
+<a name='L20'>
+<a name='L21'><b>void</b> <a href='../R/1677.html' title='Multiple refered from 3 places.'>connectCallback</a>(<b>const</b> redisAsyncContext *c, <b>int</b> status) <font color='red'>{</font>
+<a name='L22'>    <b>if</b> (status != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L23'>        printf("Error: %s\n", c-&gt;errstr);
+<a name='L24'>        <b>return</b>;
+<a name='L25'>    <font color='red'>}</font>
+<a name='L26'>    printf("Connected...\n");
+<a name='L27'><font color='red'>}</font>
+<a name='L28'>
+<a name='L29'><b>void</b> <a href='../R/1860.html' title='Multiple refered from 3 places.'>disconnectCallback</a>(<b>const</b> redisAsyncContext *c, <b>int</b> status) <font color='red'>{</font>
+<a name='L30'>    <b>if</b> (status != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L31'>        printf("Error: %s\n", c-&gt;errstr);
+<a name='L32'>        <b>return</b>;
+<a name='L33'>    <font color='red'>}</font>
+<a name='L34'>    printf("Disconnected...\n");
+<a name='L35'><font color='red'>}</font>
+<a name='L36'>
+<a name='L37'><b>int</b> main (<b>int</b> argc, <b>char</b> **argv) <font color='red'>{</font>
+<a name='L38'>    signal(SIGPIPE, SIG_IGN);
+<a name='L39'>
+<a name='L40'>    <a href='../D/3768.html' title='Multiple defined in 2 places.'>redisAsyncContext</a> *c = <a href='../S/104.html#L144' title='Defined at 144 in deps/hiredis/async.c.'>redisAsyncConnect</a>("127.0.0.1", 6379);
+<a name='L41'>    <b>if</b> (c-&gt;err) <font color='red'>{</font>
+<a name='L42'>        <i><font color='green'>/* Let *c leak for now... */</font></i>
+<a name='L43'>        printf("Error: %s\n", c-&gt;errstr);
+<a name='L44'>        <b>return</b> 1;
+<a name='L45'>    <font color='red'>}</font>
+<a name='L46'>
+<a name='L47'>    loop = <a href='../S/36.html#L62' title='Defined at 62 in src/ae.c.'>aeCreateEventLoop</a>();
+<a name='L48'>    <a href='../D/3752.html' title='Multiple defined in 2 places.'>redisAeAttach</a>(loop, c);
+<a name='L49'>    <a href='../S/104.html#L158' title='Defined at 158 in deps/hiredis/async.c.'>redisAsyncSetConnectCallback</a>(c,<a href='../D/1952.html' title='Multiple defined in 3 places.'>connectCallback</a>);
+<a name='L50'>    <a href='../S/104.html#L171' title='Defined at 171 in deps/hiredis/async.c.'>redisAsyncSetDisconnectCallback</a>(c,<a href='../D/2139.html' title='Multiple defined in 3 places.'>disconnectCallback</a>);
+<a name='L51'>    <a href='../S/104.html#L605' title='Defined at 605 in deps/hiredis/async.c.'>redisAsyncCommand</a>(c, NULL, NULL, "SET key %b", argv[argc-1], strlen(argv[argc-1]));
+<a name='L52'>    <a href='../S/104.html#L605' title='Defined at 605 in deps/hiredis/async.c.'>redisAsyncCommand</a>(c, <a href='../D/2318.html' title='Multiple defined in 3 places.'>getCallback</a>, (<b>char</b>*)"end-1", "GET key");
+<a name='L53'>    <a href='../S/36.html#L416' title='Defined at 416 in src/ae.c.'>aeMain</a>(loop);
+<a name='L54'>    <b>return</b> 0;
+<a name='L55'><font color='red'>}</font>
+<a name='L56'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L12'>[^]</a><a href='#L37'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

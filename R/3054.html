@@ -1,0 +1,106 @@
+<html>
+<head>
+<title>mstime</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/62.html#L371'>mstime</a>            371 src/aof.c              when += mstime();
+<a href='../S/62.html#L845'>mstime</a>            845 src/aof.c          long long now = mstime();
+<a href='../S/31.html#L519'>mstime</a>            519 src/db.c               return mstime() &gt; when;
+<a href='../S/31.html#L523'>mstime</a>            523 src/db.c           if (mstime() &lt;= when) return 0;
+<a href='../S/31.html#L564'>mstime</a>            564 src/db.c           if (when &lt;= mstime() &amp;&amp; !server.loading &amp;&amp; !server.masterhost) {
+<a href='../S/31.html#L587'>mstime</a>            587 src/db.c           expireGenericCommand(c,mstime(),UNIT_SECONDS);
+<a href='../S/31.html#L595'>mstime</a>            595 src/db.c           expireGenericCommand(c,mstime(),UNIT_MILLISECONDS);
+<a href='../S/31.html#L607'>mstime</a>            607 src/db.c               ttl = expire-mstime();
+<a href='../S/18.html#L122'>mstime</a>            122 src/migrate.c      if (ttl) setExpire(c-&gt;db,c-&gt;argv[1],mstime()+ttl);
+<a href='../S/18.html#L174'>mstime</a>            174 src/migrate.c          ttl = expireat-mstime();
+<a href='../S/87.html#L636'>mstime</a>            636 src/rdb.c          long long now = mstime();
+<a href='../S/87.html#L1065'>mstime</a>           1065 src/rdb.c          long long expiretime, now = mstime();
+<a href='../S/94.html#L354'>mstime</a>            354 src/redis-benchmark.c     config.start = mstime();
+<a href='../S/94.html#L356'>mstime</a>            356 src/redis-benchmark.c     config.totlatency = mstime()-config.start;
+<a href='../S/94.html#L485'>mstime</a>            485 src/redis-benchmark.c     float dt = (float)(mstime()-config.start)/1000.0;
+<a href='../S/27.html#L801'>mstime</a>            801 src/redis-cli.c                     long long start_time = mstime(), elapsed;
+<a href='../S/27.html#L831'>mstime</a>            831 src/redis-cli.c                     elapsed = mstime()-start_time;
+<a href='../S/27.html#L905'>mstime</a>            905 src/redis-cli.c         start = mstime();
+<a href='../S/27.html#L911'>mstime</a>            911 src/redis-cli.c         latency = mstime()-start;
+<a href='../S/35.html#L644'>mstime</a>            644 src/redis.c                long long now = mstime();
+<a href='../S/35.html#L692'>mstime</a>            692 src/redis.c        long long t = mstime() - server.ops_sec_last_sample_time;
+<a href='../S/35.html#L700'>mstime</a>            700 src/redis.c        server.ops_sec_last_sample_time = mstime();
+<a href='../S/35.html#L1326'>mstime</a>           1326 src/redis.c        server.ops_sec_last_sample_time = mstime();
+<a href='../S/32.html#L767'>mstime</a>            767 src/redis.h    long long mstime(void);
+<a href='../S/82.html#L406'>mstime</a>            406 src/sentinel.c     sentinel.tilt_start_time = mstime();
+<a href='../S/82.html#L407'>mstime</a>            407 src/sentinel.c     sentinel.previous_time = mstime();
+<a href='../S/82.html#L605'>mstime</a>            605 src/sentinel.c     mstime_t now = mstime();
+<a href='../S/82.html#L623'>mstime</a>            623 src/sentinel.c         sj-&gt;start_time = mstime();
+<a href='../S/82.html#L695'>mstime</a>            695 src/sentinel.c             sj-&gt;start_time = mstime() +
+<a href='../S/82.html#L716'>mstime</a>            716 src/sentinel.c     mstime_t now = mstime();
+<a href='../S/82.html#L760'>mstime</a>            760 src/sentinel.c             addReplyBulkLongLong(c,mstime() - sj-&gt;start_time);
+<a href='../S/82.html#L762'>mstime</a>            762 src/sentinel.c             mstime_t delay = sj-&gt;start_time ? (sj-&gt;start_time-mstime()) : 0;
+<a href='../S/82.html#L868'>mstime</a>            868 src/sentinel.c     ri-&gt;last_avail_time = mstime();
+<a href='../S/82.html#L869'>mstime</a>            869 src/sentinel.c     ri-&gt;last_pong_time = mstime();
+<a href='../S/82.html#L870'>mstime</a>            870 src/sentinel.c     ri-&gt;last_pub_time = mstime();
+<a href='../S/82.html#L871'>mstime</a>            871 src/sentinel.c     ri-&gt;last_hello_time = mstime();
+<a href='../S/82.html#L872'>mstime</a>            872 src/sentinel.c     ri-&gt;last_master_down_reply_time = mstime();
+<a href='../S/82.html#L1094'>mstime</a>           1094 src/sentinel.c     ri-&gt;last_avail_time = mstime();
+<a href='../S/82.html#L1095'>mstime</a>           1095 src/sentinel.c     ri-&gt;last_pong_time = mstime();
+<a href='../S/82.html#L1303'>mstime</a>           1303 src/sentinel.c             ri-&gt;cc_conn_time = mstime();
+<a href='../S/82.html#L1323'>mstime</a>           1323 src/sentinel.c             ri-&gt;pc_conn_time = mstime();
+<a href='../S/82.html#L1446'>mstime</a>           1446 src/sentinel.c     ri-&gt;info_refresh = mstime();
+<a href='../S/82.html#L1495'>mstime</a>           1495 src/sentinel.c                 ri-&gt;master-&gt;failover_state_change_time = mstime();
+<a href='../S/82.html#L1523'>mstime</a>           1523 src/sentinel.c             ri-&gt;master-&gt;failover_state_change_time = mstime();
+<a href='../S/82.html#L1564'>mstime</a>           1564 src/sentinel.c             ri-&gt;failover_state_change_time = mstime();
+<a href='../S/82.html#L1606'>mstime</a>           1606 src/sentinel.c             ri-&gt;last_avail_time = mstime();
+<a href='../S/82.html#L1620'>mstime</a>           1620 src/sentinel.c     ri-&gt;last_pong_time = mstime();
+<a href='../S/82.html#L1636'>mstime</a>           1636 src/sentinel.c         ri-&gt;last_pub_time = mstime();
+<a href='../S/82.html#L1651'>mstime</a>           1651 src/sentinel.c     ri-&gt;pc_last_activity = mstime();
+<a href='../S/82.html#L1705'>mstime</a>           1705 src/sentinel.c                 sentinel-&gt;last_hello_time = mstime();
+<a href='../S/82.html#L1717'>mstime</a>           1717 src/sentinel.c     mstime_t now = mstime();
+<a href='../S/82.html#L1855'>mstime</a>           1855 src/sentinel.c     addReplyBulkLongLong(c,mstime() - ri-&gt;last_avail_time);
+<a href='../S/82.html#L1859'>mstime</a>           1859 src/sentinel.c     addReplyBulkLongLong(c,mstime() - ri-&gt;last_pong_time);
+<a href='../S/82.html#L1864'>mstime</a>           1864 src/sentinel.c         addReplyBulkLongLong(c,mstime()-ri-&gt;s_down_since_time);
+<a href='../S/82.html#L1870'>mstime</a>           1870 src/sentinel.c         addReplyBulkLongLong(c,mstime()-ri-&gt;o_down_since_time);
+<a href='../S/82.html#L1877'>mstime</a>           1877 src/sentinel.c         addReplyBulkLongLong(c,mstime() - ri-&gt;info_refresh);
+<a href='../S/82.html#L1925'>mstime</a>           1925 src/sentinel.c         addReplyBulkLongLong(c,mstime() - ri-&gt;last_hello_time);
+<a href='../S/82.html#L2141'>mstime</a>           2141 src/sentinel.c     mstime_t elapsed = mstime() - ri-&gt;last_avail_time;
+<a href='../S/82.html#L2150'>mstime</a>           2150 src/sentinel.c         (mstime() - ri-&gt;cc_conn_time) &gt; SENTINEL_MIN_LINK_RECONNECT_PERIOD &amp;&amp;
+<a href='../S/82.html#L2151'>mstime</a>           2151 src/sentinel.c         (mstime() - ri-&gt;last_pong_time) &gt; (ri-&gt;down_after_period/2))
+<a href='../S/82.html#L2162'>mstime</a>           2162 src/sentinel.c         (mstime() - ri-&gt;pc_conn_time) &gt; SENTINEL_MIN_LINK_RECONNECT_PERIOD &amp;&amp;
+<a href='../S/82.html#L2163'>mstime</a>           2163 src/sentinel.c         (mstime() - ri-&gt;pc_last_activity) &gt; (SENTINEL_PUBLISH_PERIOD*3))
+<a href='../S/82.html#L2173'>mstime</a>           2173 src/sentinel.c             ri-&gt;s_down_since_time = mstime();
+<a href='../S/82.html#L2211'>mstime</a>           2211 src/sentinel.c             master-&gt;o_down_since_time = mstime();
+<a href='../S/82.html#L2238'>mstime</a>           2238 src/sentinel.c         ri-&gt;last_master_down_reply_time = mstime();
+<a href='../S/82.html#L2260'>mstime</a>           2260 src/sentinel.c         mstime_t elapsed = mstime() - ri-&gt;last_master_down_reply_time;
+<a href='../S/82.html#L2279'>mstime</a>           2279 src/sentinel.c         if (mstime() - ri-&gt;last_master_down_reply_time &lt; SENTINEL_ASK_PERIOD)
+<a href='../S/82.html#L2330'>mstime</a>           2330 src/sentinel.c         mstime_t lag = mstime() - ri-&gt;last_avail_time;
+<a href='../S/82.html#L2453'>mstime</a>           2453 src/sentinel.c         master-&gt;failover_start_time = mstime() +
+<a href='../S/82.html#L2458'>mstime</a>           2458 src/sentinel.c             master-&gt;failover_start_time-mstime());
+<a href='../S/82.html#L2460'>mstime</a>           2460 src/sentinel.c     master-&gt;failover_state_change_time = mstime();
+<a href='../S/82.html#L2498'>mstime</a>           2498 src/sentinel.c             mstime_t elapsed = mstime() - master-&gt;failover_state_change_time;
+<a href='../S/82.html#L2578'>mstime</a>           2578 src/sentinel.c         max_master_down_time += mstime() - master-&gt;s_down_since_time;
+<a href='../S/82.html#L2584'>mstime</a>           2584 src/sentinel.c         mstime_t info_validity_time = mstime()-SENTINEL_INFO_VALIDITY_TIME;
+<a href='../S/82.html#L2629'>mstime</a>           2629 src/sentinel.c     if (mstime() &gt;= ri-&gt;failover_start_time) {
+<a href='../S/82.html#L2631'>mstime</a>           2631 src/sentinel.c         ri-&gt;failover_state_change_time = mstime();
+<a href='../S/82.html#L2647'>mstime</a>           2647 src/sentinel.c         ri-&gt;failover_state_change_time = mstime();
+<a href='../S/82.html#L2669'>mstime</a>           2669 src/sentinel.c     ri-&gt;failover_state_change_time = mstime();
+<a href='../S/82.html#L2675'>mstime</a>           2675 src/sentinel.c     mstime_t elapsed = mstime() - ri-&gt;failover_state_change_time;
+<a href='../S/82.html#L2682'>mstime</a>           2682 src/sentinel.c         ri-&gt;failover_state_change_time = mstime();
+<a href='../S/82.html#L2692'>mstime</a>           2692 src/sentinel.c     mstime_t elapsed = mstime() - master-&gt;failover_state_change_time;
+<a href='../S/82.html#L2724'>mstime</a>           2724 src/sentinel.c         master-&gt;failover_state_change_time = mstime();
+<a href='../S/82.html#L2791'>mstime</a>           2791 src/sentinel.c             (mstime() - slave-&gt;slave_reconf_sent_time) &gt;
+<a href='../S/82.html#L2813'>mstime</a>           2813 src/sentinel.c             slave-&gt;slave_reconf_sent_time = mstime();
+<a href='../S/82.html#L2915'>mstime</a>           2915 src/sentinel.c     ri-&gt;failover_state_change_time = mstime();
+<a href='../S/82.html#L2937'>mstime</a>           2937 src/sentinel.c         (mstime() - ri-&gt;promoted_slave-&gt;s_down_since_time) &lt;
+<a href='../S/82.html#L2971'>mstime</a>           2971 src/sentinel.c         if (mstime()-sentinel.tilt_start_time &lt; SENTINEL_TILT_PERIOD) return;
+<a href='../S/82.html#L3039'>mstime</a>           3039 src/sentinel.c     mstime_t now = mstime();
+<a href='../S/82.html#L3044'>mstime</a>           3044 src/sentinel.c         sentinel.tilt_start_time = mstime();
+<a href='../S/82.html#L3047'>mstime</a>           3047 src/sentinel.c     sentinel.previous_time = mstime();
+<a href='../S/78.html#L51'>mstime</a>             51 src/syncio.c       long long start = mstime();
+<a href='../S/78.html#L72'>mstime</a>             72 src/syncio.c           elapsed = mstime() - start;
+<a href='../S/78.html#L87'>mstime</a>             87 src/syncio.c       long long start = mstime();
+<a href='../S/78.html#L111'>mstime</a>            111 src/syncio.c           elapsed = mstime() - start;
+<a href='../S/79.html#L64'>mstime</a>             64 src/t_string.c     if (expire) setExpire(c-&gt;db,key,mstime()+milliseconds);
+</pre>
+</body>
+</html>

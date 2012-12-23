@@ -1,0 +1,100 @@
+<html>
+<head>
+<title>deps/lua/src/llex.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/llex.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/110.html' title='Multiple included from 6 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: llex.h,v 1.58.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Lexical Analyzer</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'><font color='darkred'>#ifndef</font> <a href='../S/292.html#L8' title='Defined at 8 in deps/lua/src/llex.h.'>llex_h</a>
+<a name='L8'><font color='darkred'>#define</font> <a href='../S/292.html#L7' title='Refered from 7 in deps/lua/src/llex.h.'>llex_h</a>
+<a name='L9'>
+<a name='L10'><font color='darkred'>#include</font> "<a href='282.html'>lobject.h</a>"
+<a name='L11'><font color='darkred'>#include</font> "<a href='312.html'>lzio.h</a>"
+<a name='L12'>
+<a name='L13'>
+<a name='L14'><font color='darkred'>#define</font> <a href='../R/147.html' title='Multiple refered from 4 places.'>FIRST_RESERVED</a>  257
+<a name='L15'>
+<a name='L16'><i><font color='green'>/* maximum length of a reserved word */</font></i>
+<a name='L17'><font color='darkred'>#define</font> <a href='../S/305.html#L69' title='Refered from 69 in deps/lua/src/llex.c.'>TOKEN_LEN</a>       (<b>sizeof</b>("function")/<b>sizeof</b>(<b>char</b>))
+<a name='L18'>
+<a name='L19'>
+<a name='L20'><i><font color='green'>/*</font></i>
+<a name='L21'><i><font color='green'>* WARNING: if you change the order of this enumeration,</font></i>
+<a name='L22'><i><font color='green'>* grep "ORDER RESERVED"</font></i>
+<a name='L23'><i><font color='green'>*/</font></i>
+<a name='L24'><b>enum</b> RESERVED <font color='red'>{</font>
+<a name='L25'>  <i><font color='green'>/* terminal symbols denoted by reserved words */</font></i>
+<a name='L26'>  <a href='../S/304.html#L803' title='Refered from 803 in deps/lua/src/lparser.c.'>TK_AND</a> = <a href='../R/147.html' title='Multiple refered from 4 places.'>FIRST_RESERVED</a>, <a href='../S/304.html#L1312' title='Refered from 1312 in deps/lua/src/lparser.c.'>TK_BREAK</a>,
+<a name='L27'>  <a href='../R/931.html' title='Multiple refered from 4 places.'>TK_DO</a>, <a href='../R/933.html' title='Multiple refered from 2 places.'>TK_ELSE</a>, <a href='../R/934.html' title='Multiple refered from 2 places.'>TK_ELSEIF</a>, <a href='../R/935.html' title='Multiple refered from 6 places.'>TK_END</a>, <a href='../S/304.html#L748' title='Refered from 748 in deps/lua/src/lparser.c.'>TK_FALSE</a>, <a href='../R/939.html' title='Multiple refered from 2 places.'>TK_FOR</a>, <a href='../R/940.html' title='Multiple refered from 4 places.'>TK_FUNCTION</a>,
+<a name='L28'>  <a href='../R/942.html' title='Multiple refered from 2 places.'>TK_IF</a>, <a href='../R/943.html' title='Multiple refered from 2 places.'>TK_IN</a>, <a href='../S/304.html#L1300' title='Refered from 1300 in deps/lua/src/lparser.c.'>TK_LOCAL</a>, <a href='../S/304.html#L740' title='Refered from 740 in deps/lua/src/lparser.c.'>TK_NIL</a>, <a href='../S/304.html#L780' title='Refered from 780 in deps/lua/src/lparser.c.'>TK_NOT</a>, <a href='../S/304.html#L804' title='Refered from 804 in deps/lua/src/lparser.c.'>TK_OR</a>, <a href='../R/952.html' title='Multiple refered from 2 places.'>TK_REPEAT</a>,
+<a name='L29'>  <a href='../S/304.html#L1308' title='Refered from 1308 in deps/lua/src/lparser.c.'>TK_RETURN</a>, <a href='../S/304.html#L1135' title='Refered from 1135 in deps/lua/src/lparser.c.'>TK_THEN</a>, <a href='../S/304.html#L744' title='Refered from 744 in deps/lua/src/lparser.c.'>TK_TRUE</a>, <a href='../R/957.html' title='Multiple refered from 2 places.'>TK_UNTIL</a>, <a href='../R/958.html' title='Multiple refered from 3 places.'>TK_WHILE</a>,
+<a name='L30'>  <i><font color='green'>/* other terminal symbols */</font></i>
+<a name='L31'>  <a href='../R/930.html' title='Multiple refered from 2 places.'>TK_CONCAT</a>, <a href='../R/932.html' title='Multiple refered from 3 places.'>TK_DOTS</a>, <a href='../R/937.html' title='Multiple refered from 2 places.'>TK_EQ</a>, <a href='../R/941.html' title='Multiple refered from 2 places.'>TK_GE</a>, <a href='../R/944.html' title='Multiple refered from 2 places.'>TK_LE</a>, <a href='../R/947.html' title='Multiple refered from 2 places.'>TK_NE</a>, <a href='../R/950.html' title='Multiple refered from 5 places.'>TK_NUMBER</a>,
+<a name='L32'>  <a href='../R/946.html' title='Multiple refered from 8 places.'>TK_NAME</a>, <a href='../R/954.html' title='Multiple refered from 10 places.'>TK_STRING</a>, <a href='../R/936.html' title='Multiple refered from 9 places.'>TK_EOS</a>
+<a name='L33'><font color='red'>}</font>;
+<a name='L34'>
+<a name='L35'><i><font color='green'>/* number of reserved words */</font></i>
+<a name='L36'><font color='darkred'>#define</font> <a href='../S/305.html#L66' title='Refered from 66 in deps/lua/src/llex.c.'>NUM_RESERVED</a>    (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>int</b>, <a href='../S/292.html#L29' title='Defined at 29 in deps/lua/src/llex.h.'>TK_WHILE</a>-<a href='../D/150.html' title='Multiple defined in 2 places.'>FIRST_RESERVED</a>+1))
+<a name='L37'>
+<a name='L38'>
+<a name='L39'><i><font color='green'>/* array with token `names' */</font></i>
+<a name='L40'><a href='../D/314.html' title='Multiple defined in 3 places.'>LUAI_DATA</a> <b>const</b> <b>char</b> *<b>const</b> luaX_tokens [];
+<a name='L41'>
+<a name='L42'>
+<a name='L43'><b>typedef</b> <b>union</b> <font color='red'>{</font>
+<a name='L44'>  <a href='../S/266.html#L99' title='Defined at 99 in deps/lua/src/lua.h.'>lua_Number</a> r;
+<a name='L45'>  <a href='../D/1215.html' title='Multiple defined in 2 places.'>TString</a> *ts;
+<a name='L46'><font color='red'>}</font> <a href='../S/292.html#L51' title='Refered from 51 in deps/lua/src/llex.h.'>SemInfo</a>;  <i><font color='green'>/* semantics information */</font></i>
+<a name='L47'>
+<a name='L48'>
+<a name='L49'><b>typedef</b> <b>struct</b> <a href='../R/1003.html' title='Multiple refered from 2 places.'>Token</a> <font color='red'>{</font>
+<a name='L50'>  <b>int</b> token;
+<a name='L51'>  <a href='../S/292.html#L46' title='Defined at 46 in deps/lua/src/llex.h.'>SemInfo</a> seminfo;
+<a name='L52'><font color='red'>}</font> <a href='../R/1003.html' title='Multiple refered from 2 places.'>Token</a>;
+<a name='L53'>
+<a name='L54'>
+<a name='L55'><b>typedef</b> <b>struct</b> <a href='../R/406.html' title='Multiple refered from 2 places.'>LexState</a> <font color='red'>{</font>
+<a name='L56'>  <b>int</b> current;  <i><font color='green'>/* current character (charint) */</font></i>
+<a name='L57'>  <b>int</b> linenumber;  <i><font color='green'>/* input line counter */</font></i>
+<a name='L58'>  <b>int</b> lastline;  <i><font color='green'>/* line of last token `consumed' */</font></i>
+<a name='L59'>  <a href='../D/1238.html' title='Multiple defined in 2 places.'>Token</a> t;  <i><font color='green'>/* current token */</font></i>
+<a name='L60'>  <a href='../D/1238.html' title='Multiple defined in 2 places.'>Token</a> lookahead;  <i><font color='green'>/* look ahead token */</font></i>
+<a name='L61'>  <b>struct</b> <a href='../D/156.html' title='Multiple defined in 2 places.'>FuncState</a> *fs;  <i><font color='green'>/* `FuncState' is private to the parser */</font></i>
+<a name='L62'>  <b>struct</b> <a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L;
+<a name='L63'>  <a href='../S/312.html#L18' title='Defined at 18 in deps/lua/src/lzio.h.'>ZIO</a> *z;  <i><font color='green'>/* input stream */</font></i>
+<a name='L64'>  <a href='../D/512.html' title='Multiple defined in 2 places.'>Mbuffer</a> *buff;  <i><font color='green'>/* buffer for tokens */</font></i>
+<a name='L65'>  <a href='../D/1215.html' title='Multiple defined in 2 places.'>TString</a> *source;  <i><font color='green'>/* current source name */</font></i>
+<a name='L66'>  <b>char</b> decpoint;  <i><font color='green'>/* locale decimal point */</font></i>
+<a name='L67'><font color='red'>}</font> <a href='../R/406.html' title='Multiple refered from 2 places.'>LexState</a>;
+<a name='L68'>
+<a name='L69'>
+<a name='L70'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../D/3060.html' title='Multiple defined in 2 places.'>luaX_init</a> (lua_State *L);
+<a name='L71'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/305.html#L138' title='Defined at 138 in deps/lua/src/llex.c.'>luaX_setinput</a> (lua_State *L, LexState *ls, <a href='../S/312.html#L18' title='Defined at 18 in deps/lua/src/lzio.h.'>ZIO</a> *z,
+<a name='L72'>                              TString *source);
+<a name='L73'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <a href='../D/1215.html' title='Multiple defined in 2 places.'>TString</a> *<a href='../S/305.html#L117' title='Defined at 117 in deps/lua/src/llex.c.'>luaX_newstring</a> (LexState *ls, <b>const</b> <b>char</b> *str, size_t l);
+<a name='L74'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/305.html#L446' title='Defined at 446 in deps/lua/src/llex.c.'>luaX_next</a> (LexState *ls);
+<a name='L75'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/305.html#L457' title='Defined at 457 in deps/lua/src/llex.c.'>luaX_lookahead</a> (LexState *ls);
+<a name='L76'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/305.html#L102' title='Defined at 102 in deps/lua/src/llex.c.'>luaX_lexerror</a> (LexState *ls, <b>const</b> <b>char</b> *msg, <b>int</b> token);
+<a name='L77'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/305.html#L112' title='Defined at 112 in deps/lua/src/llex.c.'>luaX_syntaxerror</a> (LexState *ls, <b>const</b> <b>char</b> *s);
+<a name='L78'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>const</b> <b>char</b> *<a href='../S/305.html#L78' title='Defined at 78 in deps/lua/src/llex.c.'>luaX_token2str</a> (LexState *ls, <b>int</b> token);
+<a name='L79'>
+<a name='L80'>
+<a name='L81'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

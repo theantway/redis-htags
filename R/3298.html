@@ -1,0 +1,72 @@
+<html>
+<head>
+<title>quarantine</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/138.html#L295'>quarantine</a>        295 deps/jemalloc/include/jemalloc/internal/private_namespace.h #define	quarantine JEMALLOC_N(quarantine)
+<a href='../S/131.html#L15'>quarantine</a>         15 deps/jemalloc/include/jemalloc/internal/quarantine.h void	quarantine(void *ptr);
+<a href='../S/216.html#L49'>quarantine</a>         49 deps/jemalloc/src/quarantine.c 	quarantine_t *quarantine;
+<a href='../S/216.html#L51'>quarantine</a>         51 deps/jemalloc/src/quarantine.c 	quarantine = (quarantine_t *)imalloc(offsetof(quarantine_t, objs) +
+<a href='../S/216.html#L53'>quarantine</a>         53 deps/jemalloc/src/quarantine.c 	if (quarantine == NULL)
+<a href='../S/216.html#L55'>quarantine</a>         55 deps/jemalloc/src/quarantine.c 	quarantine-&gt;curbytes = 0;
+<a href='../S/216.html#L56'>quarantine</a>         56 deps/jemalloc/src/quarantine.c 	quarantine-&gt;curobjs = 0;
+<a href='../S/216.html#L57'>quarantine</a>         57 deps/jemalloc/src/quarantine.c 	quarantine-&gt;first = 0;
+<a href='../S/216.html#L58'>quarantine</a>         58 deps/jemalloc/src/quarantine.c 	quarantine-&gt;lg_maxobjs = lg_maxobjs;
+<a href='../S/216.html#L60'>quarantine</a>         60 deps/jemalloc/src/quarantine.c 	quarantine_tsd_set(&amp;quarantine);
+<a href='../S/216.html#L62'>quarantine</a>         62 deps/jemalloc/src/quarantine.c 	return (quarantine);
+<a href='../S/216.html#L70'>quarantine</a>         70 deps/jemalloc/src/quarantine.c 	ret = quarantine_init(quarantine-&gt;lg_maxobjs + 1);
+<a href='../S/216.html#L72'>quarantine</a>         72 deps/jemalloc/src/quarantine.c 		return (quarantine);
+<a href='../S/216.html#L74'>quarantine</a>         74 deps/jemalloc/src/quarantine.c 	ret-&gt;curbytes = quarantine-&gt;curbytes;
+<a href='../S/216.html#L75'>quarantine</a>         75 deps/jemalloc/src/quarantine.c 	ret-&gt;curobjs = quarantine-&gt;curobjs;
+<a href='../S/216.html#L76'>quarantine</a>         76 deps/jemalloc/src/quarantine.c 	if (quarantine-&gt;first + quarantine-&gt;curobjs &lt;= (ZU(1) &lt;&lt;
+<a href='../S/216.html#L77'>quarantine</a>         77 deps/jemalloc/src/quarantine.c 	    quarantine-&gt;lg_maxobjs)) {
+<a href='../S/216.html#L79'>quarantine</a>         79 deps/jemalloc/src/quarantine.c 		memcpy(ret-&gt;objs, &amp;quarantine-&gt;objs[quarantine-&gt;first],
+<a href='../S/216.html#L80'>quarantine</a>         80 deps/jemalloc/src/quarantine.c 		    quarantine-&gt;curobjs * sizeof(quarantine_obj_t));
+<a href='../S/216.html#L83'>quarantine</a>         83 deps/jemalloc/src/quarantine.c 		size_t ncopy_a = (ZU(1) &lt;&lt; quarantine-&gt;lg_maxobjs) -
+<a href='../S/216.html#L84'>quarantine</a>         84 deps/jemalloc/src/quarantine.c 		    quarantine-&gt;first;
+<a href='../S/216.html#L85'>quarantine</a>         85 deps/jemalloc/src/quarantine.c 		size_t ncopy_b = quarantine-&gt;curobjs - ncopy_a;
+<a href='../S/216.html#L87'>quarantine</a>         87 deps/jemalloc/src/quarantine.c 		memcpy(ret-&gt;objs, &amp;quarantine-&gt;objs[quarantine-&gt;first], ncopy_a
+<a href='../S/216.html#L89'>quarantine</a>         89 deps/jemalloc/src/quarantine.c 		memcpy(&amp;ret-&gt;objs[ncopy_a], quarantine-&gt;objs, ncopy_b *
+<a href='../S/216.html#L100'>quarantine</a>        100 deps/jemalloc/src/quarantine.c 	while (quarantine-&gt;curbytes &gt; upper_bound &amp;&amp; quarantine-&gt;curobjs &gt; 0) {
+<a href='../S/216.html#L101'>quarantine</a>        101 deps/jemalloc/src/quarantine.c 		quarantine_obj_t *obj = &amp;quarantine-&gt;objs[quarantine-&gt;first];
+<a href='../S/216.html#L104'>quarantine</a>        104 deps/jemalloc/src/quarantine.c 		quarantine-&gt;curbytes -= obj-&gt;usize;
+<a href='../S/216.html#L105'>quarantine</a>        105 deps/jemalloc/src/quarantine.c 		quarantine-&gt;curobjs--;
+<a href='../S/216.html#L106'>quarantine</a>        106 deps/jemalloc/src/quarantine.c 		quarantine-&gt;first = (quarantine-&gt;first + 1) &amp; ((ZU(1) &lt;&lt;
+<a href='../S/216.html#L107'>quarantine</a>        107 deps/jemalloc/src/quarantine.c 		    quarantine-&gt;lg_maxobjs) - 1);
+<a href='../S/216.html#L114'>quarantine</a>        114 deps/jemalloc/src/quarantine.c 	quarantine_t *quarantine;
+<a href='../S/216.html#L120'>quarantine</a>        120 deps/jemalloc/src/quarantine.c 	quarantine = *quarantine_tsd_get();
+<a href='../S/216.html#L121'>quarantine</a>        121 deps/jemalloc/src/quarantine.c 	if ((uintptr_t)quarantine &lt;= (uintptr_t)QUARANTINE_STATE_MAX) {
+<a href='../S/216.html#L122'>quarantine</a>        122 deps/jemalloc/src/quarantine.c 		if (quarantine == NULL) {
+<a href='../S/216.html#L123'>quarantine</a>        123 deps/jemalloc/src/quarantine.c 			if ((quarantine = quarantine_init(LG_MAXOBJS_INIT)) ==
+<a href='../S/216.html#L129'>quarantine</a>        129 deps/jemalloc/src/quarantine.c 			if (quarantine == QUARANTINE_STATE_PURGATORY) {
+<a href='../S/216.html#L134'>quarantine</a>        134 deps/jemalloc/src/quarantine.c 				quarantine = QUARANTINE_STATE_REINCARNATED;
+<a href='../S/216.html#L135'>quarantine</a>        135 deps/jemalloc/src/quarantine.c 				quarantine_tsd_set(&amp;quarantine);
+<a href='../S/216.html#L145'>quarantine</a>        145 deps/jemalloc/src/quarantine.c 	if (quarantine-&gt;curbytes + usize &gt; opt_quarantine) {
+<a href='../S/216.html#L148'>quarantine</a>        148 deps/jemalloc/src/quarantine.c 		quarantine_drain(quarantine, upper_bound);
+<a href='../S/216.html#L151'>quarantine</a>        151 deps/jemalloc/src/quarantine.c 	if (quarantine-&gt;curobjs == (ZU(1) &lt;&lt; quarantine-&gt;lg_maxobjs))
+<a href='../S/216.html#L152'>quarantine</a>        152 deps/jemalloc/src/quarantine.c 		quarantine = quarantine_grow(quarantine);
+<a href='../S/216.html#L154'>quarantine</a>        154 deps/jemalloc/src/quarantine.c 	assert(quarantine-&gt;curobjs &lt; (ZU(1) &lt;&lt; quarantine-&gt;lg_maxobjs));
+<a href='../S/216.html#L156'>quarantine</a>        156 deps/jemalloc/src/quarantine.c 	if (quarantine-&gt;curbytes + usize &lt;= opt_quarantine) {
+<a href='../S/216.html#L157'>quarantine</a>        157 deps/jemalloc/src/quarantine.c 		size_t offset = (quarantine-&gt;first + quarantine-&gt;curobjs) &amp;
+<a href='../S/216.html#L158'>quarantine</a>        158 deps/jemalloc/src/quarantine.c 		    ((ZU(1) &lt;&lt; quarantine-&gt;lg_maxobjs) - 1);
+<a href='../S/216.html#L159'>quarantine</a>        159 deps/jemalloc/src/quarantine.c 		quarantine_obj_t *obj = &amp;quarantine-&gt;objs[offset];
+<a href='../S/216.html#L162'>quarantine</a>        162 deps/jemalloc/src/quarantine.c 		quarantine-&gt;curbytes += usize;
+<a href='../S/216.html#L163'>quarantine</a>        163 deps/jemalloc/src/quarantine.c 		quarantine-&gt;curobjs++;
+<a href='../S/216.html#L167'>quarantine</a>        167 deps/jemalloc/src/quarantine.c 		assert(quarantine-&gt;curbytes == 0);
+<a href='../S/216.html#L175'>quarantine</a>        175 deps/jemalloc/src/quarantine.c 	quarantine_t *quarantine = *(quarantine_t **)arg;
+<a href='../S/216.html#L177'>quarantine</a>        177 deps/jemalloc/src/quarantine.c 	if (quarantine == QUARANTINE_STATE_REINCARNATED) {
+<a href='../S/216.html#L183'>quarantine</a>        183 deps/jemalloc/src/quarantine.c 		quarantine = QUARANTINE_STATE_PURGATORY;
+<a href='../S/216.html#L184'>quarantine</a>        184 deps/jemalloc/src/quarantine.c 		quarantine_tsd_set(&amp;quarantine);
+<a href='../S/216.html#L185'>quarantine</a>        185 deps/jemalloc/src/quarantine.c 	} else if (quarantine == QUARANTINE_STATE_PURGATORY) {
+<a href='../S/216.html#L192'>quarantine</a>        192 deps/jemalloc/src/quarantine.c 	} else if (quarantine != NULL) {
+<a href='../S/216.html#L193'>quarantine</a>        193 deps/jemalloc/src/quarantine.c 		quarantine_drain(quarantine, 0);
+<a href='../S/216.html#L194'>quarantine</a>        194 deps/jemalloc/src/quarantine.c 		idalloc(quarantine);
+<a href='../S/216.html#L195'>quarantine</a>        195 deps/jemalloc/src/quarantine.c 		quarantine = QUARANTINE_STATE_PURGATORY;
+<a href='../S/216.html#L196'>quarantine</a>        196 deps/jemalloc/src/quarantine.c 		quarantine_tsd_set(&amp;quarantine);
+<a href='../S/217.html#L382'>quarantine</a>        382 deps/jemalloc/src/stats.c 		OPT_WRITE_SIZE_T(quarantine)
+</pre>
+</body>
+</html>

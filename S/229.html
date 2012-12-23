@@ -1,0 +1,63 @@
+<html>
+<head>
+<title>deps/lua/etc/min.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/399.html'>etc</a>/min.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L12'>[^]</a><a href='#L32'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L12' title='Defined at 12.'>print</a>
+<li><a href='#L32' title='Defined at 32.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>* min.c -- a minimal Lua interpreter</font></i>
+<a name='L3'><i><font color='green'>* loads stdin only with minimal error handling.</font></i>
+<a name='L4'><i><font color='green'>* no interaction, and no standard library, only a "print" function.</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L8'>
+<a name='L9'><font color='darkred'>#include</font> "<a href='266.html'>lua.h</a>"
+<a name='L10'><font color='darkred'>#include</font> "<a href='265.html'>lauxlib.h</a>"
+<a name='L11'>
+<a name='L12'><b>static</b> <b>int</b> <a href='../R/3163.html' title='Multiple refered from 2 places.'>print</a>(lua_State *L)
+<a name='L13'><font color='red'>{</font>
+<a name='L14'> <b>int</b> n=<a href='../S/272.html#L159' title='Defined at 159 in deps/lua/src/lapi.c.'>lua_gettop</a>(L);
+<a name='L15'> <b>int</b> i;
+<a name='L16'> <b>for</b> (i=1; i&lt;=n; i++)
+<a name='L17'> <font color='red'>{</font>
+<a name='L18'>  <b>if</b> (i&gt;1) printf("\t");
+<a name='L19'>  <b>if</b> (<a href='../S/272.html#L267' title='Defined at 267 in deps/lua/src/lapi.c.'>lua_isstring</a>(L,i))
+<a name='L20'>   printf("%s",<a href='../S/266.html#L279' title='Defined at 279 in deps/lua/src/lua.h.'>lua_tostring</a>(L,i));
+<a name='L21'>  <b>else</b> <b>if</b> (<a href='../S/266.html#L267' title='Defined at 267 in deps/lua/src/lua.h.'>lua_isnil</a>(L,i))
+<a name='L22'>   printf("%s","nil");
+<a name='L23'>  <b>else</b> <b>if</b> (<a href='../S/266.html#L268' title='Defined at 268 in deps/lua/src/lua.h.'>lua_isboolean</a>(L,i))
+<a name='L24'>   printf("%s",<a href='../S/272.html#L337' title='Defined at 337 in deps/lua/src/lapi.c.'>lua_toboolean</a>(L,i) ? "true" : "false");
+<a name='L25'>  <b>else</b>
+<a name='L26'>   printf("%s:%p",<a href='../S/265.html#L109' title='Defined at 109 in deps/lua/src/lauxlib.h.'>luaL_typename</a>(L,i),<a href='../S/272.html#L401' title='Defined at 401 in deps/lua/src/lapi.c.'>lua_topointer</a>(L,i));
+<a name='L27'> <font color='red'>}</font>
+<a name='L28'> printf("\n");
+<a name='L29'> <b>return</b> 0;
+<a name='L30'><font color='red'>}</font>
+<a name='L31'>
+<a name='L32'><b>int</b> main(<b>void</b>)
+<a name='L33'><font color='red'>{</font>
+<a name='L34'> <a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L=<a href='../S/266.html#L287' title='Defined at 287 in deps/lua/src/lua.h.'>lua_open</a>();
+<a name='L35'> <a href='../S/266.html#L258' title='Defined at 258 in deps/lua/src/lua.h.'>lua_register</a>(L,"print",<a href='../S/229.html#L12' title='Defined at 12 in deps/lua/etc/min.c.'>print</a>);
+<a name='L36'> <b>if</b> (<a href='../S/265.html#L111' title='Defined at 111 in deps/lua/src/lauxlib.h.'>luaL_dofile</a>(L,NULL)!=0) fprintf(stderr,"%s\n",<a href='../S/266.html#L279' title='Defined at 279 in deps/lua/src/lua.h.'>lua_tostring</a>(L,-1));
+<a name='L37'> <a href='../S/275.html#L199' title='Defined at 199 in deps/lua/src/lstate.c.'>lua_close</a>(L);
+<a name='L38'> <b>return</b> 0;
+<a name='L39'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L12'>[^]</a><a href='#L32'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<html>
+<head>
+<title>arena_t</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/146.html#L165'>arena_t</a>           165 deps/jemalloc/include/jemalloc/internal/arena.h 	arena_t			*arena;
+<a href='../S/146.html#L402'>arena_t</a>           402 deps/jemalloc/include/jemalloc/internal/arena.h void	arena_purge_all(arena_t *arena);
+<a href='../S/146.html#L403'>arena_t</a>           403 deps/jemalloc/include/jemalloc/internal/arena.h void	arena_prof_accum(arena_t *arena, uint64_t accumbytes);
+<a href='../S/146.html#L404'>arena_t</a>           404 deps/jemalloc/include/jemalloc/internal/arena.h void	arena_tcache_fill_small(arena_t *arena, tcache_bin_t *tbin,
+<a href='../S/146.html#L409'>arena_t</a>           409 deps/jemalloc/include/jemalloc/internal/arena.h void	*arena_malloc_small(arena_t *arena, size_t size, bool zero);
+<a href='../S/146.html#L410'>arena_t</a>           410 deps/jemalloc/include/jemalloc/internal/arena.h void	*arena_malloc_large(arena_t *arena, size_t size, bool zero);
+<a href='../S/146.html#L411'>arena_t</a>           411 deps/jemalloc/include/jemalloc/internal/arena.h void	*arena_palloc(arena_t *arena, size_t size, size_t alignment, bool zero);
+<a href='../S/146.html#L413'>arena_t</a>           413 deps/jemalloc/include/jemalloc/internal/arena.h void	arena_dalloc_bin_locked(arena_t *arena, arena_chunk_t *chunk, void *ptr,
+<a href='../S/146.html#L415'>arena_t</a>           415 deps/jemalloc/include/jemalloc/internal/arena.h void	arena_dalloc_bin(arena_t *arena, arena_chunk_t *chunk, void *ptr,
+<a href='../S/146.html#L417'>arena_t</a>           417 deps/jemalloc/include/jemalloc/internal/arena.h void	arena_dalloc_small(arena_t *arena, arena_chunk_t *chunk, void *ptr,
+<a href='../S/146.html#L419'>arena_t</a>           419 deps/jemalloc/include/jemalloc/internal/arena.h void	arena_dalloc_large_locked(arena_t *arena, arena_chunk_t *chunk,
+<a href='../S/146.html#L421'>arena_t</a>           421 deps/jemalloc/include/jemalloc/internal/arena.h void	arena_dalloc_large(arena_t *arena, arena_chunk_t *chunk, void *ptr);
+<a href='../S/146.html#L424'>arena_t</a>           424 deps/jemalloc/include/jemalloc/internal/arena.h void	*arena_ralloc(arena_t *arena, void *ptr, size_t oldsize, size_t size,
+<a href='../S/146.html#L427'>arena_t</a>           427 deps/jemalloc/include/jemalloc/internal/arena.h dss_prec_t	arena_dss_prec_get(arena_t *arena);
+<a href='../S/146.html#L428'>arena_t</a>           428 deps/jemalloc/include/jemalloc/internal/arena.h void	arena_dss_prec_set(arena_t *arena, dss_prec_t dss_prec);
+<a href='../S/146.html#L429'>arena_t</a>           429 deps/jemalloc/include/jemalloc/internal/arena.h void	arena_stats_merge(arena_t *arena, const char **dss, size_t *nactive,
+<a href='../S/146.html#L432'>arena_t</a>           432 deps/jemalloc/include/jemalloc/internal/arena.h bool	arena_new(arena_t *arena, unsigned ind);
+<a href='../S/146.html#L434'>arena_t</a>           434 deps/jemalloc/include/jemalloc/internal/arena.h void	arena_prefork(arena_t *arena);
+<a href='../S/146.html#L435'>arena_t</a>           435 deps/jemalloc/include/jemalloc/internal/arena.h void	arena_postfork_parent(arena_t *arena);
+<a href='../S/146.html#L436'>arena_t</a>           436 deps/jemalloc/include/jemalloc/internal/arena.h void	arena_postfork_child(arena_t *arena);
+<a href='../S/146.html#L468'>arena_t</a>           468 deps/jemalloc/include/jemalloc/internal/arena.h size_t	arena_bin_index(arena_t *arena, arena_bin_t *bin);
+<a href='../S/146.html#L473'>arena_t</a>           473 deps/jemalloc/include/jemalloc/internal/arena.h void	*arena_malloc(arena_t *arena, size_t size, bool zero, bool try_tcache);
+<a href='../S/146.html#L475'>arena_t</a>           475 deps/jemalloc/include/jemalloc/internal/arena.h void	arena_dalloc(arena_t *arena, arena_chunk_t *chunk, void *ptr,
+<a href='../S/146.html#L673'>arena_t</a>           673 deps/jemalloc/include/jemalloc/internal/arena.h 		arena_t *arena;
+<a href='../S/146.html#L707'>arena_t</a>           707 deps/jemalloc/include/jemalloc/internal/arena.h arena_bin_index(arena_t *arena, arena_bin_t *bin)
+<a href='../S/146.html#L860'>arena_t</a>           860 deps/jemalloc/include/jemalloc/internal/arena.h arena_malloc(arena_t *arena, size_t size, bool zero, bool try_tcache)
+<a href='../S/146.html#L937'>arena_t</a>           937 deps/jemalloc/include/jemalloc/internal/arena.h arena_dalloc(arena_t *arena, arena_chunk_t *chunk, void *ptr, bool try_tcache)
+<a href='../S/151.html#L73'>arena_t</a>            73 deps/jemalloc/include/jemalloc/internal/tcache.h 	arena_t		*arena;		/* This thread's arena. */
+<a href='../S/151.html#L111'>arena_t</a>           111 deps/jemalloc/include/jemalloc/internal/tcache.h void	tcache_arena_associate(tcache_t *tcache, arena_t *arena);
+<a href='../S/151.html#L113'>arena_t</a>           113 deps/jemalloc/include/jemalloc/internal/tcache.h tcache_t *tcache_create(arena_t *arena);
+<a href='../S/151.html#L116'>arena_t</a>           116 deps/jemalloc/include/jemalloc/internal/tcache.h void	tcache_stats_merge(tcache_t *tcache, arena_t *arena);
+<a href='../S/203.html#L43'>arena_t</a>            43 deps/jemalloc/src/arena.c static void	arena_avail_insert(arena_t *arena, arena_chunk_t *chunk,
+<a href='../S/203.html#L46'>arena_t</a>            46 deps/jemalloc/src/arena.c static void	arena_avail_remove(arena_t *arena, arena_chunk_t *chunk,
+<a href='../S/203.html#L49'>arena_t</a>            49 deps/jemalloc/src/arena.c static void	arena_run_split(arena_t *arena, arena_run_t *run, size_t size,
+<a href='../S/203.html#L51'>arena_t</a>            51 deps/jemalloc/src/arena.c static arena_chunk_t *arena_chunk_alloc(arena_t *arena);
+<a href='../S/203.html#L52'>arena_t</a>            52 deps/jemalloc/src/arena.c static void	arena_chunk_dealloc(arena_t *arena, arena_chunk_t *chunk);
+<a href='../S/203.html#L53'>arena_t</a>            53 deps/jemalloc/src/arena.c static arena_run_t	*arena_run_alloc_helper(arena_t *arena, size_t size,
+<a href='../S/203.html#L55'>arena_t</a>            55 deps/jemalloc/src/arena.c static arena_run_t *arena_run_alloc(arena_t *arena, size_t size, bool large,
+<a href='../S/203.html#L59'>arena_t</a>            59 deps/jemalloc/src/arena.c static void	arena_purge(arena_t *arena, bool all);
+<a href='../S/203.html#L60'>arena_t</a>            60 deps/jemalloc/src/arena.c static void	arena_run_dalloc(arena_t *arena, arena_run_t *run, bool dirty,
+<a href='../S/203.html#L62'>arena_t</a>            62 deps/jemalloc/src/arena.c static void	arena_run_trim_head(arena_t *arena, arena_chunk_t *chunk,
+<a href='../S/203.html#L64'>arena_t</a>            64 deps/jemalloc/src/arena.c static void	arena_run_trim_tail(arena_t *arena, arena_chunk_t *chunk,
+<a href='../S/203.html#L70'>arena_t</a>            70 deps/jemalloc/src/arena.c static arena_run_t *arena_bin_nonfull_run_get(arena_t *arena, arena_bin_t *bin);
+<a href='../S/203.html#L71'>arena_t</a>            71 deps/jemalloc/src/arena.c static void	*arena_bin_malloc_hard(arena_t *arena, arena_bin_t *bin);
+<a href='../S/203.html#L74'>arena_t</a>            74 deps/jemalloc/src/arena.c static void	arena_dalloc_bin_run(arena_t *arena, arena_chunk_t *chunk,
+<a href='../S/203.html#L76'>arena_t</a>            76 deps/jemalloc/src/arena.c static void	arena_bin_lower_run(arena_t *arena, arena_chunk_t *chunk,
+<a href='../S/203.html#L78'>arena_t</a>            78 deps/jemalloc/src/arena.c static void	arena_ralloc_large_shrink(arena_t *arena, arena_chunk_t *chunk,
+<a href='../S/203.html#L80'>arena_t</a>            80 deps/jemalloc/src/arena.c static bool	arena_ralloc_large_grow(arena_t *arena, arena_chunk_t *chunk,
+<a href='../S/203.html#L248'>arena_t</a>           248 deps/jemalloc/src/arena.c arena_avail_insert(arena_t *arena, arena_chunk_t *chunk, size_t pageind,
+<a href='../S/203.html#L281'>arena_t</a>           281 deps/jemalloc/src/arena.c arena_avail_remove(arena_t *arena, arena_chunk_t *chunk, size_t pageind,
+<a href='../S/203.html#L372'>arena_t</a>           372 deps/jemalloc/src/arena.c arena_run_split(arena_t *arena, arena_run_t *run, size_t size, bool large,
+<a href='../S/203.html#L514'>arena_t</a>           514 deps/jemalloc/src/arena.c arena_chunk_alloc(arena_t *arena)
+<a href='../S/203.html#L589'>arena_t</a>           589 deps/jemalloc/src/arena.c arena_chunk_dealloc(arena_t *arena, arena_chunk_t *chunk)
+<a href='../S/203.html#L621'>arena_t</a>           621 deps/jemalloc/src/arena.c arena_run_alloc_helper(arena_t *arena, size_t size, bool large, size_t binind,
+<a href='../S/203.html#L645'>arena_t</a>           645 deps/jemalloc/src/arena.c arena_run_alloc(arena_t *arena, size_t size, bool large, size_t binind,
+<a href='../S/203.html#L680'>arena_t</a>           680 deps/jemalloc/src/arena.c arena_maybe_purge(arena_t *arena)
+<a href='../S/203.html#L703'>arena_t</a>           703 deps/jemalloc/src/arena.c arena_chunk_purge(arena_t *arena, arena_chunk_t *chunk, bool all)
+<a href='../S/203.html#L861'>arena_t</a>           861 deps/jemalloc/src/arena.c arena_purge(arena_t *arena, bool all)
+<a href='../S/203.html#L952'>arena_t</a>           952 deps/jemalloc/src/arena.c arena_purge_all(arena_t *arena)
+<a href='../S/203.html#L961'>arena_t</a>           961 deps/jemalloc/src/arena.c arena_run_dalloc(arena_t *arena, arena_run_t *run, bool dirty, bool cleaned)
+<a href='../S/203.html#L1097'>arena_t</a>          1097 deps/jemalloc/src/arena.c arena_run_trim_head(arena_t *arena, arena_chunk_t *chunk, arena_run_t *run,
+<a href='../S/203.html#L1129'>arena_t</a>          1129 deps/jemalloc/src/arena.c arena_run_trim_tail(arena_t *arena, arena_chunk_t *chunk, arena_run_t *run,
+<a href='../S/203.html#L1219'>arena_t</a>          1219 deps/jemalloc/src/arena.c arena_bin_nonfull_run_get(arena_t *arena, arena_bin_t *bin)
+<a href='../S/203.html#L1276'>arena_t</a>          1276 deps/jemalloc/src/arena.c arena_bin_malloc_hard(arena_t *arena, arena_bin_t *bin)
+<a href='../S/203.html#L1325'>arena_t</a>          1325 deps/jemalloc/src/arena.c arena_prof_accum(arena_t *arena, uint64_t accumbytes)
+<a href='../S/203.html#L1340'>arena_t</a>          1340 deps/jemalloc/src/arena.c arena_tcache_fill_small(arena_t *arena, tcache_bin_t *tbin, size_t binind,
+<a href='../S/203.html#L1433'>arena_t</a>          1433 deps/jemalloc/src/arena.c arena_malloc_small(arena_t *arena, size_t size, bool zero)
+<a href='../S/203.html#L1489'>arena_t</a>          1489 deps/jemalloc/src/arena.c arena_malloc_large(arena_t *arena, size_t size, bool zero)
+<a href='../S/203.html#L1527'>arena_t</a>          1527 deps/jemalloc/src/arena.c arena_palloc(arena_t *arena, size_t size, size_t alignment, bool zero)
+<a href='../S/203.html#L1627'>arena_t</a>          1627 deps/jemalloc/src/arena.c arena_dalloc_bin_run(arena_t *arena, arena_chunk_t *chunk, arena_run_t *run,
+<a href='../S/203.html#L1678'>arena_t</a>          1678 deps/jemalloc/src/arena.c arena_bin_lower_run(arena_t *arena, arena_chunk_t *chunk, arena_run_t *run,
+<a href='../S/203.html#L1699'>arena_t</a>          1699 deps/jemalloc/src/arena.c arena_dalloc_bin_locked(arena_t *arena, arena_chunk_t *chunk, void *ptr,
+<a href='../S/203.html#L1734'>arena_t</a>          1734 deps/jemalloc/src/arena.c arena_dalloc_bin(arena_t *arena, arena_chunk_t *chunk, void *ptr,
+<a href='../S/203.html#L1749'>arena_t</a>          1749 deps/jemalloc/src/arena.c arena_dalloc_small(arena_t *arena, arena_chunk_t *chunk, void *ptr,
+<a href='../S/203.html#L1764'>arena_t</a>          1764 deps/jemalloc/src/arena.c arena_dalloc_large_locked(arena_t *arena, arena_chunk_t *chunk, void *ptr)
+<a href='../S/203.html#L1785'>arena_t</a>          1785 deps/jemalloc/src/arena.c arena_dalloc_large(arena_t *arena, arena_chunk_t *chunk, void *ptr)
+<a href='../S/203.html#L1794'>arena_t</a>          1794 deps/jemalloc/src/arena.c arena_ralloc_large_shrink(arena_t *arena, arena_chunk_t *chunk, void *ptr,
+<a href='../S/203.html#L1824'>arena_t</a>          1824 deps/jemalloc/src/arena.c arena_ralloc_large_grow(arena_t *arena, arena_chunk_t *chunk, void *ptr,
+<a href='../S/203.html#L1909'>arena_t</a>          1909 deps/jemalloc/src/arena.c 		arena_t *arena;
+<a href='../S/203.html#L1974'>arena_t</a>          1974 deps/jemalloc/src/arena.c arena_ralloc(arena_t *arena, void *ptr, size_t oldsize, size_t size,
+<a href='../S/203.html#L2030'>arena_t</a>          2030 deps/jemalloc/src/arena.c arena_dss_prec_get(arena_t *arena)
+<a href='../S/203.html#L2041'>arena_t</a>          2041 deps/jemalloc/src/arena.c arena_dss_prec_set(arena_t *arena, dss_prec_t dss_prec)
+<a href='../S/203.html#L2050'>arena_t</a>          2050 deps/jemalloc/src/arena.c arena_stats_merge(arena_t *arena, const char **dss, size_t *nactive,
+<a href='../S/203.html#L2098'>arena_t</a>          2098 deps/jemalloc/src/arena.c arena_new(arena_t *arena, unsigned ind)
+<a href='../S/203.html#L2349'>arena_t</a>          2349 deps/jemalloc/src/arena.c arena_prefork(arena_t *arena)
+<a href='../S/203.html#L2359'>arena_t</a>          2359 deps/jemalloc/src/arena.c arena_postfork_parent(arena_t *arena)
+<a href='../S/203.html#L2369'>arena_t</a>          2369 deps/jemalloc/src/arena.c arena_postfork_child(arena_t *arena)
+<a href='../S/206.html#L57'>arena_t</a>            57 deps/jemalloc/src/ctl.c     arena_t *arena);
+<a href='../S/206.html#L60'>arena_t</a>            60 deps/jemalloc/src/ctl.c static void	ctl_arena_refresh(arena_t *arena, unsigned i);
+<a href='../S/206.html#L463'>arena_t</a>           463 deps/jemalloc/src/ctl.c ctl_arena_stats_amerge(ctl_arena_stats_t *cstats, arena_t *arena)
+<a href='../S/206.html#L525'>arena_t</a>           525 deps/jemalloc/src/ctl.c ctl_arena_refresh(arena_t *arena, unsigned i)
+<a href='../S/206.html#L551'>arena_t</a>           551 deps/jemalloc/src/ctl.c 	arena_t **tarenas;
+<a href='../S/206.html#L563'>arena_t</a>           563 deps/jemalloc/src/ctl.c 		tarenas = (arena_t **)imalloc((ctl_stats.narenas + 1) *
+<a href='../S/206.html#L564'>arena_t</a>           564 deps/jemalloc/src/ctl.c 		    sizeof(arena_t *));
+<a href='../S/206.html#L569'>arena_t</a>           569 deps/jemalloc/src/ctl.c 		memcpy(tarenas, arenas, ctl_stats.narenas * sizeof(arena_t *));
+<a href='../S/206.html#L576'>arena_t</a>           576 deps/jemalloc/src/ctl.c 		tarenas = (arena_t **)iralloc(arenas, (ctl_stats.narenas + 1) *
+<a href='../S/206.html#L577'>arena_t</a>           577 deps/jemalloc/src/ctl.c 		    sizeof(arena_t *), 0, 0, false, false);
+<a href='../S/206.html#L611'>arena_t</a>           611 deps/jemalloc/src/ctl.c 	VARIABLE_ARRAY(arena_t *, tarenas, ctl_stats.narenas);
+<a href='../S/206.html#L635'>arena_t</a>           635 deps/jemalloc/src/ctl.c 	memcpy(tarenas, arenas, sizeof(arena_t *) * ctl_stats.narenas);
+<a href='../S/206.html#L1182'>arena_t</a>          1182 deps/jemalloc/src/ctl.c 		arena_t *arena;
+<a href='../S/206.html#L1281'>arena_t</a>          1281 deps/jemalloc/src/ctl.c 	VARIABLE_ARRAY(arena_t *, tarenas, ctl_stats.narenas);
+<a href='../S/206.html#L1284'>arena_t</a>          1284 deps/jemalloc/src/ctl.c 	memcpy(tarenas, arenas, sizeof(arena_t *) * ctl_stats.narenas);
+<a href='../S/206.html#L1344'>arena_t</a>          1344 deps/jemalloc/src/ctl.c 		arena_t *arena = arenas[arena_ind];
+<a href='../S/213.html#L7'>arena_t</a>             7 deps/jemalloc/src/jemalloc.c malloc_tsd_data(, arenas, arena_t *, NULL)
+<a href='../S/213.html#L35'>arena_t</a>            35 deps/jemalloc/src/jemalloc.c arena_t			**arenas;
+<a href='../S/213.html#L117'>arena_t</a>           117 deps/jemalloc/src/jemalloc.c arena_t *
+<a href='../S/213.html#L120'>arena_t</a>           120 deps/jemalloc/src/jemalloc.c 	arena_t *ret;
+<a href='../S/213.html#L122'>arena_t</a>           122 deps/jemalloc/src/jemalloc.c 	ret = (arena_t *)base_alloc(sizeof(arena_t));
+<a href='../S/213.html#L143'>arena_t</a>           143 deps/jemalloc/src/jemalloc.c arena_t *
+<a href='../S/213.html#L146'>arena_t</a>           146 deps/jemalloc/src/jemalloc.c 	arena_t *ret;
+<a href='../S/213.html#L218'>arena_t</a>           218 deps/jemalloc/src/jemalloc.c 			arena_t *arena = arenas[i];
+<a href='../S/213.html#L273'>arena_t</a>           273 deps/jemalloc/src/jemalloc.c 	arena_t *arena = *(arena_t **)arg;
+<a href='../S/213.html#L639'>arena_t</a>           639 deps/jemalloc/src/jemalloc.c 	arena_t *init_arenas[1];
+<a href='../S/213.html#L730'>arena_t</a>           730 deps/jemalloc/src/jemalloc.c 	memset(arenas, 0, sizeof(arena_t *) * narenas_auto);
+<a href='../S/213.html#L794'>arena_t</a>           794 deps/jemalloc/src/jemalloc.c 	if (narenas_auto &gt; chunksize / sizeof(arena_t *)) {
+<a href='../S/213.html#L795'>arena_t</a>           795 deps/jemalloc/src/jemalloc.c 		narenas_auto = chunksize / sizeof(arena_t *);
+<a href='../S/213.html#L802'>arena_t</a>           802 deps/jemalloc/src/jemalloc.c 	arenas = (arena_t **)base_alloc(sizeof(arena_t *) * narenas_total);
+<a href='../S/213.html#L811'>arena_t</a>           811 deps/jemalloc/src/jemalloc.c 	memset(arenas, 0, sizeof(arena_t *) * narenas_total);
+<a href='../S/213.html#L1377'>arena_t</a>          1377 deps/jemalloc/src/jemalloc.c     arena_t *arena)
+<a href='../S/213.html#L1400'>arena_t</a>          1400 deps/jemalloc/src/jemalloc.c 	arena_t *arena;
+<a href='../S/213.html#L1484'>arena_t</a>          1484 deps/jemalloc/src/jemalloc.c 	arena_t *arena;
+<a href='../S/198.html#L96'>arena_t</a>            96 deps/jemalloc/src/tcache.c 		arena_t *arena = chunk-&gt;arena;
+<a href='../S/198.html#L178'>arena_t</a>           178 deps/jemalloc/src/tcache.c 		arena_t *arena = chunk-&gt;arena;
+<a href='../S/198.html#L221'>arena_t</a>           221 deps/jemalloc/src/tcache.c 		arena_t *arena = tcache-&gt;arena;
+<a href='../S/198.html#L238'>arena_t</a>           238 deps/jemalloc/src/tcache.c tcache_arena_associate(tcache_t *tcache, arena_t *arena)
+<a href='../S/198.html#L265'>arena_t</a>           265 deps/jemalloc/src/tcache.c tcache_create(arena_t *arena)
+<a href='../S/198.html#L324'>arena_t</a>           324 deps/jemalloc/src/tcache.c 			arena_t *arena = tcache-&gt;arena;
+<a href='../S/198.html#L337'>arena_t</a>           337 deps/jemalloc/src/tcache.c 			arena_t *arena = tcache-&gt;arena;
+<a href='../S/198.html#L355'>arena_t</a>           355 deps/jemalloc/src/tcache.c 		arena_t *arena = chunk-&gt;arena;
+<a href='../S/198.html#L363'>arena_t</a>           363 deps/jemalloc/src/tcache.c 		arena_t *arena = chunk-&gt;arena;
+<a href='../S/198.html#L401'>arena_t</a>           401 deps/jemalloc/src/tcache.c tcache_stats_merge(tcache_t *tcache, arena_t *arena)
+</pre>
+</body>
+</html>

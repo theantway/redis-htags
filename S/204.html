@@ -1,0 +1,117 @@
+<html>
+<head>
+<title>deps/jemalloc/src/bitmap.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/395.html'>src</a>/bitmap.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L12'>[^]</a><a href='#L64'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L12' title='Defined at 12.'>bits2groups</a>
+<li><a href='#L20' title='Defined at 20.'>bitmap_info_init</a>
+<li><a href='#L48' title='Defined at 48.'>bitmap_info_ngroups</a>
+<li><a href='#L55' title='Defined at 55.'>bitmap_size</a>
+<li><a href='#L64' title='Defined at 64.'>bitmap_init</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> <a href='../S/133.html#L66' title='Refered from 66 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>JEMALLOC_BITMAP_C_</a>
+<a name='L2'><font color='darkred'>#include</font> "jemalloc/internal/jemalloc_internal.h"
+<a name='L3'>
+<a name='L4'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L5'><i><font color='green'>/* Function prototypes for non-inline static functions. */</font></i>
+<a name='L6'>
+<a name='L7'><b>static</b> size_t   <a href='../S/204.html#L12' title='Defined at 12 in deps/jemalloc/src/bitmap.c.'>bits2groups</a>(size_t nbits);
+<a name='L8'>
+<a name='L9'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L10'>
+<a name='L11'><b>static</b> size_t
+<a name='L12'><a href='../R/1483.html' title='Multiple refered from 3 places.'>bits2groups</a>(size_t nbits)
+<a name='L13'><font color='red'>{</font>
+<a name='L14'>
+<a name='L15'>        <b>return</b> ((nbits &gt;&gt; <a href='../S/133.html#L13' title='Defined at 13 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>LG_BITMAP_GROUP_NBITS</a>) +
+<a name='L16'>            !!(nbits &amp; <a href='../S/133.html#L15' title='Defined at 15 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>BITMAP_GROUP_NBITS_MASK</a>));
+<a name='L17'><font color='red'>}</font>
+<a name='L18'>
+<a name='L19'><b>void</b>
+<a name='L20'><a href='../R/1469.html' title='Multiple refered from 8 places.'>bitmap_info_init</a>(<a href='../S/133.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>bitmap_info_t</a> *binfo, size_t nbits)
+<a name='L21'><font color='red'>{</font>
+<a name='L22'>        <b>unsigned</b> i;
+<a name='L23'>        size_t group_count;
+<a name='L24'>
+<a name='L25'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(nbits &gt; 0);
+<a name='L26'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(nbits &lt;= (ZU(1) &lt;&lt; <a href='../S/133.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>LG_BITMAP_MAXBITS</a>));
+<a name='L27'>
+<a name='L28'>        <i><font color='green'>/*</font></i>
+<a name='L29'><i><font color='green'>         * Compute the number of groups necessary to store nbits bits, and</font></i>
+<a name='L30'><i><font color='green'>         * progressively work upward through the levels until reaching a level</font></i>
+<a name='L31'><i><font color='green'>         * that requires only one group.</font></i>
+<a name='L32'><i><font color='green'>         */</font></i>
+<a name='L33'>        binfo-&gt;levels[0].group_offset = 0;
+<a name='L34'>        group_count = <a href='../S/204.html#L12' title='Defined at 12 in deps/jemalloc/src/bitmap.c.'>bits2groups</a>(nbits);
+<a name='L35'>        <b>for</b> (i = 1; group_count &gt; 1; i++) <font color='red'>{</font>
+<a name='L36'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(i &lt; <a href='../S/133.html#L18' title='Defined at 18 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>BITMAP_MAX_LEVELS</a>);
+<a name='L37'>                binfo-&gt;levels[i].group_offset = binfo-&gt;levels[i-1].group_offset
+<a name='L38'>                    + group_count;
+<a name='L39'>                group_count = <a href='../S/204.html#L12' title='Defined at 12 in deps/jemalloc/src/bitmap.c.'>bits2groups</a>(group_count);
+<a name='L40'>        <font color='red'>}</font>
+<a name='L41'>        binfo-&gt;levels[i].group_offset = binfo-&gt;levels[i-1].group_offset
+<a name='L42'>            + group_count;
+<a name='L43'>        binfo-&gt;nlevels = i;
+<a name='L44'>        binfo-&gt;nbits = nbits;
+<a name='L45'><font color='red'>}</font>
+<a name='L46'>
+<a name='L47'>size_t
+<a name='L48'><a href='../R/1470.html' title='Multiple refered from 7 places.'>bitmap_info_ngroups</a>(<b>const</b> <a href='../S/133.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>bitmap_info_t</a> *binfo)
+<a name='L49'><font color='red'>{</font>
+<a name='L50'>
+<a name='L51'>        <b>return</b> (binfo-&gt;levels[binfo-&gt;nlevels].group_offset &lt;&lt; <a href='../S/133.html#L10' title='Defined at 10 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>LG_SIZEOF_BITMAP</a>);
+<a name='L52'><font color='red'>}</font>
+<a name='L53'>
+<a name='L54'>size_t
+<a name='L55'><a href='../R/1478.html' title='Multiple refered from 5 places.'>bitmap_size</a>(size_t nbits)
+<a name='L56'><font color='red'>{</font>
+<a name='L57'>        <a href='../S/133.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>bitmap_info_t</a> binfo;
+<a name='L58'>
+<a name='L59'>        <a href='../D/1743.html' title='Multiple defined in 2 places.'>bitmap_info_init</a>(&amp;binfo, nbits);
+<a name='L60'>        <b>return</b> (<a href='../D/1744.html' title='Multiple defined in 2 places.'>bitmap_info_ngroups</a>(&amp;binfo));
+<a name='L61'><font color='red'>}</font>
+<a name='L62'>
+<a name='L63'><b>void</b>
+<a name='L64'><a href='../R/1473.html' title='Multiple refered from 7 places.'>bitmap_init</a>(<a href='../S/133.html#L9' title='Defined at 9 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>bitmap_t</a> *bitmap, <b>const</b> <a href='../S/133.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>bitmap_info_t</a> *binfo)
+<a name='L65'><font color='red'>{</font>
+<a name='L66'>        size_t extra;
+<a name='L67'>        <b>unsigned</b> i;
+<a name='L68'>
+<a name='L69'>        <i><font color='green'>/*</font></i>
+<a name='L70'><i><font color='green'>         * Bits are actually inverted with regard to the external bitmap</font></i>
+<a name='L71'><i><font color='green'>         * interface, so the bitmap starts out with all 1 bits, except for</font></i>
+<a name='L72'><i><font color='green'>         * trailing unused bits (if any).  Note that each group uses bit 0 to</font></i>
+<a name='L73'><i><font color='green'>         * correspond to the first logical bit in the group, so extra bits</font></i>
+<a name='L74'><i><font color='green'>         * are the most significant bits of the last group.</font></i>
+<a name='L75'><i><font color='green'>         */</font></i>
+<a name='L76'>        memset(bitmap, 0xffU, binfo-&gt;levels[binfo-&gt;nlevels].group_offset &lt;&lt;
+<a name='L77'>            <a href='../S/133.html#L10' title='Defined at 10 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>LG_SIZEOF_BITMAP</a>);
+<a name='L78'>        extra = (<a href='../S/133.html#L14' title='Defined at 14 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>BITMAP_GROUP_NBITS</a> - (binfo-&gt;nbits &amp; <a href='../S/133.html#L15' title='Defined at 15 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>BITMAP_GROUP_NBITS_MASK</a>))
+<a name='L79'>            &amp; <a href='../S/133.html#L15' title='Defined at 15 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>BITMAP_GROUP_NBITS_MASK</a>;
+<a name='L80'>        <b>if</b> (extra != 0)
+<a name='L81'>                bitmap[binfo-&gt;levels[1].group_offset - 1] &gt;&gt;= extra;
+<a name='L82'>        <b>for</b> (i = 1; i &lt; binfo-&gt;nlevels; i++) <font color='red'>{</font>
+<a name='L83'>                size_t group_count = binfo-&gt;levels[i].group_offset -
+<a name='L84'>                    binfo-&gt;levels[i-1].group_offset;
+<a name='L85'>                extra = (<a href='../S/133.html#L14' title='Defined at 14 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>BITMAP_GROUP_NBITS</a> - (group_count &amp;
+<a name='L86'>                    <a href='../S/133.html#L15' title='Defined at 15 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>BITMAP_GROUP_NBITS_MASK</a>)) &amp; <a href='../S/133.html#L15' title='Defined at 15 in deps/jemalloc/include/jemalloc/internal/bitmap.h.'>BITMAP_GROUP_NBITS_MASK</a>;
+<a name='L87'>                <b>if</b> (extra != 0)
+<a name='L88'>                        bitmap[binfo-&gt;levels[i+1].group_offset - 1] &gt;&gt;= extra;
+<a name='L89'>        <font color='red'>}</font>
+<a name='L90'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L12'>[^]</a><a href='#L64'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

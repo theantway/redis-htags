@@ -1,0 +1,332 @@
+<html>
+<head>
+<title>deps/jemalloc/include/msvc_compat/inttypes.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/391.html'>include</a>/<a href='../files/394.html'>msvc_compat</a>/inttypes.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='32.html#L47' title='Included from 47 in src/redis.h.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>// ISO C9x  compliant inttypes.h for Microsoft Visual Studio</font></i>
+<a name='L2'><i><font color='green'>// Based on ISO/IEC 9899:TC2 Committee draft (May 6, 2005) WG14/N1124 </font></i>
+<a name='L3'><i><font color='green'>// </font></i>
+<a name='L4'><i><font color='green'>//  Copyright (c) 2006 Alexander Chemeris</font></i>
+<a name='L5'><i><font color='green'>// </font></i>
+<a name='L6'><i><font color='green'>// Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'>// modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'>// </font></i>
+<a name='L9'><i><font color='green'>//   1. Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'>//      this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'>// </font></i>
+<a name='L12'><i><font color='green'>//   2. Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L13'><i><font color='green'>//      notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L14'><i><font color='green'>//      documentation and/or other materials provided with the distribution.</font></i>
+<a name='L15'><i><font color='green'>// </font></i>
+<a name='L16'><i><font color='green'>//   3. The name of the author may be used to endorse or promote products</font></i>
+<a name='L17'><i><font color='green'>//      derived from this software without specific prior written permission.</font></i>
+<a name='L18'><i><font color='green'>// </font></i>
+<a name='L19'><i><font color='green'>// THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED</font></i>
+<a name='L20'><i><font color='green'>// WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF</font></i>
+<a name='L21'><i><font color='green'>// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO</font></i>
+<a name='L22'><i><font color='green'>// EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,</font></i>
+<a name='L23'><i><font color='green'>// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,</font></i>
+<a name='L24'><i><font color='green'>// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;</font></i>
+<a name='L25'><i><font color='green'>// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, </font></i>
+<a name='L26'><i><font color='green'>// WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR</font></i>
+<a name='L27'><i><font color='green'>// OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF</font></i>
+<a name='L28'><i><font color='green'>// ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'>// </font></i>
+<a name='L30'><i><font color='green'>///////////////////////////////////////////////////////////////////////////////</font></i>
+<a name='L31'>
+<a name='L32'><font color='darkred'>#ifndef</font> _MSC_VER <i><font color='green'>// [</font></i>
+<a name='L33'><font color='darkred'>#error</font> "Use this header only with Microsoft Visual C++ compilers!"
+<a name='L34'><font color='darkred'>#endif</font> <i><font color='green'>// _MSC_VER ]</font></i>
+<a name='L35'>
+<a name='L36'><font color='darkred'>#ifndef</font> <a href='../S/158.html#L37' title='Defined at 37 in deps/jemalloc/include/msvc_compat/inttypes.h.'>_MSC_INTTYPES_H_</a> <i><font color='green'>// [</font></i>
+<a name='L37'><font color='darkred'>#define</font> <a href='../S/158.html#L36' title='Refered from 36 in deps/jemalloc/include/msvc_compat/inttypes.h.'>_MSC_INTTYPES_H_</a>
+<a name='L38'>
+<a name='L39'><font color='darkred'>#if</font> _MSC_VER &gt; 1000
+<a name='L40'><font color='darkred'>#pragma</font> once
+<a name='L41'><font color='darkred'>#endif</font>
+<a name='L42'>
+<a name='L43'><font color='darkred'>#include</font> "<a href='160.html'>stdint.h</a>"
+<a name='L44'>
+<a name='L45'><i><font color='green'>// 7.8 Format conversion of integer types</font></i>
+<a name='L46'>
+<a name='L47'><b>typedef</b> <b>struct</b> <font color='red'>{</font>
+<a name='L48'>   <a href='../S/160.html#L123' title='Defined at 123 in deps/jemalloc/include/msvc_compat/stdint.h.'>intmax_t</a> quot;
+<a name='L49'>   <a href='../S/160.html#L123' title='Defined at 123 in deps/jemalloc/include/msvc_compat/stdint.h.'>intmax_t</a> rem;
+<a name='L50'><font color='red'>}</font> <a href='../R/2188.html' title='Multiple refered from 2 places.'>imaxdiv_t</a>;
+<a name='L51'>
+<a name='L52'><i><font color='green'>// 7.8.1 Macros for format specifiers</font></i>
+<a name='L53'>
+<a name='L54'><font color='darkred'>#if</font> !<b>defined</b>(__cplusplus) || <b>defined</b>(__STDC_FORMAT_MACROS) <i><font color='green'>// [   See footnote 185 at page 198</font></i>
+<a name='L55'>
+<a name='L56'><font color='darkred'>#ifdef</font> _WIN64
+<a name='L57'><font color='darkred'>#  define</font> <a href='../R/1122.html' title='Multiple refered from 24 places.'>__PRI64_PREFIX</a>        "l"
+<a name='L58'><font color='darkred'>#  define</font> <a href='../R/1123.html' title='Multiple refered from 6 places.'>__PRIPTR_PREFIX</a>       "l"
+<a name='L59'><font color='darkred'>#else</font>
+<a name='L60'><font color='darkred'>#  define</font> <a href='../R/1122.html' title='Multiple refered from 24 places.'>__PRI64_PREFIX</a>        "ll"
+<a name='L61'><font color='darkred'>#  define</font> <a href='../R/1123.html' title='Multiple refered from 6 places.'>__PRIPTR_PREFIX</a>
+<a name='L62'><font color='darkred'>#endif</font>
+<a name='L63'>
+<a name='L64'><i><font color='green'>// The fprintf macros for signed integers are:</font></i>
+<a name='L65'><font color='darkred'>#define</font> PRId8       "d"
+<a name='L66'><font color='darkred'>#define</font> PRIi8       "i"
+<a name='L67'><font color='darkred'>#define</font> PRIdLEAST8  "d"
+<a name='L68'><font color='darkred'>#define</font> PRIiLEAST8  "i"
+<a name='L69'><font color='darkred'>#define</font> PRIdFAST8   "d"
+<a name='L70'><font color='darkred'>#define</font> PRIiFAST8   "i"
+<a name='L71'>
+<a name='L72'><font color='darkred'>#define</font> PRId16       "hd"
+<a name='L73'><font color='darkred'>#define</font> PRIi16       "hi"
+<a name='L74'><font color='darkred'>#define</font> PRIdLEAST16  "hd"
+<a name='L75'><font color='darkred'>#define</font> PRIiLEAST16  "hi"
+<a name='L76'><font color='darkred'>#define</font> PRIdFAST16   "hd"
+<a name='L77'><font color='darkred'>#define</font> PRIiFAST16   "hi"
+<a name='L78'>
+<a name='L79'><font color='darkred'>#define</font> PRId32       "d"
+<a name='L80'><font color='darkred'>#define</font> PRIi32       "i"
+<a name='L81'><font color='darkred'>#define</font> PRIdLEAST32  "d"
+<a name='L82'><font color='darkred'>#define</font> PRIiLEAST32  "i"
+<a name='L83'><font color='darkred'>#define</font> PRIdFAST32   "d"
+<a name='L84'><font color='darkred'>#define</font> PRIiFAST32   "i"
+<a name='L85'>
+<a name='L86'><font color='darkred'>#define</font> <a href='../R/563.html' title='Multiple refered from 6 places.'>PRId64</a>       <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "d"
+<a name='L87'><font color='darkred'>#define</font> PRIi64       <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "i"
+<a name='L88'><font color='darkred'>#define</font> PRIdLEAST64  <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "d"
+<a name='L89'><font color='darkred'>#define</font> PRIiLEAST64  <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "i"
+<a name='L90'><font color='darkred'>#define</font> PRIdFAST64   <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "d"
+<a name='L91'><font color='darkred'>#define</font> PRIiFAST64   <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "i"
+<a name='L92'>
+<a name='L93'><font color='darkred'>#define</font> PRIdMAX     <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "d"
+<a name='L94'><font color='darkred'>#define</font> PRIiMAX     <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "i"
+<a name='L95'>
+<a name='L96'><font color='darkred'>#define</font> PRIdPTR     <a href='../D/1382.html' title='Multiple defined in 2 places.'>__PRIPTR_PREFIX</a> "d"
+<a name='L97'><font color='darkred'>#define</font> PRIiPTR     <a href='../D/1382.html' title='Multiple defined in 2 places.'>__PRIPTR_PREFIX</a> "i"
+<a name='L98'>
+<a name='L99'><i><font color='green'>// The fprintf macros for unsigned integers are:</font></i>
+<a name='L100'><font color='darkred'>#define</font> PRIo8       "o"
+<a name='L101'><font color='darkred'>#define</font> PRIu8       "u"
+<a name='L102'><font color='darkred'>#define</font> PRIx8       "x"
+<a name='L103'><font color='darkred'>#define</font> PRIX8       "X"
+<a name='L104'><font color='darkred'>#define</font> PRIoLEAST8  "o"
+<a name='L105'><font color='darkred'>#define</font> PRIuLEAST8  "u"
+<a name='L106'><font color='darkred'>#define</font> PRIxLEAST8  "x"
+<a name='L107'><font color='darkred'>#define</font> PRIXLEAST8  "X"
+<a name='L108'><font color='darkred'>#define</font> PRIoFAST8   "o"
+<a name='L109'><font color='darkred'>#define</font> PRIuFAST8   "u"
+<a name='L110'><font color='darkred'>#define</font> PRIxFAST8   "x"
+<a name='L111'><font color='darkred'>#define</font> PRIXFAST8   "X"
+<a name='L112'>
+<a name='L113'><font color='darkred'>#define</font> PRIo16       "ho"
+<a name='L114'><font color='darkred'>#define</font> PRIu16       "hu"
+<a name='L115'><font color='darkred'>#define</font> PRIx16       "hx"
+<a name='L116'><font color='darkred'>#define</font> PRIX16       "hX"
+<a name='L117'><font color='darkred'>#define</font> PRIoLEAST16  "ho"
+<a name='L118'><font color='darkred'>#define</font> PRIuLEAST16  "hu"
+<a name='L119'><font color='darkred'>#define</font> PRIxLEAST16  "hx"
+<a name='L120'><font color='darkred'>#define</font> PRIXLEAST16  "hX"
+<a name='L121'><font color='darkred'>#define</font> PRIoFAST16   "ho"
+<a name='L122'><font color='darkred'>#define</font> PRIuFAST16   "hu"
+<a name='L123'><font color='darkred'>#define</font> PRIxFAST16   "hx"
+<a name='L124'><font color='darkred'>#define</font> PRIXFAST16   "hX"
+<a name='L125'>
+<a name='L126'><font color='darkred'>#define</font> PRIo32       "o"
+<a name='L127'><font color='darkred'>#define</font> PRIu32       "u"
+<a name='L128'><font color='darkred'>#define</font> PRIx32       "x"
+<a name='L129'><font color='darkred'>#define</font> PRIX32       "X"
+<a name='L130'><font color='darkred'>#define</font> PRIoLEAST32  "o"
+<a name='L131'><font color='darkred'>#define</font> PRIuLEAST32  "u"
+<a name='L132'><font color='darkred'>#define</font> PRIxLEAST32  "x"
+<a name='L133'><font color='darkred'>#define</font> PRIXLEAST32  "X"
+<a name='L134'><font color='darkred'>#define</font> PRIoFAST32   "o"
+<a name='L135'><font color='darkred'>#define</font> PRIuFAST32   "u"
+<a name='L136'><font color='darkred'>#define</font> PRIxFAST32   "x"
+<a name='L137'><font color='darkred'>#define</font> PRIXFAST32   "X"
+<a name='L138'>
+<a name='L139'><font color='darkred'>#define</font> PRIo64       <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "o"
+<a name='L140'><font color='darkred'>#define</font> <a href='../R/564.html' title='Multiple refered from 23 places.'>PRIu64</a>       <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "u"
+<a name='L141'><font color='darkred'>#define</font> PRIx64       <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "x"
+<a name='L142'><font color='darkred'>#define</font> PRIX64       <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "X"
+<a name='L143'><font color='darkred'>#define</font> PRIoLEAST64  <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "o"
+<a name='L144'><font color='darkred'>#define</font> PRIuLEAST64  <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "u"
+<a name='L145'><font color='darkred'>#define</font> PRIxLEAST64  <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "x"
+<a name='L146'><font color='darkred'>#define</font> PRIXLEAST64  <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "X"
+<a name='L147'><font color='darkred'>#define</font> PRIoFAST64   <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "o"
+<a name='L148'><font color='darkred'>#define</font> PRIuFAST64   <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "u"
+<a name='L149'><font color='darkred'>#define</font> PRIxFAST64   <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "x"
+<a name='L150'><font color='darkred'>#define</font> PRIXFAST64   <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "X"
+<a name='L151'>
+<a name='L152'><font color='darkred'>#define</font> PRIoMAX     <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "o"
+<a name='L153'><font color='darkred'>#define</font> PRIuMAX     <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "u"
+<a name='L154'><font color='darkred'>#define</font> PRIxMAX     <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "x"
+<a name='L155'><font color='darkred'>#define</font> PRIXMAX     <a href='../D/1381.html' title='Multiple defined in 2 places.'>__PRI64_PREFIX</a> "X"
+<a name='L156'>
+<a name='L157'><font color='darkred'>#define</font> PRIoPTR     <a href='../D/1382.html' title='Multiple defined in 2 places.'>__PRIPTR_PREFIX</a> "o"
+<a name='L158'><font color='darkred'>#define</font> PRIuPTR     <a href='../D/1382.html' title='Multiple defined in 2 places.'>__PRIPTR_PREFIX</a> "u"
+<a name='L159'><font color='darkred'>#define</font> <a href='../S/209.html#L784' title='Refered from 784 in deps/jemalloc/src/prof.c.'>PRIxPTR</a>     <a href='../D/1382.html' title='Multiple defined in 2 places.'>__PRIPTR_PREFIX</a> "x"
+<a name='L160'><font color='darkred'>#define</font> PRIXPTR     <a href='../D/1382.html' title='Multiple defined in 2 places.'>__PRIPTR_PREFIX</a> "X"
+<a name='L161'>
+<a name='L162'><i><font color='green'>// The fscanf macros for signed integers are:</font></i>
+<a name='L163'><font color='darkred'>#define</font> SCNd8       "d"
+<a name='L164'><font color='darkred'>#define</font> SCNi8       "i"
+<a name='L165'><font color='darkred'>#define</font> SCNdLEAST8  "d"
+<a name='L166'><font color='darkred'>#define</font> SCNiLEAST8  "i"
+<a name='L167'><font color='darkred'>#define</font> SCNdFAST8   "d"
+<a name='L168'><font color='darkred'>#define</font> SCNiFAST8   "i"
+<a name='L169'>
+<a name='L170'><font color='darkred'>#define</font> SCNd16       "hd"
+<a name='L171'><font color='darkred'>#define</font> SCNi16       "hi"
+<a name='L172'><font color='darkred'>#define</font> SCNdLEAST16  "hd"
+<a name='L173'><font color='darkred'>#define</font> SCNiLEAST16  "hi"
+<a name='L174'><font color='darkred'>#define</font> SCNdFAST16   "hd"
+<a name='L175'><font color='darkred'>#define</font> SCNiFAST16   "hi"
+<a name='L176'>
+<a name='L177'><font color='darkred'>#define</font> SCNd32       "ld"
+<a name='L178'><font color='darkred'>#define</font> SCNi32       "li"
+<a name='L179'><font color='darkred'>#define</font> SCNdLEAST32  "ld"
+<a name='L180'><font color='darkred'>#define</font> SCNiLEAST32  "li"
+<a name='L181'><font color='darkred'>#define</font> SCNdFAST32   "ld"
+<a name='L182'><font color='darkred'>#define</font> SCNiFAST32   "li"
+<a name='L183'>
+<a name='L184'><font color='darkred'>#define</font> SCNd64       "I64d"
+<a name='L185'><font color='darkred'>#define</font> SCNi64       "I64i"
+<a name='L186'><font color='darkred'>#define</font> SCNdLEAST64  "I64d"
+<a name='L187'><font color='darkred'>#define</font> SCNiLEAST64  "I64i"
+<a name='L188'><font color='darkred'>#define</font> SCNdFAST64   "I64d"
+<a name='L189'><font color='darkred'>#define</font> SCNiFAST64   "I64i"
+<a name='L190'>
+<a name='L191'><font color='darkred'>#define</font> SCNdMAX     "I64d"
+<a name='L192'><font color='darkred'>#define</font> SCNiMAX     "I64i"
+<a name='L193'>
+<a name='L194'><font color='darkred'>#ifdef</font> _WIN64 <i><font color='green'>// [</font></i>
+<a name='L195'><font color='darkred'>#  define</font> SCNdPTR     "I64d"
+<a name='L196'><font color='darkred'>#  define</font> SCNiPTR     "I64i"
+<a name='L197'><font color='darkred'>#else</font>  <i><font color='green'>// _WIN64 ][</font></i>
+<a name='L198'><font color='darkred'>#  define</font> SCNdPTR     "ld"
+<a name='L199'><font color='darkred'>#  define</font> SCNiPTR     "li"
+<a name='L200'><font color='darkred'>#endif</font>  <i><font color='green'>// _WIN64 ]</font></i>
+<a name='L201'>
+<a name='L202'><i><font color='green'>// The fscanf macros for unsigned integers are:</font></i>
+<a name='L203'><font color='darkred'>#define</font> SCNo8       "o"
+<a name='L204'><font color='darkred'>#define</font> SCNu8       "u"
+<a name='L205'><font color='darkred'>#define</font> SCNx8       "x"
+<a name='L206'><font color='darkred'>#define</font> SCNX8       "X"
+<a name='L207'><font color='darkred'>#define</font> SCNoLEAST8  "o"
+<a name='L208'><font color='darkred'>#define</font> SCNuLEAST8  "u"
+<a name='L209'><font color='darkred'>#define</font> SCNxLEAST8  "x"
+<a name='L210'><font color='darkred'>#define</font> SCNXLEAST8  "X"
+<a name='L211'><font color='darkred'>#define</font> SCNoFAST8   "o"
+<a name='L212'><font color='darkred'>#define</font> SCNuFAST8   "u"
+<a name='L213'><font color='darkred'>#define</font> SCNxFAST8   "x"
+<a name='L214'><font color='darkred'>#define</font> SCNXFAST8   "X"
+<a name='L215'>
+<a name='L216'><font color='darkred'>#define</font> SCNo16       "ho"
+<a name='L217'><font color='darkred'>#define</font> SCNu16       "hu"
+<a name='L218'><font color='darkred'>#define</font> SCNx16       "hx"
+<a name='L219'><font color='darkred'>#define</font> SCNX16       "hX"
+<a name='L220'><font color='darkred'>#define</font> SCNoLEAST16  "ho"
+<a name='L221'><font color='darkred'>#define</font> SCNuLEAST16  "hu"
+<a name='L222'><font color='darkred'>#define</font> SCNxLEAST16  "hx"
+<a name='L223'><font color='darkred'>#define</font> SCNXLEAST16  "hX"
+<a name='L224'><font color='darkred'>#define</font> SCNoFAST16   "ho"
+<a name='L225'><font color='darkred'>#define</font> SCNuFAST16   "hu"
+<a name='L226'><font color='darkred'>#define</font> SCNxFAST16   "hx"
+<a name='L227'><font color='darkred'>#define</font> SCNXFAST16   "hX"
+<a name='L228'>
+<a name='L229'><font color='darkred'>#define</font> SCNo32       "lo"
+<a name='L230'><font color='darkred'>#define</font> SCNu32       "lu"
+<a name='L231'><font color='darkred'>#define</font> SCNx32       "lx"
+<a name='L232'><font color='darkred'>#define</font> SCNX32       "lX"
+<a name='L233'><font color='darkred'>#define</font> SCNoLEAST32  "lo"
+<a name='L234'><font color='darkred'>#define</font> SCNuLEAST32  "lu"
+<a name='L235'><font color='darkred'>#define</font> SCNxLEAST32  "lx"
+<a name='L236'><font color='darkred'>#define</font> SCNXLEAST32  "lX"
+<a name='L237'><font color='darkred'>#define</font> SCNoFAST32   "lo"
+<a name='L238'><font color='darkred'>#define</font> SCNuFAST32   "lu"
+<a name='L239'><font color='darkred'>#define</font> SCNxFAST32   "lx"
+<a name='L240'><font color='darkred'>#define</font> SCNXFAST32   "lX"
+<a name='L241'>
+<a name='L242'><font color='darkred'>#define</font> SCNo64       "I64o"
+<a name='L243'><font color='darkred'>#define</font> SCNu64       "I64u"
+<a name='L244'><font color='darkred'>#define</font> SCNx64       "I64x"
+<a name='L245'><font color='darkred'>#define</font> SCNX64       "I64X"
+<a name='L246'><font color='darkred'>#define</font> SCNoLEAST64  "I64o"
+<a name='L247'><font color='darkred'>#define</font> SCNuLEAST64  "I64u"
+<a name='L248'><font color='darkred'>#define</font> SCNxLEAST64  "I64x"
+<a name='L249'><font color='darkred'>#define</font> SCNXLEAST64  "I64X"
+<a name='L250'><font color='darkred'>#define</font> SCNoFAST64   "I64o"
+<a name='L251'><font color='darkred'>#define</font> SCNuFAST64   "I64u"
+<a name='L252'><font color='darkred'>#define</font> SCNxFAST64   "I64x"
+<a name='L253'><font color='darkred'>#define</font> SCNXFAST64   "I64X"
+<a name='L254'>
+<a name='L255'><font color='darkred'>#define</font> SCNoMAX     "I64o"
+<a name='L256'><font color='darkred'>#define</font> SCNuMAX     "I64u"
+<a name='L257'><font color='darkred'>#define</font> SCNxMAX     "I64x"
+<a name='L258'><font color='darkred'>#define</font> SCNXMAX     "I64X"
+<a name='L259'>
+<a name='L260'><font color='darkred'>#ifdef</font> _WIN64 <i><font color='green'>// [</font></i>
+<a name='L261'><font color='darkred'>#  define</font> SCNoPTR     "I64o"
+<a name='L262'><font color='darkred'>#  define</font> SCNuPTR     "I64u"
+<a name='L263'><font color='darkred'>#  define</font> SCNxPTR     "I64x"
+<a name='L264'><font color='darkred'>#  define</font> SCNXPTR     "I64X"
+<a name='L265'><font color='darkred'>#else</font>  <i><font color='green'>// _WIN64 ][</font></i>
+<a name='L266'><font color='darkred'>#  define</font> SCNoPTR     "lo"
+<a name='L267'><font color='darkred'>#  define</font> SCNuPTR     "lu"
+<a name='L268'><font color='darkred'>#  define</font> SCNxPTR     "lx"
+<a name='L269'><font color='darkred'>#  define</font> SCNXPTR     "lX"
+<a name='L270'><font color='darkred'>#endif</font>  <i><font color='green'>// _WIN64 ]</font></i>
+<a name='L271'>
+<a name='L272'><font color='darkred'>#endif</font> <i><font color='green'>// __STDC_FORMAT_MACROS ]</font></i>
+<a name='L273'>
+<a name='L274'><i><font color='green'>// 7.8.2 Functions for greatest-width integer types</font></i>
+<a name='L275'>
+<a name='L276'><i><font color='green'>// 7.8.2.1 The imaxabs function</font></i>
+<a name='L277'><font color='darkred'>#define</font> imaxabs _abs64
+<a name='L278'>
+<a name='L279'><i><font color='green'>// 7.8.2.2 The imaxdiv function</font></i>
+<a name='L280'>
+<a name='L281'><i><font color='green'>// This is modified version of div() function from Microsoft's div.c found</font></i>
+<a name='L282'><i><font color='green'>// in %MSVC.NET%\crt\src\div.c</font></i>
+<a name='L283'><font color='darkred'>#ifdef</font> STATIC_IMAXDIV <i><font color='green'>// [</font></i>
+<a name='L284'><b>static</b>
+<a name='L285'><font color='darkred'>#else</font> <i><font color='green'>// STATIC_IMAXDIV ][</font></i>
+<a name='L286'>_inline
+<a name='L287'><font color='darkred'>#endif</font> <i><font color='green'>// STATIC_IMAXDIV ]</font></i>
+<a name='L288'><a href='../S/158.html#L50' title='Defined at 50 in deps/jemalloc/include/msvc_compat/inttypes.h.'>imaxdiv_t</a> __cdecl imaxdiv(<a href='../S/160.html#L123' title='Defined at 123 in deps/jemalloc/include/msvc_compat/stdint.h.'>intmax_t</a> numer, <a href='../S/160.html#L123' title='Defined at 123 in deps/jemalloc/include/msvc_compat/stdint.h.'>intmax_t</a> denom)
+<a name='L289'><font color='red'>{</font>
+<a name='L290'>   <a href='../S/158.html#L50' title='Defined at 50 in deps/jemalloc/include/msvc_compat/inttypes.h.'>imaxdiv_t</a> result;
+<a name='L291'>
+<a name='L292'>   result.quot = numer / denom;
+<a name='L293'>   result.rem = numer % denom;
+<a name='L294'>
+<a name='L295'>   <b>if</b> (numer &lt; 0 &amp;&amp; result.rem &gt; 0) <font color='red'>{</font>
+<a name='L296'>      <i><font color='green'>// did division wrong; must fix up</font></i>
+<a name='L297'>      ++result.quot;
+<a name='L298'>      result.rem -= denom;
+<a name='L299'>   <font color='red'>}</font>
+<a name='L300'>
+<a name='L301'>   <b>return</b> result;
+<a name='L302'><font color='red'>}</font>
+<a name='L303'>
+<a name='L304'><i><font color='green'>// 7.8.2.3 The strtoimax and strtoumax functions</font></i>
+<a name='L305'><font color='darkred'>#define</font> strtoimax _strtoi64
+<a name='L306'><font color='darkred'>#define</font> strtoumax _strtoui64
+<a name='L307'>
+<a name='L308'><i><font color='green'>// 7.8.2.4 The wcstoimax and wcstoumax functions</font></i>
+<a name='L309'><font color='darkred'>#define</font> wcstoimax _wcstoi64
+<a name='L310'><font color='darkred'>#define</font> wcstoumax _wcstoui64
+<a name='L311'>
+<a name='L312'>
+<a name='L313'><font color='darkred'>#endif</font> <i><font color='green'>// _MSC_INTTYPES_H_ ]</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

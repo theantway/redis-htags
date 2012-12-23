@@ -1,0 +1,414 @@
+<html>
+<head>
+<title>deps/jemalloc/include/jemalloc/internal/tsd.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/391.html'>include</a>/<a href='../files/392.html'>jemalloc</a>/<a href='../files/393.html'>internal</a>/tsd.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L2'><font color='darkred'>#ifdef</font> JEMALLOC_H_TYPES
+<a name='L3'>
+<a name='L4'><i><font color='green'>/* Maximum number of malloc_tsd users with cleanup functions. */</font></i>
+<a name='L5'><font color='darkred'>#define</font> <a href='../R/428.html' title='Multiple refered from 3 places.'>MALLOC_TSD_CLEANUPS_MAX</a> 8
+<a name='L6'>
+<a name='L7'><b>typedef</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> (*malloc_tsd_cleanup_t)(<b>void</b>);
+<a name='L8'>
+<a name='L9'><i><font color='green'>/*</font></i>
+<a name='L10'><i><font color='green'> * TLS/TSD-agnostic macro-based implementation of thread-specific data.  There</font></i>
+<a name='L11'><i><font color='green'> * are four macros that support (at least) three use cases: file-private,</font></i>
+<a name='L12'><i><font color='green'> * library-private, and library-private inlined.  Following is an example</font></i>
+<a name='L13'><i><font color='green'> * library-private tsd variable:</font></i>
+<a name='L14'><i><font color='green'> *</font></i>
+<a name='L15'><i><font color='green'> * In example.h:</font></i>
+<a name='L16'><i><font color='green'> *   typedef struct {</font></i>
+<a name='L17'><i><font color='green'> *           int x;</font></i>
+<a name='L18'><i><font color='green'> *           int y;</font></i>
+<a name='L19'><i><font color='green'> *   } example_t;</font></i>
+<a name='L20'><i><font color='green'> *   #define EX_INITIALIZER JEMALLOC_CONCAT({0, 0})</font></i>
+<a name='L21'><i><font color='green'> *   malloc_tsd_protos(, example, example_t *)</font></i>
+<a name='L22'><i><font color='green'> *   malloc_tsd_externs(example, example_t *)</font></i>
+<a name='L23'><i><font color='green'> * In example.c:</font></i>
+<a name='L24'><i><font color='green'> *   malloc_tsd_data(, example, example_t *, EX_INITIALIZER)</font></i>
+<a name='L25'><i><font color='green'> *   malloc_tsd_funcs(, example, example_t *, EX_INITIALIZER,</font></i>
+<a name='L26'><i><font color='green'> *       example_tsd_cleanup)</font></i>
+<a name='L27'><i><font color='green'> *</font></i>
+<a name='L28'><i><font color='green'> * The result is a set of generated functions, e.g.:</font></i>
+<a name='L29'><i><font color='green'> *</font></i>
+<a name='L30'><i><font color='green'> *   bool example_tsd_boot(void) {...}</font></i>
+<a name='L31'><i><font color='green'> *   example_t **example_tsd_get() {...}</font></i>
+<a name='L32'><i><font color='green'> *   void example_tsd_set(example_t **val) {...}</font></i>
+<a name='L33'><i><font color='green'> *</font></i>
+<a name='L34'><i><font color='green'> * Note that all of the functions deal in terms of (a_type *) rather than</font></i>
+<a name='L35'><i><font color='green'> * (a_type)  so that it is possible to support non-pointer types (unlike</font></i>
+<a name='L36'><i><font color='green'> * pthreads TSD).  example_tsd_cleanup() is passed an (a_type *) pointer that is</font></i>
+<a name='L37'><i><font color='green'> * cast to (void *).  This means that the cleanup function needs to cast *and*</font></i>
+<a name='L38'><i><font color='green'> * dereference the function argument, e.g.:</font></i>
+<a name='L39'><i><font color='green'> *</font></i>
+<a name='L40'><i><font color='green'> *   void</font></i>
+<a name='L41'><i><font color='green'> *   example_tsd_cleanup(void *arg)</font></i>
+<a name='L42'><i><font color='green'> *   {</font></i>
+<a name='L43'><i><font color='green'> *           example_t *example = *(example_t **)arg;</font></i>
+<a name='L44'><i><font color='green'> *</font></i>
+<a name='L45'><i><font color='green'> *           [...]</font></i>
+<a name='L46'><i><font color='green'> *           if ([want the cleanup function to be called again]) {</font></i>
+<a name='L47'><i><font color='green'> *                   example_tsd_set(&amp;example);</font></i>
+<a name='L48'><i><font color='green'> *           }</font></i>
+<a name='L49'><i><font color='green'> *   }</font></i>
+<a name='L50'><i><font color='green'> *</font></i>
+<a name='L51'><i><font color='green'> * If example_tsd_set() is called within example_tsd_cleanup(), it will be</font></i>
+<a name='L52'><i><font color='green'> * called again.  This is similar to how pthreads TSD destruction works, except</font></i>
+<a name='L53'><i><font color='green'> * that pthreads only calls the cleanup function again if the value was set to</font></i>
+<a name='L54'><i><font color='green'> * non-NULL.</font></i>
+<a name='L55'><i><font color='green'> */</font></i>
+<a name='L56'>
+<a name='L57'><i><font color='green'>/* malloc_tsd_protos(). */</font></i>
+<a name='L58'><font color='darkred'>#define</font> malloc_tsd_protos(a_attr, a_name, a_type)                       \
+<a name='L59'>a_attr <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>                                                             \
+<a name='L60'>a_name##_tsd_boot(<b>void</b>);                                                \
+<a name='L61'>a_attr a_type *                                                         \
+<a name='L62'>a_name##_tsd_get(<b>void</b>);                                                 \
+<a name='L63'>a_attr <b>void</b>                                                             \
+<a name='L64'>a_name##_tsd_set(a_type *val);
+<a name='L65'>
+<a name='L66'><i><font color='green'>/* malloc_tsd_externs(). */</font></i>
+<a name='L67'><font color='darkred'>#ifdef</font> JEMALLOC_MALLOC_THREAD_CLEANUP
+<a name='L68'><font color='darkred'>#define</font> malloc_tsd_externs(a_name, a_type)                              \
+<a name='L69'><b>extern</b> <b>__thread</b> a_type  a_name##_tls;                                   \
+<a name='L70'><b>extern</b> <b>__thread</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>    a_name##_initialized;                           \
+<a name='L71'><b>extern</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>             a_name##_booted;
+<a name='L72'><font color='darkred'>#elif</font> (<b>defined</b>(JEMALLOC_TLS))
+<a name='L73'><font color='darkred'>#define</font> malloc_tsd_externs(a_name, a_type)                              \
+<a name='L74'><b>extern</b> <b>__thread</b> a_type  a_name##_tls;                                   \
+<a name='L75'><b>extern</b> pthread_key_t    a_name##_tsd;                                   \
+<a name='L76'><b>extern</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>             a_name##_booted;
+<a name='L77'><font color='darkred'>#elif</font> (<b>defined</b>(_WIN32))
+<a name='L78'><font color='darkred'>#define</font> malloc_tsd_externs(a_name, a_type)                              \
+<a name='L79'><b>extern</b> DWORD            a_name##_tsd;                                   \
+<a name='L80'><b>extern</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>             a_name##_booted;
+<a name='L81'><font color='darkred'>#else</font>
+<a name='L82'><font color='darkred'>#define</font> malloc_tsd_externs(a_name, a_type)                              \
+<a name='L83'><b>extern</b> pthread_key_t    a_name##_tsd;                                   \
+<a name='L84'><b>extern</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>             a_name##_booted;
+<a name='L85'><font color='darkred'>#endif</font>
+<a name='L86'>
+<a name='L87'><i><font color='green'>/* malloc_tsd_data(). */</font></i>
+<a name='L88'><font color='darkred'>#ifdef</font> JEMALLOC_MALLOC_THREAD_CLEANUP
+<a name='L89'><font color='darkred'>#define</font> <a href='../R/2942.html' title='Multiple refered from 3 places.'>malloc_tsd_data</a>(a_attr, a_name, a_type, a_initializer)          \
+<a name='L90'>a_attr <b>__thread</b> a_type JEMALLOC_TLS_MODEL                               \
+<a name='L91'>    a_name##_tls = a_initializer;                                       \
+<a name='L92'>a_attr <b>__thread</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> JEMALLOC_TLS_MODEL                                 \
+<a name='L93'>    a_name##_initialized = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;                                       \
+<a name='L94'>a_attr <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>             a_name##_booted = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L95'><font color='darkred'>#elif</font> (<b>defined</b>(JEMALLOC_TLS))
+<a name='L96'><font color='darkred'>#define</font> <a href='../R/2942.html' title='Multiple refered from 3 places.'>malloc_tsd_data</a>(a_attr, a_name, a_type, a_initializer)          \
+<a name='L97'>a_attr <b>__thread</b> a_type JEMALLOC_TLS_MODEL                               \
+<a name='L98'>    a_name##_tls = a_initializer;                                       \
+<a name='L99'>a_attr pthread_key_t    a_name##_tsd;                                   \
+<a name='L100'>a_attr <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>             a_name##_booted = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L101'><font color='darkred'>#elif</font> (<b>defined</b>(_WIN32))
+<a name='L102'><font color='darkred'>#define</font> <a href='../R/2942.html' title='Multiple refered from 3 places.'>malloc_tsd_data</a>(a_attr, a_name, a_type, a_initializer)          \
+<a name='L103'>a_attr DWORD            a_name##_tsd;                                   \
+<a name='L104'>a_attr <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>             a_name##_booted = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L105'><font color='darkred'>#else</font>
+<a name='L106'><font color='darkred'>#define</font> <a href='../R/2942.html' title='Multiple refered from 3 places.'>malloc_tsd_data</a>(a_attr, a_name, a_type, a_initializer)          \
+<a name='L107'>a_attr pthread_key_t    a_name##_tsd;                                   \
+<a name='L108'>a_attr <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>             a_name##_booted = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L109'><font color='darkred'>#endif</font>
+<a name='L110'>
+<a name='L111'><i><font color='green'>/* malloc_tsd_funcs(). */</font></i>
+<a name='L112'><font color='darkred'>#ifdef</font> JEMALLOC_MALLOC_THREAD_CLEANUP
+<a name='L113'><font color='darkred'>#define</font> malloc_tsd_funcs(a_attr, a_name, a_type, a_initializer,         \
+<a name='L114'>    a_cleanup)                                                          \
+<a name='L115'><i><font color='green'>/* Initialization/cleanup. */</font></i>                                           \
+<a name='L116'>a_attr <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>                                                             \
+<a name='L117'>a_name##_tsd_cleanup_wrapper(<b>void</b>)                                      \
+<a name='L118'><font color='red'>{</font>                                                                       \
+<a name='L119'>                                                                        \
+<a name='L120'>        <b>if</b> (a_name##_initialized) <font color='red'>{</font>                                     \
+<a name='L121'>                a_name##_initialized = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;                           \
+<a name='L122'>                a_cleanup(&amp;a_name##_tls);                               \
+<a name='L123'>        <font color='red'>}</font>                                                               \
+<a name='L124'>        <b>return</b> (a_name##_initialized);                                  \
+<a name='L125'><font color='red'>}</font>                                                                       \
+<a name='L126'>a_attr <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>                                                             \
+<a name='L127'>a_name##_tsd_boot(<b>void</b>)                                                 \
+<a name='L128'><font color='red'>{</font>                                                                       \
+<a name='L129'>                                                                        \
+<a name='L130'>        <b>if</b> (a_cleanup != <a href='../D/3291.html' title='Multiple defined in 2 places.'>malloc_tsd_no_cleanup</a>) <font color='red'>{</font>                       \
+<a name='L131'>                <a href='../D/3285.html' title='Multiple defined in 2 places.'>malloc_tsd_cleanup_register</a>(                            \
+<a name='L132'>                    &amp;a_name##_tsd_cleanup_wrapper);                     \
+<a name='L133'>        <font color='red'>}</font>                                                               \
+<a name='L134'>        a_name##_booted = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;                                         \
+<a name='L135'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);                                                 \
+<a name='L136'><font color='red'>}</font>                                                                       \
+<a name='L137'><i><font color='green'>/* Get/set. */</font></i>                                                          \
+<a name='L138'>a_attr a_type *                                                         \
+<a name='L139'>a_name##_tsd_get(<b>void</b>)                                                  \
+<a name='L140'><font color='red'>{</font>                                                                       \
+<a name='L141'>                                                                        \
+<a name='L142'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(a_name##_booted);                                        \
+<a name='L143'>        <b>return</b> (&amp;a_name##_tls);                                         \
+<a name='L144'><font color='red'>}</font>                                                                       \
+<a name='L145'>a_attr <b>void</b>                                                             \
+<a name='L146'>a_name##_tsd_set(a_type *val)                                           \
+<a name='L147'><font color='red'>{</font>                                                                       \
+<a name='L148'>                                                                        \
+<a name='L149'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(a_name##_booted);                                        \
+<a name='L150'>        a_name##_tls = (*val);                                          \
+<a name='L151'>        <b>if</b> (a_cleanup != <a href='../D/3291.html' title='Multiple defined in 2 places.'>malloc_tsd_no_cleanup</a>)                         \
+<a name='L152'>                a_name##_initialized = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;                            \
+<a name='L153'><font color='red'>}</font>
+<a name='L154'><font color='darkred'>#elif</font> (<b>defined</b>(JEMALLOC_TLS))
+<a name='L155'><font color='darkred'>#define</font> malloc_tsd_funcs(a_attr, a_name, a_type, a_initializer,         \
+<a name='L156'>    a_cleanup)                                                          \
+<a name='L157'><i><font color='green'>/* Initialization/cleanup. */</font></i>                                           \
+<a name='L158'>a_attr <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>                                                             \
+<a name='L159'>a_name##_tsd_boot(<b>void</b>)                                                 \
+<a name='L160'><font color='red'>{</font>                                                                       \
+<a name='L161'>                                                                        \
+<a name='L162'>        <b>if</b> (a_cleanup != <a href='../D/3291.html' title='Multiple defined in 2 places.'>malloc_tsd_no_cleanup</a>) <font color='red'>{</font>                       \
+<a name='L163'>                <b>if</b> (pthread_key_create(&amp;a_name##_tsd, a_cleanup) != 0)  \
+<a name='L164'>                        <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);                                  \
+<a name='L165'>        <font color='red'>}</font>                                                               \
+<a name='L166'>        a_name##_booted = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;                                         \
+<a name='L167'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);                                                 \
+<a name='L168'><font color='red'>}</font>                                                                       \
+<a name='L169'><i><font color='green'>/* Get/set. */</font></i>                                                          \
+<a name='L170'>a_attr a_type *                                                         \
+<a name='L171'>a_name##_tsd_get(<b>void</b>)                                                  \
+<a name='L172'><font color='red'>{</font>                                                                       \
+<a name='L173'>                                                                        \
+<a name='L174'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(a_name##_booted);                                        \
+<a name='L175'>        <b>return</b> (&amp;a_name##_tls);                                         \
+<a name='L176'><font color='red'>}</font>                                                                       \
+<a name='L177'>a_attr <b>void</b>                                                             \
+<a name='L178'>a_name##_tsd_set(a_type *val)                                           \
+<a name='L179'><font color='red'>{</font>                                                                       \
+<a name='L180'>                                                                        \
+<a name='L181'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(a_name##_booted);                                        \
+<a name='L182'>        a_name##_tls = (*val);                                          \
+<a name='L183'>        <b>if</b> (a_cleanup != <a href='../D/3291.html' title='Multiple defined in 2 places.'>malloc_tsd_no_cleanup</a>) <font color='red'>{</font>                       \
+<a name='L184'>                <b>if</b> (pthread_setspecific(a_name##_tsd,                   \
+<a name='L185'>                    (<b>void</b> *)(&amp;a_name##_tls))) <font color='red'>{</font>                         \
+<a name='L186'>                        <a href='../D/3296.html' title='Multiple defined in 2 places.'>malloc_write</a>("&lt;jemalloc&gt;: Error"                \
+<a name='L187'>                            " setting TSD for "#a_name"\n");            \
+<a name='L188'>                        <b>if</b> (<a href='../S/138.html#L238' title='Defined at 238 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_abort</a>)                                  \
+<a name='L189'>                                abort();                                \
+<a name='L190'>                <font color='red'>}</font>                                                       \
+<a name='L191'>        <font color='red'>}</font>                                                               \
+<a name='L192'><font color='red'>}</font>
+<a name='L193'><font color='darkred'>#elif</font> (<b>defined</b>(_WIN32))
+<a name='L194'><font color='darkred'>#define</font> malloc_tsd_funcs(a_attr, a_name, a_type, a_initializer,         \
+<a name='L195'>    a_cleanup)                                                          \
+<a name='L196'><i><font color='green'>/* Data structure. */</font></i>                                                   \
+<a name='L197'><b>typedef</b> <b>struct</b> <font color='red'>{</font>                                                        \
+<a name='L198'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>    initialized;                                            \
+<a name='L199'>        a_type  val;                                                    \
+<a name='L200'><font color='red'>}</font> a_name##<a href='../R/1184.html' title='Multiple refered from 15 places.'>_tsd_wrapper_t</a>;                                               \
+<a name='L201'><i><font color='green'>/* Initialization/cleanup. */</font></i>                                           \
+<a name='L202'>a_attr <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>                                                             \
+<a name='L203'>a_name##_tsd_cleanup_wrapper(<b>void</b>)                                      \
+<a name='L204'><font color='red'>{</font>                                                                       \
+<a name='L205'>        a_name##<a href='../D/1446.html' title='Multiple defined in 2 places.'>_tsd_wrapper_t</a> *wrapper;                                \
+<a name='L206'>                                                                        \
+<a name='L207'>        wrapper = (a_name##<a href='../D/1446.html' title='Multiple defined in 2 places.'>_tsd_wrapper_t</a> *) TlsGetValue(a_name##_tsd); \
+<a name='L208'>        <b>if</b> (wrapper == NULL)                                            \
+<a name='L209'>                <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);                                         \
+<a name='L210'>        <b>if</b> (a_cleanup != <a href='../D/3291.html' title='Multiple defined in 2 places.'>malloc_tsd_no_cleanup</a> &amp;&amp;                       \
+<a name='L211'>            wrapper-&gt;initialized) <font color='red'>{</font>                                     \
+<a name='L212'>                a_type val = wrapper-&gt;val;                              \
+<a name='L213'>                a_type tsd_static_data = a_initializer;                 \
+<a name='L214'>                wrapper-&gt;initialized = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;                           \
+<a name='L215'>                wrapper-&gt;val = tsd_static_data;                         \
+<a name='L216'>                a_cleanup(&amp;val);                                        \
+<a name='L217'>                <b>if</b> (wrapper-&gt;initialized) <font color='red'>{</font>                             \
+<a name='L218'>                        <i><font color='green'>/* Trigger another cleanup round. */</font></i>            \
+<a name='L219'>                        <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);                                  \
+<a name='L220'>                <font color='red'>}</font>                                                       \
+<a name='L221'>        <font color='red'>}</font>                                                               \
+<a name='L222'>        <a href='../D/3286.html' title='Multiple defined in 2 places.'>malloc_tsd_dalloc</a>(wrapper);                                     \
+<a name='L223'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);                                                 \
+<a name='L224'><font color='red'>}</font>                                                                       \
+<a name='L225'>a_attr <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>                                                             \
+<a name='L226'>a_name##_tsd_boot(<b>void</b>)                                                 \
+<a name='L227'><font color='red'>{</font>                                                                       \
+<a name='L228'>                                                                        \
+<a name='L229'>        a_name##_tsd = TlsAlloc();                                      \
+<a name='L230'>        <b>if</b> (a_name##_tsd == TLS_OUT_OF_INDEXES)                         \
+<a name='L231'>                <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);                                          \
+<a name='L232'>        <b>if</b> (a_cleanup != <a href='../D/3291.html' title='Multiple defined in 2 places.'>malloc_tsd_no_cleanup</a>) <font color='red'>{</font>                       \
+<a name='L233'>                <a href='../D/3285.html' title='Multiple defined in 2 places.'>malloc_tsd_cleanup_register</a>(                            \
+<a name='L234'>                    &amp;a_name##_tsd_cleanup_wrapper);                     \
+<a name='L235'>        <font color='red'>}</font>                                                               \
+<a name='L236'>        a_name##_booted = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;                                         \
+<a name='L237'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);                                                 \
+<a name='L238'><font color='red'>}</font>                                                                       \
+<a name='L239'><i><font color='green'>/* Get/set. */</font></i>                                                          \
+<a name='L240'>a_attr a_name##<a href='../D/1446.html' title='Multiple defined in 2 places.'>_tsd_wrapper_t</a> *                                         \
+<a name='L241'>a_name##_tsd_get_wrapper(<b>void</b>)                                          \
+<a name='L242'><font color='red'>{</font>                                                                       \
+<a name='L243'>        a_name##<a href='../D/1446.html' title='Multiple defined in 2 places.'>_tsd_wrapper_t</a> *wrapper = (a_name##<a href='../D/1446.html' title='Multiple defined in 2 places.'>_tsd_wrapper_t</a> *)    \
+<a name='L244'>            TlsGetValue(a_name##_tsd);                                  \
+<a name='L245'>                                                                        \
+<a name='L246'>        <b>if</b> (wrapper == NULL) <font color='red'>{</font>                                          \
+<a name='L247'>                wrapper = (a_name##<a href='../D/1446.html' title='Multiple defined in 2 places.'>_tsd_wrapper_t</a> *)                    \
+<a name='L248'>                    <a href='../D/3290.html' title='Multiple defined in 2 places.'>malloc_tsd_malloc</a>(<b>sizeof</b>(a_name##<a href='../D/1446.html' title='Multiple defined in 2 places.'>_tsd_wrapper_t</a>));  \
+<a name='L249'>                <b>if</b> (wrapper == NULL) <font color='red'>{</font>                                  \
+<a name='L250'>                        <a href='../D/3296.html' title='Multiple defined in 2 places.'>malloc_write</a>("&lt;jemalloc&gt;: Error allocating"     \
+<a name='L251'>                            " TSD for "#a_name"\n");                    \
+<a name='L252'>                        abort();                                        \
+<a name='L253'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                \
+<a name='L254'>                        <b>static</b> a_type tsd_static_data = a_initializer;  \
+<a name='L255'>                        wrapper-&gt;initialized = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;                   \
+<a name='L256'>                        wrapper-&gt;val = tsd_static_data;                 \
+<a name='L257'>                <font color='red'>}</font>                                                       \
+<a name='L258'>                <b>if</b> (!TlsSetValue(a_name##_tsd, (<b>void</b> *)wrapper)) <font color='red'>{</font>      \
+<a name='L259'>                        <a href='../D/3296.html' title='Multiple defined in 2 places.'>malloc_write</a>("&lt;jemalloc&gt;: Error setting"        \
+<a name='L260'>                            " TSD for "#a_name"\n");                    \
+<a name='L261'>                        abort();                                        \
+<a name='L262'>                <font color='red'>}</font>                                                       \
+<a name='L263'>        <font color='red'>}</font>                                                               \
+<a name='L264'>        <b>return</b> (wrapper);                                               \
+<a name='L265'><font color='red'>}</font>                                                                       \
+<a name='L266'>a_attr a_type *                                                         \
+<a name='L267'>a_name##_tsd_get(<b>void</b>)                                                  \
+<a name='L268'><font color='red'>{</font>                                                                       \
+<a name='L269'>        a_name##<a href='../D/1446.html' title='Multiple defined in 2 places.'>_tsd_wrapper_t</a> *wrapper;                                \
+<a name='L270'>                                                                        \
+<a name='L271'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(a_name##_booted);                                        \
+<a name='L272'>        wrapper = a_name##_tsd_get_wrapper();                           \
+<a name='L273'>        <b>return</b> (&amp;wrapper-&gt;val);                                         \
+<a name='L274'><font color='red'>}</font>                                                                       \
+<a name='L275'>a_attr <b>void</b>                                                             \
+<a name='L276'>a_name##_tsd_set(a_type *val)                                           \
+<a name='L277'><font color='red'>{</font>                                                                       \
+<a name='L278'>        a_name##<a href='../D/1446.html' title='Multiple defined in 2 places.'>_tsd_wrapper_t</a> *wrapper;                                \
+<a name='L279'>                                                                        \
+<a name='L280'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(a_name##_booted);                                        \
+<a name='L281'>        wrapper = a_name##_tsd_get_wrapper();                           \
+<a name='L282'>        wrapper-&gt;val = *(val);                                          \
+<a name='L283'>        <b>if</b> (a_cleanup != <a href='../D/3291.html' title='Multiple defined in 2 places.'>malloc_tsd_no_cleanup</a>)                         \
+<a name='L284'>                wrapper-&gt;initialized = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;                            \
+<a name='L285'><font color='red'>}</font>
+<a name='L286'><font color='darkred'>#else</font>
+<a name='L287'><font color='darkred'>#define</font> malloc_tsd_funcs(a_attr, a_name, a_type, a_initializer,         \
+<a name='L288'>    a_cleanup)                                                          \
+<a name='L289'><i><font color='green'>/* Data structure. */</font></i>                                                   \
+<a name='L290'><b>typedef</b> <b>struct</b> <font color='red'>{</font>                                                        \
+<a name='L291'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>    initialized;                                            \
+<a name='L292'>        a_type  val;                                                    \
+<a name='L293'><font color='red'>}</font> a_name##<a href='../R/1184.html' title='Multiple refered from 15 places.'>_tsd_wrapper_t</a>;                                               \
+<a name='L294'><i><font color='green'>/* Initialization/cleanup. */</font></i>                                           \
+<a name='L295'>a_attr <b>void</b>                                                             \
+<a name='L296'>a_name##_tsd_cleanup_wrapper(<b>void</b> *arg)                                 \
+<a name='L297'><font color='red'>{</font>                                                                       \
+<a name='L298'>        a_name##<a href='../D/1446.html' title='Multiple defined in 2 places.'>_tsd_wrapper_t</a> *wrapper = (a_name##<a href='../D/1446.html' title='Multiple defined in 2 places.'>_tsd_wrapper_t</a> *)arg;\
+<a name='L299'>                                                                        \
+<a name='L300'>        <b>if</b> (a_cleanup != <a href='../D/3291.html' title='Multiple defined in 2 places.'>malloc_tsd_no_cleanup</a> &amp;&amp;                       \
+<a name='L301'>            wrapper-&gt;initialized) <font color='red'>{</font>                                     \
+<a name='L302'>                wrapper-&gt;initialized = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;                           \
+<a name='L303'>                a_cleanup(&amp;wrapper-&gt;val);                               \
+<a name='L304'>                <b>if</b> (wrapper-&gt;initialized) <font color='red'>{</font>                             \
+<a name='L305'>                        <i><font color='green'>/* Trigger another cleanup round. */</font></i>            \
+<a name='L306'>                        <b>if</b> (pthread_setspecific(a_name##_tsd,           \
+<a name='L307'>                            (<b>void</b> *)wrapper)) <font color='red'>{</font>                         \
+<a name='L308'>                                <a href='../D/3296.html' title='Multiple defined in 2 places.'>malloc_write</a>("&lt;jemalloc&gt;: Error"        \
+<a name='L309'>                                    " setting TSD for "#a_name"\n");    \
+<a name='L310'>                                <b>if</b> (<a href='../S/138.html#L238' title='Defined at 238 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_abort</a>)                          \
+<a name='L311'>                                        abort();                        \
+<a name='L312'>                        <font color='red'>}</font>                                               \
+<a name='L313'>                        <b>return</b>;                                         \
+<a name='L314'>                <font color='red'>}</font>                                                       \
+<a name='L315'>        <font color='red'>}</font>                                                               \
+<a name='L316'>        <a href='../D/3286.html' title='Multiple defined in 2 places.'>malloc_tsd_dalloc</a>(wrapper);                                     \
+<a name='L317'><font color='red'>}</font>                                                                       \
+<a name='L318'>a_attr <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>                                                             \
+<a name='L319'>a_name##_tsd_boot(<b>void</b>)                                                 \
+<a name='L320'><font color='red'>{</font>                                                                       \
+<a name='L321'>                                                                        \
+<a name='L322'>        <b>if</b> (pthread_key_create(&amp;a_name##_tsd,                           \
+<a name='L323'>            a_name##_tsd_cleanup_wrapper) != 0)                         \
+<a name='L324'>                <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);                                          \
+<a name='L325'>        a_name##_booted = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;                                         \
+<a name='L326'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);                                                 \
+<a name='L327'><font color='red'>}</font>                                                                       \
+<a name='L328'><i><font color='green'>/* Get/set. */</font></i>                                                          \
+<a name='L329'>a_attr a_name##<a href='../D/1446.html' title='Multiple defined in 2 places.'>_tsd_wrapper_t</a> *                                         \
+<a name='L330'>a_name##_tsd_get_wrapper(<b>void</b>)                                          \
+<a name='L331'><font color='red'>{</font>                                                                       \
+<a name='L332'>        a_name##<a href='../D/1446.html' title='Multiple defined in 2 places.'>_tsd_wrapper_t</a> *wrapper = (a_name##<a href='../D/1446.html' title='Multiple defined in 2 places.'>_tsd_wrapper_t</a> *)    \
+<a name='L333'>            pthread_getspecific(a_name##_tsd);                          \
+<a name='L334'>                                                                        \
+<a name='L335'>        <b>if</b> (wrapper == NULL) <font color='red'>{</font>                                          \
+<a name='L336'>                wrapper = (a_name##<a href='../D/1446.html' title='Multiple defined in 2 places.'>_tsd_wrapper_t</a> *)                    \
+<a name='L337'>                    <a href='../D/3290.html' title='Multiple defined in 2 places.'>malloc_tsd_malloc</a>(<b>sizeof</b>(a_name##<a href='../D/1446.html' title='Multiple defined in 2 places.'>_tsd_wrapper_t</a>));  \
+<a name='L338'>                <b>if</b> (wrapper == NULL) <font color='red'>{</font>                                  \
+<a name='L339'>                        <a href='../D/3296.html' title='Multiple defined in 2 places.'>malloc_write</a>("&lt;jemalloc&gt;: Error allocating"     \
+<a name='L340'>                            " TSD for "#a_name"\n");                    \
+<a name='L341'>                        abort();                                        \
+<a name='L342'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>                                                \
+<a name='L343'>                        <b>static</b> a_type tsd_static_data = a_initializer;  \
+<a name='L344'>                        wrapper-&gt;initialized = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;                   \
+<a name='L345'>                        wrapper-&gt;val = tsd_static_data;                 \
+<a name='L346'>                <font color='red'>}</font>                                                       \
+<a name='L347'>                <b>if</b> (pthread_setspecific(a_name##_tsd,                   \
+<a name='L348'>                    (<b>void</b> *)wrapper)) <font color='red'>{</font>                                 \
+<a name='L349'>                        <a href='../D/3296.html' title='Multiple defined in 2 places.'>malloc_write</a>("&lt;jemalloc&gt;: Error setting"        \
+<a name='L350'>                            " TSD for "#a_name"\n");                    \
+<a name='L351'>                        abort();                                        \
+<a name='L352'>                <font color='red'>}</font>                                                       \
+<a name='L353'>        <font color='red'>}</font>                                                               \
+<a name='L354'>        <b>return</b> (wrapper);                                               \
+<a name='L355'><font color='red'>}</font>                                                                       \
+<a name='L356'>a_attr a_type *                                                         \
+<a name='L357'>a_name##_tsd_get(<b>void</b>)                                                  \
+<a name='L358'><font color='red'>{</font>                                                                       \
+<a name='L359'>        a_name##<a href='../D/1446.html' title='Multiple defined in 2 places.'>_tsd_wrapper_t</a> *wrapper;                                \
+<a name='L360'>                                                                        \
+<a name='L361'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(a_name##_booted);                                        \
+<a name='L362'>        wrapper = a_name##_tsd_get_wrapper();                           \
+<a name='L363'>        <b>return</b> (&amp;wrapper-&gt;val);                                         \
+<a name='L364'><font color='red'>}</font>                                                                       \
+<a name='L365'>a_attr <b>void</b>                                                             \
+<a name='L366'>a_name##_tsd_set(a_type *val)                                           \
+<a name='L367'><font color='red'>{</font>                                                                       \
+<a name='L368'>        a_name##<a href='../D/1446.html' title='Multiple defined in 2 places.'>_tsd_wrapper_t</a> *wrapper;                                \
+<a name='L369'>                                                                        \
+<a name='L370'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(a_name##_booted);                                        \
+<a name='L371'>        wrapper = a_name##_tsd_get_wrapper();                           \
+<a name='L372'>        wrapper-&gt;val = *(val);                                          \
+<a name='L373'>        <b>if</b> (a_cleanup != <a href='../D/3291.html' title='Multiple defined in 2 places.'>malloc_tsd_no_cleanup</a>)                         \
+<a name='L374'>                wrapper-&gt;initialized = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;                            \
+<a name='L375'><font color='red'>}</font>
+<a name='L376'><font color='darkred'>#endif</font>
+<a name='L377'>
+<a name='L378'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_TYPES */</font></i>
+<a name='L379'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L380'><font color='darkred'>#ifdef</font> JEMALLOC_H_STRUCTS
+<a name='L381'>
+<a name='L382'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_STRUCTS */</font></i>
+<a name='L383'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L384'><font color='darkred'>#ifdef</font> JEMALLOC_H_EXTERNS
+<a name='L385'>
+<a name='L386'><b>void</b>    *<a href='../D/3290.html' title='Multiple defined in 2 places.'>malloc_tsd_malloc</a>(size_t size);
+<a name='L387'><b>void</b>    <a href='../D/3286.html' title='Multiple defined in 2 places.'>malloc_tsd_dalloc</a>(<b>void</b> *wrapper);
+<a name='L388'><b>void</b>    <a href='../D/3291.html' title='Multiple defined in 2 places.'>malloc_tsd_no_cleanup</a>(<b>void</b> *);
+<a name='L389'><b>void</b>    <a href='../D/3285.html' title='Multiple defined in 2 places.'>malloc_tsd_cleanup_register</a>(bool (*f)(<b>void</b>));
+<a name='L390'><b>void</b>    <a href='../D/3284.html' title='Multiple defined in 2 places.'>malloc_tsd_boot</a>(<b>void</b>);
+<a name='L391'>
+<a name='L392'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_EXTERNS */</font></i>
+<a name='L393'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L394'><font color='darkred'>#ifdef</font> JEMALLOC_H_INLINES
+<a name='L395'>
+<a name='L396'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_INLINES */</font></i>
+<a name='L397'><i><font color='green'>/******************************************************************************/</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

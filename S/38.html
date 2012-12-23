@@ -1,0 +1,137 @@
+<html>
+<head>
+<title>src/ae.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/ae.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/1.html' title='Multiple included from 6 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* A simple event-driven programming library. Originally I wrote this code</font></i>
+<a name='L2'><i><font color='green'> * for the Jim's event-loop (Jim is a Tcl interpreter) but later translated</font></i>
+<a name='L3'><i><font color='green'> * it in form of a library for easy reuse.</font></i>
+<a name='L4'><i><font color='green'> *</font></i>
+<a name='L5'><i><font color='green'> * Copyright (c) 2006-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L6'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L7'><i><font color='green'> *</font></i>
+<a name='L8'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L9'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L10'><i><font color='green'> *</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L12'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L13'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L14'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L15'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L16'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L17'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L18'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L19'><i><font color='green'> *</font></i>
+<a name='L20'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L21'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L22'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L23'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L24'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L25'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L26'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L27'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L28'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L29'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L30'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L31'><i><font color='green'> */</font></i>
+<a name='L32'>
+<a name='L33'><font color='darkred'>#ifndef</font> <a href='../S/38.html#L34' title='Defined at 34 in src/ae.h.'>__AE_H__</a>
+<a name='L34'><font color='darkred'>#define</font> <a href='../S/38.html#L33' title='Refered from 33 in src/ae.h.'>__AE_H__</a>
+<a name='L35'>
+<a name='L36'><font color='darkred'>#define</font> <a href='../R/11.html' title='Multiple refered from 2 places.'>AE_OK</a> 0
+<a name='L37'><font color='darkred'>#define</font> <a href='../R/7.html' title='Multiple refered from 14 places.'>AE_ERR</a> -1
+<a name='L38'>
+<a name='L39'><font color='darkred'>#define</font> <a href='../R/10.html' title='Multiple refered from 11 places.'>AE_NONE</a> 0
+<a name='L40'><font color='darkred'>#define</font> <a href='../R/12.html' title='Multiple refered from 40 places.'>AE_READABLE</a> 1
+<a name='L41'><font color='darkred'>#define</font> <a href='../R/14.html' title='Multiple refered from 46 places.'>AE_WRITABLE</a> 2
+<a name='L42'>
+<a name='L43'><font color='darkred'>#define</font> <a href='../R/8.html' title='Multiple refered from 5 places.'>AE_FILE_EVENTS</a> 1
+<a name='L44'><font color='darkred'>#define</font> <a href='../R/13.html' title='Multiple refered from 5 places.'>AE_TIME_EVENTS</a> 2
+<a name='L45'><font color='darkred'>#define</font> <a href='../S/36.html#L421' title='Refered from 421 in src/ae.c.'>AE_ALL_EVENTS</a> (<a href='../S/38.html#L43' title='Defined at 43 in src/ae.h.'>AE_FILE_EVENTS</a>|<a href='../S/38.html#L44' title='Defined at 44 in src/ae.h.'>AE_TIME_EVENTS</a>)
+<a name='L46'><font color='darkred'>#define</font> <a href='../R/6.html' title='Multiple refered from 6 places.'>AE_DONT_WAIT</a> 4
+<a name='L47'>
+<a name='L48'><font color='darkred'>#define</font> <a href='../S/36.html#L292' title='Refered from 292 in src/ae.c.'>AE_NOMORE</a> -1
+<a name='L49'>
+<a name='L50'><i><font color='green'>/* Macros */</font></i>
+<a name='L51'><font color='darkred'>#define</font> AE_NOTUSED(V) ((<b>void</b>) V)
+<a name='L52'>
+<a name='L53'><b>struct</b> <a href='../D/1510.html' title='Multiple defined in 2 places.'>aeEventLoop</a>;
+<a name='L54'>
+<a name='L55'><i><font color='green'>/* Types and data structures */</font></i>
+<a name='L56'><b>typedef</b> <b>void</b> <a href='../R/1250.html' title='Multiple refered from 2 places.'>aeFileProc</a>(<b>struct</b> aeEventLoop *eventLoop, <b>int</b> fd, <b>void</b> *clientData, <b>int</b> mask);
+<a name='L57'><b>typedef</b> <b>int</b> <a href='../S/38.html#L74' title='Refered from 74 in src/ae.h.'>aeTimeProc</a>(<b>struct</b> aeEventLoop *eventLoop, <b>long</b> <b>long</b> id, <b>void</b> *clientData);
+<a name='L58'><b>typedef</b> <b>void</b> <a href='../S/38.html#L75' title='Refered from 75 in src/ae.h.'>aeEventFinalizerProc</a>(<b>struct</b> aeEventLoop *eventLoop, <b>void</b> *clientData);
+<a name='L59'><b>typedef</b> <b>void</b> <a href='../S/38.html#L97' title='Refered from 97 in src/ae.h.'>aeBeforeSleepProc</a>(<b>struct</b> aeEventLoop *eventLoop);
+<a name='L60'>
+<a name='L61'><i><font color='green'>/* File event structure */</font></i>
+<a name='L62'><b>typedef</b> <b>struct</b> <a href='../R/1249.html' title='Multiple refered from 7 places.'>aeFileEvent</a> <font color='red'>{</font>
+<a name='L63'>    <b>int</b> mask; <i><font color='green'>/* one of AE_(READABLE|WRITABLE) */</font></i>
+<a name='L64'>    <a href='../S/38.html#L56' title='Defined at 56 in src/ae.h.'>aeFileProc</a> *rfileProc;
+<a name='L65'>    <a href='../S/38.html#L56' title='Defined at 56 in src/ae.h.'>aeFileProc</a> *wfileProc;
+<a name='L66'>    <b>void</b> *clientData;
+<a name='L67'><font color='red'>}</font> <a href='../R/1249.html' title='Multiple refered from 7 places.'>aeFileEvent</a>;
+<a name='L68'>
+<a name='L69'><i><font color='green'>/* Time event structure */</font></i>
+<a name='L70'><b>typedef</b> <b>struct</b> <a href='../R/1260.html' title='Multiple refered from 9 places.'>aeTimeEvent</a> <font color='red'>{</font>
+<a name='L71'>    <b>long</b> <b>long</b> id; <i><font color='green'>/* time event identifier. */</font></i>
+<a name='L72'>    <b>long</b> when_sec; <i><font color='green'>/* seconds */</font></i>
+<a name='L73'>    <b>long</b> when_ms; <i><font color='green'>/* milliseconds */</font></i>
+<a name='L74'>    <a href='../S/38.html#L57' title='Defined at 57 in src/ae.h.'>aeTimeProc</a> *timeProc;
+<a name='L75'>    <a href='../S/38.html#L58' title='Defined at 58 in src/ae.h.'>aeEventFinalizerProc</a> *finalizerProc;
+<a name='L76'>    <b>void</b> *clientData;
+<a name='L77'>    <b>struct</b> <a href='../D/1522.html' title='Multiple defined in 2 places.'>aeTimeEvent</a> *<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L78'><font color='red'>}</font> <a href='../R/1260.html' title='Multiple refered from 9 places.'>aeTimeEvent</a>;
+<a name='L79'>
+<a name='L80'><i><font color='green'>/* A fired event */</font></i>
+<a name='L81'><b>typedef</b> <b>struct</b> <a href='../R/1251.html' title='Multiple refered from 2 places.'>aeFiredEvent</a> <font color='red'>{</font>
+<a name='L82'>    <b>int</b> fd;
+<a name='L83'>    <b>int</b> mask;
+<a name='L84'><font color='red'>}</font> <a href='../R/1251.html' title='Multiple refered from 2 places.'>aeFiredEvent</a>;
+<a name='L85'>
+<a name='L86'><i><font color='green'>/* State of an event based program */</font></i>
+<a name='L87'><b>typedef</b> <b>struct</b> <a href='../R/1248.html' title='Multiple refered from 17 places.'>aeEventLoop</a> <font color='red'>{</font>
+<a name='L88'>    <b>int</b> maxfd;   <i><font color='green'>/* highest file descriptor currently registered */</font></i>
+<a name='L89'>    <b>int</b> setsize; <i><font color='green'>/* max number of file descriptors tracked */</font></i>
+<a name='L90'>    <b>long</b> <b>long</b> timeEventNextId;
+<a name='L91'>    time_t lastTime;     <i><font color='green'>/* Used to detect system clock skew */</font></i>
+<a name='L92'>    <a href='../D/1511.html' title='Multiple defined in 2 places.'>aeFileEvent</a> *events; <i><font color='green'>/* Registered events */</font></i>
+<a name='L93'>    <a href='../D/1513.html' title='Multiple defined in 2 places.'>aeFiredEvent</a> *fired; <i><font color='green'>/* Fired events */</font></i>
+<a name='L94'>    <a href='../D/1522.html' title='Multiple defined in 2 places.'>aeTimeEvent</a> *timeEventHead;
+<a name='L95'>    <b>int</b> stop;
+<a name='L96'>    <b>void</b> *apidata; <i><font color='green'>/* This is used for polling API specific data */</font></i>
+<a name='L97'>    <a href='../S/38.html#L59' title='Defined at 59 in src/ae.h.'>aeBeforeSleepProc</a> *beforesleep;
+<a name='L98'><font color='red'>}</font> <a href='../R/1248.html' title='Multiple refered from 17 places.'>aeEventLoop</a>;
+<a name='L99'>
+<a name='L100'><i><font color='green'>/* Prototypes */</font></i>
+<a name='L101'><a href='../D/1510.html' title='Multiple defined in 2 places.'>aeEventLoop</a> *<a href='../S/36.html#L62' title='Defined at 62 in src/ae.c.'>aeCreateEventLoop</a>(<b>int</b> setsize);
+<a name='L102'><b>void</b> <a href='../S/36.html#L93' title='Defined at 93 in src/ae.c.'>aeDeleteEventLoop</a>(aeEventLoop *eventLoop);
+<a name='L103'><b>void</b> <a href='../S/36.html#L100' title='Defined at 100 in src/ae.c.'>aeStop</a>(aeEventLoop *eventLoop);
+<a name='L104'><b>int</b> <a href='../S/36.html#L104' title='Defined at 104 in src/ae.c.'>aeCreateFileEvent</a>(aeEventLoop *eventLoop, <b>int</b> fd, <b>int</b> mask,
+<a name='L105'>        aeFileProc *proc, <b>void</b> *clientData);
+<a name='L106'><b>void</b> <a href='../S/36.html#L121' title='Defined at 121 in src/ae.c.'>aeDeleteFileEvent</a>(aeEventLoop *eventLoop, <b>int</b> fd, <b>int</b> mask);
+<a name='L107'><b>int</b> <a href='../S/36.html#L139' title='Defined at 139 in src/ae.c.'>aeGetFileEvents</a>(aeEventLoop *eventLoop, <b>int</b> fd);
+<a name='L108'><b>long</b> <b>long</b> <a href='../S/36.html#L169' title='Defined at 169 in src/ae.c.'>aeCreateTimeEvent</a>(aeEventLoop *eventLoop, <b>long</b> <b>long</b> milliseconds,
+<a name='L109'>        aeTimeProc *proc, <b>void</b> *clientData,
+<a name='L110'>        aeEventFinalizerProc *finalizerProc);
+<a name='L111'><b>int</b> <a href='../S/36.html#L188' title='Defined at 188 in src/ae.c.'>aeDeleteTimeEvent</a>(aeEventLoop *eventLoop, <b>long</b> <b>long</b> id);
+<a name='L112'><b>int</b> <a href='../S/36.html#L318' title='Defined at 318 in src/ae.c.'>aeProcessEvents</a>(aeEventLoop *eventLoop, <b>int</b> flags);
+<a name='L113'><b>int</b> <a href='../S/36.html#L396' title='Defined at 396 in src/ae.c.'>aeWait</a>(<b>int</b> fd, <b>int</b> mask, <b>long</b> <b>long</b> milliseconds);
+<a name='L114'><b>void</b> <a href='../S/36.html#L416' title='Defined at 416 in src/ae.c.'>aeMain</a>(aeEventLoop *eventLoop);
+<a name='L115'><b>char</b> *<a href='../S/36.html#L425' title='Defined at 425 in src/ae.c.'>aeGetApiName</a>(<b>void</b>);
+<a name='L116'><b>void</b> <a href='../S/36.html#L429' title='Defined at 429 in src/ae.c.'>aeSetBeforeSleepProc</a>(aeEventLoop *eventLoop, aeBeforeSleepProc *beforesleep);
+<a name='L117'>
+<a name='L118'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

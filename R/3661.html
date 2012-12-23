@@ -1,0 +1,67 @@
+<html>
+<head>
+<title>sentinel</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/279.html#L458'>sentinel</a>          458 deps/lua/src/loadlib.c     if (lua_touserdata(L, -1) == sentinel)  /* check loops */
+<a href='../S/279.html#L481'>sentinel</a>          481 deps/lua/src/loadlib.c   lua_pushlightuserdata(L, sentinel);
+<a href='../S/279.html#L488'>sentinel</a>          488 deps/lua/src/loadlib.c   if (lua_touserdata(L, -1) == sentinel) {   /* module did not set a value? */
+<a href='../S/82.html#L202'>sentinel</a>          202 src/sentinel.c } sentinel;
+<a href='../S/82.html#L404'>sentinel</a>          404 src/sentinel.c     sentinel.masters = dictCreate(&amp;instancesDictType,NULL);
+<a href='../S/82.html#L405'>sentinel</a>          405 src/sentinel.c     sentinel.tilt = 0;
+<a href='../S/82.html#L406'>sentinel</a>          406 src/sentinel.c     sentinel.tilt_start_time = mstime();
+<a href='../S/82.html#L407'>sentinel</a>          407 src/sentinel.c     sentinel.previous_time = mstime();
+<a href='../S/82.html#L408'>sentinel</a>          408 src/sentinel.c     sentinel.running_scripts = 0;
+<a href='../S/82.html#L409'>sentinel</a>          409 src/sentinel.c     sentinel.scripts_queue = listCreate();
+<a href='../S/82.html#L562'>sentinel</a>          562 src/sentinel.c     listAddNodeTail(sentinel.scripts_queue,sj);
+<a href='../S/82.html#L565'>sentinel</a>          565 src/sentinel.c     if (listLength(sentinel.scripts_queue) &gt; SENTINEL_SCRIPT_MAX_QUEUE) {
+<a href='../S/82.html#L569'>sentinel</a>          569 src/sentinel.c         listRewind(sentinel.scripts_queue,&amp;li);
+<a href='../S/82.html#L575'>sentinel</a>          575 src/sentinel.c             listDelNode(sentinel.scripts_queue,ln);
+<a href='../S/82.html#L579'>sentinel</a>          579 src/sentinel.c         redisAssert(listLength(sentinel.scripts_queue) &lt;=
+<a href='../S/82.html#L590'>sentinel</a>          590 src/sentinel.c     listRewind(sentinel.scripts_queue,&amp;li);
+<a href='../S/82.html#L609'>sentinel</a>          609 src/sentinel.c     listRewind(sentinel.scripts_queue,&amp;li);
+<a href='../S/82.html#L610'>sentinel</a>          610 src/sentinel.c     while (sentinel.running_scripts &lt; SENTINEL_SCRIPT_MAX_RUNNING &amp;&amp;
+<a href='../S/82.html#L641'>sentinel</a>          641 src/sentinel.c             sentinel.running_scripts++;
+<a href='../S/82.html#L704'>sentinel</a>          704 src/sentinel.c             listDelNode(sentinel.scripts_queue,ln);
+<a href='../S/82.html#L706'>sentinel</a>          706 src/sentinel.c             sentinel.running_scripts--;
+<a href='../S/82.html#L718'>sentinel</a>          718 src/sentinel.c     listRewind(sentinel.scripts_queue,&amp;li);
+<a href='../S/82.html#L737'>sentinel</a>          737 src/sentinel.c     addReplyMultiBulkLen(c,listLength(sentinel.scripts_queue));
+<a href='../S/82.html#L738'>sentinel</a>          738 src/sentinel.c     listRewind(sentinel.scripts_queue,&amp;li);
+<a href='../S/82.html#L844'>sentinel</a>          844 src/sentinel.c     if (flags &amp; SRI_MASTER) table = sentinel.masters;
+<a href='../S/82.html#L1033'>sentinel</a>         1033 src/sentinel.c     ri = dictFetchValue(sentinel.masters,sdsname);
+<a href='../S/82.html#L1107'>sentinel</a>         1107 src/sentinel.c     di = dictGetIterator(sentinel.masters);
+<a href='../S/82.html#L1450'>sentinel</a>         1450 src/sentinel.c     if (sentinel.tilt) return;
+<a href='../S/82.html#L1670'>sentinel</a>         1670 src/sentinel.c         sentinelRedisInstance *sentinel;
+<a href='../S/82.html#L1676'>sentinel</a>         1676 src/sentinel.c             sentinel = getSentinelRedisInstanceByAddrAndRunID(
+<a href='../S/82.html#L1679'>sentinel</a>         1679 src/sentinel.c             if (!sentinel) {
+<a href='../S/82.html#L1692'>sentinel</a>         1692 src/sentinel.c                 sentinel = createSentinelRedisInstance(NULL,SRI_SENTINEL,
+<a href='../S/82.html#L1694'>sentinel</a>         1694 src/sentinel.c                 if (sentinel) {
+<a href='../S/82.html#L1695'>sentinel</a>         1695 src/sentinel.c                     sentinelEvent(REDIS_NOTICE,"+sentinel",sentinel,"%@");
+<a href='../S/82.html#L1699'>sentinel</a>         1699 src/sentinel.c                     sentinel-&gt;runid = sdsnew(token[2]);
+<a href='../S/82.html#L1704'>sentinel</a>         1704 src/sentinel.c             if (sentinel) {
+<a href='../S/82.html#L1705'>sentinel</a>         1705 src/sentinel.c                 sentinel-&gt;last_hello_time = mstime();
+<a href='../S/82.html#L1707'>sentinel</a>         1707 src/sentinel.c                     sentinel-&gt;flags |= SRI_CAN_FAILOVER;
+<a href='../S/82.html#L1709'>sentinel</a>         1709 src/sentinel.c                     sentinel-&gt;flags &amp;= ~SRI_CAN_FAILOVER;
+<a href='../S/82.html#L1966'>sentinel</a>         1966 src/sentinel.c     ri = dictFetchValue(sentinel.masters,c-&gt;argv[2]-&gt;ptr);
+<a href='../S/82.html#L1979'>sentinel</a>         1979 src/sentinel.c         addReplyDictOfRedisInstances(c,sentinel.masters);
+<a href='../S/82.html#L2006'>sentinel</a>         2006 src/sentinel.c         ri = getSentinelRedisInstanceByAddrAndRunID(sentinel.masters,
+<a href='../S/82.html#L2011'>sentinel</a>         2011 src/sentinel.c         if (!sentinel.tilt &amp;&amp; ri &amp;&amp; (ri-&gt;flags &amp; SRI_S_DOWN) &amp;&amp;
+<a href='../S/82.html#L2108'>sentinel</a>         2108 src/sentinel.c             dictSize(sentinel.masters),
+<a href='../S/82.html#L2109'>sentinel</a>         2109 src/sentinel.c             sentinel.tilt,
+<a href='../S/82.html#L2110'>sentinel</a>         2110 src/sentinel.c             sentinel.running_scripts,
+<a href='../S/82.html#L2111'>sentinel</a>         2111 src/sentinel.c             listLength(sentinel.scripts_queue));
+<a href='../S/82.html#L2113'>sentinel</a>         2113 src/sentinel.c         di = dictGetIterator(sentinel.masters);
+<a href='../S/82.html#L2970'>sentinel</a>         2970 src/sentinel.c     if (sentinel.tilt) {
+<a href='../S/82.html#L2971'>sentinel</a>         2971 src/sentinel.c         if (mstime()-sentinel.tilt_start_time &lt; SENTINEL_TILT_PERIOD) return;
+<a href='../S/82.html#L2972'>sentinel</a>         2972 src/sentinel.c         sentinel.tilt = 0;
+<a href='../S/82.html#L3040'>sentinel</a>         3040 src/sentinel.c     mstime_t delta = now - sentinel.previous_time;
+<a href='../S/82.html#L3043'>sentinel</a>         3043 src/sentinel.c         sentinel.tilt = 1;
+<a href='../S/82.html#L3044'>sentinel</a>         3044 src/sentinel.c         sentinel.tilt_start_time = mstime();
+<a href='../S/82.html#L3047'>sentinel</a>         3047 src/sentinel.c     sentinel.previous_time = mstime();
+<a href='../S/82.html#L3052'>sentinel</a>         3052 src/sentinel.c     sentinelHandleDictOfRedisInstances(sentinel.masters);
+</pre>
+</body>
+</html>

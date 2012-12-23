@@ -1,0 +1,238 @@
+<html>
+<head>
+<title>deps/jemalloc/src/quarantine.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/395.html'>src</a>/quarantine.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L33'>[^]</a><a href='#L201'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L33' title='Defined at 33.'>malloc_tsd_data</a>
+<li><a href='#L66' title='Defined at 66.'>quarantine_grow</a>
+<li><a href='#L97' title='Defined at 97.'>quarantine_drain</a>
+<li><a href='#L112' title='Defined at 112.'>quarantine</a>
+<li><a href='#L173' title='Defined at 173.'>quarantine_cleanup</a>
+<li><a href='#L201' title='Defined at 201.'>quarantine_boot</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#include</font> "jemalloc/internal/jemalloc_internal.h"
+<a name='L2'>
+<a name='L3'><i><font color='green'>/*</font></i>
+<a name='L4'><i><font color='green'> * quarantine pointers close to NULL are used to encode state information that</font></i>
+<a name='L5'><i><font color='green'> * is used for cleaning up during thread shutdown.</font></i>
+<a name='L6'><i><font color='green'> */</font></i>
+<a name='L7'><font color='darkred'>#define</font> <a href='../R/590.html' title='Multiple refered from 2 places.'>QUARANTINE_STATE_REINCARNATED</a>   ((<a href='../S/216.html#L15' title='Defined at 15 in deps/jemalloc/src/quarantine.c.'>quarantine_t</a> *)(<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)1)
+<a name='L8'><font color='darkred'>#define</font> <a href='../R/589.html' title='Multiple refered from 5 places.'>QUARANTINE_STATE_PURGATORY</a>      ((<a href='../S/216.html#L15' title='Defined at 15 in deps/jemalloc/src/quarantine.c.'>quarantine_t</a> *)(<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)2)
+<a name='L9'><font color='darkred'>#define</font> <a href='../S/216.html#L121' title='Refered from 121 in deps/jemalloc/src/quarantine.c.'>QUARANTINE_STATE_MAX</a>            <a href='../S/216.html#L8' title='Defined at 8 in deps/jemalloc/src/quarantine.c.'>QUARANTINE_STATE_PURGATORY</a>
+<a name='L10'>
+<a name='L11'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L12'><i><font color='green'>/* Data. */</font></i>
+<a name='L13'>
+<a name='L14'><b>typedef</b> <b>struct</b> <a href='../S/216.html#L17' title='Defined at 17 in deps/jemalloc/src/quarantine.c.'>quarantine_obj_s</a> <a href='../R/3304.html' title='Multiple refered from 7 places.'>quarantine_obj_t</a>;
+<a name='L15'><b>typedef</b> <b>struct</b> <a href='../S/216.html#L22' title='Defined at 22 in deps/jemalloc/src/quarantine.c.'>quarantine_s</a> <a href='../R/3306.html' title='Multiple refered from 16 places.'>quarantine_t</a>;
+<a name='L16'>
+<a name='L17'><b>struct</b> <a href='../S/216.html#L14' title='Refered from 14 in deps/jemalloc/src/quarantine.c.'>quarantine_obj_s</a> <font color='red'>{</font>
+<a name='L18'>        <b>void</b>    *ptr;
+<a name='L19'>        size_t  usize;
+<a name='L20'><font color='red'>}</font>;
+<a name='L21'>
+<a name='L22'><b>struct</b> <a href='../S/216.html#L15' title='Refered from 15 in deps/jemalloc/src/quarantine.c.'>quarantine_s</a> <font color='red'>{</font>
+<a name='L23'>        size_t                  curbytes;
+<a name='L24'>        size_t                  curobjs;
+<a name='L25'>        size_t                  first;
+<a name='L26'><font color='darkred'>#define</font> <a href='../S/216.html#L123' title='Refered from 123 in deps/jemalloc/src/quarantine.c.'>LG_MAXOBJS_INIT</a> 10
+<a name='L27'>        size_t                  lg_maxobjs;
+<a name='L28'>        <a href='../S/216.html#L14' title='Defined at 14 in deps/jemalloc/src/quarantine.c.'>quarantine_obj_t</a>        objs[1]; <i><font color='green'>/* Dynamically sized ring buffer. */</font></i>
+<a name='L29'><font color='red'>}</font>;
+<a name='L30'>
+<a name='L31'><b>static</b> <b>void</b>     <a href='../S/216.html#L173' title='Defined at 173 in deps/jemalloc/src/quarantine.c.'>quarantine_cleanup</a>(<b>void</b> *arg);
+<a name='L32'>
+<a name='L33'><a href='../R/2942.html' title='Multiple refered from 3 places.'>malloc_tsd_data</a>(<b>static</b>, quarantine, <a href='../S/216.html#L15' title='Defined at 15 in deps/jemalloc/src/quarantine.c.'>quarantine_t</a> *, NULL)
+<a name='L34'>malloc_tsd_funcs(JEMALLOC_INLINE, quarantine, <a href='../S/216.html#L15' title='Defined at 15 in deps/jemalloc/src/quarantine.c.'>quarantine_t</a> *, NULL,
+<a name='L35'>    quarantine_cleanup)
+<a name='L36'>
+<a name='L37'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L38'><i><font color='green'>/* Function prototypes for non-inline static functions. */</font></i>
+<a name='L39'>
+<a name='L40'><b>static</b> <a href='../S/216.html#L15' title='Defined at 15 in deps/jemalloc/src/quarantine.c.'>quarantine_t</a>     *quarantine_init(size_t lg_maxobjs);
+<a name='L41'><b>static</b> <a href='../S/216.html#L15' title='Defined at 15 in deps/jemalloc/src/quarantine.c.'>quarantine_t</a>     *quarantine_grow(<a href='../S/216.html#L15' title='Defined at 15 in deps/jemalloc/src/quarantine.c.'>quarantine_t</a> *quarantine);
+<a name='L42'><b>static</b> <b>void</b>     quarantine_drain(<a href='../S/216.html#L15' title='Defined at 15 in deps/jemalloc/src/quarantine.c.'>quarantine_t</a> *quarantine, size_t upper_bound);
+<a name='L43'>
+<a name='L44'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L45'>
+<a name='L46'><b>static</b> <a href='../S/216.html#L15' title='Defined at 15 in deps/jemalloc/src/quarantine.c.'>quarantine_t</a> *
+<a name='L47'>quarantine_init(size_t lg_maxobjs)
+<a name='L48'><font color='red'>{</font>
+<a name='L49'>        <a href='../S/216.html#L15' title='Defined at 15 in deps/jemalloc/src/quarantine.c.'>quarantine_t</a> *<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>;
+<a name='L50'>
+<a name='L51'>        <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a> = (<a href='../S/216.html#L15' title='Defined at 15 in deps/jemalloc/src/quarantine.c.'>quarantine_t</a> *)<a href='../S/138.html#L198' title='Defined at 198 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>imalloc</a>(offsetof(<a href='../S/216.html#L15' title='Defined at 15 in deps/jemalloc/src/quarantine.c.'>quarantine_t</a>, objs) +
+<a name='L52'>            ((ZU(1) &lt;&lt; lg_maxobjs) * <b>sizeof</b>(<a href='../S/216.html#L14' title='Defined at 14 in deps/jemalloc/src/quarantine.c.'>quarantine_obj_t</a>)));
+<a name='L53'>        <b>if</b> (<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a> == NULL)
+<a name='L54'>                <b>return</b> (NULL);
+<a name='L55'>        <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;curbytes = 0;
+<a name='L56'>        <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;curobjs = 0;
+<a name='L57'>        <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;first = 0;
+<a name='L58'>        <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;lg_maxobjs = lg_maxobjs;
+<a name='L59'>
+<a name='L60'>        <a href='../S/138.html#L300' title='Defined at 300 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>quarantine_tsd_set</a>(&amp;<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>);
+<a name='L61'>
+<a name='L62'>        <b>return</b> (<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>);
+<a name='L63'><font color='red'>}</font>
+<a name='L64'>
+<a name='L65'><b>static</b> <a href='../S/216.html#L15' title='Defined at 15 in deps/jemalloc/src/quarantine.c.'>quarantine_t</a> *
+<a name='L66'><a href='../S/216.html#L152' title='Refered from 152 in deps/jemalloc/src/quarantine.c.'>quarantine_grow</a>(<a href='../S/216.html#L15' title='Defined at 15 in deps/jemalloc/src/quarantine.c.'>quarantine_t</a> *quarantine)
+<a name='L67'><font color='red'>{</font>
+<a name='L68'>        <a href='../S/216.html#L15' title='Defined at 15 in deps/jemalloc/src/quarantine.c.'>quarantine_t</a> *ret;
+<a name='L69'>
+<a name='L70'>        ret = quarantine_init(<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;lg_maxobjs + 1);
+<a name='L71'>        <b>if</b> (ret == NULL)
+<a name='L72'>                <b>return</b> (<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>);
+<a name='L73'>
+<a name='L74'>        ret-&gt;curbytes = <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;curbytes;
+<a name='L75'>        ret-&gt;curobjs = <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;curobjs;
+<a name='L76'>        <b>if</b> (<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;first + <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;curobjs &lt;= (ZU(1) &lt;&lt;
+<a name='L77'>            <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;lg_maxobjs)) <font color='red'>{</font>
+<a name='L78'>                <i><font color='green'>/* objs ring buffer data are contiguous. */</font></i>
+<a name='L79'>                memcpy(ret-&gt;objs, &amp;<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;objs[<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;first],
+<a name='L80'>                    <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;curobjs * <b>sizeof</b>(<a href='../S/216.html#L14' title='Defined at 14 in deps/jemalloc/src/quarantine.c.'>quarantine_obj_t</a>));
+<a name='L81'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L82'>                <i><font color='green'>/* objs ring buffer data wrap around. */</font></i>
+<a name='L83'>                size_t ncopy_a = (ZU(1) &lt;&lt; <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;lg_maxobjs) -
+<a name='L84'>                    <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;first;
+<a name='L85'>                size_t ncopy_b = <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;curobjs - ncopy_a;
+<a name='L86'>
+<a name='L87'>                memcpy(ret-&gt;objs, &amp;<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;objs[<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;first], ncopy_a
+<a name='L88'>                    * <b>sizeof</b>(<a href='../S/216.html#L14' title='Defined at 14 in deps/jemalloc/src/quarantine.c.'>quarantine_obj_t</a>));
+<a name='L89'>                memcpy(&amp;ret-&gt;objs[ncopy_a], <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;objs, ncopy_b *
+<a name='L90'>                    <b>sizeof</b>(<a href='../S/216.html#L14' title='Defined at 14 in deps/jemalloc/src/quarantine.c.'>quarantine_obj_t</a>));
+<a name='L91'>        <font color='red'>}</font>
+<a name='L92'>
+<a name='L93'>        <b>return</b> (ret);
+<a name='L94'><font color='red'>}</font>
+<a name='L95'>
+<a name='L96'><b>static</b> <b>void</b>
+<a name='L97'><a href='../R/3301.html' title='Multiple refered from 2 places.'>quarantine_drain</a>(<a href='../S/216.html#L15' title='Defined at 15 in deps/jemalloc/src/quarantine.c.'>quarantine_t</a> *quarantine, size_t upper_bound)
+<a name='L98'><font color='red'>{</font>
+<a name='L99'>
+<a name='L100'>        <b>while</b> (<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;curbytes &gt; upper_bound &amp;&amp; <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;curobjs &gt; 0) <font color='red'>{</font>
+<a name='L101'>                <a href='../S/216.html#L14' title='Defined at 14 in deps/jemalloc/src/quarantine.c.'>quarantine_obj_t</a> *obj = &amp;<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;objs[<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;first];
+<a name='L102'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(obj-&gt;usize == <a href='../S/138.html#L206' title='Defined at 206 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>isalloc</a>(obj-&gt;ptr, config_prof));
+<a name='L103'>                <a href='../S/138.html#L196' title='Defined at 196 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>idalloc</a>(obj-&gt;ptr);
+<a name='L104'>                <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;curbytes -= obj-&gt;usize;
+<a name='L105'>                <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;curobjs--;
+<a name='L106'>                <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;first = (<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;first + 1) &amp; ((ZU(1) &lt;&lt;
+<a name='L107'>                    <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;lg_maxobjs) - 1);
+<a name='L108'>        <font color='red'>}</font>
+<a name='L109'><font color='red'>}</font>
+<a name='L110'>
+<a name='L111'><b>void</b>
+<a name='L112'><a href='../R/3298.html' title='Multiple refered from 61 places.'>quarantine</a>(<b>void</b> *ptr)
+<a name='L113'><font color='red'>{</font>
+<a name='L114'>        <a href='../S/216.html#L15' title='Defined at 15 in deps/jemalloc/src/quarantine.c.'>quarantine_t</a> *<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>;
+<a name='L115'>        size_t usize = <a href='../S/138.html#L206' title='Defined at 206 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>isalloc</a>(ptr, config_prof);
+<a name='L116'>
+<a name='L117'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_fill);
+<a name='L118'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/138.html#L253' title='Defined at 253 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_quarantine</a>);
+<a name='L119'>
+<a name='L120'>        <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a> = *<a href='../S/138.html#L299' title='Defined at 299 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>quarantine_tsd_get</a>();
+<a name='L121'>        <b>if</b> ((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a> &lt;= (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/216.html#L9' title='Defined at 9 in deps/jemalloc/src/quarantine.c.'>QUARANTINE_STATE_MAX</a>) <font color='red'>{</font>
+<a name='L122'>                <b>if</b> (<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a> == NULL) <font color='red'>{</font>
+<a name='L123'>                        <b>if</b> ((<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a> = quarantine_init(<a href='../S/216.html#L26' title='Defined at 26 in deps/jemalloc/src/quarantine.c.'>LG_MAXOBJS_INIT</a>)) ==
+<a name='L124'>                            NULL) <font color='red'>{</font>
+<a name='L125'>                                <a href='../S/138.html#L196' title='Defined at 196 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>idalloc</a>(ptr);
+<a name='L126'>                                <b>return</b>;
+<a name='L127'>                        <font color='red'>}</font>
+<a name='L128'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L129'>                        <b>if</b> (<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a> == <a href='../S/216.html#L8' title='Defined at 8 in deps/jemalloc/src/quarantine.c.'>QUARANTINE_STATE_PURGATORY</a>) <font color='red'>{</font>
+<a name='L130'>                                <i><font color='green'>/*</font></i>
+<a name='L131'><i><font color='green'>                                 * Make a note that quarantine() was called</font></i>
+<a name='L132'><i><font color='green'>                                 * after quarantine_cleanup() was called.</font></i>
+<a name='L133'><i><font color='green'>                                 */</font></i>
+<a name='L134'>                                <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a> = <a href='../S/216.html#L7' title='Defined at 7 in deps/jemalloc/src/quarantine.c.'>QUARANTINE_STATE_REINCARNATED</a>;
+<a name='L135'>                                <a href='../S/138.html#L300' title='Defined at 300 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>quarantine_tsd_set</a>(&amp;<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>);
+<a name='L136'>                        <font color='red'>}</font>
+<a name='L137'>                        <a href='../S/138.html#L196' title='Defined at 196 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>idalloc</a>(ptr);
+<a name='L138'>                        <b>return</b>;
+<a name='L139'>                <font color='red'>}</font>
+<a name='L140'>        <font color='red'>}</font>
+<a name='L141'>        <i><font color='green'>/*</font></i>
+<a name='L142'><i><font color='green'>         * Drain one or more objects if the quarantine size limit would be</font></i>
+<a name='L143'><i><font color='green'>         * exceeded by appending ptr.</font></i>
+<a name='L144'><i><font color='green'>         */</font></i>
+<a name='L145'>        <b>if</b> (<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;curbytes + usize &gt; <a href='../S/138.html#L253' title='Defined at 253 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_quarantine</a>) <font color='red'>{</font>
+<a name='L146'>                size_t upper_bound = (<a href='../S/138.html#L253' title='Defined at 253 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_quarantine</a> &gt;= usize) ? <a href='../S/138.html#L253' title='Defined at 253 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_quarantine</a>
+<a name='L147'>                    - usize : 0;
+<a name='L148'>                <a href='../S/216.html#L97' title='Defined at 97 in deps/jemalloc/src/quarantine.c.'>quarantine_drain</a>(<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>, upper_bound);
+<a name='L149'>        <font color='red'>}</font>
+<a name='L150'>        <i><font color='green'>/* Grow the quarantine ring buffer if it's full. */</font></i>
+<a name='L151'>        <b>if</b> (<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;curobjs == (ZU(1) &lt;&lt; <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;lg_maxobjs))
+<a name='L152'>                <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a> = <a href='../S/216.html#L66' title='Defined at 66 in deps/jemalloc/src/quarantine.c.'>quarantine_grow</a>(<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>);
+<a name='L153'>        <i><font color='green'>/* quarantine_grow() must free a slot if it fails to grow. */</font></i>
+<a name='L154'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;curobjs &lt; (ZU(1) &lt;&lt; <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;lg_maxobjs));
+<a name='L155'>        <i><font color='green'>/* Append ptr if its size doesn't exceed the quarantine size. */</font></i>
+<a name='L156'>        <b>if</b> (<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;curbytes + usize &lt;= <a href='../S/138.html#L253' title='Defined at 253 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_quarantine</a>) <font color='red'>{</font>
+<a name='L157'>                size_t offset = (<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;first + <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;curobjs) &amp;
+<a name='L158'>                    ((ZU(1) &lt;&lt; <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;lg_maxobjs) - 1);
+<a name='L159'>                <a href='../S/216.html#L14' title='Defined at 14 in deps/jemalloc/src/quarantine.c.'>quarantine_obj_t</a> *obj = &amp;<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;objs[offset];
+<a name='L160'>                obj-&gt;ptr = ptr;
+<a name='L161'>                obj-&gt;usize = usize;
+<a name='L162'>                <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;curbytes += usize;
+<a name='L163'>                <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;curobjs++;
+<a name='L164'>                <b>if</b> (<a href='../S/138.html#L239' title='Defined at 239 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_junk</a>)
+<a name='L165'>                        memset(ptr, 0x5a, usize);
+<a name='L166'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L167'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>-&gt;curbytes == 0);
+<a name='L168'>                <a href='../S/138.html#L196' title='Defined at 196 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>idalloc</a>(ptr);
+<a name='L169'>        <font color='red'>}</font>
+<a name='L170'><font color='red'>}</font>
+<a name='L171'>
+<a name='L172'><b>static</b> <b>void</b>
+<a name='L173'><a href='../S/216.html#L31' title='Refered from 31 in deps/jemalloc/src/quarantine.c.'>quarantine_cleanup</a>(<b>void</b> *arg)
+<a name='L174'><font color='red'>{</font>
+<a name='L175'>        <a href='../S/216.html#L15' title='Defined at 15 in deps/jemalloc/src/quarantine.c.'>quarantine_t</a> *<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a> = *(<a href='../S/216.html#L15' title='Defined at 15 in deps/jemalloc/src/quarantine.c.'>quarantine_t</a> **)arg;
+<a name='L176'>
+<a name='L177'>        <b>if</b> (<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a> == <a href='../S/216.html#L7' title='Defined at 7 in deps/jemalloc/src/quarantine.c.'>QUARANTINE_STATE_REINCARNATED</a>) <font color='red'>{</font>
+<a name='L178'>                <i><font color='green'>/*</font></i>
+<a name='L179'><i><font color='green'>                 * Another destructor deallocated memory after this destructor</font></i>
+<a name='L180'><i><font color='green'>                 * was called.  Reset quarantine to QUARANTINE_STATE_PURGATORY</font></i>
+<a name='L181'><i><font color='green'>                 * in order to receive another callback.</font></i>
+<a name='L182'><i><font color='green'>                 */</font></i>
+<a name='L183'>                <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a> = <a href='../S/216.html#L8' title='Defined at 8 in deps/jemalloc/src/quarantine.c.'>QUARANTINE_STATE_PURGATORY</a>;
+<a name='L184'>                <a href='../S/138.html#L300' title='Defined at 300 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>quarantine_tsd_set</a>(&amp;<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>);
+<a name='L185'>        <font color='red'>}</font> <b>else</b> <b>if</b> (<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a> == <a href='../S/216.html#L8' title='Defined at 8 in deps/jemalloc/src/quarantine.c.'>QUARANTINE_STATE_PURGATORY</a>) <font color='red'>{</font>
+<a name='L186'>                <i><font color='green'>/*</font></i>
+<a name='L187'><i><font color='green'>                 * The previous time this destructor was called, we set the key</font></i>
+<a name='L188'><i><font color='green'>                 * to QUARANTINE_STATE_PURGATORY so that other destructors</font></i>
+<a name='L189'><i><font color='green'>                 * wouldn't cause re-creation of the quarantine.  This time, do</font></i>
+<a name='L190'><i><font color='green'>                 * nothing, so that the destructor will not be called again.</font></i>
+<a name='L191'><i><font color='green'>                 */</font></i>
+<a name='L192'>        <font color='red'>}</font> <b>else</b> <b>if</b> (<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a> != NULL) <font color='red'>{</font>
+<a name='L193'>                <a href='../S/216.html#L97' title='Defined at 97 in deps/jemalloc/src/quarantine.c.'>quarantine_drain</a>(<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>, 0);
+<a name='L194'>                <a href='../S/138.html#L196' title='Defined at 196 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>idalloc</a>(<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>);
+<a name='L195'>                <a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a> = <a href='../S/216.html#L8' title='Defined at 8 in deps/jemalloc/src/quarantine.c.'>QUARANTINE_STATE_PURGATORY</a>;
+<a name='L196'>                <a href='../S/138.html#L300' title='Defined at 300 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>quarantine_tsd_set</a>(&amp;<a href='../D/3657.html' title='Multiple defined in 2 places.'>quarantine</a>);
+<a name='L197'>        <font color='red'>}</font>
+<a name='L198'><font color='red'>}</font>
+<a name='L199'>
+<a name='L200'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L201'><a href='../R/3299.html' title='Multiple refered from 3 places.'>quarantine_boot</a>(<b>void</b>)
+<a name='L202'><font color='red'>{</font>
+<a name='L203'>
+<a name='L204'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_fill);
+<a name='L205'>
+<a name='L206'>        <b>if</b> (<a href='../S/138.html#L297' title='Defined at 297 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>quarantine_tsd_boot</a>())
+<a name='L207'>                <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L208'>
+<a name='L209'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L210'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L33'>[^]</a><a href='#L201'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

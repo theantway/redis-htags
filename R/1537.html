@@ -1,0 +1,48 @@
+<html>
+<head>
+<title>check</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/211.html#L208'>check</a>             208 deps/jemalloc/src/zone.c 	zone_introspect.check = NULL;
+<a href='../S/299.html#L270'>check</a>             270 deps/lua/src/ldebug.c #define checkjump(pt,pc)	check(0 &lt;= pc &amp;&amp; pc &lt; pt-&gt;sizecode)
+<a href='../S/299.html#L272'>check</a>             272 deps/lua/src/ldebug.c #define checkreg(pt,reg)	check((reg) &lt; (pt)-&gt;maxstacksize)
+<a href='../S/299.html#L277'>check</a>             277 deps/lua/src/ldebug.c   check(pt-&gt;maxstacksize &lt;= MAXSTACK);
+<a href='../S/299.html#L278'>check</a>             278 deps/lua/src/ldebug.c   check(pt-&gt;numparams+(pt-&gt;is_vararg &amp; VARARG_HASARG) &lt;= pt-&gt;maxstacksize);
+<a href='../S/299.html#L279'>check</a>             279 deps/lua/src/ldebug.c   check(!(pt-&gt;is_vararg &amp; VARARG_NEEDSARG) ||
+<a href='../S/299.html#L281'>check</a>             281 deps/lua/src/ldebug.c   check(pt-&gt;sizeupvalues &lt;= pt-&gt;nups);
+<a href='../S/299.html#L282'>check</a>             282 deps/lua/src/ldebug.c   check(pt-&gt;sizelineinfo == pt-&gt;sizecode || pt-&gt;sizelineinfo == 0);
+<a href='../S/299.html#L283'>check</a>             283 deps/lua/src/ldebug.c   check(pt-&gt;sizecode &gt; 0 &amp;&amp; GET_OPCODE(pt-&gt;code[pt-&gt;sizecode-1]) == OP_RETURN);
+<a href='../S/299.html#L296'>check</a>             296 deps/lua/src/ldebug.c       check(GETARG_B(i) == 0);
+<a href='../S/299.html#L306'>check</a>             306 deps/lua/src/ldebug.c     case OpArgN: check(r == 0); break;
+<a href='../S/299.html#L310'>check</a>             310 deps/lua/src/ldebug.c       check(ISK(r) ? INDEXK(r) &lt; pt-&gt;sizek : r &lt; pt-&gt;maxstacksize);
+<a href='../S/299.html#L321'>check</a>             321 deps/lua/src/ldebug.c   check(precheck(pt));
+<a href='../S/299.html#L328'>check</a>             328 deps/lua/src/ldebug.c     check(op &lt; NUM_OPCODES);
+<a href='../S/299.html#L334'>check</a>             334 deps/lua/src/ldebug.c         check(checkArgMode(pt, b, getBMode(op)));
+<a href='../S/299.html#L335'>check</a>             335 deps/lua/src/ldebug.c         check(checkArgMode(pt, c, getCMode(op)));
+<a href='../S/299.html#L340'>check</a>             340 deps/lua/src/ldebug.c         if (getBMode(op) == OpArgK) check(b &lt; pt-&gt;sizek);
+<a href='../S/299.html#L347'>check</a>             347 deps/lua/src/ldebug.c           check(0 &lt;= dest &amp;&amp; dest &lt; pt-&gt;sizecode);
+<a href='../S/299.html#L360'>check</a>             360 deps/lua/src/ldebug.c             check((j&amp;1) == 0);
+<a href='../S/299.html#L370'>check</a>             370 deps/lua/src/ldebug.c       check(pc+2 &lt; pt-&gt;sizecode);  /* check skip */
+<a href='../S/299.html#L371'>check</a>             371 deps/lua/src/ldebug.c       check(GET_OPCODE(pt-&gt;code[pc+1]) == OP_JMP);
+<a href='../S/299.html#L376'>check</a>             376 deps/lua/src/ldebug.c           check(pc+2 &lt; pt-&gt;sizecode);  /* check its jump */
+<a href='../S/299.html#L377'>check</a>             377 deps/lua/src/ldebug.c           check(GET_OPCODE(pt-&gt;code[pc+1]) != OP_SETLIST ||
+<a href='../S/299.html#L389'>check</a>             389 deps/lua/src/ldebug.c         check(b &lt; pt-&gt;nups);
+<a href='../S/299.html#L394'>check</a>             394 deps/lua/src/ldebug.c         check(ttisstring(&amp;pt-&gt;k[b]));
+<a href='../S/299.html#L403'>check</a>             403 deps/lua/src/ldebug.c         check(b &lt; c);  /* at least two operands */
+<a href='../S/299.html#L407'>check</a>             407 deps/lua/src/ldebug.c         check(c &gt;= 1);  /* at least one result (control variable) */
+<a href='../S/299.html#L430'>check</a>             430 deps/lua/src/ldebug.c           check(checkopenop(pt, pc));
+<a href='../S/299.html#L446'>check</a>             446 deps/lua/src/ldebug.c           check(pc &lt; pt-&gt;sizecode - 1);
+<a href='../S/299.html#L452'>check</a>             452 deps/lua/src/ldebug.c         check(b &lt; pt-&gt;sizep);
+<a href='../S/299.html#L454'>check</a>             454 deps/lua/src/ldebug.c         check(pc + nup &lt; pt-&gt;sizecode);
+<a href='../S/299.html#L457'>check</a>             457 deps/lua/src/ldebug.c           check(op1 == OP_GETUPVAL || op1 == OP_MOVE);
+<a href='../S/299.html#L464'>check</a>             464 deps/lua/src/ldebug.c         check((pt-&gt;is_vararg &amp; VARARG_ISVARARG) &amp;&amp;
+<a href='../S/299.html#L467'>check</a>             467 deps/lua/src/ldebug.c         if (b == LUA_MULTRET) check(checkopenop(pt, pc));
+<a href='../S/304.html#L95'>check</a>              95 deps/lua/src/lparser.c   check(ls, c);
+<a href='../S/304.html#L119'>check</a>             119 deps/lua/src/lparser.c   check(ls, TK_NAME);
+<a href='../S/304.html#L392'>check</a>             392 deps/lua/src/lparser.c   check(&amp;lexstate, TK_EOS);
+</pre>
+</body>
+</html>

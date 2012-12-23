@@ -1,0 +1,165 @@
+<html>
+<head>
+<title>lua_State</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/229.html#L34'>lua_State</a>          34 deps/lua/etc/min.c  lua_State *L=lua_open();
+<a href='../S/272.html#L140'>lua_State</a>         140 deps/lua/src/lapi.c LUA_API lua_State *lua_newthread (lua_State *L) {
+<a href='../S/272.html#L141'>lua_State</a>         141 deps/lua/src/lapi.c   lua_State *L1;
+<a href='../S/272.html#L395'>lua_State</a>         395 deps/lua/src/lapi.c LUA_API lua_State *lua_tothread (lua_State *L, int idx) {
+<a href='../S/260.html#L229'>lua_State</a>         229 deps/lua/src/lauxlib.c LUALIB_API void (luaL_register) (lua_State *L, const char *libname,
+<a href='../S/260.html#L412'>lua_State</a>         412 deps/lua/src/lauxlib.c     lua_State *L = B-&gt;L;
+<a href='../S/260.html#L455'>lua_State</a>         455 deps/lua/src/lauxlib.c   lua_State *L = B-&gt;L;
+<a href='../S/260.html#L618'>lua_State</a>         618 deps/lua/src/lauxlib.c LUALIB_API int (luaL_loadstring) (lua_State *L, const char *s) {
+<a href='../S/260.html#L647'>lua_State</a>         647 deps/lua/src/lauxlib.c LUALIB_API lua_State *luaL_newstate (void) {
+<a href='../S/260.html#L648'>lua_State</a>         648 deps/lua/src/lauxlib.c   lua_State *L = lua_newstate(l_alloc, NULL);
+<a href='../S/265.html#L19'>lua_State</a>          19 deps/lua/src/lauxlib.h LUALIB_API int (luaL_getn) (lua_State *L, int t);
+<a href='../S/265.html#L20'>lua_State</a>          20 deps/lua/src/lauxlib.h LUALIB_API void (luaL_setn) (lua_State *L, int t, int n);
+<a href='../S/265.html#L42'>lua_State</a>          42 deps/lua/src/lauxlib.h LUALIB_API void (luaI_openlib) (lua_State *L, const char *libname,
+<a href='../S/265.html#L44'>lua_State</a>          44 deps/lua/src/lauxlib.h LUALIB_API void (luaL_register) (lua_State *L, const char *libname,
+<a href='../S/265.html#L46'>lua_State</a>          46 deps/lua/src/lauxlib.h LUALIB_API int (luaL_getmetafield) (lua_State *L, int obj, const char *e);
+<a href='../S/265.html#L47'>lua_State</a>          47 deps/lua/src/lauxlib.h LUALIB_API int (luaL_callmeta) (lua_State *L, int obj, const char *e);
+<a href='../S/265.html#L48'>lua_State</a>          48 deps/lua/src/lauxlib.h LUALIB_API int (luaL_typerror) (lua_State *L, int narg, const char *tname);
+<a href='../S/265.html#L49'>lua_State</a>          49 deps/lua/src/lauxlib.h LUALIB_API int (luaL_argerror) (lua_State *L, int numarg, const char *extramsg);
+<a href='../S/265.html#L50'>lua_State</a>          50 deps/lua/src/lauxlib.h LUALIB_API const char *(luaL_checklstring) (lua_State *L, int numArg,
+<a href='../S/265.html#L52'>lua_State</a>          52 deps/lua/src/lauxlib.h LUALIB_API const char *(luaL_optlstring) (lua_State *L, int numArg,
+<a href='../S/265.html#L61'>lua_State</a>          61 deps/lua/src/lauxlib.h LUALIB_API void (luaL_checkstack) (lua_State *L, int sz, const char *msg);
+<a href='../S/265.html#L62'>lua_State</a>          62 deps/lua/src/lauxlib.h LUALIB_API void (luaL_checktype) (lua_State *L, int narg, int t);
+<a href='../S/265.html#L63'>lua_State</a>          63 deps/lua/src/lauxlib.h LUALIB_API void (luaL_checkany) (lua_State *L, int narg);
+<a href='../S/265.html#L65'>lua_State</a>          65 deps/lua/src/lauxlib.h LUALIB_API int   (luaL_newmetatable) (lua_State *L, const char *tname);
+<a href='../S/265.html#L66'>lua_State</a>          66 deps/lua/src/lauxlib.h LUALIB_API void *(luaL_checkudata) (lua_State *L, int ud, const char *tname);
+<a href='../S/265.html#L68'>lua_State</a>          68 deps/lua/src/lauxlib.h LUALIB_API void (luaL_where) (lua_State *L, int lvl);
+<a href='../S/265.html#L69'>lua_State</a>          69 deps/lua/src/lauxlib.h LUALIB_API int (luaL_error) (lua_State *L, const char *fmt, ...);
+<a href='../S/265.html#L71'>lua_State</a>          71 deps/lua/src/lauxlib.h LUALIB_API int (luaL_checkoption) (lua_State *L, int narg, const char *def,
+<a href='../S/265.html#L74'>lua_State</a>          74 deps/lua/src/lauxlib.h LUALIB_API int (luaL_ref) (lua_State *L, int t);
+<a href='../S/265.html#L75'>lua_State</a>          75 deps/lua/src/lauxlib.h LUALIB_API void (luaL_unref) (lua_State *L, int t, int ref);
+<a href='../S/265.html#L77'>lua_State</a>          77 deps/lua/src/lauxlib.h LUALIB_API int (luaL_loadfile) (lua_State *L, const char *filename);
+<a href='../S/265.html#L78'>lua_State</a>          78 deps/lua/src/lauxlib.h LUALIB_API int (luaL_loadbuffer) (lua_State *L, const char *buff, size_t sz,
+<a href='../S/265.html#L80'>lua_State</a>          80 deps/lua/src/lauxlib.h LUALIB_API int (luaL_loadstring) (lua_State *L, const char *s);
+<a href='../S/265.html#L82'>lua_State</a>          82 deps/lua/src/lauxlib.h LUALIB_API lua_State *(luaL_newstate) (void);
+<a href='../S/265.html#L85'>lua_State</a>          85 deps/lua/src/lauxlib.h LUALIB_API const char *(luaL_gsub) (lua_State *L, const char *s, const char *p,
+<a href='../S/265.html#L88'>lua_State</a>          88 deps/lua/src/lauxlib.h LUALIB_API const char *(luaL_findtable) (lua_State *L, int idx,
+<a href='../S/265.html#L132'>lua_State</a>         132 deps/lua/src/lauxlib.h   lua_State *L;
+<a href='../S/265.html#L145'>lua_State</a>         145 deps/lua/src/lauxlib.h LUALIB_API void (luaL_buffinit) (lua_State *L, luaL_Buffer *B);
+<a href='../S/277.html#L511'>lua_State</a>         511 deps/lua/src/lbaselib.c   lua_State *co = lua_tothread(L, 1);
+<a href='../S/277.html#L544'>lua_State</a>         544 deps/lua/src/lbaselib.c   lua_State *co = lua_tothread(L, 1);
+<a href='../S/277.html#L562'>lua_State</a>         562 deps/lua/src/lbaselib.c   lua_State *co = lua_tothread(L, lua_upvalueindex(1));
+<a href='../S/277.html#L577'>lua_State</a>         577 deps/lua/src/lbaselib.c   lua_State *NL = lua_newthread(L);
+<a href='../S/293.html#L230'>lua_State</a>         230 deps/lua/src/lcode.c   lua_State *L = fs-&gt;L;
+<a href='../S/269.html#L75'>lua_State</a>          75 deps/lua/src/ldblib.c static lua_State *getthread (lua_State *L, int *arg) {
+<a href='../S/269.html#L101'>lua_State</a>         101 deps/lua/src/ldblib.c   lua_State *L1 = getthread(L, &amp;arg);
+<a href='../S/269.html#L145'>lua_State</a>         145 deps/lua/src/ldblib.c   lua_State *L1 = getthread(L, &amp;arg);
+<a href='../S/269.html#L166'>lua_State</a>         166 deps/lua/src/ldblib.c   lua_State *L1 = getthread(L, &amp;arg);
+<a href='../S/269.html#L260'>lua_State</a>         260 deps/lua/src/ldblib.c   lua_State *L1 = getthread(L, &amp;arg);
+<a href='../S/269.html#L283'>lua_State</a>         283 deps/lua/src/ldblib.c   lua_State *L1 = getthread(L, &amp;arg);
+<a href='../S/269.html#L325'>lua_State</a>         325 deps/lua/src/ldblib.c   lua_State *L1 = getthread(L, &amp;arg);
+<a href='../S/303.html#L19'>lua_State</a>          19 deps/lua/src/ldump.c  lua_State* L;
+<a href='../S/291.html#L298'>lua_State</a>         298 deps/lua/src/lgc.c       lua_State *th = gco2th(o);
+<a href='../S/291.html#L304'>lua_State</a>         304 deps/lua/src/lgc.c       return sizeof(lua_State) + sizeof(TValue) * th-&gt;stacksize +
+<a href='../S/305.html#L118'>lua_State</a>         118 deps/lua/src/llex.c   lua_State *L = ls-&gt;L;
+<a href='../S/292.html#L62'>lua_State</a>          62 deps/lua/src/llex.h   struct lua_State *L;
+<a href='../S/304.html#L329'>lua_State</a>         329 deps/lua/src/lparser.c   lua_State *L = ls-&gt;L;
+<a href='../S/304.html#L357'>lua_State</a>         357 deps/lua/src/lparser.c   lua_State *L = ls-&gt;L;
+<a href='../S/286.html#L63'>lua_State</a>          63 deps/lua/src/lparser.h   struct lua_State *L;  /* copy of the Lua state */
+<a href='../S/275.html#L29'>lua_State</a>          29 deps/lua/src/lstate.c #define tostate(l)   (cast(lua_State *, cast(lu_byte *, l) + LUAI_EXTRASPACE))
+<a href='../S/275.html#L36'>lua_State</a>          36 deps/lua/src/lstate.c   lua_State l;
+<a href='../S/275.html#L119'>lua_State</a>         119 deps/lua/src/lstate.c lua_State *luaE_newthread (lua_State *L) {
+<a href='../S/275.html#L120'>lua_State</a>         120 deps/lua/src/lstate.c   lua_State *L1 = tostate(luaM_malloc(L, state_size(lua_State)));
+<a href='../S/275.html#L139'>lua_State</a>         139 deps/lua/src/lstate.c   luaM_freemem(L, fromstate(L1), state_size(lua_State));
+<a href='../S/275.html#L143'>lua_State</a>         143 deps/lua/src/lstate.c LUA_API lua_State *lua_newstate (lua_Alloc f, void *ud) {
+<a href='../S/275.html#L145'>lua_State</a>         145 deps/lua/src/lstate.c   lua_State *L;
+<a href='../S/298.html#L90'>lua_State</a>          90 deps/lua/src/lstate.h   struct lua_State *mainthread;
+<a href='../S/298.html#L144'>lua_State</a>         144 deps/lua/src/lstate.h   struct lua_State th;  /* thread */
+<a href='../S/298.html#L165'>lua_State</a>         165 deps/lua/src/lstate.h LUAI_FUNC lua_State *luaE_newthread (lua_State *L);
+<a href='../S/270.html#L173'>lua_State</a>         173 deps/lua/src/lstrlib.c   lua_State *L;
+<a href='../S/270.html#L614'>lua_State</a>         614 deps/lua/src/lstrlib.c   lua_State *L = ms-&gt;L;
+<a href='../S/287.html#L22'>lua_State</a>          22 deps/lua/src/lua.c static lua_State *globalL = NULL;
+<a href='../S/287.html#L380'>lua_State</a>         380 deps/lua/src/lua.c   lua_State *L = lua_open();  /* create state */
+<a href='../S/266.html#L50'>lua_State</a>          50 deps/lua/src/lua.h typedef struct lua_State lua_State;
+<a href='../S/266.html#L110'>lua_State</a>         110 deps/lua/src/lua.h LUA_API lua_State *(lua_newstate) (lua_Alloc f, void *ud);
+<a href='../S/266.html#L111'>lua_State</a>         111 deps/lua/src/lua.h LUA_API void       (lua_close) (lua_State *L);
+<a href='../S/266.html#L112'>lua_State</a>         112 deps/lua/src/lua.h LUA_API lua_State *(lua_newthread) (lua_State *L);
+<a href='../S/266.html#L120'>lua_State</a>         120 deps/lua/src/lua.h LUA_API int   (lua_gettop) (lua_State *L);
+<a href='../S/266.html#L121'>lua_State</a>         121 deps/lua/src/lua.h LUA_API void  (lua_settop) (lua_State *L, int idx);
+<a href='../S/266.html#L122'>lua_State</a>         122 deps/lua/src/lua.h LUA_API void  (lua_pushvalue) (lua_State *L, int idx);
+<a href='../S/266.html#L123'>lua_State</a>         123 deps/lua/src/lua.h LUA_API void  (lua_remove) (lua_State *L, int idx);
+<a href='../S/266.html#L124'>lua_State</a>         124 deps/lua/src/lua.h LUA_API void  (lua_insert) (lua_State *L, int idx);
+<a href='../S/266.html#L125'>lua_State</a>         125 deps/lua/src/lua.h LUA_API void  (lua_replace) (lua_State *L, int idx);
+<a href='../S/266.html#L126'>lua_State</a>         126 deps/lua/src/lua.h LUA_API int   (lua_checkstack) (lua_State *L, int sz);
+<a href='../S/266.html#L128'>lua_State</a>         128 deps/lua/src/lua.h LUA_API void  (lua_xmove) (lua_State *from, lua_State *to, int n);
+<a href='../S/266.html#L135'>lua_State</a>         135 deps/lua/src/lua.h LUA_API int             (lua_isnumber) (lua_State *L, int idx);
+<a href='../S/266.html#L136'>lua_State</a>         136 deps/lua/src/lua.h LUA_API int             (lua_isstring) (lua_State *L, int idx);
+<a href='../S/266.html#L137'>lua_State</a>         137 deps/lua/src/lua.h LUA_API int             (lua_iscfunction) (lua_State *L, int idx);
+<a href='../S/266.html#L138'>lua_State</a>         138 deps/lua/src/lua.h LUA_API int             (lua_isuserdata) (lua_State *L, int idx);
+<a href='../S/266.html#L139'>lua_State</a>         139 deps/lua/src/lua.h LUA_API int             (lua_type) (lua_State *L, int idx);
+<a href='../S/266.html#L140'>lua_State</a>         140 deps/lua/src/lua.h LUA_API const char     *(lua_typename) (lua_State *L, int tp);
+<a href='../S/266.html#L142'>lua_State</a>         142 deps/lua/src/lua.h LUA_API int            (lua_equal) (lua_State *L, int idx1, int idx2);
+<a href='../S/266.html#L143'>lua_State</a>         143 deps/lua/src/lua.h LUA_API int            (lua_rawequal) (lua_State *L, int idx1, int idx2);
+<a href='../S/266.html#L144'>lua_State</a>         144 deps/lua/src/lua.h LUA_API int            (lua_lessthan) (lua_State *L, int idx1, int idx2);
+<a href='../S/266.html#L148'>lua_State</a>         148 deps/lua/src/lua.h LUA_API int             (lua_toboolean) (lua_State *L, int idx);
+<a href='../S/266.html#L149'>lua_State</a>         149 deps/lua/src/lua.h LUA_API const char     *(lua_tolstring) (lua_State *L, int idx, size_t *len);
+<a href='../S/266.html#L152'>lua_State</a>         152 deps/lua/src/lua.h LUA_API void	       *(lua_touserdata) (lua_State *L, int idx);
+<a href='../S/266.html#L153'>lua_State</a>         153 deps/lua/src/lua.h LUA_API lua_State      *(lua_tothread) (lua_State *L, int idx);
+<a href='../S/266.html#L154'>lua_State</a>         154 deps/lua/src/lua.h LUA_API const void     *(lua_topointer) (lua_State *L, int idx);
+<a href='../S/266.html#L160'>lua_State</a>         160 deps/lua/src/lua.h LUA_API void  (lua_pushnil) (lua_State *L);
+<a href='../S/266.html#L161'>lua_State</a>         161 deps/lua/src/lua.h LUA_API void  (lua_pushnumber) (lua_State *L, lua_Number n);
+<a href='../S/266.html#L162'>lua_State</a>         162 deps/lua/src/lua.h LUA_API void  (lua_pushinteger) (lua_State *L, lua_Integer n);
+<a href='../S/266.html#L163'>lua_State</a>         163 deps/lua/src/lua.h LUA_API void  (lua_pushlstring) (lua_State *L, const char *s, size_t l);
+<a href='../S/266.html#L164'>lua_State</a>         164 deps/lua/src/lua.h LUA_API void  (lua_pushstring) (lua_State *L, const char *s);
+<a href='../S/266.html#L165'>lua_State</a>         165 deps/lua/src/lua.h LUA_API const char *(lua_pushvfstring) (lua_State *L, const char *fmt,
+<a href='../S/266.html#L167'>lua_State</a>         167 deps/lua/src/lua.h LUA_API const char *(lua_pushfstring) (lua_State *L, const char *fmt, ...);
+<a href='../S/266.html#L168'>lua_State</a>         168 deps/lua/src/lua.h LUA_API void  (lua_pushcclosure) (lua_State *L, lua_CFunction fn, int n);
+<a href='../S/266.html#L169'>lua_State</a>         169 deps/lua/src/lua.h LUA_API void  (lua_pushboolean) (lua_State *L, int b);
+<a href='../S/266.html#L170'>lua_State</a>         170 deps/lua/src/lua.h LUA_API void  (lua_pushlightuserdata) (lua_State *L, void *p);
+<a href='../S/266.html#L171'>lua_State</a>         171 deps/lua/src/lua.h LUA_API int   (lua_pushthread) (lua_State *L);
+<a href='../S/266.html#L177'>lua_State</a>         177 deps/lua/src/lua.h LUA_API void  (lua_gettable) (lua_State *L, int idx);
+<a href='../S/266.html#L178'>lua_State</a>         178 deps/lua/src/lua.h LUA_API void  (lua_getfield) (lua_State *L, int idx, const char *k);
+<a href='../S/266.html#L179'>lua_State</a>         179 deps/lua/src/lua.h LUA_API void  (lua_rawget) (lua_State *L, int idx);
+<a href='../S/266.html#L180'>lua_State</a>         180 deps/lua/src/lua.h LUA_API void  (lua_rawgeti) (lua_State *L, int idx, int n);
+<a href='../S/266.html#L181'>lua_State</a>         181 deps/lua/src/lua.h LUA_API void  (lua_createtable) (lua_State *L, int narr, int nrec);
+<a href='../S/266.html#L182'>lua_State</a>         182 deps/lua/src/lua.h LUA_API void *(lua_newuserdata) (lua_State *L, size_t sz);
+<a href='../S/266.html#L183'>lua_State</a>         183 deps/lua/src/lua.h LUA_API int   (lua_getmetatable) (lua_State *L, int objindex);
+<a href='../S/266.html#L184'>lua_State</a>         184 deps/lua/src/lua.h LUA_API void  (lua_getfenv) (lua_State *L, int idx);
+<a href='../S/266.html#L190'>lua_State</a>         190 deps/lua/src/lua.h LUA_API void  (lua_settable) (lua_State *L, int idx);
+<a href='../S/266.html#L191'>lua_State</a>         191 deps/lua/src/lua.h LUA_API void  (lua_setfield) (lua_State *L, int idx, const char *k);
+<a href='../S/266.html#L192'>lua_State</a>         192 deps/lua/src/lua.h LUA_API void  (lua_rawset) (lua_State *L, int idx);
+<a href='../S/266.html#L193'>lua_State</a>         193 deps/lua/src/lua.h LUA_API void  (lua_rawseti) (lua_State *L, int idx, int n);
+<a href='../S/266.html#L194'>lua_State</a>         194 deps/lua/src/lua.h LUA_API int   (lua_setmetatable) (lua_State *L, int objindex);
+<a href='../S/266.html#L195'>lua_State</a>         195 deps/lua/src/lua.h LUA_API int   (lua_setfenv) (lua_State *L, int idx);
+<a href='../S/266.html#L201'>lua_State</a>         201 deps/lua/src/lua.h LUA_API void  (lua_call) (lua_State *L, int nargs, int nresults);
+<a href='../S/266.html#L202'>lua_State</a>         202 deps/lua/src/lua.h LUA_API int   (lua_pcall) (lua_State *L, int nargs, int nresults, int errfunc);
+<a href='../S/266.html#L203'>lua_State</a>         203 deps/lua/src/lua.h LUA_API int   (lua_cpcall) (lua_State *L, lua_CFunction func, void *ud);
+<a href='../S/266.html#L204'>lua_State</a>         204 deps/lua/src/lua.h LUA_API int   (lua_load) (lua_State *L, lua_Reader reader, void *dt,
+<a href='../S/266.html#L207'>lua_State</a>         207 deps/lua/src/lua.h LUA_API int (lua_dump) (lua_State *L, lua_Writer writer, void *data);
+<a href='../S/266.html#L213'>lua_State</a>         213 deps/lua/src/lua.h LUA_API int  (lua_yield) (lua_State *L, int nresults);
+<a href='../S/266.html#L214'>lua_State</a>         214 deps/lua/src/lua.h LUA_API int  (lua_resume) (lua_State *L, int narg);
+<a href='../S/266.html#L215'>lua_State</a>         215 deps/lua/src/lua.h LUA_API int  (lua_status) (lua_State *L);
+<a href='../S/266.html#L230'>lua_State</a>         230 deps/lua/src/lua.h LUA_API int (lua_gc) (lua_State *L, int what, int data);
+<a href='../S/266.html#L237'>lua_State</a>         237 deps/lua/src/lua.h LUA_API int   (lua_error) (lua_State *L);
+<a href='../S/266.html#L239'>lua_State</a>         239 deps/lua/src/lua.h LUA_API int   (lua_next) (lua_State *L, int idx);
+<a href='../S/266.html#L241'>lua_State</a>         241 deps/lua/src/lua.h LUA_API void  (lua_concat) (lua_State *L, int n);
+<a href='../S/316.html#L188'>lua_State</a>         188 deps/lua/src/luac.c  lua_State* L;
+<a href='../S/267.html#L19'>lua_State</a>          19 deps/lua/src/lualib.h LUALIB_API int (luaopen_base) (lua_State *L);
+<a href='../S/267.html#L22'>lua_State</a>          22 deps/lua/src/lualib.h LUALIB_API int (luaopen_table) (lua_State *L);
+<a href='../S/267.html#L25'>lua_State</a>          25 deps/lua/src/lualib.h LUALIB_API int (luaopen_io) (lua_State *L);
+<a href='../S/267.html#L28'>lua_State</a>          28 deps/lua/src/lualib.h LUALIB_API int (luaopen_os) (lua_State *L);
+<a href='../S/267.html#L31'>lua_State</a>          31 deps/lua/src/lualib.h LUALIB_API int (luaopen_string) (lua_State *L);
+<a href='../S/267.html#L34'>lua_State</a>          34 deps/lua/src/lualib.h LUALIB_API int (luaopen_math) (lua_State *L);
+<a href='../S/267.html#L37'>lua_State</a>          37 deps/lua/src/lualib.h LUALIB_API int (luaopen_debug) (lua_State *L);
+<a href='../S/267.html#L40'>lua_State</a>          40 deps/lua/src/lualib.h LUALIB_API int (luaopen_package) (lua_State *L);
+<a href='../S/267.html#L44'>lua_State</a>          44 deps/lua/src/lualib.h LUALIB_API void (luaL_openlibs) (lua_State *L); 
+<a href='../S/308.html#L24'>lua_State</a>          24 deps/lua/src/lundump.c  lua_State* L;
+<a href='../S/289.html#L23'>lua_State</a>          23 deps/lua/src/lzio.c   lua_State *L = z-&gt;L;
+<a href='../S/312.html#L61'>lua_State</a>          61 deps/lua/src/lzio.h   lua_State *L;			/* Lua state (for reader) */
+<a href='../S/32.html#L646'>lua_State</a>         646 src/redis.h        lua_State *lua; /* The Lua interpreter. We use just one for all clients */
+<a href='../S/75.html#L458'>lua_State</a>         458 src/scripting.c LUALIB_API int (luaopen_cjson) (lua_State *L);
+<a href='../S/75.html#L459'>lua_State</a>         459 src/scripting.c LUALIB_API int (luaopen_struct) (lua_State *L);
+<a href='../S/75.html#L460'>lua_State</a>         460 src/scripting.c LUALIB_API int (luaopen_cmsgpack) (lua_State *L);
+<a href='../S/75.html#L527'>lua_State</a>         527 src/scripting.c     lua_State *lua = lua_open();
+<a href='../S/75.html#L787'>lua_State</a>         787 src/scripting.c     lua_State *lua = server.lua;
+</pre>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<html>
+<head>
+<title>src/endianconv.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/endianconv.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L49'>[^]</a><a href='#L107'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L49' title='Defined at 49.'>memrev16</a>
+<li><a href='#L59' title='Defined at 59.'>memrev32</a>
+<li><a href='#L72' title='Defined at 72.'>memrev64</a>
+<li><a href='#L89' title='Defined at 89.'>intrev16</a>
+<li><a href='#L94' title='Defined at 94.'>intrev32</a>
+<li><a href='#L99' title='Defined at 99.'>intrev64</a>
+<li><a href='#L107' title='Defined at 107.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* endinconv.c -- Endian conversions utilities.</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * This functions are never called directly, but always using the macros</font></i>
+<a name='L4'><i><font color='green'> * defined into endianconv.h, this way we define everything is a non-operation</font></i>
+<a name='L5'><i><font color='green'> * if the arch is already little endian.</font></i>
+<a name='L6'><i><font color='green'> *</font></i>
+<a name='L7'><i><font color='green'> * Redis tries to encode everything as little endian (but a few things that need</font></i>
+<a name='L8'><i><font color='green'> * to be backward compatible are still in big endian) because most of the</font></i>
+<a name='L9'><i><font color='green'> * production environments are little endian, and we have a lot of conversions</font></i>
+<a name='L10'><i><font color='green'> * in a few places because ziplists, intsets, zipmaps, need to be endian-neutral</font></i>
+<a name='L11'><i><font color='green'> * even in memory, since they are serialied on RDB files directly with a single</font></i>
+<a name='L12'><i><font color='green'> * write(2) without other additional steps.</font></i>
+<a name='L13'><i><font color='green'> *</font></i>
+<a name='L14'><i><font color='green'> * ----------------------------------------------------------------------------</font></i>
+<a name='L15'><i><font color='green'> *</font></i>
+<a name='L16'><i><font color='green'> * Copyright (c) 2011-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L17'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L18'><i><font color='green'> *</font></i>
+<a name='L19'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L20'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L21'><i><font color='green'> *</font></i>
+<a name='L22'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L23'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L24'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L25'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L26'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L27'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L28'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L29'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L30'><i><font color='green'> *</font></i>
+<a name='L31'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L32'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L33'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L34'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L35'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L36'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L37'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L38'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L39'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L40'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L41'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L42'><i><font color='green'> */</font></i>
+<a name='L43'>
+<a name='L44'>
+<a name='L45'><font color='darkred'>#include</font> &lt;<a href='160.html'>stdint.h</a>&gt;
+<a name='L46'>
+<a name='L47'><i><font color='green'>/* Toggle the 16 bit unsigned integer pointed by *p from little endian to</font></i>
+<a name='L48'><i><font color='green'> * big endian */</font></i>
+<a name='L49'><b>void</b> <a href='../R/2995.html' title='Multiple refered from 4 places.'>memrev16</a>(<b>void</b> *p) <font color='red'>{</font>
+<a name='L50'>    <b>unsigned</b> <b>char</b> *x = p, t;
+<a name='L51'>
+<a name='L52'>    t = x[0];
+<a name='L53'>    x[0] = x[1];
+<a name='L54'>    x[1] = t;
+<a name='L55'><font color='red'>}</font>
+<a name='L56'>
+<a name='L57'><i><font color='green'>/* Toggle the 32 bit unsigned integer pointed by *p from little endian to</font></i>
+<a name='L58'><i><font color='green'> * big endian */</font></i>
+<a name='L59'><b>void</b> <a href='../R/2997.html' title='Multiple refered from 4 places.'>memrev32</a>(<b>void</b> *p) <font color='red'>{</font>
+<a name='L60'>    <b>unsigned</b> <b>char</b> *x = p, t;
+<a name='L61'>
+<a name='L62'>    t = x[0];
+<a name='L63'>    x[0] = x[3];
+<a name='L64'>    x[3] = t;
+<a name='L65'>    t = x[1];
+<a name='L66'>    x[1] = x[2];
+<a name='L67'>    x[2] = t;
+<a name='L68'><font color='red'>}</font>
+<a name='L69'>
+<a name='L70'><i><font color='green'>/* Toggle the 64 bit unsigned integer pointed by *p from little endian to</font></i>
+<a name='L71'><i><font color='green'> * big endian */</font></i>
+<a name='L72'><b>void</b> <a href='../R/2999.html' title='Multiple refered from 4 places.'>memrev64</a>(<b>void</b> *p) <font color='red'>{</font>
+<a name='L73'>    <b>unsigned</b> <b>char</b> *x = p, t;
+<a name='L74'>
+<a name='L75'>    t = x[0];
+<a name='L76'>    x[0] = x[7];
+<a name='L77'>    x[7] = t;
+<a name='L78'>    t = x[1];
+<a name='L79'>    x[1] = x[6];
+<a name='L80'>    x[6] = t;
+<a name='L81'>    t = x[2];
+<a name='L82'>    x[2] = x[5];
+<a name='L83'>    x[5] = t;
+<a name='L84'>    t = x[3];
+<a name='L85'>    x[3] = x[4];
+<a name='L86'>    x[4] = t;
+<a name='L87'><font color='red'>}</font>
+<a name='L88'>
+<a name='L89'><a href='../D/4428.html' title='Multiple defined in 2 places.'>uint16_t</a> <a href='../R/2217.html' title='Multiple refered from 2 places.'>intrev16</a>(<a href='../D/4428.html' title='Multiple defined in 2 places.'>uint16_t</a> v) <font color='red'>{</font>
+<a name='L90'>    <a href='../S/73.html#L49' title='Defined at 49 in src/endianconv.c.'>memrev16</a>(&amp;v);
+<a name='L91'>    <b>return</b> v;
+<a name='L92'><font color='red'>}</font>
+<a name='L93'>
+<a name='L94'><a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> <a href='../R/2219.html' title='Multiple refered from 2 places.'>intrev32</a>(<a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> v) <font color='red'>{</font>
+<a name='L95'>    <a href='../S/73.html#L59' title='Defined at 59 in src/endianconv.c.'>memrev32</a>(&amp;v);
+<a name='L96'>    <b>return</b> v;
+<a name='L97'><font color='red'>}</font>
+<a name='L98'>
+<a name='L99'><a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> <a href='../R/2221.html' title='Multiple refered from 2 places.'>intrev64</a>(<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> v) <font color='red'>{</font>
+<a name='L100'>    <a href='../S/73.html#L72' title='Defined at 72 in src/endianconv.c.'>memrev64</a>(&amp;v);
+<a name='L101'>    <b>return</b> v;
+<a name='L102'><font color='red'>}</font>
+<a name='L103'>
+<a name='L104'><font color='darkred'>#ifdef</font> TESTMAIN
+<a name='L105'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L106'>
+<a name='L107'><b>int</b> main(<b>void</b>) <font color='red'>{</font>
+<a name='L108'>    <b>char</b> buf[32];
+<a name='L109'>
+<a name='L110'>    sprintf(buf,"ciaoroma");
+<a name='L111'>    <a href='../S/73.html#L49' title='Defined at 49 in src/endianconv.c.'>memrev16</a>(buf);
+<a name='L112'>    printf("%s\n", buf);
+<a name='L113'>
+<a name='L114'>    sprintf(buf,"ciaoroma");
+<a name='L115'>    <a href='../S/73.html#L59' title='Defined at 59 in src/endianconv.c.'>memrev32</a>(buf);
+<a name='L116'>    printf("%s\n", buf);
+<a name='L117'>
+<a name='L118'>    sprintf(buf,"ciaoroma");
+<a name='L119'>    <a href='../S/73.html#L72' title='Defined at 72 in src/endianconv.c.'>memrev64</a>(buf);
+<a name='L120'>    printf("%s\n", buf);
+<a name='L121'>
+<a name='L122'>    <b>return</b> 0;
+<a name='L123'><font color='red'>}</font>
+<a name='L124'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L49'>[^]</a><a href='#L107'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

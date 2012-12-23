@@ -1,0 +1,843 @@
+<html>
+<head>
+<title>src/replication.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/replication.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L42'>[^]</a><a href='#L742'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L42' title='Defined at 42.'>replicationFeedSlaves</a>
+<li><a href='#L76' title='Defined at 76.'>replicationFeedMonitors</a>
+<li><a href='#L117' title='Defined at 117.'>syncCommand</a>
+<li><a href='#L194' title='Defined at 194.'>replconfCommand</a>
+<li><a href='#L222' title='Defined at 222.'>sendBulkToSlave</a>
+<li><a href='#L281' title='Defined at 281.'>updateSlavesWaitingBgsave</a>
+<li><a href='#L336' title='Defined at 336.'>replicationAbortSyncTransfer</a>
+<li><a href='#L349' title='Defined at 349.'>readSyncBulkPayload</a>
+<li><a href='#L477' title='Defined at 477.'>sendSynchronousCommand</a>
+<li><a href='#L517' title='Defined at 517.'>syncWithMaster</a>
+<li><a href='#L659' title='Defined at 659.'>connectWithMaster</a>
+<li><a href='#L685' title='Defined at 685.'>undoConnectWithMaster</a>
+<li><a href='#L696' title='Defined at 696.'>slaveofCommand</a>
+<li><a href='#L742' title='Defined at 742.'>replicationCron</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* Asynchronous replication implementation.</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'>
+<a name='L32'><font color='darkred'>#include</font> "<a href='32.html'>redis.h</a>"
+<a name='L33'>
+<a name='L34'><font color='darkred'>#include</font> &lt;sys/time.h&gt;
+<a name='L35'><font color='darkred'>#include</font> &lt;unistd.h&gt;
+<a name='L36'><font color='darkred'>#include</font> &lt;fcntl.h&gt;
+<a name='L37'><font color='darkred'>#include</font> &lt;sys/socket.h&gt;
+<a name='L38'><font color='darkred'>#include</font> &lt;sys/stat.h&gt;
+<a name='L39'>
+<a name='L40'><i><font color='green'>/* ---------------------------------- MASTER -------------------------------- */</font></i>
+<a name='L41'>
+<a name='L42'><b>void</b> <a href='../R/3533.html' title='Multiple refered from 4 places.'>replicationFeedSlaves</a>(list *slaves, <b>int</b> dictid, robj **argv, <b>int</b> argc) <font color='red'>{</font>
+<a name='L43'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln;
+<a name='L44'>    <a href='../D/2703.html' title='Multiple defined in 2 places.'>listIter</a> li;
+<a name='L45'>    <b>int</b> j;
+<a name='L46'>
+<a name='L47'>    <a href='../S/54.html#L197' title='Defined at 197 in src/adlist.c.'>listRewind</a>(slaves,&amp;li);
+<a name='L48'>    <b>while</b>((ln = <a href='../S/54.html#L221' title='Defined at 221 in src/adlist.c.'>listNext</a>(&amp;li))) <font color='red'>{</font>
+<a name='L49'>        <a href='../D/3781.html' title='Multiple defined in 2 places.'>redisClient</a> *slave = ln-&gt;value;
+<a name='L50'>
+<a name='L51'>        <i><font color='green'>/* Don't feed slaves that are still waiting for BGSAVE to start */</font></i>
+<a name='L52'>        <b>if</b> (slave-&gt;replstate == <a href='../S/32.html#L213' title='Defined at 213 in src/redis.h.'>REDIS_REPL_WAIT_BGSAVE_START</a>) <b>continue</b>;
+<a name='L53'>
+<a name='L54'>        <i><font color='green'>/* Feed slaves that are waiting for the initial SYNC (so these commands</font></i>
+<a name='L55'><i><font color='green'>         * are queued in the output buffer until the intial SYNC completes),</font></i>
+<a name='L56'><i><font color='green'>         * or are already in sync with the master. */</font></i>
+<a name='L57'>        <b>if</b> (slave-&gt;slaveseldb != dictid) <font color='red'>{</font>
+<a name='L58'>            <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *selectcmd;
+<a name='L59'>
+<a name='L60'>            <b>if</b> (dictid &gt;= 0 &amp;&amp; dictid &lt; <a href='../S/32.html#L78' title='Defined at 78 in src/redis.h.'>REDIS_SHARED_SELECT_CMDS</a>) <font color='red'>{</font>
+<a name='L61'>                selectcmd = shared.select[dictid];
+<a name='L62'>                <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(selectcmd);
+<a name='L63'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L64'>                selectcmd = <a href='../S/71.html#L35' title='Defined at 35 in src/object.c.'>createObject</a>(<a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>,
+<a name='L65'>                    <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(<a href='../D/4005.html' title='Multiple defined in 2 places.'>sdsempty</a>(),"select %d\r\n",dictid));
+<a name='L66'>            <font color='red'>}</font>
+<a name='L67'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(slave,selectcmd);
+<a name='L68'>            <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(selectcmd);
+<a name='L69'>            slave-&gt;slaveseldb = dictid;
+<a name='L70'>        <font color='red'>}</font>
+<a name='L71'>        <a href='../S/86.html#L448' title='Defined at 448 in src/networking.c.'>addReplyMultiBulkLen</a>(slave,argc);
+<a name='L72'>        <b>for</b> (j = 0; j &lt; argc; j++) <a href='../S/86.html#L475' title='Defined at 475 in src/networking.c.'>addReplyBulk</a>(slave,argv[j]);
+<a name='L73'>    <font color='red'>}</font>
+<a name='L74'><font color='red'>}</font>
+<a name='L75'>
+<a name='L76'><b>void</b> <a href='../R/3532.html' title='Multiple refered from 3 places.'>replicationFeedMonitors</a>(redisClient *c, list *monitors, <b>int</b> dictid, robj **argv, <b>int</b> argc) <font color='red'>{</font>
+<a name='L77'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln;
+<a name='L78'>    <a href='../D/2703.html' title='Multiple defined in 2 places.'>listIter</a> li;
+<a name='L79'>    <b>int</b> j, port;
+<a name='L80'>    <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> cmdrepr = <a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>("+");
+<a name='L81'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *cmdobj;
+<a name='L82'>    <b>char</b> ip[32];
+<a name='L83'>    <b>struct</b> timeval tv;
+<a name='L84'>
+<a name='L85'>    gettimeofday(&amp;tv,NULL);
+<a name='L86'>    cmdrepr = <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(cmdrepr,"%ld.%06ld ",(<b>long</b>)tv.tv_sec,(<b>long</b>)tv.tv_usec);
+<a name='L87'>    <b>if</b> (c-&gt;flags &amp; <a href='../S/32.html#L181' title='Defined at 181 in src/redis.h.'>REDIS_LUA_CLIENT</a>) <font color='red'>{</font>
+<a name='L88'>        cmdrepr = <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(cmdrepr,"[%d lua] ",dictid);
+<a name='L89'>    <font color='red'>}</font> <b>else</b> <b>if</b> (c-&gt;flags &amp; <a href='../S/32.html#L184' title='Defined at 184 in src/redis.h.'>REDIS_UNIX_SOCKET</a>) <font color='red'>{</font>
+<a name='L90'>        cmdrepr = <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(cmdrepr,"[%d unix:%s] ",dictid,server.unixsocket);
+<a name='L91'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L92'>        <a href='../S/50.html#L356' title='Defined at 356 in src/anet.c.'>anetPeerToString</a>(c-&gt;fd,ip,&amp;port);
+<a name='L93'>        cmdrepr = <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(cmdrepr,"[%d %s:%d] ",dictid,ip,port);
+<a name='L94'>    <font color='red'>}</font>
+<a name='L95'>
+<a name='L96'>    <b>for</b> (j = 0; j &lt; argc; j++) <font color='red'>{</font>
+<a name='L97'>        <b>if</b> (argv[j]-&gt;encoding == <a href='../D/786.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_INT</a>) <font color='red'>{</font>
+<a name='L98'>            cmdrepr = <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(cmdrepr, "\"%ld\"", (<b>long</b>)argv[j]-&gt;ptr);
+<a name='L99'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L100'>            cmdrepr = <a href='../D/3997.html' title='Multiple defined in 2 places.'>sdscatrepr</a>(cmdrepr,(<b>char</b>*)argv[j]-&gt;ptr,
+<a name='L101'>                        <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(argv[j]-&gt;ptr));
+<a name='L102'>        <font color='red'>}</font>
+<a name='L103'>        <b>if</b> (j != argc-1)
+<a name='L104'>            cmdrepr = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(cmdrepr," ",1);
+<a name='L105'>    <font color='red'>}</font>
+<a name='L106'>    cmdrepr = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(cmdrepr,"\r\n",2);
+<a name='L107'>    cmdobj = <a href='../S/71.html#L35' title='Defined at 35 in src/object.c.'>createObject</a>(<a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>,cmdrepr);
+<a name='L108'>
+<a name='L109'>    <a href='../S/54.html#L197' title='Defined at 197 in src/adlist.c.'>listRewind</a>(monitors,&amp;li);
+<a name='L110'>    <b>while</b>((ln = <a href='../S/54.html#L221' title='Defined at 221 in src/adlist.c.'>listNext</a>(&amp;li))) <font color='red'>{</font>
+<a name='L111'>        <a href='../D/3781.html' title='Multiple defined in 2 places.'>redisClient</a> *monitor = ln-&gt;value;
+<a name='L112'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(monitor,cmdobj);
+<a name='L113'>    <font color='red'>}</font>
+<a name='L114'>    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(cmdobj);
+<a name='L115'><font color='red'>}</font>
+<a name='L116'>
+<a name='L117'><b>void</b> <a href='../R/3907.html' title='Multiple refered from 2 places.'>syncCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L118'>    <i><font color='green'>/* ignore SYNC if aleady slave or in monitor mode */</font></i>
+<a name='L119'>    <b>if</b> (c-&gt;flags &amp; <a href='../S/32.html#L172' title='Defined at 172 in src/redis.h.'>REDIS_SLAVE</a>) <b>return</b>;
+<a name='L120'>
+<a name='L121'>    <i><font color='green'>/* Refuse SYNC requests if we are a slave but the link with our master</font></i>
+<a name='L122'><i><font color='green'>     * is not ok... */</font></i>
+<a name='L123'>    <b>if</b> (server.masterhost &amp;&amp; server.repl_state != <a href='../S/32.html#L204' title='Defined at 204 in src/redis.h.'>REDIS_REPL_CONNECTED</a>) <font color='red'>{</font>
+<a name='L124'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"Can't SYNC while not connected with my master");
+<a name='L125'>        <b>return</b>;
+<a name='L126'>    <font color='red'>}</font>
+<a name='L127'>
+<a name='L128'>    <i><font color='green'>/* SYNC can't be issued when the server has pending data to send to</font></i>
+<a name='L129'><i><font color='green'>     * the client about already issued commands. We need a fresh reply</font></i>
+<a name='L130'><i><font color='green'>     * buffer registering the differences between the BGSAVE and the current</font></i>
+<a name='L131'><i><font color='green'>     * dataset, so that we can copy to other slaves if needed. */</font></i>
+<a name='L132'>    <b>if</b> (<a href='../S/58.html#L57' title='Defined at 57 in src/adlist.h.'>listLength</a>(c-&gt;reply) != 0) <font color='red'>{</font>
+<a name='L133'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"SYNC is invalid with pending input");
+<a name='L134'>        <b>return</b>;
+<a name='L135'>    <font color='red'>}</font>
+<a name='L136'>
+<a name='L137'>    <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>,"Slave ask for synchronization");
+<a name='L138'>    <i><font color='green'>/* Here we need to check if there is a background saving operation</font></i>
+<a name='L139'><i><font color='green'>     * in progress, or if it is required to start one */</font></i>
+<a name='L140'>    <b>if</b> (server.rdb_child_pid != -1) <font color='red'>{</font>
+<a name='L141'>        <i><font color='green'>/* Ok a background save is in progress. Let's check if it is a good</font></i>
+<a name='L142'><i><font color='green'>         * one for replication, i.e. if there is another slave that is</font></i>
+<a name='L143'><i><font color='green'>         * registering differences since the server forked to save */</font></i>
+<a name='L144'>        <a href='../D/3781.html' title='Multiple defined in 2 places.'>redisClient</a> *slave;
+<a name='L145'>        <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln;
+<a name='L146'>        <a href='../D/2703.html' title='Multiple defined in 2 places.'>listIter</a> li;
+<a name='L147'>
+<a name='L148'>        <a href='../S/54.html#L197' title='Defined at 197 in src/adlist.c.'>listRewind</a>(server.slaves,&amp;li);
+<a name='L149'>        <b>while</b>((ln = <a href='../S/54.html#L221' title='Defined at 221 in src/adlist.c.'>listNext</a>(&amp;li))) <font color='red'>{</font>
+<a name='L150'>            slave = ln-&gt;value;
+<a name='L151'>            <b>if</b> (slave-&gt;replstate == <a href='../S/32.html#L214' title='Defined at 214 in src/redis.h.'>REDIS_REPL_WAIT_BGSAVE_END</a>) <b>break</b>;
+<a name='L152'>        <font color='red'>}</font>
+<a name='L153'>        <b>if</b> (ln) <font color='red'>{</font>
+<a name='L154'>            <i><font color='green'>/* Perfect, the server is already registering differences for</font></i>
+<a name='L155'><i><font color='green'>             * another slave. Set the right state, and copy the buffer. */</font></i>
+<a name='L156'>            <a href='../S/86.html#L509' title='Defined at 509 in src/networking.c.'>copyClientOutputBuffer</a>(c,slave);
+<a name='L157'>            c-&gt;replstate = <a href='../S/32.html#L214' title='Defined at 214 in src/redis.h.'>REDIS_REPL_WAIT_BGSAVE_END</a>;
+<a name='L158'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>,"Waiting for end of BGSAVE for SYNC");
+<a name='L159'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L160'>            <i><font color='green'>/* No way, we need to wait for the next BGSAVE in order to</font></i>
+<a name='L161'><i><font color='green'>             * register differences */</font></i>
+<a name='L162'>            c-&gt;replstate = <a href='../S/32.html#L213' title='Defined at 213 in src/redis.h.'>REDIS_REPL_WAIT_BGSAVE_START</a>;
+<a name='L163'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>,"Waiting for next BGSAVE for SYNC");
+<a name='L164'>        <font color='red'>}</font>
+<a name='L165'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L166'>        <i><font color='green'>/* Ok we don't have a BGSAVE in progress, let's start one */</font></i>
+<a name='L167'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>,"Starting BGSAVE for SYNC");
+<a name='L168'>        <b>if</b> (<a href='../S/87.html#L718' title='Defined at 718 in src/rdb.c.'>rdbSaveBackground</a>(server.rdb_filename) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L169'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>,"Replication failed, can't BGSAVE");
+<a name='L170'>            <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"Unable to perform background save");
+<a name='L171'>            <b>return</b>;
+<a name='L172'>        <font color='red'>}</font>
+<a name='L173'>        c-&gt;replstate = <a href='../S/32.html#L214' title='Defined at 214 in src/redis.h.'>REDIS_REPL_WAIT_BGSAVE_END</a>;
+<a name='L174'>    <font color='red'>}</font>
+<a name='L175'>    c-&gt;repldbfd = -1;
+<a name='L176'>    c-&gt;flags |= <a href='../S/32.html#L172' title='Defined at 172 in src/redis.h.'>REDIS_SLAVE</a>;
+<a name='L177'>    c-&gt;slaveseldb = 0;
+<a name='L178'>    <a href='../S/54.html#L106' title='Defined at 106 in src/adlist.c.'>listAddNodeTail</a>(server.slaves,c);
+<a name='L179'>    <b>return</b>;
+<a name='L180'><font color='red'>}</font>
+<a name='L181'>
+<a name='L182'><i><font color='green'>/* REPLCONF &lt;option&gt; &lt;value&gt; &lt;option&gt; &lt;value&gt; ...</font></i>
+<a name='L183'><i><font color='green'> * This command is used by a slave in order to configure the replication</font></i>
+<a name='L184'><i><font color='green'> * process before starting it with the SYNC command.</font></i>
+<a name='L185'><i><font color='green'> *</font></i>
+<a name='L186'><i><font color='green'> * Currently the only use of this command is to communicate to the master</font></i>
+<a name='L187'><i><font color='green'> * what is the listening port of the Slave redis instance, so that the</font></i>
+<a name='L188'><i><font color='green'> * master can accurately list slaves and their listening ports in</font></i>
+<a name='L189'><i><font color='green'> * the INFO output.</font></i>
+<a name='L190'><i><font color='green'> *</font></i>
+<a name='L191'><i><font color='green'> * In the future the same command can be used in order to configure</font></i>
+<a name='L192'><i><font color='green'> * the replication to initiate an incremental replication instead of a</font></i>
+<a name='L193'><i><font color='green'> * full resync. */</font></i>
+<a name='L194'><b>void</b> <a href='../R/3529.html' title='Multiple refered from 2 places.'>replconfCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L195'>    <b>int</b> j;
+<a name='L196'>
+<a name='L197'>    <b>if</b> ((c-&gt;argc % 2) == 0) <font color='red'>{</font>
+<a name='L198'>        <i><font color='green'>/* Number of arguments must be odd to make sure that every</font></i>
+<a name='L199'><i><font color='green'>         * option has a corresponding value. */</font></i>
+<a name='L200'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.syntaxerr);
+<a name='L201'>        <b>return</b>;
+<a name='L202'>    <font color='red'>}</font>
+<a name='L203'>
+<a name='L204'>    <i><font color='green'>/* Process every option-value pair. */</font></i>
+<a name='L205'>    <b>for</b> (j = 1; j &lt; c-&gt;argc; j+=2) <font color='red'>{</font>
+<a name='L206'>        <b>if</b> (!strcasecmp(c-&gt;argv[j]-&gt;ptr,"listening-port")) <font color='red'>{</font>
+<a name='L207'>            <b>long</b> port;
+<a name='L208'>
+<a name='L209'>            <b>if</b> ((<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c,c-&gt;argv[j+1],
+<a name='L210'>                    &amp;port,NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>))
+<a name='L211'>                <b>return</b>;
+<a name='L212'>            c-&gt;slave_listening_port = port;
+<a name='L213'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L214'>            <a href='../S/86.html#L334' title='Defined at 334 in src/networking.c.'>addReplyErrorFormat</a>(c,"Unrecognized REPLCONF option: %s",
+<a name='L215'>                (<b>char</b>*)c-&gt;argv[j]-&gt;ptr);
+<a name='L216'>            <b>return</b>;
+<a name='L217'>        <font color='red'>}</font>
+<a name='L218'>    <font color='red'>}</font>
+<a name='L219'>    <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L220'><font color='red'>}</font>
+<a name='L221'>
+<a name='L222'><b>void</b> <a href='../S/14.html#L311' title='Refered from 311 in src/replication.c.'>sendBulkToSlave</a>(aeEventLoop *el, <b>int</b> fd, <b>void</b> *privdata, <b>int</b> mask) <font color='red'>{</font>
+<a name='L223'>    <a href='../D/3781.html' title='Multiple defined in 2 places.'>redisClient</a> *slave = privdata;
+<a name='L224'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(el);
+<a name='L225'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(mask);
+<a name='L226'>    <b>char</b> buf[<a href='../S/32.html#L97' title='Defined at 97 in src/redis.h.'>REDIS_IOBUF_LEN</a>];
+<a name='L227'>    ssize_t nwritten, buflen;
+<a name='L228'>
+<a name='L229'>    <b>if</b> (slave-&gt;repldboff == 0) <font color='red'>{</font>
+<a name='L230'>        <i><font color='green'>/* Write the bulk write count before to transfer the DB. In theory here</font></i>
+<a name='L231'><i><font color='green'>         * we don't know how much room there is in the output buffer of the</font></i>
+<a name='L232'><i><font color='green'>         * socket, but in pratice SO_SNDLOWAT (the minimum count for output</font></i>
+<a name='L233'><i><font color='green'>         * operations) will never be smaller than the few bytes we need. */</font></i>
+<a name='L234'>        <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> bulkcount;
+<a name='L235'>
+<a name='L236'>        bulkcount = <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(<a href='../D/4005.html' title='Multiple defined in 2 places.'>sdsempty</a>(),"$%lld\r\n",(<b>unsigned</b> <b>long</b> <b>long</b>)
+<a name='L237'>            slave-&gt;repldbsize);
+<a name='L238'>        <b>if</b> (write(fd,bulkcount,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(bulkcount)) != (<b>signed</b>)<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(bulkcount))
+<a name='L239'>        <font color='red'>{</font>
+<a name='L240'>            <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(bulkcount);
+<a name='L241'>            <a href='../D/2273.html' title='Multiple defined in 2 places.'>freeClient</a>(slave);
+<a name='L242'>            <b>return</b>;
+<a name='L243'>        <font color='red'>}</font>
+<a name='L244'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(bulkcount);
+<a name='L245'>    <font color='red'>}</font>
+<a name='L246'>    lseek(slave-&gt;repldbfd,slave-&gt;repldboff,SEEK_SET);
+<a name='L247'>    buflen = read(slave-&gt;repldbfd,buf,<a href='../S/32.html#L97' title='Defined at 97 in src/redis.h.'>REDIS_IOBUF_LEN</a>);
+<a name='L248'>    <b>if</b> (buflen &lt;= 0) <font color='red'>{</font>
+<a name='L249'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Read error sending DB to slave: %s",
+<a name='L250'>            (buflen == 0) ? "premature EOF" : strerror(errno));
+<a name='L251'>        <a href='../D/2273.html' title='Multiple defined in 2 places.'>freeClient</a>(slave);
+<a name='L252'>        <b>return</b>;
+<a name='L253'>    <font color='red'>}</font>
+<a name='L254'>    <b>if</b> ((nwritten = write(fd,buf,buflen)) == -1) <font color='red'>{</font>
+<a name='L255'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L230' title='Defined at 230 in src/redis.h.'>REDIS_VERBOSE</a>,"Write error sending DB to slave: %s",
+<a name='L256'>            strerror(errno));
+<a name='L257'>        <a href='../D/2273.html' title='Multiple defined in 2 places.'>freeClient</a>(slave);
+<a name='L258'>        <b>return</b>;
+<a name='L259'>    <font color='red'>}</font>
+<a name='L260'>    slave-&gt;repldboff += nwritten;
+<a name='L261'>    <b>if</b> (slave-&gt;repldboff == slave-&gt;repldbsize) <font color='red'>{</font>
+<a name='L262'>        close(slave-&gt;repldbfd);
+<a name='L263'>        slave-&gt;repldbfd = -1;
+<a name='L264'>        <a href='../S/36.html#L121' title='Defined at 121 in src/ae.c.'>aeDeleteFileEvent</a>(server.el,slave-&gt;fd,<a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>);
+<a name='L265'>        slave-&gt;replstate = <a href='../S/32.html#L216' title='Defined at 216 in src/redis.h.'>REDIS_REPL_ONLINE</a>;
+<a name='L266'>        <b>if</b> (<a href='../S/36.html#L104' title='Defined at 104 in src/ae.c.'>aeCreateFileEvent</a>(server.el, slave-&gt;fd, <a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>,
+<a name='L267'>            <a href='../S/86.html#L695' title='Defined at 695 in src/networking.c.'>sendReplyToClient</a>, slave) == <a href='../S/38.html#L37' title='Defined at 37 in src/ae.h.'>AE_ERR</a>) <font color='red'>{</font>
+<a name='L268'>            <a href='../D/2273.html' title='Multiple defined in 2 places.'>freeClient</a>(slave);
+<a name='L269'>            <b>return</b>;
+<a name='L270'>        <font color='red'>}</font>
+<a name='L271'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>,"Synchronization with slave succeeded");
+<a name='L272'>    <font color='red'>}</font>
+<a name='L273'><font color='red'>}</font>
+<a name='L274'>
+<a name='L275'><i><font color='green'>/* This function is called at the end of every backgrond saving.</font></i>
+<a name='L276'><i><font color='green'> * The argument bgsaveerr is REDIS_OK if the background saving succeeded</font></i>
+<a name='L277'><i><font color='green'> * otherwise REDIS_ERR is passed to the function.</font></i>
+<a name='L278'><i><font color='green'> *</font></i>
+<a name='L279'><i><font color='green'> * The goal of this function is to handle slaves waiting for a successful</font></i>
+<a name='L280'><i><font color='green'> * background saving in order to perform non-blocking synchronization. */</font></i>
+<a name='L281'><b>void</b> <a href='../R/4064.html' title='Multiple refered from 2 places.'>updateSlavesWaitingBgsave</a>(<b>int</b> bgsaveerr) <font color='red'>{</font>
+<a name='L282'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln;
+<a name='L283'>    <b>int</b> startbgsave = 0;
+<a name='L284'>    <a href='../D/2703.html' title='Multiple defined in 2 places.'>listIter</a> li;
+<a name='L285'>
+<a name='L286'>    <a href='../S/54.html#L197' title='Defined at 197 in src/adlist.c.'>listRewind</a>(server.slaves,&amp;li);
+<a name='L287'>    <b>while</b>((ln = <a href='../S/54.html#L221' title='Defined at 221 in src/adlist.c.'>listNext</a>(&amp;li))) <font color='red'>{</font>
+<a name='L288'>        <a href='../D/3781.html' title='Multiple defined in 2 places.'>redisClient</a> *slave = ln-&gt;value;
+<a name='L289'>
+<a name='L290'>        <b>if</b> (slave-&gt;replstate == <a href='../S/32.html#L213' title='Defined at 213 in src/redis.h.'>REDIS_REPL_WAIT_BGSAVE_START</a>) <font color='red'>{</font>
+<a name='L291'>            startbgsave = 1;
+<a name='L292'>            slave-&gt;replstate = <a href='../S/32.html#L214' title='Defined at 214 in src/redis.h.'>REDIS_REPL_WAIT_BGSAVE_END</a>;
+<a name='L293'>        <font color='red'>}</font> <b>else</b> <b>if</b> (slave-&gt;replstate == <a href='../S/32.html#L214' title='Defined at 214 in src/redis.h.'>REDIS_REPL_WAIT_BGSAVE_END</a>) <font color='red'>{</font>
+<a name='L294'>            <b>struct</b> <a href='../D/3875.html' title='Multiple defined in 2 places.'>redis_stat</a> buf;
+<a name='L295'>
+<a name='L296'>            <b>if</b> (bgsaveerr != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L297'>                <a href='../D/2273.html' title='Multiple defined in 2 places.'>freeClient</a>(slave);
+<a name='L298'>                <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"SYNC failed. BGSAVE child returned an error");
+<a name='L299'>                <b>continue</b>;
+<a name='L300'>            <font color='red'>}</font>
+<a name='L301'>            <b>if</b> ((slave-&gt;repldbfd = open(server.rdb_filename,O_RDONLY)) == -1 ||
+<a name='L302'>                <a href='../D/3872.html' title='Multiple defined in 2 places.'>redis_fstat</a>(slave-&gt;repldbfd,&amp;buf) == -1) <font color='red'>{</font>
+<a name='L303'>                <a href='../D/2273.html' title='Multiple defined in 2 places.'>freeClient</a>(slave);
+<a name='L304'>                <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"SYNC failed. Can't open/stat DB after BGSAVE: %s", strerror(errno));
+<a name='L305'>                <b>continue</b>;
+<a name='L306'>            <font color='red'>}</font>
+<a name='L307'>            slave-&gt;repldboff = 0;
+<a name='L308'>            slave-&gt;repldbsize = buf.st_size;
+<a name='L309'>            slave-&gt;replstate = <a href='../S/32.html#L215' title='Defined at 215 in src/redis.h.'>REDIS_REPL_SEND_BULK</a>;
+<a name='L310'>            <a href='../S/36.html#L121' title='Defined at 121 in src/ae.c.'>aeDeleteFileEvent</a>(server.el,slave-&gt;fd,<a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>);
+<a name='L311'>            <b>if</b> (<a href='../S/36.html#L104' title='Defined at 104 in src/ae.c.'>aeCreateFileEvent</a>(server.el, slave-&gt;fd, <a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>, <a href='../S/14.html#L222' title='Defined at 222 in src/replication.c.'>sendBulkToSlave</a>, slave) == <a href='../S/38.html#L37' title='Defined at 37 in src/ae.h.'>AE_ERR</a>) <font color='red'>{</font>
+<a name='L312'>                <a href='../D/2273.html' title='Multiple defined in 2 places.'>freeClient</a>(slave);
+<a name='L313'>                <b>continue</b>;
+<a name='L314'>            <font color='red'>}</font>
+<a name='L315'>        <font color='red'>}</font>
+<a name='L316'>    <font color='red'>}</font>
+<a name='L317'>    <b>if</b> (startbgsave) <font color='red'>{</font>
+<a name='L318'>        <b>if</b> (<a href='../S/87.html#L718' title='Defined at 718 in src/rdb.c.'>rdbSaveBackground</a>(server.rdb_filename) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L319'>            <a href='../D/2703.html' title='Multiple defined in 2 places.'>listIter</a> li;
+<a name='L320'>
+<a name='L321'>            <a href='../S/54.html#L197' title='Defined at 197 in src/adlist.c.'>listRewind</a>(server.slaves,&amp;li);
+<a name='L322'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"SYNC failed. BGSAVE failed");
+<a name='L323'>            <b>while</b>((ln = <a href='../S/54.html#L221' title='Defined at 221 in src/adlist.c.'>listNext</a>(&amp;li))) <font color='red'>{</font>
+<a name='L324'>                <a href='../D/3781.html' title='Multiple defined in 2 places.'>redisClient</a> *slave = ln-&gt;value;
+<a name='L325'>
+<a name='L326'>                <b>if</b> (slave-&gt;replstate == <a href='../S/32.html#L213' title='Defined at 213 in src/redis.h.'>REDIS_REPL_WAIT_BGSAVE_START</a>)
+<a name='L327'>                    <a href='../D/2273.html' title='Multiple defined in 2 places.'>freeClient</a>(slave);
+<a name='L328'>            <font color='red'>}</font>
+<a name='L329'>        <font color='red'>}</font>
+<a name='L330'>    <font color='red'>}</font>
+<a name='L331'><font color='red'>}</font>
+<a name='L332'>
+<a name='L333'><i><font color='green'>/* ----------------------------------- SLAVE -------------------------------- */</font></i>
+<a name='L334'>
+<a name='L335'><i><font color='green'>/* Abort the async download of the bulk dataset while SYNC-ing with master */</font></i>
+<a name='L336'><b>void</b> <a href='../R/3530.html' title='Multiple refered from 7 places.'>replicationAbortSyncTransfer</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L337'>    <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(server.repl_state == <a href='../S/32.html#L203' title='Defined at 203 in src/redis.h.'>REDIS_REPL_TRANSFER</a>);
+<a name='L338'>
+<a name='L339'>    <a href='../S/36.html#L121' title='Defined at 121 in src/ae.c.'>aeDeleteFileEvent</a>(server.el,server.repl_transfer_s,<a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>);
+<a name='L340'>    close(server.repl_transfer_s);
+<a name='L341'>    close(server.repl_transfer_fd);
+<a name='L342'>    unlink(server.repl_transfer_tmpfile);
+<a name='L343'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(server.repl_transfer_tmpfile);
+<a name='L344'>    server.repl_state = <a href='../S/32.html#L200' title='Defined at 200 in src/redis.h.'>REDIS_REPL_CONNECT</a>;
+<a name='L345'><font color='red'>}</font>
+<a name='L346'>
+<a name='L347'><i><font color='green'>/* Asynchronously read the SYNC payload we receive from a master */</font></i>
+<a name='L348'><font color='darkred'>#define</font> <a href='../S/14.html#L410' title='Refered from 410 in src/replication.c.'>REPL_MAX_WRITTEN_BEFORE_FSYNC</a> (1024*1024*8) <i><font color='green'>/* 8 MB */</font></i>
+<a name='L349'><b>void</b> <a href='../S/14.html#L636' title='Refered from 636 in src/replication.c.'>readSyncBulkPayload</a>(aeEventLoop *el, <b>int</b> fd, <b>void</b> *privdata, <b>int</b> mask) <font color='red'>{</font>
+<a name='L350'>    <b>char</b> buf[4096];
+<a name='L351'>    ssize_t nread, readlen;
+<a name='L352'>    off_t left;
+<a name='L353'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(el);
+<a name='L354'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(privdata);
+<a name='L355'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(mask);
+<a name='L356'>
+<a name='L357'>    <i><font color='green'>/* If repl_transfer_size == -1 we still have to read the bulk length</font></i>
+<a name='L358'><i><font color='green'>     * from the master reply. */</font></i>
+<a name='L359'>    <b>if</b> (server.repl_transfer_size == -1) <font color='red'>{</font>
+<a name='L360'>        <b>if</b> (<a href='../S/78.html#L125' title='Defined at 125 in src/syncio.c.'>syncReadLine</a>(fd,buf,1024,server.repl_syncio_timeout*1000) == -1) <font color='red'>{</font>
+<a name='L361'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,
+<a name='L362'>                "I/O error reading bulk count from MASTER: %s",
+<a name='L363'>                strerror(errno));
+<a name='L364'>            <b>goto</b> <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>;
+<a name='L365'>        <font color='red'>}</font>
+<a name='L366'>
+<a name='L367'>        <b>if</b> (buf[0] == '-') <font color='red'>{</font>
+<a name='L368'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,
+<a name='L369'>                "MASTER aborted replication with an error: %s",
+<a name='L370'>                buf+1);
+<a name='L371'>            <b>goto</b> <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>;
+<a name='L372'>        <font color='red'>}</font> <b>else</b> <b>if</b> (buf[0] == '\0') <font color='red'>{</font>
+<a name='L373'>            <i><font color='green'>/* At this stage just a newline works as a PING in order to take</font></i>
+<a name='L374'><i><font color='green'>             * the connection live. So we refresh our last interaction</font></i>
+<a name='L375'><i><font color='green'>             * timestamp. */</font></i>
+<a name='L376'>            server.repl_transfer_lastio = server.unixtime;
+<a name='L377'>            <b>return</b>;
+<a name='L378'>        <font color='red'>}</font> <b>else</b> <b>if</b> (buf[0] != '$') <font color='red'>{</font>
+<a name='L379'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Bad protocol from MASTER, the first byte is not '$', are you sure the host and port are right?");
+<a name='L380'>            <b>goto</b> <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>;
+<a name='L381'>        <font color='red'>}</font>
+<a name='L382'>        server.repl_transfer_size = strtol(buf+1,NULL,10);
+<a name='L383'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>,
+<a name='L384'>            "MASTER &lt;-&gt; SLAVE sync: receiving %ld bytes from master",
+<a name='L385'>            server.repl_transfer_size);
+<a name='L386'>        <b>return</b>;
+<a name='L387'>    <font color='red'>}</font>
+<a name='L388'>
+<a name='L389'>    <i><font color='green'>/* Read bulk data */</font></i>
+<a name='L390'>    left = server.repl_transfer_size - server.repl_transfer_read;
+<a name='L391'>    readlen = (left &lt; (<b>signed</b>)<b>sizeof</b>(buf)) ? left : (<b>signed</b>)<b>sizeof</b>(buf);
+<a name='L392'>    nread = read(fd,buf,readlen);
+<a name='L393'>    <b>if</b> (nread &lt;= 0) <font color='red'>{</font>
+<a name='L394'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"I/O error trying to sync with MASTER: %s",
+<a name='L395'>            (nread == -1) ? strerror(errno) : "connection lost");
+<a name='L396'>        <a href='../S/14.html#L336' title='Defined at 336 in src/replication.c.'>replicationAbortSyncTransfer</a>();
+<a name='L397'>        <b>return</b>;
+<a name='L398'>    <font color='red'>}</font>
+<a name='L399'>    server.repl_transfer_lastio = server.unixtime;
+<a name='L400'>    <b>if</b> (write(server.repl_transfer_fd,buf,nread) != nread) <font color='red'>{</font>
+<a name='L401'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Write error or short write writing to the DB dump file needed for MASTER &lt;-&gt; SLAVE synchronization: %s", strerror(errno));
+<a name='L402'>        <b>goto</b> <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>;
+<a name='L403'>    <font color='red'>}</font>
+<a name='L404'>    server.repl_transfer_read += nread;
+<a name='L405'>
+<a name='L406'>    <i><font color='green'>/* Sync data on disk from time to time, otherwise at the end of the transfer</font></i>
+<a name='L407'><i><font color='green'>     * we may suffer a big delay as the memory buffers are copied into the</font></i>
+<a name='L408'><i><font color='green'>     * actual disk. */</font></i>
+<a name='L409'>    <b>if</b> (server.repl_transfer_read &gt;=
+<a name='L410'>        server.repl_transfer_last_fsync_off + <a href='../S/14.html#L348' title='Defined at 348 in src/replication.c.'>REPL_MAX_WRITTEN_BEFORE_FSYNC</a>)
+<a name='L411'>    <font color='red'>{</font>
+<a name='L412'>        off_t sync_size = server.repl_transfer_read -
+<a name='L413'>                          server.repl_transfer_last_fsync_off;
+<a name='L414'>        <a href='../D/3728.html' title='Multiple defined in 2 places.'>rdb_fsync_range</a>(server.repl_transfer_fd,
+<a name='L415'>            server.repl_transfer_last_fsync_off, sync_size);
+<a name='L416'>        server.repl_transfer_last_fsync_off += sync_size;
+<a name='L417'>    <font color='red'>}</font>
+<a name='L418'>
+<a name='L419'>    <i><font color='green'>/* Check if the transfer is now complete */</font></i>
+<a name='L420'>    <b>if</b> (server.repl_transfer_read == server.repl_transfer_size) <font color='red'>{</font>
+<a name='L421'>        <b>if</b> (rename(server.repl_transfer_tmpfile,server.rdb_filename) == -1) <font color='red'>{</font>
+<a name='L422'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Failed trying to rename the temp DB into dump.rdb in MASTER &lt;-&gt; SLAVE synchronization: %s", strerror(errno));
+<a name='L423'>            <a href='../S/14.html#L336' title='Defined at 336 in src/replication.c.'>replicationAbortSyncTransfer</a>();
+<a name='L424'>            <b>return</b>;
+<a name='L425'>        <font color='red'>}</font>
+<a name='L426'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>, "MASTER &lt;-&gt; SLAVE sync: Loading DB in memory");
+<a name='L427'>        <a href='../S/31.html#L169' title='Defined at 169 in src/db.c.'>emptyDb</a>();
+<a name='L428'>        <i><font color='green'>/* Before loading the DB into memory we need to delete the readable</font></i>
+<a name='L429'><i><font color='green'>         * handler, otherwise it will get called recursively since</font></i>
+<a name='L430'><i><font color='green'>         * rdbLoad() will call the event loop to process events from time to</font></i>
+<a name='L431'><i><font color='green'>         * time for non blocking loading. */</font></i>
+<a name='L432'>        <a href='../S/36.html#L121' title='Defined at 121 in src/ae.c.'>aeDeleteFileEvent</a>(server.el,server.repl_transfer_s,<a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>);
+<a name='L433'>        <b>if</b> (<a href='../S/87.html#L1060' title='Defined at 1060 in src/rdb.c.'>rdbLoad</a>(server.rdb_filename) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L434'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Failed trying to load the MASTER synchronization DB from disk");
+<a name='L435'>            <a href='../S/14.html#L336' title='Defined at 336 in src/replication.c.'>replicationAbortSyncTransfer</a>();
+<a name='L436'>            <b>return</b>;
+<a name='L437'>        <font color='red'>}</font>
+<a name='L438'>        <i><font color='green'>/* Final setup of the connected slave &lt;- master link */</font></i>
+<a name='L439'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(server.repl_transfer_tmpfile);
+<a name='L440'>        close(server.repl_transfer_fd);
+<a name='L441'>        server.master = <a href='../D/1966.html' title='Multiple defined in 2 places.'>createClient</a>(server.repl_transfer_s);
+<a name='L442'>        server.master-&gt;flags |= <a href='../S/32.html#L173' title='Defined at 173 in src/redis.h.'>REDIS_MASTER</a>;
+<a name='L443'>        server.master-&gt;authenticated = 1;
+<a name='L444'>        server.repl_state = <a href='../S/32.html#L204' title='Defined at 204 in src/redis.h.'>REDIS_REPL_CONNECTED</a>;
+<a name='L445'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>, "MASTER &lt;-&gt; SLAVE sync: Finished with success");
+<a name='L446'>        <i><font color='green'>/* Restart the AOF subsystem now that we finished the sync. This</font></i>
+<a name='L447'><i><font color='green'>         * will trigger an AOF rewrite, and when done will start appending</font></i>
+<a name='L448'><i><font color='green'>         * to the new file. */</font></i>
+<a name='L449'>        <b>if</b> (server.aof_state != <a href='../S/32.html#L167' title='Defined at 167 in src/redis.h.'>REDIS_AOF_OFF</a>) <font color='red'>{</font>
+<a name='L450'>            <b>int</b> retry = 10;
+<a name='L451'>
+<a name='L452'>            <a href='../S/62.html#L165' title='Defined at 165 in src/aof.c.'>stopAppendOnly</a>();
+<a name='L453'>            <b>while</b> (retry-- &amp;&amp; <a href='../S/62.html#L192' title='Defined at 192 in src/aof.c.'>startAppendOnly</a>() == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>) <font color='red'>{</font>
+<a name='L454'>                <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Failed enabling the AOF after successful master synchrnization! Trying it again in one second.");
+<a name='L455'>                sleep(1);
+<a name='L456'>            <font color='red'>}</font>
+<a name='L457'>            <b>if</b> (!retry) <font color='red'>{</font>
+<a name='L458'>                <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"FATAL: this slave instance finished the synchronization with its master, but the AOF can't be turned on. Exiting now.");
+<a name='L459'>                exit(1);
+<a name='L460'>            <font color='red'>}</font>
+<a name='L461'>        <font color='red'>}</font>
+<a name='L462'>    <font color='red'>}</font>
+<a name='L463'>
+<a name='L464'>    <b>return</b>;
+<a name='L465'>
+<a name='L466'><a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>:
+<a name='L467'>    <a href='../S/14.html#L336' title='Defined at 336 in src/replication.c.'>replicationAbortSyncTransfer</a>();
+<a name='L468'>    <b>return</b>;
+<a name='L469'><font color='red'>}</font>
+<a name='L470'>
+<a name='L471'><i><font color='green'>/* Send a synchronous command to the master. Used to send AUTH and</font></i>
+<a name='L472'><i><font color='green'> * REPLCONF commands before starting the replication with SYNC.</font></i>
+<a name='L473'><i><font color='green'> *</font></i>
+<a name='L474'><i><font color='green'> * On success NULL is returned.</font></i>
+<a name='L475'><i><font color='green'> * On error an sds string describing the error is returned.</font></i>
+<a name='L476'><i><font color='green'> */</font></i>
+<a name='L477'><b>char</b> *<a href='../R/3660.html' title='Multiple refered from 2 places.'>sendSynchronousCommand</a>(<b>int</b> fd, ...) <font color='red'>{</font>
+<a name='L478'>    va_list ap;
+<a name='L479'>    <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> cmd = <a href='../D/4005.html' title='Multiple defined in 2 places.'>sdsempty</a>();
+<a name='L480'>    <b>char</b> *arg, buf[256];
+<a name='L481'>
+<a name='L482'>    <i><font color='green'>/* Create the command to send to the master, we use simple inline</font></i>
+<a name='L483'><i><font color='green'>     * protocol for simplicity as currently we only send simple strings. */</font></i>
+<a name='L484'>    va_start(ap,fd);
+<a name='L485'>    <b>while</b>(1) <font color='red'>{</font>
+<a name='L486'>        arg = va_arg(ap, <b>char</b>*);
+<a name='L487'>        <b>if</b> (arg == NULL) <b>break</b>;
+<a name='L488'>
+<a name='L489'>        <b>if</b> (<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(cmd) != 0) cmd = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(cmd," ",1);
+<a name='L490'>        cmd = <a href='../D/3994.html' title='Multiple defined in 2 places.'>sdscat</a>(cmd,arg);
+<a name='L491'>    <font color='red'>}</font>
+<a name='L492'>    cmd = <a href='../D/3995.html' title='Multiple defined in 2 places.'>sdscatlen</a>(cmd,"\r\n",2);
+<a name='L493'>
+<a name='L494'>    <i><font color='green'>/* Transfer command to the server. */</font></i>
+<a name='L495'>    <b>if</b> (<a href='../S/78.html#L49' title='Defined at 49 in src/syncio.c.'>syncWrite</a>(fd,cmd,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(cmd),server.repl_syncio_timeout*1000) == -1) <font color='red'>{</font>
+<a name='L496'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(cmd);
+<a name='L497'>        <b>return</b> <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(<a href='../D/4005.html' title='Multiple defined in 2 places.'>sdsempty</a>(),"Writing to master: %s",
+<a name='L498'>                strerror(errno));
+<a name='L499'>    <font color='red'>}</font>
+<a name='L500'>    <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(cmd);
+<a name='L501'>
+<a name='L502'>    <i><font color='green'>/* Read the reply from the server. */</font></i>
+<a name='L503'>    <b>if</b> (<a href='../S/78.html#L125' title='Defined at 125 in src/syncio.c.'>syncReadLine</a>(fd,buf,<b>sizeof</b>(buf),server.repl_syncio_timeout*1000) == -1)
+<a name='L504'>    <font color='red'>{</font>
+<a name='L505'>        <b>return</b> <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(<a href='../D/4005.html' title='Multiple defined in 2 places.'>sdsempty</a>(),"Reading from master: %s",
+<a name='L506'>                strerror(errno));
+<a name='L507'>    <font color='red'>}</font>
+<a name='L508'>
+<a name='L509'>    <i><font color='green'>/* Check for errors from the server. */</font></i>
+<a name='L510'>    <b>if</b> (buf[0] != '+') <font color='red'>{</font>
+<a name='L511'>        <b>return</b> <a href='../D/3996.html' title='Multiple defined in 2 places.'>sdscatprintf</a>(<a href='../D/4005.html' title='Multiple defined in 2 places.'>sdsempty</a>(),"Error from master: %s", buf);
+<a name='L512'>    <font color='red'>}</font>
+<a name='L513'>
+<a name='L514'>    <b>return</b> NULL; <i><font color='green'>/* No errors. */</font></i>
+<a name='L515'><font color='red'>}</font>
+<a name='L516'>
+<a name='L517'><b>void</b> <a href='../S/14.html#L669' title='Refered from 669 in src/replication.c.'>syncWithMaster</a>(aeEventLoop *el, <b>int</b> fd, <b>void</b> *privdata, <b>int</b> mask) <font color='red'>{</font>
+<a name='L518'>    <b>char</b> tmpfile[256], *err;
+<a name='L519'>    <b>int</b> dfd, maxtries = 5;
+<a name='L520'>    <b>int</b> sockerr = 0;
+<a name='L521'>    socklen_t errlen = <b>sizeof</b>(sockerr);
+<a name='L522'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(el);
+<a name='L523'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(privdata);
+<a name='L524'>    <a href='../D/847.html' title='Multiple defined in 3 places.'>REDIS_NOTUSED</a>(mask);
+<a name='L525'>
+<a name='L526'>    <i><font color='green'>/* If this event fired after the user turned the instance into a master</font></i>
+<a name='L527'><i><font color='green'>     * with SLAVEOF NO ONE we must just return ASAP. */</font></i>
+<a name='L528'>    <b>if</b> (server.repl_state == <a href='../S/32.html#L199' title='Defined at 199 in src/redis.h.'>REDIS_REPL_NONE</a>) <font color='red'>{</font>
+<a name='L529'>        close(fd);
+<a name='L530'>        <b>return</b>;
+<a name='L531'>    <font color='red'>}</font>
+<a name='L532'>
+<a name='L533'>    <i><font color='green'>/* Check for errors in the socket. */</font></i>
+<a name='L534'>    <b>if</b> (getsockopt(fd, SOL_SOCKET, SO_ERROR, &amp;sockerr, &amp;errlen) == -1)
+<a name='L535'>        sockerr = errno;
+<a name='L536'>    <b>if</b> (sockerr) <font color='red'>{</font>
+<a name='L537'>        <a href='../S/36.html#L121' title='Defined at 121 in src/ae.c.'>aeDeleteFileEvent</a>(server.el,fd,<a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>|<a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>);
+<a name='L538'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Error condition on socket for SYNC: %s",
+<a name='L539'>            strerror(sockerr));
+<a name='L540'>        <b>goto</b> <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>;
+<a name='L541'>    <font color='red'>}</font>
+<a name='L542'>
+<a name='L543'>    <i><font color='green'>/* If we were connecting, it's time to send a non blocking PING, we want to</font></i>
+<a name='L544'><i><font color='green'>     * make sure the master is able to reply before going into the actual</font></i>
+<a name='L545'><i><font color='green'>     * replication process where we have long timeouts in the order of</font></i>
+<a name='L546'><i><font color='green'>     * seconds (in the meantime the slave would block). */</font></i>
+<a name='L547'>    <b>if</b> (server.repl_state == <a href='../S/32.html#L201' title='Defined at 201 in src/redis.h.'>REDIS_REPL_CONNECTING</a>) <font color='red'>{</font>
+<a name='L548'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>,"Non blocking connect for SYNC fired the event.");
+<a name='L549'>        <i><font color='green'>/* Delete the writable event so that the readable event remains</font></i>
+<a name='L550'><i><font color='green'>         * registered and we can wait for the PONG reply. */</font></i>
+<a name='L551'>        <a href='../S/36.html#L121' title='Defined at 121 in src/ae.c.'>aeDeleteFileEvent</a>(server.el,fd,<a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>);
+<a name='L552'>        server.repl_state = <a href='../S/32.html#L202' title='Defined at 202 in src/redis.h.'>REDIS_REPL_RECEIVE_PONG</a>;
+<a name='L553'>        <i><font color='green'>/* Send the PING, don't check for errors at all, we have the timeout</font></i>
+<a name='L554'><i><font color='green'>         * that will take care about this. */</font></i>
+<a name='L555'>        <a href='../S/78.html#L49' title='Defined at 49 in src/syncio.c.'>syncWrite</a>(fd,"PING\r\n",6,100);
+<a name='L556'>        <b>return</b>;
+<a name='L557'>    <font color='red'>}</font>
+<a name='L558'>
+<a name='L559'>    <i><font color='green'>/* Receive the PONG command. */</font></i>
+<a name='L560'>    <b>if</b> (server.repl_state == <a href='../S/32.html#L202' title='Defined at 202 in src/redis.h.'>REDIS_REPL_RECEIVE_PONG</a>) <font color='red'>{</font>
+<a name='L561'>        <b>char</b> buf[1024];
+<a name='L562'>
+<a name='L563'>        <i><font color='green'>/* Delete the readable event, we no longer need it now that there is</font></i>
+<a name='L564'><i><font color='green'>         * the PING reply to read. */</font></i>
+<a name='L565'>        <a href='../S/36.html#L121' title='Defined at 121 in src/ae.c.'>aeDeleteFileEvent</a>(server.el,fd,<a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>);
+<a name='L566'>
+<a name='L567'>        <i><font color='green'>/* Read the reply with explicit timeout. */</font></i>
+<a name='L568'>        buf[0] = '\0';
+<a name='L569'>        <b>if</b> (<a href='../S/78.html#L125' title='Defined at 125 in src/syncio.c.'>syncReadLine</a>(fd,buf,<b>sizeof</b>(buf),
+<a name='L570'>            server.repl_syncio_timeout*1000) == -1)
+<a name='L571'>        <font color='red'>{</font>
+<a name='L572'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,
+<a name='L573'>                "I/O error reading PING reply from master: %s",
+<a name='L574'>                strerror(errno));
+<a name='L575'>            <b>goto</b> <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>;
+<a name='L576'>        <font color='red'>}</font>
+<a name='L577'>
+<a name='L578'>        <i><font color='green'>/* We don't care about the reply, it can be +PONG or an error since</font></i>
+<a name='L579'><i><font color='green'>         * the server requires AUTH. As long as it replies correctly, it's</font></i>
+<a name='L580'><i><font color='green'>         * fine from our point of view. */</font></i>
+<a name='L581'>        <b>if</b> (buf[0] != '-' &amp;&amp; buf[0] != '+') <font color='red'>{</font>
+<a name='L582'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Unexpected reply to PING from master.");
+<a name='L583'>            <b>goto</b> <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>;
+<a name='L584'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L585'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>,
+<a name='L586'>                "Master replied to PING, replication can continue...");
+<a name='L587'>        <font color='red'>}</font>
+<a name='L588'>    <font color='red'>}</font>
+<a name='L589'>
+<a name='L590'>    <i><font color='green'>/* AUTH with the master if required. */</font></i>
+<a name='L591'>    <b>if</b>(server.masterauth) <font color='red'>{</font>
+<a name='L592'>        err = <a href='../S/14.html#L477' title='Defined at 477 in src/replication.c.'>sendSynchronousCommand</a>(fd,"AUTH",server.masterauth,NULL);
+<a name='L593'>        <b>if</b> (err) <font color='red'>{</font>
+<a name='L594'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Unable to AUTH to MASTER: %s",err);
+<a name='L595'>            <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(err);
+<a name='L596'>            <b>goto</b> <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>;
+<a name='L597'>        <font color='red'>}</font>
+<a name='L598'>    <font color='red'>}</font>
+<a name='L599'>
+<a name='L600'>    <i><font color='green'>/* Set the slave port, so that Master's INFO command can list the</font></i>
+<a name='L601'><i><font color='green'>     * slave listening port correctly. */</font></i>
+<a name='L602'>    <font color='red'>{</font>
+<a name='L603'>        <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> port = <a href='../D/4008.html' title='Multiple defined in 2 places.'>sdsfromlonglong</a>(server.port);
+<a name='L604'>        err = <a href='../S/14.html#L477' title='Defined at 477 in src/replication.c.'>sendSynchronousCommand</a>(fd,"REPLCONF","listening-port",port,
+<a name='L605'>                                         NULL);
+<a name='L606'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(port);
+<a name='L607'>        <i><font color='green'>/* Ignore the error if any, not all the Redis versions support</font></i>
+<a name='L608'><i><font color='green'>         * REPLCONF listening-port. */</font></i>
+<a name='L609'>        <b>if</b> (err) <font color='red'>{</font>
+<a name='L610'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>,"(non critical): Master does not understand REPLCONF listening-port: %s", err);
+<a name='L611'>            <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(err);
+<a name='L612'>        <font color='red'>}</font>
+<a name='L613'>    <font color='red'>}</font>
+<a name='L614'>
+<a name='L615'>    <i><font color='green'>/* Issue the SYNC command */</font></i>
+<a name='L616'>    <b>if</b> (<a href='../S/78.html#L49' title='Defined at 49 in src/syncio.c.'>syncWrite</a>(fd,"SYNC\r\n",6,server.repl_syncio_timeout*1000) == -1) <font color='red'>{</font>
+<a name='L617'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"I/O error writing to MASTER: %s",
+<a name='L618'>            strerror(errno));
+<a name='L619'>        <b>goto</b> <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>;
+<a name='L620'>    <font color='red'>}</font>
+<a name='L621'>
+<a name='L622'>    <i><font color='green'>/* Prepare a suitable temp file for bulk transfer */</font></i>
+<a name='L623'>    <b>while</b>(maxtries--) <font color='red'>{</font>
+<a name='L624'>        snprintf(tmpfile,256,
+<a name='L625'>            "temp-%d.%ld.rdb",(<b>int</b>)server.unixtime,(<b>long</b> <b>int</b>)getpid());
+<a name='L626'>        dfd = open(tmpfile,O_CREAT|O_WRONLY|O_EXCL,0644);
+<a name='L627'>        <b>if</b> (dfd != -1) <b>break</b>;
+<a name='L628'>        sleep(1);
+<a name='L629'>    <font color='red'>}</font>
+<a name='L630'>    <b>if</b> (dfd == -1) <font color='red'>{</font>
+<a name='L631'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Opening the temp file needed for MASTER &lt;-&gt; SLAVE synchronization: %s",strerror(errno));
+<a name='L632'>        <b>goto</b> <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>;
+<a name='L633'>    <font color='red'>}</font>
+<a name='L634'>
+<a name='L635'>    <i><font color='green'>/* Setup the non blocking download of the bulk file. */</font></i>
+<a name='L636'>    <b>if</b> (<a href='../S/36.html#L104' title='Defined at 104 in src/ae.c.'>aeCreateFileEvent</a>(server.el,fd, <a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>,<a href='../S/14.html#L349' title='Defined at 349 in src/replication.c.'>readSyncBulkPayload</a>,NULL)
+<a name='L637'>            == <a href='../S/38.html#L37' title='Defined at 37 in src/ae.h.'>AE_ERR</a>)
+<a name='L638'>    <font color='red'>{</font>
+<a name='L639'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Can't create readable event for SYNC");
+<a name='L640'>        <b>goto</b> <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>;
+<a name='L641'>    <font color='red'>}</font>
+<a name='L642'>
+<a name='L643'>    server.repl_state = <a href='../S/32.html#L203' title='Defined at 203 in src/redis.h.'>REDIS_REPL_TRANSFER</a>;
+<a name='L644'>    server.repl_transfer_size = -1;
+<a name='L645'>    server.repl_transfer_read = 0;
+<a name='L646'>    server.repl_transfer_last_fsync_off = 0;
+<a name='L647'>    server.repl_transfer_fd = dfd;
+<a name='L648'>    server.repl_transfer_lastio = server.unixtime;
+<a name='L649'>    server.repl_transfer_tmpfile = <a href='../S/39.html#L210' title='Defined at 210 in src/zmalloc.c.'>zstrdup</a>(tmpfile);
+<a name='L650'>    <b>return</b>;
+<a name='L651'>
+<a name='L652'><a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>:
+<a name='L653'>    close(fd);
+<a name='L654'>    server.repl_transfer_s = -1;
+<a name='L655'>    server.repl_state = <a href='../S/32.html#L200' title='Defined at 200 in src/redis.h.'>REDIS_REPL_CONNECT</a>;
+<a name='L656'>    <b>return</b>;
+<a name='L657'><font color='red'>}</font>
+<a name='L658'>
+<a name='L659'><b>int</b> <a href='../S/14.html#L772' title='Refered from 772 in src/replication.c.'>connectWithMaster</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L660'>    <b>int</b> fd;
+<a name='L661'>
+<a name='L662'>    fd = <a href='../S/50.html#L188' title='Defined at 188 in src/anet.c.'>anetTcpNonBlockConnect</a>(NULL,server.masterhost,server.masterport);
+<a name='L663'>    <b>if</b> (fd == -1) <font color='red'>{</font>
+<a name='L664'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Unable to connect to MASTER: %s",
+<a name='L665'>            strerror(errno));
+<a name='L666'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L667'>    <font color='red'>}</font>
+<a name='L668'>
+<a name='L669'>    <b>if</b> (<a href='../S/36.html#L104' title='Defined at 104 in src/ae.c.'>aeCreateFileEvent</a>(server.el,fd,<a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>|<a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>,<a href='../S/14.html#L517' title='Defined at 517 in src/replication.c.'>syncWithMaster</a>,NULL) ==
+<a name='L670'>            <a href='../S/38.html#L37' title='Defined at 37 in src/ae.h.'>AE_ERR</a>)
+<a name='L671'>    <font color='red'>{</font>
+<a name='L672'>        close(fd);
+<a name='L673'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Can't create readable event for SYNC");
+<a name='L674'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L675'>    <font color='red'>}</font>
+<a name='L676'>
+<a name='L677'>    server.repl_transfer_lastio = server.unixtime;
+<a name='L678'>    server.repl_transfer_s = fd;
+<a name='L679'>    server.repl_state = <a href='../S/32.html#L201' title='Defined at 201 in src/redis.h.'>REDIS_REPL_CONNECTING</a>;
+<a name='L680'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L681'><font color='red'>}</font>
+<a name='L682'>
+<a name='L683'><i><font color='green'>/* This function can be called when a non blocking connection is currently</font></i>
+<a name='L684'><i><font color='green'> * in progress to undo it. */</font></i>
+<a name='L685'><b>void</b> <a href='../R/4056.html' title='Multiple refered from 2 places.'>undoConnectWithMaster</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L686'>    <b>int</b> fd = server.repl_transfer_s;
+<a name='L687'>
+<a name='L688'>    <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(server.repl_state == <a href='../S/32.html#L201' title='Defined at 201 in src/redis.h.'>REDIS_REPL_CONNECTING</a> ||
+<a name='L689'>                server.repl_state == <a href='../S/32.html#L202' title='Defined at 202 in src/redis.h.'>REDIS_REPL_RECEIVE_PONG</a>);
+<a name='L690'>    <a href='../S/36.html#L121' title='Defined at 121 in src/ae.c.'>aeDeleteFileEvent</a>(server.el,fd,<a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>|<a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>);
+<a name='L691'>    close(fd);
+<a name='L692'>    server.repl_transfer_s = -1;
+<a name='L693'>    server.repl_state = <a href='../S/32.html#L200' title='Defined at 200 in src/redis.h.'>REDIS_REPL_CONNECT</a>;
+<a name='L694'><font color='red'>}</font>
+<a name='L695'>
+<a name='L696'><b>void</b> <a href='../R/3812.html' title='Multiple refered from 2 places.'>slaveofCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L697'>    <b>if</b> (!strcasecmp(c-&gt;argv[1]-&gt;ptr,"no") &amp;&amp;
+<a name='L698'>        !strcasecmp(c-&gt;argv[2]-&gt;ptr,"one")) <font color='red'>{</font>
+<a name='L699'>        <b>if</b> (server.masterhost) <font color='red'>{</font>
+<a name='L700'>            <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(server.masterhost);
+<a name='L701'>            server.masterhost = NULL;
+<a name='L702'>            <b>if</b> (server.master) <a href='../D/2273.html' title='Multiple defined in 2 places.'>freeClient</a>(server.master);
+<a name='L703'>            <b>if</b> (server.repl_state == <a href='../S/32.html#L203' title='Defined at 203 in src/redis.h.'>REDIS_REPL_TRANSFER</a>)
+<a name='L704'>                <a href='../S/14.html#L336' title='Defined at 336 in src/replication.c.'>replicationAbortSyncTransfer</a>();
+<a name='L705'>            <b>else</b> <b>if</b> (server.repl_state == <a href='../S/32.html#L201' title='Defined at 201 in src/redis.h.'>REDIS_REPL_CONNECTING</a> ||
+<a name='L706'>                     server.repl_state == <a href='../S/32.html#L202' title='Defined at 202 in src/redis.h.'>REDIS_REPL_RECEIVE_PONG</a>)
+<a name='L707'>                <a href='../S/14.html#L685' title='Defined at 685 in src/replication.c.'>undoConnectWithMaster</a>();
+<a name='L708'>            server.repl_state = <a href='../S/32.html#L199' title='Defined at 199 in src/redis.h.'>REDIS_REPL_NONE</a>;
+<a name='L709'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>,"MASTER MODE enabled (user request)");
+<a name='L710'>        <font color='red'>}</font>
+<a name='L711'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L712'>        <b>long</b> port;
+<a name='L713'>
+<a name='L714'>        <b>if</b> ((<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c, c-&gt;argv[2], &amp;port, NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>))
+<a name='L715'>            <b>return</b>;
+<a name='L716'>
+<a name='L717'>        <i><font color='green'>/* Check if we are already attached to the specified slave */</font></i>
+<a name='L718'>        <b>if</b> (server.masterhost &amp;&amp; !strcasecmp(server.masterhost,c-&gt;argv[1]-&gt;ptr)
+<a name='L719'>            &amp;&amp; server.masterport == port) <font color='red'>{</font>
+<a name='L720'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>,"SLAVE OF would result into synchronization with the master we are already connected with. No operation performed.");
+<a name='L721'>            <a href='../S/86.html#L304' title='Defined at 304 in src/networking.c.'>addReplySds</a>(c,<a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>("+OK Already connected to specified master\r\n"));
+<a name='L722'>            <b>return</b>;
+<a name='L723'>        <font color='red'>}</font>
+<a name='L724'>        <i><font color='green'>/* There was no previous master or the user specified a different one,</font></i>
+<a name='L725'><i><font color='green'>         * we can continue. */</font></i>
+<a name='L726'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(server.masterhost);
+<a name='L727'>        server.masterhost = <a href='../D/4004.html' title='Multiple defined in 2 places.'>sdsdup</a>(c-&gt;argv[1]-&gt;ptr);
+<a name='L728'>        server.masterport = port;
+<a name='L729'>        <b>if</b> (server.master) <a href='../D/2273.html' title='Multiple defined in 2 places.'>freeClient</a>(server.master);
+<a name='L730'>        <a href='../S/86.html#L586' title='Defined at 586 in src/networking.c.'>disconnectSlaves</a>(); <i><font color='green'>/* Force our slaves to resync with us as well. */</font></i>
+<a name='L731'>        <b>if</b> (server.repl_state == <a href='../S/32.html#L203' title='Defined at 203 in src/redis.h.'>REDIS_REPL_TRANSFER</a>)
+<a name='L732'>            <a href='../S/14.html#L336' title='Defined at 336 in src/replication.c.'>replicationAbortSyncTransfer</a>();
+<a name='L733'>        server.repl_state = <a href='../S/32.html#L200' title='Defined at 200 in src/redis.h.'>REDIS_REPL_CONNECT</a>;
+<a name='L734'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>,"SLAVE OF %s:%d enabled (user request)",
+<a name='L735'>            server.masterhost, server.masterport);
+<a name='L736'>    <font color='red'>}</font>
+<a name='L737'>    <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L738'><font color='red'>}</font>
+<a name='L739'>
+<a name='L740'><i><font color='green'>/* --------------------------- REPLICATION CRON  ---------------------------- */</font></i>
+<a name='L741'>
+<a name='L742'><b>void</b> <a href='../R/3531.html' title='Multiple refered from 2 places.'>replicationCron</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L743'>    <i><font color='green'>/* Non blocking connection timeout? */</font></i>
+<a name='L744'>    <b>if</b> (server.masterhost &amp;&amp;
+<a name='L745'>        (server.repl_state == <a href='../S/32.html#L201' title='Defined at 201 in src/redis.h.'>REDIS_REPL_CONNECTING</a> ||
+<a name='L746'>         server.repl_state == <a href='../S/32.html#L202' title='Defined at 202 in src/redis.h.'>REDIS_REPL_RECEIVE_PONG</a>) &amp;&amp;
+<a name='L747'>        (time(NULL)-server.repl_transfer_lastio) &gt; server.repl_timeout)
+<a name='L748'>    <font color='red'>{</font>
+<a name='L749'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Timeout connecting to the MASTER...");
+<a name='L750'>        <a href='../S/14.html#L685' title='Defined at 685 in src/replication.c.'>undoConnectWithMaster</a>();
+<a name='L751'>    <font color='red'>}</font>
+<a name='L752'>
+<a name='L753'>    <i><font color='green'>/* Bulk transfer I/O timeout? */</font></i>
+<a name='L754'>    <b>if</b> (server.masterhost &amp;&amp; server.repl_state == <a href='../S/32.html#L203' title='Defined at 203 in src/redis.h.'>REDIS_REPL_TRANSFER</a> &amp;&amp;
+<a name='L755'>        (time(NULL)-server.repl_transfer_lastio) &gt; server.repl_timeout)
+<a name='L756'>    <font color='red'>{</font>
+<a name='L757'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"Timeout receiving bulk data from MASTER... If the problem persists try to set the 'repl-timeout' parameter in redis.conf to a larger value.");
+<a name='L758'>        <a href='../S/14.html#L336' title='Defined at 336 in src/replication.c.'>replicationAbortSyncTransfer</a>();
+<a name='L759'>    <font color='red'>}</font>
+<a name='L760'>
+<a name='L761'>    <i><font color='green'>/* Timed out master when we are an already connected slave? */</font></i>
+<a name='L762'>    <b>if</b> (server.masterhost &amp;&amp; server.repl_state == <a href='../S/32.html#L204' title='Defined at 204 in src/redis.h.'>REDIS_REPL_CONNECTED</a> &amp;&amp;
+<a name='L763'>        (time(NULL)-server.master-&gt;lastinteraction) &gt; server.repl_timeout)
+<a name='L764'>    <font color='red'>{</font>
+<a name='L765'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"MASTER time out: no data nor PING received...");
+<a name='L766'>        <a href='../D/2273.html' title='Multiple defined in 2 places.'>freeClient</a>(server.master);
+<a name='L767'>    <font color='red'>}</font>
+<a name='L768'>
+<a name='L769'>    <i><font color='green'>/* Check if we should connect to a MASTER */</font></i>
+<a name='L770'>    <b>if</b> (server.repl_state == <a href='../S/32.html#L200' title='Defined at 200 in src/redis.h.'>REDIS_REPL_CONNECT</a>) <font color='red'>{</font>
+<a name='L771'>        <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>,"Connecting to MASTER...");
+<a name='L772'>        <b>if</b> (<a href='../S/14.html#L659' title='Defined at 659 in src/replication.c.'>connectWithMaster</a>() == <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L773'>            <a href='../S/35.html#L294' title='Defined at 294 in src/redis.c.'>redisLog</a>(<a href='../S/32.html#L231' title='Defined at 231 in src/redis.h.'>REDIS_NOTICE</a>,"MASTER &lt;-&gt; SLAVE sync started");
+<a name='L774'>        <font color='red'>}</font>
+<a name='L775'>    <font color='red'>}</font>
+<a name='L776'>    
+<a name='L777'>    <i><font color='green'>/* If we have attached slaves, PING them from time to time.</font></i>
+<a name='L778'><i><font color='green'>     * So slaves can implement an explicit timeout to masters, and will</font></i>
+<a name='L779'><i><font color='green'>     * be able to detect a link disconnection even if the TCP connection</font></i>
+<a name='L780'><i><font color='green'>     * will not actually go down. */</font></i>
+<a name='L781'>    <b>if</b> (!(server.cronloops % (server.repl_ping_slave_period * <a href='../S/32.html#L70' title='Defined at 70 in src/redis.h.'>REDIS_HZ</a>))) <font color='red'>{</font>
+<a name='L782'>        <a href='../D/2703.html' title='Multiple defined in 2 places.'>listIter</a> li;
+<a name='L783'>        <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln;
+<a name='L784'>
+<a name='L785'>        <a href='../S/54.html#L197' title='Defined at 197 in src/adlist.c.'>listRewind</a>(server.slaves,&amp;li);
+<a name='L786'>        <b>while</b>((ln = <a href='../S/54.html#L221' title='Defined at 221 in src/adlist.c.'>listNext</a>(&amp;li))) <font color='red'>{</font>
+<a name='L787'>            <a href='../D/3781.html' title='Multiple defined in 2 places.'>redisClient</a> *slave = ln-&gt;value;
+<a name='L788'>
+<a name='L789'>            <i><font color='green'>/* Don't ping slaves that are in the middle of a bulk transfer</font></i>
+<a name='L790'><i><font color='green'>             * with the master for first synchronization. */</font></i>
+<a name='L791'>            <b>if</b> (slave-&gt;replstate == <a href='../S/32.html#L215' title='Defined at 215 in src/redis.h.'>REDIS_REPL_SEND_BULK</a>) <b>continue</b>;
+<a name='L792'>            <b>if</b> (slave-&gt;replstate == <a href='../S/32.html#L216' title='Defined at 216 in src/redis.h.'>REDIS_REPL_ONLINE</a>) <font color='red'>{</font>
+<a name='L793'>                <i><font color='green'>/* If the slave is online send a normal ping */</font></i>
+<a name='L794'>                <a href='../S/86.html#L304' title='Defined at 304 in src/networking.c.'>addReplySds</a>(slave,<a href='../D/4013.html' title='Multiple defined in 2 places.'>sdsnew</a>("*1\r\n$4\r\nPING\r\n"));
+<a name='L795'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L796'>                <i><font color='green'>/* Otherwise we are in the pre-synchronization stage.</font></i>
+<a name='L797'><i><font color='green'>                 * Just a newline will do the work of refreshing the</font></i>
+<a name='L798'><i><font color='green'>                 * connection last interaction time, and at the same time</font></i>
+<a name='L799'><i><font color='green'>                 * we'll be sure that being a single char there are no</font></i>
+<a name='L800'><i><font color='green'>                 * short-write problems. */</font></i>
+<a name='L801'>                <b>if</b> (write(slave-&gt;fd, "\n", 1) == -1) <font color='red'>{</font>
+<a name='L802'>                    <i><font color='green'>/* Don't worry, it's just a ping. */</font></i>
+<a name='L803'>                <font color='red'>}</font>
+<a name='L804'>            <font color='red'>}</font>
+<a name='L805'>        <font color='red'>}</font>
+<a name='L806'>    <font color='red'>}</font>
+<a name='L807'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L42'>[^]</a><a href='#L742'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

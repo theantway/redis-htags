@@ -1,0 +1,318 @@
+<html>
+<head>
+<title>src/lzf_c.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/lzf_c.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L99'>[^]</a>[v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L99' title='Defined at 99.'>lzf_compress</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2000-2008 Marc Alexander Lehmann &lt;schmorp@schmorp.de&gt;</font></i>
+<a name='L3'><i><font color='green'> * </font></i>
+<a name='L4'><i><font color='green'> * Redistribution and use in source and binary forms, with or without modifica-</font></i>
+<a name='L5'><i><font color='green'> * tion, are permitted provided that the following conditions are met:</font></i>
+<a name='L6'><i><font color='green'> * </font></i>
+<a name='L7'><i><font color='green'> *   1.  Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L8'><i><font color='green'> *       this list of conditions and the following disclaimer.</font></i>
+<a name='L9'><i><font color='green'> * </font></i>
+<a name='L10'><i><font color='green'> *   2.  Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L11'><i><font color='green'> *       notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L12'><i><font color='green'> *       documentation and/or other materials provided with the distribution.</font></i>
+<a name='L13'><i><font color='green'> * </font></i>
+<a name='L14'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED</font></i>
+<a name='L15'><i><font color='green'> * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MER-</font></i>
+<a name='L16'><i><font color='green'> * CHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO</font></i>
+<a name='L17'><i><font color='green'> * EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPE-</font></i>
+<a name='L18'><i><font color='green'> * CIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,</font></i>
+<a name='L19'><i><font color='green'> * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;</font></i>
+<a name='L20'><i><font color='green'> * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,</font></i>
+<a name='L21'><i><font color='green'> * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTH-</font></i>
+<a name='L22'><i><font color='green'> * ERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED</font></i>
+<a name='L23'><i><font color='green'> * OF THE POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L24'><i><font color='green'> *</font></i>
+<a name='L25'><i><font color='green'> * Alternatively, the contents of this file may be used under the terms of</font></i>
+<a name='L26'><i><font color='green'> * the GNU General Public License ("GPL") version 2 or any later version,</font></i>
+<a name='L27'><i><font color='green'> * in which case the provisions of the GPL are applicable instead of</font></i>
+<a name='L28'><i><font color='green'> * the above. If you wish to allow the use of your version of this file</font></i>
+<a name='L29'><i><font color='green'> * only under the terms of the GPL and not to allow others to use your</font></i>
+<a name='L30'><i><font color='green'> * version of this file under the BSD license, indicate your decision</font></i>
+<a name='L31'><i><font color='green'> * by deleting the provisions above and replace them with the notice</font></i>
+<a name='L32'><i><font color='green'> * and other provisions required by the GPL. If you do not delete the</font></i>
+<a name='L33'><i><font color='green'> * provisions above, a recipient may use your version of this file under</font></i>
+<a name='L34'><i><font color='green'> * either the BSD or the GPL.</font></i>
+<a name='L35'><i><font color='green'> */</font></i>
+<a name='L36'>
+<a name='L37'><font color='darkred'>#include</font> "<a href='49.html'>lzfP.h</a>"
+<a name='L38'>
+<a name='L39'><font color='darkred'>#define</font> <a href='../R/186.html' title='Multiple refered from 5 places.'>HSIZE</a> (1 &lt;&lt; (<a href='../S/49.html#L55' title='Defined at 55 in src/lzfP.h.'>HLOG</a>))
+<a name='L40'>
+<a name='L41'><i><font color='green'>/*</font></i>
+<a name='L42'><i><font color='green'> * don't play with this unless you benchmark!</font></i>
+<a name='L43'><i><font color='green'> * decompression is not dependent on the hash function</font></i>
+<a name='L44'><i><font color='green'> * the hashing function might seem strange, just believe me</font></i>
+<a name='L45'><i><font color='green'> * it works ;)</font></i>
+<a name='L46'><i><font color='green'> */</font></i>
+<a name='L47'><font color='darkred'>#ifndef</font> <a href='../D/155.html' title='Multiple defined in 2 places.'>FRST</a>
+<a name='L48'><font color='darkred'># define</font> <a href='../R/152.html' title='Multiple refered from 3 places.'>FRST</a>(p) (((p[0]) &lt;&lt; 8) | p[1])
+<a name='L49'><font color='darkred'># define</font> <a href='../R/464.html' title='Multiple refered from 4 places.'>NEXT</a>(v,p) (((v) &lt;&lt; 8) | p[2])
+<a name='L50'><font color='darkred'># if</font> <a href='../S/49.html#L75' title='Defined at 75 in src/lzfP.h.'>ULTRA_FAST</a>
+<a name='L51'><font color='darkred'>#  define</font> <a href='../R/188.html' title='Multiple refered from 4 places.'>IDX</a>(h) ((( h             &gt;&gt; (3*8 - <a href='../S/49.html#L55' title='Defined at 55 in src/lzfP.h.'>HLOG</a>)) - h  ) &amp; (<a href='../S/47.html#L39' title='Defined at 39 in src/lzf_c.c.'>HSIZE</a> - 1))
+<a name='L52'><font color='darkred'># elif</font> <a href='../D/1278.html' title='Multiple defined in 2 places.'>VERY_FAST</a>
+<a name='L53'><font color='darkred'>#  define</font> <a href='../R/188.html' title='Multiple refered from 4 places.'>IDX</a>(h) ((( h             &gt;&gt; (3*8 - <a href='../S/49.html#L55' title='Defined at 55 in src/lzfP.h.'>HLOG</a>)) - h*5) &amp; (<a href='../S/47.html#L39' title='Defined at 39 in src/lzf_c.c.'>HSIZE</a> - 1))
+<a name='L54'><font color='darkred'># else</font>
+<a name='L55'><font color='darkred'>#  define</font> <a href='../R/188.html' title='Multiple refered from 4 places.'>IDX</a>(h) ((((h ^ (h &lt;&lt; 5)) &gt;&gt; (3*8 - <a href='../S/49.html#L55' title='Defined at 55 in src/lzfP.h.'>HLOG</a>)) - h*5) &amp; (<a href='../S/47.html#L39' title='Defined at 39 in src/lzf_c.c.'>HSIZE</a> - 1))
+<a name='L56'><font color='darkred'># endif</font>
+<a name='L57'><font color='darkred'>#endif</font>
+<a name='L58'><i><font color='green'>/*</font></i>
+<a name='L59'><i><font color='green'> * IDX works because it is very similar to a multiplicative hash, e.g.</font></i>
+<a name='L60'><i><font color='green'> * ((h * 57321 &gt;&gt; (3*8 - HLOG)) &amp; (HSIZE - 1))</font></i>
+<a name='L61'><i><font color='green'> * the latter is also quite fast on newer CPUs, and compresses similarly.</font></i>
+<a name='L62'><i><font color='green'> *</font></i>
+<a name='L63'><i><font color='green'> * the next one is also quite good, albeit slow ;)</font></i>
+<a name='L64'><i><font color='green'> * (int)(cos(h &amp; 0xffffff) * 1e6)</font></i>
+<a name='L65'><i><font color='green'> */</font></i>
+<a name='L66'>
+<a name='L67'><font color='darkred'>#if</font> 0
+<a name='L68'><i><font color='green'>/* original lzv-like hash function, much worse and thus slower */</font></i>
+<a name='L69'><font color='darkred'># define</font> <a href='../R/152.html' title='Multiple refered from 3 places.'>FRST</a>(p) (p[0] &lt;&lt; 5) ^ p[1]
+<a name='L70'><font color='darkred'># define</font> <a href='../R/464.html' title='Multiple refered from 4 places.'>NEXT</a>(v,p) ((v) &lt;&lt; 5) ^ p[2]
+<a name='L71'><font color='darkred'># define</font> <a href='../R/188.html' title='Multiple refered from 4 places.'>IDX</a>(h) ((h) &amp; (<a href='../S/47.html#L39' title='Defined at 39 in src/lzf_c.c.'>HSIZE</a> - 1))
+<a name='L72'><font color='darkred'>#endif</font>
+<a name='L73'>
+<a name='L74'><font color='darkred'>#define</font>        <a href='../R/447.html' title='Multiple refered from 2 places.'>MAX_LIT</a>        (1 &lt;&lt;  5)
+<a name='L75'><font color='darkred'>#define</font>        <a href='../S/47.html#L155' title='Refered from 155 in src/lzf_c.c.'>MAX_OFF</a>        (1 &lt;&lt; 13)
+<a name='L76'><font color='darkred'>#define</font>        <a href='../S/47.html#L171' title='Refered from 171 in src/lzf_c.c.'>MAX_REF</a>        ((1 &lt;&lt; 8) + (1 &lt;&lt; 3))
+<a name='L77'>
+<a name='L78'><font color='darkred'>#if</font> __GNUC__ &gt;= 3
+<a name='L79'><font color='darkred'># define</font> <a href='../R/1910.html' title='Multiple refered from 2 places.'>expect</a>(<a href='../S/304.html#L856' title='Defined at 856 in deps/lua/src/lparser.c.'>expr</a>,value)         __builtin_expect ((expr),(value))
+<a name='L80'><font color='darkred'># define</font> <b>inline</b>                     <b>inline</b>
+<a name='L81'><font color='darkred'>#else</font>
+<a name='L82'><font color='darkred'># define</font> <a href='../R/1910.html' title='Multiple refered from 2 places.'>expect</a>(<a href='../S/304.html#L856' title='Defined at 856 in deps/lua/src/lparser.c.'>expr</a>,value)         (expr)
+<a name='L83'><font color='darkred'># define</font> <b>inline</b>                     <b>static</b>
+<a name='L84'><font color='darkred'>#endif</font>
+<a name='L85'>
+<a name='L86'><font color='darkred'>#define</font> <a href='../R/1911.html' title='Multiple refered from 5 places.'>expect_false</a>(<a href='../S/304.html#L856' title='Defined at 856 in deps/lua/src/lparser.c.'>expr</a>) <a href='../D/2189.html' title='Multiple defined in 2 places.'>expect</a> ((expr) != 0, 0)
+<a name='L87'><font color='darkred'>#define</font> <a href='../S/47.html#L181' title='Refered from 181 in src/lzf_c.c.'>expect_true</a>(<a href='../S/304.html#L856' title='Defined at 856 in deps/lua/src/lparser.c.'>expr</a>)  <a href='../D/2189.html' title='Multiple defined in 2 places.'>expect</a> ((expr) != 0, 1)
+<a name='L88'>
+<a name='L89'><i><font color='green'>/*</font></i>
+<a name='L90'><i><font color='green'> * compressed format</font></i>
+<a name='L91'><i><font color='green'> *</font></i>
+<a name='L92'><i><font color='green'> * 000LLLLL &lt;L+1&gt;    ; literal</font></i>
+<a name='L93'><i><font color='green'> * LLLooooo oooooooo ; backref L</font></i>
+<a name='L94'><i><font color='green'> * 111ooooo LLLLLLLL oooooooo ; backref L+7</font></i>
+<a name='L95'><i><font color='green'> *</font></i>
+<a name='L96'><i><font color='green'> */</font></i>
+<a name='L97'>
+<a name='L98'><b>unsigned</b> <b>int</b>
+<a name='L99'><a href='../R/2909.html' title='Multiple refered from 2 places.'>lzf_compress</a> (<b>const</b> <b>void</b> *<b>const</b> in_data, <b>unsigned</b> <b>int</b> in_len,
+<a name='L100'>              <b>void</b> *out_data, <b>unsigned</b> <b>int</b> out_len
+<a name='L101'><font color='darkred'>#if</font> <a href='../S/49.html#L109' title='Defined at 109 in src/lzfP.h.'>LZF_STATE_ARG</a>
+<a name='L102'>              , <a href='../S/49.html#L129' title='Defined at 129 in src/lzfP.h.'>LZF_STATE</a> htab
+<a name='L103'><font color='darkred'>#endif</font>
+<a name='L104'>              )
+<a name='L105'><font color='red'>{</font>
+<a name='L106'><font color='darkred'>#if</font> !<a href='../S/49.html#L109' title='Defined at 109 in src/lzfP.h.'>LZF_STATE_ARG</a>
+<a name='L107'>  <a href='../S/49.html#L129' title='Defined at 129 in src/lzfP.h.'>LZF_STATE</a> htab;
+<a name='L108'><font color='darkred'>#endif</font>
+<a name='L109'>  <b>const</b> <a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a> **hslot;
+<a name='L110'>  <b>const</b> <a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a> *ip = (<b>const</b> <a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a> *)in_data;
+<a name='L111'>        <a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a> *op = (<a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a> *)out_data;
+<a name='L112'>  <b>const</b> <a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a> *in_end  = ip + in_len;
+<a name='L113'>        <a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a> *out_end = op + out_len;
+<a name='L114'>  <b>const</b> <a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a> *ref;
+<a name='L115'>
+<a name='L116'>  <i><font color='green'>/* off requires a type wide enough to hold a general pointer difference.</font></i>
+<a name='L117'><i><font color='green'>   * ISO C doesn't have that (size_t might not be enough and ptrdiff_t only</font></i>
+<a name='L118'><i><font color='green'>   * works for differences within a single object). We also assume that no</font></i>
+<a name='L119'><i><font color='green'>   * no bit pattern traps. Since the only platform that is both non-POSIX</font></i>
+<a name='L120'><i><font color='green'>   * and fails to support both assumptions is windows 64 bit, we make a</font></i>
+<a name='L121'><i><font color='green'>   * special workaround for it.</font></i>
+<a name='L122'><i><font color='green'>   */</font></i>
+<a name='L123'><font color='darkred'>#if</font> <b>defined</b> (WIN32) &amp;&amp; <b>defined</b> (_M_X64)
+<a name='L124'>  <b>unsigned</b> _int64 off; <i><font color='green'>/* workaround for missing POSIX compliance */</font></i>
+<a name='L125'><font color='darkred'>#else</font>
+<a name='L126'>  <b>unsigned</b> <b>long</b> off;
+<a name='L127'><font color='darkred'>#endif</font>
+<a name='L128'>  <b>unsigned</b> <b>int</b> hval;
+<a name='L129'>  <b>int</b> lit;
+<a name='L130'>
+<a name='L131'>  <b>if</b> (!in_len || !out_len)
+<a name='L132'>    <b>return</b> 0;
+<a name='L133'>
+<a name='L134'><font color='darkred'>#if</font> <a href='../S/49.html#L91' title='Defined at 91 in src/lzfP.h.'>INIT_HTAB</a>
+<a name='L135'>  memset (htab, 0, <b>sizeof</b> (htab));
+<a name='L136'><font color='darkred'># if</font> 0
+<a name='L137'>  <b>for</b> (hslot = htab; hslot &lt; htab + <a href='../S/47.html#L39' title='Defined at 39 in src/lzf_c.c.'>HSIZE</a>; hslot++)
+<a name='L138'>    *hslot++ = ip;
+<a name='L139'><font color='darkred'># endif</font>
+<a name='L140'><font color='darkred'>#endif</font>
+<a name='L141'>
+<a name='L142'>  lit = 0; op++; <i><font color='green'>/* start run */</font></i>
+<a name='L143'>
+<a name='L144'>  hval = <a href='../D/155.html' title='Multiple defined in 2 places.'>FRST</a> (ip);
+<a name='L145'>  <b>while</b> (ip &lt; in_end - 2)
+<a name='L146'>    <font color='red'>{</font>
+<a name='L147'>      hval = <a href='../D/515.html' title='Multiple defined in 2 places.'>NEXT</a> (hval, ip);
+<a name='L148'>      hslot = htab + <a href='../D/195.html' title='Multiple defined in 4 places.'>IDX</a> (hval);
+<a name='L149'>      ref = *hslot; *hslot = ip;
+<a name='L150'>
+<a name='L151'>      <b>if</b> (1
+<a name='L152'><font color='darkred'>#if</font> <a href='../S/49.html#L91' title='Defined at 91 in src/lzfP.h.'>INIT_HTAB</a>
+<a name='L153'>          &amp;&amp; ref &lt; ip <i><font color='green'>/* the next test will actually take care of this, but this is faster */</font></i>
+<a name='L154'><font color='darkred'>#endif</font>
+<a name='L155'>          &amp;&amp; (off = ip - ref - 1) &lt; <a href='../S/47.html#L75' title='Defined at 75 in src/lzf_c.c.'>MAX_OFF</a>
+<a name='L156'>          &amp;&amp; ip + 4 &lt; in_end
+<a name='L157'>          &amp;&amp; ref &gt; (<a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a> *)in_data
+<a name='L158'><font color='darkred'>#if</font> <a href='../D/1149.html' title='Multiple defined in 3 places.'>STRICT_ALIGN</a>
+<a name='L159'>          &amp;&amp; ref[0] == ip[0]
+<a name='L160'>          &amp;&amp; ref[1] == ip[1]
+<a name='L161'>          &amp;&amp; ref[2] == ip[2]
+<a name='L162'><font color='darkred'>#else</font>
+<a name='L163'>          &amp;&amp; *(<a href='../D/4421.html' title='Multiple defined in 2 places.'>u16</a> *)ref == *(<a href='../D/4421.html' title='Multiple defined in 2 places.'>u16</a> *)ip
+<a name='L164'>          &amp;&amp; ref[2] == ip[2]
+<a name='L165'><font color='darkred'>#endif</font>
+<a name='L166'>        )
+<a name='L167'>        <font color='red'>{</font>
+<a name='L168'>          <i><font color='green'>/* match found at *ref++ */</font></i>
+<a name='L169'>          <b>unsigned</b> <b>int</b> len = 2;
+<a name='L170'>          <b>unsigned</b> <b>int</b> maxlen = in_end - ip - len;
+<a name='L171'>          maxlen = maxlen &gt; <a href='../S/47.html#L76' title='Defined at 76 in src/lzf_c.c.'>MAX_REF</a> ? <a href='../S/47.html#L76' title='Defined at 76 in src/lzf_c.c.'>MAX_REF</a> : maxlen;
+<a name='L172'>
+<a name='L173'>          op [- lit - 1] = lit - 1; <i><font color='green'>/* stop run */</font></i>
+<a name='L174'>          op -= !lit; <i><font color='green'>/* undo run if length is zero */</font></i>
+<a name='L175'>
+<a name='L176'>          <b>if</b> (<a href='../S/47.html#L86' title='Defined at 86 in src/lzf_c.c.'>expect_false</a> (op + 3 + 1 &gt;= out_end))
+<a name='L177'>            <b>return</b> 0;
+<a name='L178'>
+<a name='L179'>          <b>for</b> (;;)
+<a name='L180'>            <font color='red'>{</font>
+<a name='L181'>              <b>if</b> (<a href='../S/47.html#L87' title='Defined at 87 in src/lzf_c.c.'>expect_true</a> (maxlen &gt; 16))
+<a name='L182'>                <font color='red'>{</font>
+<a name='L183'>                  len++; <b>if</b> (ref [len] != ip [len]) <b>break</b>;
+<a name='L184'>                  len++; <b>if</b> (ref [len] != ip [len]) <b>break</b>;
+<a name='L185'>                  len++; <b>if</b> (ref [len] != ip [len]) <b>break</b>;
+<a name='L186'>                  len++; <b>if</b> (ref [len] != ip [len]) <b>break</b>;
+<a name='L187'>
+<a name='L188'>                  len++; <b>if</b> (ref [len] != ip [len]) <b>break</b>;
+<a name='L189'>                  len++; <b>if</b> (ref [len] != ip [len]) <b>break</b>;
+<a name='L190'>                  len++; <b>if</b> (ref [len] != ip [len]) <b>break</b>;
+<a name='L191'>                  len++; <b>if</b> (ref [len] != ip [len]) <b>break</b>;
+<a name='L192'>
+<a name='L193'>                  len++; <b>if</b> (ref [len] != ip [len]) <b>break</b>;
+<a name='L194'>                  len++; <b>if</b> (ref [len] != ip [len]) <b>break</b>;
+<a name='L195'>                  len++; <b>if</b> (ref [len] != ip [len]) <b>break</b>;
+<a name='L196'>                  len++; <b>if</b> (ref [len] != ip [len]) <b>break</b>;
+<a name='L197'>
+<a name='L198'>                  len++; <b>if</b> (ref [len] != ip [len]) <b>break</b>;
+<a name='L199'>                  len++; <b>if</b> (ref [len] != ip [len]) <b>break</b>;
+<a name='L200'>                  len++; <b>if</b> (ref [len] != ip [len]) <b>break</b>;
+<a name='L201'>                  len++; <b>if</b> (ref [len] != ip [len]) <b>break</b>;
+<a name='L202'>                <font color='red'>}</font>
+<a name='L203'>
+<a name='L204'>              <b>do</b>
+<a name='L205'>                len++;
+<a name='L206'>              <b>while</b> (len &lt; maxlen &amp;&amp; ref[len] == ip[len]);
+<a name='L207'>
+<a name='L208'>              <b>break</b>;
+<a name='L209'>            <font color='red'>}</font>
+<a name='L210'>
+<a name='L211'>          len -= 2; <i><font color='green'>/* len is now #octets - 1 */</font></i>
+<a name='L212'>          ip++;
+<a name='L213'>
+<a name='L214'>          <b>if</b> (len &lt; 7)
+<a name='L215'>            <font color='red'>{</font>
+<a name='L216'>              *op++ = (off &gt;&gt; 8) + (len &lt;&lt; 5);
+<a name='L217'>            <font color='red'>}</font>
+<a name='L218'>          <b>else</b>
+<a name='L219'>            <font color='red'>{</font>
+<a name='L220'>              *op++ = (off &gt;&gt; 8) + (  7 &lt;&lt; 5);
+<a name='L221'>              *op++ = len - 7;
+<a name='L222'>            <font color='red'>}</font>
+<a name='L223'>
+<a name='L224'>          *op++ = off;
+<a name='L225'>          lit = 0; op++; <i><font color='green'>/* start run */</font></i>
+<a name='L226'>
+<a name='L227'>          ip += len + 1;
+<a name='L228'>
+<a name='L229'>          <b>if</b> (<a href='../S/47.html#L86' title='Defined at 86 in src/lzf_c.c.'>expect_false</a> (ip &gt;= in_end - 2))
+<a name='L230'>            <b>break</b>;
+<a name='L231'>
+<a name='L232'><font color='darkred'>#if</font> <a href='../S/49.html#L75' title='Defined at 75 in src/lzfP.h.'>ULTRA_FAST</a> || <a href='../D/1278.html' title='Multiple defined in 2 places.'>VERY_FAST</a>
+<a name='L233'>          --ip;
+<a name='L234'><font color='darkred'># if</font> <a href='../D/1278.html' title='Multiple defined in 2 places.'>VERY_FAST</a> &amp;&amp; !<a href='../S/49.html#L75' title='Defined at 75 in src/lzfP.h.'>ULTRA_FAST</a>
+<a name='L235'>          --ip;
+<a name='L236'><font color='darkred'># endif</font>
+<a name='L237'>          hval = <a href='../D/155.html' title='Multiple defined in 2 places.'>FRST</a> (ip);
+<a name='L238'>
+<a name='L239'>          hval = <a href='../D/515.html' title='Multiple defined in 2 places.'>NEXT</a> (hval, ip);
+<a name='L240'>          htab[<a href='../D/195.html' title='Multiple defined in 4 places.'>IDX</a> (hval)] = ip;
+<a name='L241'>          ip++;
+<a name='L242'>
+<a name='L243'><font color='darkred'># if</font> <a href='../D/1278.html' title='Multiple defined in 2 places.'>VERY_FAST</a> &amp;&amp; !<a href='../S/49.html#L75' title='Defined at 75 in src/lzfP.h.'>ULTRA_FAST</a>
+<a name='L244'>          hval = <a href='../D/515.html' title='Multiple defined in 2 places.'>NEXT</a> (hval, ip);
+<a name='L245'>          htab[<a href='../D/195.html' title='Multiple defined in 4 places.'>IDX</a> (hval)] = ip;
+<a name='L246'>          ip++;
+<a name='L247'><font color='darkred'># endif</font>
+<a name='L248'><font color='darkred'>#else</font>
+<a name='L249'>          ip -= len + 1;
+<a name='L250'>
+<a name='L251'>          <b>do</b>
+<a name='L252'>            <font color='red'>{</font>
+<a name='L253'>              hval = <a href='../D/515.html' title='Multiple defined in 2 places.'>NEXT</a> (hval, ip);
+<a name='L254'>              htab[<a href='../D/195.html' title='Multiple defined in 4 places.'>IDX</a> (hval)] = ip;
+<a name='L255'>              ip++;
+<a name='L256'>            <font color='red'>}</font>
+<a name='L257'>          <b>while</b> (len--);
+<a name='L258'><font color='darkred'>#endif</font>
+<a name='L259'>        <font color='red'>}</font>
+<a name='L260'>      <b>else</b>
+<a name='L261'>        <font color='red'>{</font>
+<a name='L262'>          <i><font color='green'>/* one more literal byte we must copy */</font></i>
+<a name='L263'>          <b>if</b> (<a href='../S/47.html#L86' title='Defined at 86 in src/lzf_c.c.'>expect_false</a> (op &gt;= out_end))
+<a name='L264'>            <b>return</b> 0;
+<a name='L265'>
+<a name='L266'>          lit++; *op++ = *ip++;
+<a name='L267'>
+<a name='L268'>          <b>if</b> (<a href='../S/47.html#L86' title='Defined at 86 in src/lzf_c.c.'>expect_false</a> (lit == <a href='../S/47.html#L74' title='Defined at 74 in src/lzf_c.c.'>MAX_LIT</a>))
+<a name='L269'>            <font color='red'>{</font>
+<a name='L270'>              op [- lit - 1] = lit - 1; <i><font color='green'>/* stop run */</font></i>
+<a name='L271'>              lit = 0; op++; <i><font color='green'>/* start run */</font></i>
+<a name='L272'>            <font color='red'>}</font>
+<a name='L273'>        <font color='red'>}</font>
+<a name='L274'>    <font color='red'>}</font>
+<a name='L275'>
+<a name='L276'>  <b>if</b> (op + 3 &gt; out_end) <i><font color='green'>/* at most 3 bytes can be missing here */</font></i>
+<a name='L277'>    <b>return</b> 0;
+<a name='L278'>
+<a name='L279'>  <b>while</b> (ip &lt; in_end)
+<a name='L280'>    <font color='red'>{</font>
+<a name='L281'>      lit++; *op++ = *ip++;
+<a name='L282'>
+<a name='L283'>      <b>if</b> (<a href='../S/47.html#L86' title='Defined at 86 in src/lzf_c.c.'>expect_false</a> (lit == <a href='../S/47.html#L74' title='Defined at 74 in src/lzf_c.c.'>MAX_LIT</a>))
+<a name='L284'>        <font color='red'>{</font>
+<a name='L285'>          op [- lit - 1] = lit - 1; <i><font color='green'>/* stop run */</font></i>
+<a name='L286'>          lit = 0; op++; <i><font color='green'>/* start run */</font></i>
+<a name='L287'>        <font color='red'>}</font>
+<a name='L288'>    <font color='red'>}</font>
+<a name='L289'>
+<a name='L290'>  op [- lit - 1] = lit - 1; <i><font color='green'>/* end run */</font></i>
+<a name='L291'>  op -= !lit; <i><font color='green'>/* undo run if length is zero */</font></i>
+<a name='L292'>
+<a name='L293'>  <b>return</b> op - (<a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a> *)out_data;
+<a name='L294'><font color='red'>}</font>
+<a name='L295'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^]<a href='#L99'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

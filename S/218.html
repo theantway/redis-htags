@@ -1,0 +1,228 @@
+<html>
+<head>
+<title>deps/jemalloc/src/chunk_dss.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/395.html'>src</a>/chunk_dss.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L33'>[^]</a><a href='#L190'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L33' title='Defined at 33.'>sbrk</a>
+<li><a href='#L43' title='Defined at 43.'>chunk_dss_prec_get</a>
+<li><a href='#L56' title='Defined at 56.'>chunk_dss_prec_set</a>
+<li><a href='#L68' title='Defined at 68.'>chunk_alloc_dss</a>
+<li><a href='#L141' title='Defined at 141.'>chunk_in_dss</a>
+<li><a href='#L159' title='Defined at 159.'>chunk_dss_boot</a>
+<li><a href='#L174' title='Defined at 174.'>chunk_dss_prefork</a>
+<li><a href='#L182' title='Defined at 182.'>chunk_dss_postfork_parent</a>
+<li><a href='#L190' title='Defined at 190.'>chunk_dss_postfork_child</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> JEMALLOC_CHUNK_DSS_C_
+<a name='L2'><font color='darkred'>#include</font> "jemalloc/internal/jemalloc_internal.h"
+<a name='L3'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L4'><i><font color='green'>/* Data. */</font></i>
+<a name='L5'>
+<a name='L6'><b>const</b> <b>char</b>      *<a href='../S/138.html#L142' title='Defined at 142 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>dss_prec_names</a>[] = <font color='red'>{</font>
+<a name='L7'>        "disabled",
+<a name='L8'>        "primary",
+<a name='L9'>        "secondary",
+<a name='L10'>        "N/A"
+<a name='L11'><font color='red'>}</font>;
+<a name='L12'>
+<a name='L13'><i><font color='green'>/* Current dss precedence default, used when creating new arenas. */</font></i>
+<a name='L14'><b>static</b> <a href='../S/130.html#L10' title='Defined at 10 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>dss_prec_t</a>       dss_prec_default = <a href='../S/130.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>DSS_PREC_DEFAULT</a>;
+<a name='L15'>
+<a name='L16'><i><font color='green'>/*</font></i>
+<a name='L17'><i><font color='green'> * Protects sbrk() calls.  This avoids malloc races among threads, though it</font></i>
+<a name='L18'><i><font color='green'> * does not protect against races with threads that call sbrk() directly.</font></i>
+<a name='L19'><i><font color='green'> */</font></i>
+<a name='L20'><b>static</b> <a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a>   dss_mtx;
+<a name='L21'>
+<a name='L22'><i><font color='green'>/* Base address of the DSS. */</font></i>
+<a name='L23'><b>static</b> <b>void</b>             *dss_base;
+<a name='L24'><i><font color='green'>/* Current end of the DSS, or ((void *)-1) if the DSS is exhausted. */</font></i>
+<a name='L25'><b>static</b> <b>void</b>             *dss_prev;
+<a name='L26'><i><font color='green'>/* Current upper limit on DSS addresses. */</font></i>
+<a name='L27'><b>static</b> <b>void</b>             *dss_max;
+<a name='L28'>
+<a name='L29'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L30'>
+<a name='L31'><font color='darkred'>#ifndef</font> JEMALLOC_HAVE_SBRK
+<a name='L32'><b>static</b> <b>void</b> *
+<a name='L33'><a href='../R/3607.html' title='Multiple refered from 3 places.'>sbrk</a>(<a href='../D/2506.html' title='Multiple defined in 2 places.'>intptr_t</a> increment)
+<a name='L34'><font color='red'>{</font>
+<a name='L35'>
+<a name='L36'>        <a href='../D/3427.html' title='Multiple defined in 2 places.'>not_implemented</a>();
+<a name='L37'>
+<a name='L38'>        <b>return</b> (NULL);
+<a name='L39'><font color='red'>}</font>
+<a name='L40'><font color='darkred'>#endif</font>
+<a name='L41'>
+<a name='L42'><a href='../S/130.html#L10' title='Defined at 10 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>dss_prec_t</a>
+<a name='L43'><a href='../R/1574.html' title='Multiple refered from 6 places.'>chunk_dss_prec_get</a>(<b>void</b>)
+<a name='L44'><font color='red'>{</font>
+<a name='L45'>        <a href='../S/130.html#L10' title='Defined at 10 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>dss_prec_t</a> ret;
+<a name='L46'>
+<a name='L47'>        <b>if</b> (config_dss == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)
+<a name='L48'>                <b>return</b> (<a href='../S/130.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>dss_prec_disabled</a>);
+<a name='L49'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;dss_mtx);
+<a name='L50'>        ret = dss_prec_default;
+<a name='L51'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;dss_mtx);
+<a name='L52'>        <b>return</b> (ret);
+<a name='L53'><font color='red'>}</font>
+<a name='L54'>
+<a name='L55'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L56'><a href='../R/1575.html' title='Multiple refered from 4 places.'>chunk_dss_prec_set</a>(<a href='../S/130.html#L10' title='Defined at 10 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>dss_prec_t</a> dss_prec)
+<a name='L57'><font color='red'>{</font>
+<a name='L58'>
+<a name='L59'>        <b>if</b> (config_dss == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)
+<a name='L60'>                <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L61'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;dss_mtx);
+<a name='L62'>        dss_prec_default = dss_prec;
+<a name='L63'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;dss_mtx);
+<a name='L64'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L65'><font color='red'>}</font>
+<a name='L66'>
+<a name='L67'><b>void</b> *
+<a name='L68'><a href='../R/1565.html' title='Multiple refered from 4 places.'>chunk_alloc_dss</a>(size_t size, size_t alignment, bool *zero)
+<a name='L69'><font color='red'>{</font>
+<a name='L70'>        <b>void</b> *ret;
+<a name='L71'>
+<a name='L72'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_dss);
+<a name='L73'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(size &gt; 0 &amp;&amp; (size &amp; <a href='../S/138.html#L117' title='Defined at 117 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize_mask</a>) == 0);
+<a name='L74'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(alignment &gt; 0 &amp;&amp; (alignment &amp; <a href='../S/138.html#L117' title='Defined at 117 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize_mask</a>) == 0);
+<a name='L75'>
+<a name='L76'>        <i><font color='green'>/*</font></i>
+<a name='L77'><i><font color='green'>         * sbrk() uses a signed increment argument, so take care not to</font></i>
+<a name='L78'><i><font color='green'>         * interpret a huge allocation request as a negative increment.</font></i>
+<a name='L79'><i><font color='green'>         */</font></i>
+<a name='L80'>        <b>if</b> ((<a href='../D/2506.html' title='Multiple defined in 2 places.'>intptr_t</a>)size &lt; 0)
+<a name='L81'>                <b>return</b> (NULL);
+<a name='L82'>
+<a name='L83'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;dss_mtx);
+<a name='L84'>        <b>if</b> (dss_prev != (<b>void</b> *)-1) <font color='red'>{</font>
+<a name='L85'>                size_t gap_size, cpad_size;
+<a name='L86'>                <b>void</b> *cpad, *dss_next;
+<a name='L87'>                <a href='../D/2506.html' title='Multiple defined in 2 places.'>intptr_t</a> incr;
+<a name='L88'>
+<a name='L89'>                <i><font color='green'>/*</font></i>
+<a name='L90'><i><font color='green'>                 * The loop is necessary to recover from races with other</font></i>
+<a name='L91'><i><font color='green'>                 * threads that are using the DSS for something other than</font></i>
+<a name='L92'><i><font color='green'>                 * malloc.</font></i>
+<a name='L93'><i><font color='green'>                 */</font></i>
+<a name='L94'>                <b>do</b> <font color='red'>{</font>
+<a name='L95'>                        <i><font color='green'>/* Get the current end of the DSS. */</font></i>
+<a name='L96'>                        dss_max = <a href='../S/218.html#L33' title='Defined at 33 in deps/jemalloc/src/chunk_dss.c.'>sbrk</a>(0);
+<a name='L97'>                        <i><font color='green'>/*</font></i>
+<a name='L98'><i><font color='green'>                         * Calculate how much padding is necessary to</font></i>
+<a name='L99'><i><font color='green'>                         * chunk-align the end of the DSS.</font></i>
+<a name='L100'><i><font color='green'>                         */</font></i>
+<a name='L101'>                        gap_size = (<a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a> - <a href='../S/142.html#L15' title='Defined at 15 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_ADDR2OFFSET</a>(dss_max)) &amp;
+<a name='L102'>                            <a href='../S/138.html#L117' title='Defined at 117 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize_mask</a>;
+<a name='L103'>                        <i><font color='green'>/*</font></i>
+<a name='L104'><i><font color='green'>                         * Compute how much chunk-aligned pad space (if any) is</font></i>
+<a name='L105'><i><font color='green'>                         * necessary to satisfy alignment.  This space can be</font></i>
+<a name='L106'><i><font color='green'>                         * recycled for later use.</font></i>
+<a name='L107'><i><font color='green'>                         */</font></i>
+<a name='L108'>                        cpad = (<b>void</b> *)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)dss_max + gap_size);
+<a name='L109'>                        ret = (<b>void</b> *)ALIGNMENT_CEILING((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)dss_max,
+<a name='L110'>                            alignment);
+<a name='L111'>                        cpad_size = (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ret - (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)cpad;
+<a name='L112'>                        dss_next = (<b>void</b> *)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ret + size);
+<a name='L113'>                        <b>if</b> ((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ret &lt; (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)dss_max ||
+<a name='L114'>                            (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)dss_next &lt; (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)dss_max) <font color='red'>{</font>
+<a name='L115'>                                <i><font color='green'>/* Wrap-around. */</font></i>
+<a name='L116'>                                <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;dss_mtx);
+<a name='L117'>                                <b>return</b> (NULL);
+<a name='L118'>                        <font color='red'>}</font>
+<a name='L119'>                        incr = gap_size + cpad_size + size;
+<a name='L120'>                        dss_prev = <a href='../S/218.html#L33' title='Defined at 33 in deps/jemalloc/src/chunk_dss.c.'>sbrk</a>(incr);
+<a name='L121'>                        <b>if</b> (dss_prev == dss_max) <font color='red'>{</font>
+<a name='L122'>                                <i><font color='green'>/* Success. */</font></i>
+<a name='L123'>                                dss_max = dss_next;
+<a name='L124'>                                <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;dss_mtx);
+<a name='L125'>                                <b>if</b> (cpad_size != 0)
+<a name='L126'>                                        <a href='../D/1861.html' title='Multiple defined in 2 places.'>chunk_unmap</a>(cpad, cpad_size);
+<a name='L127'>                                <b>if</b> (*zero) <font color='red'>{</font>
+<a name='L128'>                                        VALGRIND_MAKE_MEM_UNDEFINED(ret, size);
+<a name='L129'>                                        memset(ret, 0, size);
+<a name='L130'>                                <font color='red'>}</font>
+<a name='L131'>                                <b>return</b> (ret);
+<a name='L132'>                        <font color='red'>}</font>
+<a name='L133'>                <font color='red'>}</font> <b>while</b> (dss_prev != (<b>void</b> *)-1);
+<a name='L134'>        <font color='red'>}</font>
+<a name='L135'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;dss_mtx);
+<a name='L136'>
+<a name='L137'>        <b>return</b> (NULL);
+<a name='L138'><font color='red'>}</font>
+<a name='L139'>
+<a name='L140'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L141'><a href='../R/1577.html' title='Multiple refered from 5 places.'>chunk_in_dss</a>(<b>void</b> *chunk)
+<a name='L142'><font color='red'>{</font>
+<a name='L143'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> ret;
+<a name='L144'>
+<a name='L145'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_dss);
+<a name='L146'>
+<a name='L147'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;dss_mtx);
+<a name='L148'>        <b>if</b> ((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a> &gt;= (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)dss_base
+<a name='L149'>            &amp;&amp; (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a> &lt; (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)dss_max)
+<a name='L150'>                ret = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L151'>        <b>else</b>
+<a name='L152'>                ret = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L153'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;dss_mtx);
+<a name='L154'>
+<a name='L155'>        <b>return</b> (ret);
+<a name='L156'><font color='red'>}</font>
+<a name='L157'>
+<a name='L158'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L159'><a href='../R/1571.html' title='Multiple refered from 3 places.'>chunk_dss_boot</a>(<b>void</b>)
+<a name='L160'><font color='red'>{</font>
+<a name='L161'>
+<a name='L162'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_dss);
+<a name='L163'>
+<a name='L164'>        <b>if</b> (<a href='../D/3272.html' title='Multiple defined in 2 places.'>malloc_mutex_init</a>(&amp;dss_mtx))
+<a name='L165'>                <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L166'>        dss_base = <a href='../S/218.html#L33' title='Defined at 33 in deps/jemalloc/src/chunk_dss.c.'>sbrk</a>(0);
+<a name='L167'>        dss_prev = dss_base;
+<a name='L168'>        dss_max = dss_base;
+<a name='L169'>
+<a name='L170'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L171'><font color='red'>}</font>
+<a name='L172'>
+<a name='L173'><b>void</b>
+<a name='L174'><a href='../R/1576.html' title='Multiple refered from 3 places.'>chunk_dss_prefork</a>(<b>void</b>)
+<a name='L175'><font color='red'>{</font>
+<a name='L176'>
+<a name='L177'>        <b>if</b> (config_dss)
+<a name='L178'>                <a href='../D/3276.html' title='Multiple defined in 2 places.'>malloc_mutex_prefork</a>(&amp;dss_mtx);
+<a name='L179'><font color='red'>}</font>
+<a name='L180'>
+<a name='L181'><b>void</b>
+<a name='L182'><a href='../R/1573.html' title='Multiple refered from 3 places.'>chunk_dss_postfork_parent</a>(<b>void</b>)
+<a name='L183'><font color='red'>{</font>
+<a name='L184'>
+<a name='L185'>        <b>if</b> (config_dss)
+<a name='L186'>                <a href='../D/3275.html' title='Multiple defined in 2 places.'>malloc_mutex_postfork_parent</a>(&amp;dss_mtx);
+<a name='L187'><font color='red'>}</font>
+<a name='L188'>
+<a name='L189'><b>void</b>
+<a name='L190'><a href='../R/1572.html' title='Multiple refered from 3 places.'>chunk_dss_postfork_child</a>(<b>void</b>)
+<a name='L191'><font color='red'>{</font>
+<a name='L192'>
+<a name='L193'>        <b>if</b> (config_dss)
+<a name='L194'>                <a href='../D/3274.html' title='Multiple defined in 2 places.'>malloc_mutex_postfork_child</a>(&amp;dss_mtx);
+<a name='L195'><font color='red'>}</font>
+<a name='L196'>
+<a name='L197'><i><font color='green'>/******************************************************************************/</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L33'>[^]</a><a href='#L190'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

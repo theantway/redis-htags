@@ -1,0 +1,77 @@
+<html>
+<head>
+<title>src/anet.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/anet.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/159.html' title='Multiple included from 3 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* anet.c -- Basic TCP socket stuff made a bit less boring</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2006-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'><font color='darkred'>#ifndef</font> <a href='../S/84.html#L32' title='Defined at 32 in src/anet.h.'>ANET_H</a>
+<a name='L32'><font color='darkred'>#define</font> <a href='../S/84.html#L31' title='Refered from 31 in src/anet.h.'>ANET_H</a>
+<a name='L33'>
+<a name='L34'><font color='darkred'>#define</font> <a href='../R/23.html' title='Multiple refered from 8 places.'>ANET_OK</a> 0
+<a name='L35'><font color='darkred'>#define</font> <a href='../R/20.html' title='Multiple refered from 37 places.'>ANET_ERR</a> -1
+<a name='L36'><font color='darkred'>#define</font> <a href='../R/21.html' title='Multiple refered from 3 places.'>ANET_ERR_LEN</a> 256
+<a name='L37'>
+<a name='L38'><font color='darkred'>#if</font> <b>defined</b>(__sun)
+<a name='L39'><font color='darkred'>#define</font> <a href='../R/15.html' title='Multiple refered from 6 places.'>AF_LOCAL</a> AF_UNIX
+<a name='L40'><font color='darkred'>#endif</font>
+<a name='L41'>
+<a name='L42'><b>int</b> <a href='../S/50.html#L183' title='Defined at 183 in src/anet.c.'>anetTcpConnect</a>(<b>char</b> *err, <b>char</b> *addr, <b>int</b> port);
+<a name='L43'><b>int</b> <a href='../S/50.html#L188' title='Defined at 188 in src/anet.c.'>anetTcpNonBlockConnect</a>(<b>char</b> *err, <b>char</b> *addr, <b>int</b> port);
+<a name='L44'><b>int</b> <a href='../S/50.html#L219' title='Defined at 219 in src/anet.c.'>anetUnixConnect</a>(<b>char</b> *err, <b>char</b> *path);
+<a name='L45'><b>int</b> <a href='../S/50.html#L224' title='Defined at 224 in src/anet.c.'>anetUnixNonBlockConnect</a>(<b>char</b> *err, <b>char</b> *path);
+<a name='L46'><b>int</b> <a href='../S/50.html#L231' title='Defined at 231 in src/anet.c.'>anetRead</a>(<b>int</b> fd, <b>char</b> *buf, <b>int</b> count);
+<a name='L47'><b>int</b> <a href='../S/50.html#L109' title='Defined at 109 in src/anet.c.'>anetResolve</a>(<b>char</b> *err, <b>char</b> *host, <b>char</b> *ipbuf);
+<a name='L48'><b>int</b> <a href='../S/50.html#L277' title='Defined at 277 in src/anet.c.'>anetTcpServer</a>(<b>char</b> *err, <b>int</b> port, <b>char</b> *bindaddr);
+<a name='L49'><b>int</b> <a href='../S/50.html#L299' title='Defined at 299 in src/anet.c.'>anetUnixServer</a>(<b>char</b> *err, <b>char</b> *path, mode_t perm);
+<a name='L50'><b>int</b> <a href='../S/50.html#L334' title='Defined at 334 in src/anet.c.'>anetTcpAccept</a>(<b>char</b> *err, <b>int</b> serversock, <b>char</b> *ip, <b>int</b> *port);
+<a name='L51'><b>int</b> <a href='../S/50.html#L346' title='Defined at 346 in src/anet.c.'>anetUnixAccept</a>(<b>char</b> *err, <b>int</b> serversock);
+<a name='L52'><b>int</b> <a href='../S/50.html#L246' title='Defined at 246 in src/anet.c.'>anetWrite</a>(<b>int</b> fd, <b>char</b> *buf, <b>int</b> count);
+<a name='L53'><b>int</b> <a href='../S/50.html#L60' title='Defined at 60 in src/anet.c.'>anetNonBlock</a>(<b>char</b> *err, <b>int</b> fd);
+<a name='L54'><b>int</b> <a href='../S/50.html#L78' title='Defined at 78 in src/anet.c.'>anetTcpNoDelay</a>(<b>char</b> *err, <b>int</b> fd);
+<a name='L55'><b>int</b> <a href='../S/50.html#L99' title='Defined at 99 in src/anet.c.'>anetTcpKeepAlive</a>(<b>char</b> *err, <b>int</b> fd);
+<a name='L56'><b>int</b> <a href='../S/50.html#L356' title='Defined at 356 in src/anet.c.'>anetPeerToString</a>(<b>int</b> fd, <b>char</b> *ip, <b>int</b> *port);
+<a name='L57'>
+<a name='L58'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

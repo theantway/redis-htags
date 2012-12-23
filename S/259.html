@@ -1,0 +1,638 @@
+<html>
+<head>
+<title>deps/lua/src/ltable.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/ltable.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L84'>[^]</a><a href='#L586'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L84' title='Defined at 84.'>hashnum</a>
+<li><a href='#L100' title='Defined at 100.'>mainposition</a>
+<li><a href='#L120' title='Defined at 120.'>arrayindex</a>
+<li><a href='#L137' title='Defined at 137.'>findindex</a>
+<li><a href='#L162' title='Defined at 162.'>luaH_next</a>
+<li><a href='#L189' title='Defined at 189.'>computesizes</a>
+<li><a href='#L211' title='Defined at 211.'>countint</a>
+<li><a href='#L222' title='Defined at 222.'>numusearray</a>
+<li><a href='#L247' title='Defined at 247.'>numusehash</a>
+<li><a href='#L263' title='Defined at 263.'>setarrayvector</a>
+<li><a href='#L272' title='Defined at 272.'>setnodevector</a>
+<li><a href='#L297' title='Defined at 297.'>resize</a>
+<li><a href='#L327' title='Defined at 327.'>luaH_resizearray</a>
+<li><a href='#L333' title='Defined at 333.'>rehash</a>
+<li><a href='#L358' title='Defined at 358.'>luaH_new</a>
+<li><a href='#L374' title='Defined at 374.'>luaH_free</a>
+<li><a href='#L382' title='Defined at 382.'>getfreepos</a>
+<li><a href='#L399' title='Defined at 399.'>newkey</a>
+<li><a href='#L435' title='Defined at 435.'>luaH_getnum</a>
+<li><a href='#L455' title='Defined at 455.'>luaH_getstr</a>
+<li><a href='#L469' title='Defined at 469.'>luaH_get</a>
+<li><a href='#L494' title='Defined at 494.'>luaH_set</a>
+<li><a href='#L508' title='Defined at 508.'>luaH_setnum</a>
+<li><a href='#L520' title='Defined at 520.'>luaH_setstr</a>
+<li><a href='#L532' title='Defined at 532.'>unbound_search</a>
+<li><a href='#L560' title='Defined at 560.'>luaH_getn</a>
+<li><a href='#L582' title='Defined at 582.'>luaH_mainposition</a>
+<li><a href='#L586' title='Defined at 586.'>luaH_isdummy</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: ltable.c,v 2.32.1.2 2007/12/28 15:32:23 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Lua tables (hash)</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'>
+<a name='L8'><i><font color='green'>/*</font></i>
+<a name='L9'><i><font color='green'>** Implementation of tables (aka arrays, objects, or hash tables).</font></i>
+<a name='L10'><i><font color='green'>** Tables keep its elements in two parts: an array part and a hash part.</font></i>
+<a name='L11'><i><font color='green'>** Non-negative integer keys are all candidates to be kept in the array</font></i>
+<a name='L12'><i><font color='green'>** part. The actual size of the array is the largest `n' such that at</font></i>
+<a name='L13'><i><font color='green'>** least half the slots between 0 and n are in use.</font></i>
+<a name='L14'><i><font color='green'>** Hash uses a mix of chained scatter table with Brent's variation.</font></i>
+<a name='L15'><i><font color='green'>** A main invariant of these tables is that, if an element is not</font></i>
+<a name='L16'><i><font color='green'>** in its main position (i.e. the `original' position that its hash gives</font></i>
+<a name='L17'><i><font color='green'>** to it), then the colliding element is in its own main position.</font></i>
+<a name='L18'><i><font color='green'>** Hence even when the load factor reaches 100%, performance remains good.</font></i>
+<a name='L19'><i><font color='green'>*/</font></i>
+<a name='L20'>
+<a name='L21'><font color='darkred'>#include</font> &lt;math.h&gt;
+<a name='L22'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L23'>
+<a name='L24'><font color='darkred'>#define</font> ltable_c
+<a name='L25'><font color='darkred'>#define</font> <a href='../R/303.html' title='Multiple refered from 2 places.'>LUA_CORE</a>
+<a name='L26'>
+<a name='L27'><font color='darkred'>#include</font> "<a href='266.html'>lua.h</a>"
+<a name='L28'>
+<a name='L29'><font color='darkred'>#include</font> "<a href='264.html'>ldebug.h</a>"
+<a name='L30'><font color='darkred'>#include</font> "<a href='296.html'>ldo.h</a>"
+<a name='L31'><font color='darkred'>#include</font> "<a href='261.html'>lgc.h</a>"
+<a name='L32'><font color='darkred'>#include</font> "<a href='278.html'>lmem.h</a>"
+<a name='L33'><font color='darkred'>#include</font> "<a href='282.html'>lobject.h</a>"
+<a name='L34'><font color='darkred'>#include</font> "<a href='298.html'>lstate.h</a>"
+<a name='L35'><font color='darkred'>#include</font> "<a href='281.html'>ltable.h</a>"
+<a name='L36'>
+<a name='L37'>
+<a name='L38'><i><font color='green'>/*</font></i>
+<a name='L39'><i><font color='green'>** max size of array part is 2^MAXBITS</font></i>
+<a name='L40'><i><font color='green'>*/</font></i>
+<a name='L41'><font color='darkred'>#if</font> <a href='../D/313.html' title='Multiple defined in 2 places.'>LUAI_BITSINT</a> &gt; 26
+<a name='L42'><font color='darkred'>#define</font> <a href='../R/438.html' title='Multiple refered from 10 places.'>MAXBITS</a>         26
+<a name='L43'><font color='darkred'>#else</font>
+<a name='L44'><font color='darkred'>#define</font> <a href='../R/438.html' title='Multiple refered from 10 places.'>MAXBITS</a>         (<a href='../D/313.html' title='Multiple defined in 2 places.'>LUAI_BITSINT</a>-2)
+<a name='L45'><font color='darkred'>#endif</font>
+<a name='L46'>
+<a name='L47'><font color='darkred'>#define</font> <a href='../S/259.html#L213' title='Refered from 213 in deps/lua/src/ltable.c.'>MAXASIZE</a>        (1 &lt;&lt; <a href='../D/488.html' title='Multiple defined in 4 places.'>MAXBITS</a>)
+<a name='L48'>
+<a name='L49'>
+<a name='L50'><font color='darkred'>#define</font> <a href='../R/2138.html' title='Multiple refered from 2 places.'>hashpow2</a>(t,n)      (<a href='../S/281.html#L13' title='Defined at 13 in deps/lua/src/ltable.h.'>gnode</a>(t, <a href='../S/282.html#L355' title='Defined at 355 in deps/lua/src/lobject.h.'>lmod</a>((n), <a href='../S/282.html#L360' title='Defined at 360 in deps/lua/src/lobject.h.'>sizenode</a>(t))))
+<a name='L51'>  
+<a name='L52'><font color='darkred'>#define</font> <a href='../R/2139.html' title='Multiple refered from 2 places.'>hashstr</a>(t,str)  <a href='../S/259.html#L50' title='Defined at 50 in deps/lua/src/ltable.c.'>hashpow2</a>(t, (str)-&gt;tsv.<a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a>)
+<a name='L53'><font color='darkred'>#define</font> <a href='../S/259.html#L107' title='Refered from 107 in deps/lua/src/ltable.c.'>hashboolean</a>(t,p)        <a href='../S/259.html#L50' title='Defined at 50 in deps/lua/src/ltable.c.'>hashpow2</a>(t, p)
+<a name='L54'>
+<a name='L55'>
+<a name='L56'><i><font color='green'>/*</font></i>
+<a name='L57'><i><font color='green'>** for some types, it is better to avoid modulus by power of 2, as</font></i>
+<a name='L58'><i><font color='green'>** they tend to have many 2 factors.</font></i>
+<a name='L59'><i><font color='green'>*/</font></i>
+<a name='L60'><font color='darkred'>#define</font> <a href='../R/2135.html' title='Multiple refered from 2 places.'>hashmod</a>(t,n)    (<a href='../S/281.html#L13' title='Defined at 13 in deps/lua/src/ltable.h.'>gnode</a>(t, ((n) % ((<a href='../S/282.html#L360' title='Defined at 360 in deps/lua/src/lobject.h.'>sizenode</a>(t)-1)|1))))
+<a name='L61'>
+<a name='L62'>
+<a name='L63'><font color='darkred'>#define</font> <a href='../R/2137.html' title='Multiple refered from 2 places.'>hashpointer</a>(t,p)        <a href='../S/259.html#L60' title='Defined at 60 in deps/lua/src/ltable.c.'>hashmod</a>(t, <a href='../S/310.html#L42' title='Defined at 42 in deps/lua/src/llimits.h.'>IntPoint</a>(p))
+<a name='L64'>
+<a name='L65'>
+<a name='L66'><i><font color='green'>/*</font></i>
+<a name='L67'><i><font color='green'>** number of ints inside a lua_Number</font></i>
+<a name='L68'><i><font color='green'>*/</font></i>
+<a name='L69'><font color='darkred'>#define</font> <a href='../R/3082.html' title='Multiple refered from 2 places.'>numints</a>         <a href='../S/310.html#L80' title='Defined at 80 in deps/lua/src/llimits.h.'>cast_int</a>(<b>sizeof</b>(<a href='../S/266.html#L99' title='Defined at 99 in deps/lua/src/lua.h.'>lua_Number</a>)/<b>sizeof</b>(<b>int</b>))
+<a name='L70'>
+<a name='L71'>
+<a name='L72'>
+<a name='L73'><font color='darkred'>#define</font> <a href='../R/1876.html' title='Multiple refered from 9 places.'>dummynode</a>               (&amp;dummynode_)
+<a name='L74'>
+<a name='L75'><b>static</b> <b>const</b> <a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a> dummynode_ = <font color='red'>{</font>
+<a name='L76'>  <font color='red'>{</font><font color='red'>{</font>NULL<font color='red'>}</font>, <a href='../S/266.html#L74' title='Defined at 74 in deps/lua/src/lua.h.'>LUA_TNIL</a><font color='red'>}</font>,  <i><font color='green'>/* value */</font></i>
+<a name='L77'>  <font color='red'>{</font><font color='red'>{</font><font color='red'>{</font>NULL<font color='red'>}</font>, <a href='../S/266.html#L74' title='Defined at 74 in deps/lua/src/lua.h.'>LUA_TNIL</a>, NULL<font color='red'>}</font><font color='red'>}</font>  <i><font color='green'>/* key */</font></i>
+<a name='L78'><font color='red'>}</font>;
+<a name='L79'>
+<a name='L80'>
+<a name='L81'><i><font color='green'>/*</font></i>
+<a name='L82'><i><font color='green'>** hash for lua_Numbers</font></i>
+<a name='L83'><i><font color='green'>*/</font></i>
+<a name='L84'><b>static</b> <a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a> *<a href='../R/2136.html' title='Multiple refered from 2 places.'>hashnum</a> (<b>const</b> Table *t, lua_Number n) <font color='red'>{</font>
+<a name='L85'>  <b>unsigned</b> <b>int</b> a[<a href='../S/259.html#L69' title='Defined at 69 in deps/lua/src/ltable.c.'>numints</a>];
+<a name='L86'>  <b>int</b> i;
+<a name='L87'>  <b>if</b> (<a href='../S/317.html#L540' title='Defined at 540 in deps/lua/src/luaconf.h.'>luai_numeq</a>(n, 0))  <i><font color='green'>/* avoid problems with -0 */</font></i>
+<a name='L88'>    <b>return</b> <a href='../S/281.html#L13' title='Defined at 13 in deps/lua/src/ltable.h.'>gnode</a>(t, 0);
+<a name='L89'>  memcpy(a, &amp;n, <b>sizeof</b>(a));
+<a name='L90'>  <b>for</b> (i = 1; i &lt; <a href='../S/259.html#L69' title='Defined at 69 in deps/lua/src/ltable.c.'>numints</a>; i++) a[0] += a[i];
+<a name='L91'>  <b>return</b> <a href='../S/259.html#L60' title='Defined at 60 in deps/lua/src/ltable.c.'>hashmod</a>(t, a[0]);
+<a name='L92'><font color='red'>}</font>
+<a name='L93'>
+<a name='L94'>
+<a name='L95'>
+<a name='L96'><i><font color='green'>/*</font></i>
+<a name='L97'><i><font color='green'>** returns the `main' position of an element in a table (that is, the index</font></i>
+<a name='L98'><i><font color='green'>** of its hash value)</font></i>
+<a name='L99'><i><font color='green'>*/</font></i>
+<a name='L100'><b>static</b> <a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a> *<a href='../R/2912.html' title='Multiple refered from 5 places.'>mainposition</a> (<b>const</b> Table *t, <b>const</b> TValue *key) <font color='red'>{</font>
+<a name='L101'>  <b>switch</b> (<a href='../S/282.html#L90' title='Defined at 90 in deps/lua/src/lobject.h.'>ttype</a>(key)) <font color='red'>{</font>
+<a name='L102'>    <b>case</b> <a href='../S/266.html#L77' title='Defined at 77 in deps/lua/src/lua.h.'>LUA_TNUMBER</a>:
+<a name='L103'>      <b>return</b> <a href='../S/259.html#L84' title='Defined at 84 in deps/lua/src/ltable.c.'>hashnum</a>(t, <a href='../S/282.html#L93' title='Defined at 93 in deps/lua/src/lobject.h.'>nvalue</a>(key));
+<a name='L104'>    <b>case</b> <a href='../S/266.html#L78' title='Defined at 78 in deps/lua/src/lua.h.'>LUA_TSTRING</a>:
+<a name='L105'>      <b>return</b> <a href='../S/259.html#L52' title='Defined at 52 in deps/lua/src/ltable.c.'>hashstr</a>(t, <a href='../S/282.html#L94' title='Defined at 94 in deps/lua/src/lobject.h.'>rawtsvalue</a>(key));
+<a name='L106'>    <b>case</b> <a href='../S/266.html#L75' title='Defined at 75 in deps/lua/src/lua.h.'>LUA_TBOOLEAN</a>:
+<a name='L107'>      <b>return</b> <a href='../S/259.html#L53' title='Defined at 53 in deps/lua/src/ltable.c.'>hashboolean</a>(t, <a href='../S/282.html#L100' title='Defined at 100 in deps/lua/src/lobject.h.'>bvalue</a>(key));
+<a name='L108'>    <b>case</b> <a href='../S/266.html#L76' title='Defined at 76 in deps/lua/src/lua.h.'>LUA_TLIGHTUSERDATA</a>:
+<a name='L109'>      <b>return</b> <a href='../S/259.html#L63' title='Defined at 63 in deps/lua/src/ltable.c.'>hashpointer</a>(t, <a href='../S/282.html#L92' title='Defined at 92 in deps/lua/src/lobject.h.'>pvalue</a>(key));
+<a name='L110'>    <b>default</b>:
+<a name='L111'>      <b>return</b> <a href='../S/259.html#L63' title='Defined at 63 in deps/lua/src/ltable.c.'>hashpointer</a>(t, <a href='../S/282.html#L91' title='Defined at 91 in deps/lua/src/lobject.h.'>gcvalue</a>(key));
+<a name='L112'>  <font color='red'>}</font>
+<a name='L113'><font color='red'>}</font>
+<a name='L114'>
+<a name='L115'>
+<a name='L116'><i><font color='green'>/*</font></i>
+<a name='L117'><i><font color='green'>** returns the index for `key' if `key' is an appropriate key to live in</font></i>
+<a name='L118'><i><font color='green'>** the array part of the table, -1 otherwise.</font></i>
+<a name='L119'><i><font color='green'>*/</font></i>
+<a name='L120'><b>static</b> <b>int</b> <a href='../R/1412.html' title='Multiple refered from 2 places.'>arrayindex</a> (<b>const</b> TValue *key) <font color='red'>{</font>
+<a name='L121'>  <b>if</b> (<a href='../S/282.html#L80' title='Defined at 80 in deps/lua/src/lobject.h.'>ttisnumber</a>(key)) <font color='red'>{</font>
+<a name='L122'>    <a href='../S/266.html#L99' title='Defined at 99 in deps/lua/src/lua.h.'>lua_Number</a> n = <a href='../S/282.html#L93' title='Defined at 93 in deps/lua/src/lobject.h.'>nvalue</a>(key);
+<a name='L123'>    <b>int</b> k;
+<a name='L124'>    <a href='../D/3145.html' title='Multiple defined in 3 places.'>lua_number2int</a>(k, n);
+<a name='L125'>    <b>if</b> (<a href='../S/317.html#L540' title='Defined at 540 in deps/lua/src/luaconf.h.'>luai_numeq</a>(<a href='../S/310.html#L79' title='Defined at 79 in deps/lua/src/llimits.h.'>cast_num</a>(k), n))
+<a name='L126'>      <b>return</b> k;
+<a name='L127'>  <font color='red'>}</font>
+<a name='L128'>  <b>return</b> -1;  <i><font color='green'>/* `key' did not match some condition */</font></i>
+<a name='L129'><font color='red'>}</font>
+<a name='L130'>
+<a name='L131'>
+<a name='L132'><i><font color='green'>/*</font></i>
+<a name='L133'><i><font color='green'>** returns the index of a `key' for table traversals. First goes all</font></i>
+<a name='L134'><i><font color='green'>** elements in the array part, then elements in the hash part. The</font></i>
+<a name='L135'><i><font color='green'>** beginning of a traversal is signalled by -1.</font></i>
+<a name='L136'><i><font color='green'>*/</font></i>
+<a name='L137'><b>static</b> <b>int</b> <a href='../S/259.html#L163' title='Refered from 163 in deps/lua/src/ltable.c.'>findindex</a> (lua_State *L, Table *t, StkId key) <font color='red'>{</font>
+<a name='L138'>  <b>int</b> i;
+<a name='L139'>  <b>if</b> (<a href='../S/282.html#L79' title='Defined at 79 in deps/lua/src/lobject.h.'>ttisnil</a>(key)) <b>return</b> -1;  <i><font color='green'>/* first iteration */</font></i>
+<a name='L140'>  i = <a href='../S/259.html#L120' title='Defined at 120 in deps/lua/src/ltable.c.'>arrayindex</a>(key);
+<a name='L141'>  <b>if</b> (0 &lt; i &amp;&amp; i &lt;= t-&gt;sizearray)  <i><font color='green'>/* is `key' inside array part? */</font></i>
+<a name='L142'>    <b>return</b> i-1;  <i><font color='green'>/* yes; that's the index (corrected to C) */</font></i>
+<a name='L143'>  <b>else</b> <font color='red'>{</font>
+<a name='L144'>    <a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a> *n = <a href='../S/259.html#L100' title='Defined at 100 in deps/lua/src/ltable.c.'>mainposition</a>(t, key);
+<a name='L145'>    <b>do</b> <font color='red'>{</font>  <i><font color='green'>/* check whether `key' is somewhere in the chain */</font></i>
+<a name='L146'>      <i><font color='green'>/* key may be dead already, but it is ok to use it in `next' */</font></i>
+<a name='L147'>      <b>if</b> (<a href='../S/311.html#L72' title='Defined at 72 in deps/lua/src/lobject.c.'>luaO_rawequalObj</a>(<a href='../S/281.html#L18' title='Defined at 18 in deps/lua/src/ltable.h.'>key2tval</a>(n), key) ||
+<a name='L148'>            (<a href='../S/282.html#L90' title='Defined at 90 in deps/lua/src/lobject.h.'>ttype</a>(<a href='../S/281.html#L14' title='Defined at 14 in deps/lua/src/ltable.h.'>gkey</a>(n)) == <a href='../S/282.html#L30' title='Defined at 30 in deps/lua/src/lobject.h.'>LUA_TDEADKEY</a> &amp;&amp; <a href='../S/282.html#L189' title='Defined at 189 in deps/lua/src/lobject.h.'>iscollectable</a>(key) &amp;&amp;
+<a name='L149'>             <a href='../S/282.html#L91' title='Defined at 91 in deps/lua/src/lobject.h.'>gcvalue</a>(<a href='../S/281.html#L14' title='Defined at 14 in deps/lua/src/ltable.h.'>gkey</a>(n)) == <a href='../S/282.html#L91' title='Defined at 91 in deps/lua/src/lobject.h.'>gcvalue</a>(key))) <font color='red'>{</font>
+<a name='L150'>        i = <a href='../S/310.html#L80' title='Defined at 80 in deps/lua/src/llimits.h.'>cast_int</a>(n - <a href='../S/281.html#L13' title='Defined at 13 in deps/lua/src/ltable.h.'>gnode</a>(t, 0));  <i><font color='green'>/* key index in hash table */</font></i>
+<a name='L151'>        <i><font color='green'>/* hash elements are numbered after array ones */</font></i>
+<a name='L152'>        <b>return</b> i + t-&gt;sizearray;
+<a name='L153'>      <font color='red'>}</font>
+<a name='L154'>      <b>else</b> n = <a href='../S/281.html#L16' title='Defined at 16 in deps/lua/src/ltable.h.'>gnext</a>(n);
+<a name='L155'>    <font color='red'>}</font> <b>while</b> (n);
+<a name='L156'>    <a href='../S/299.html#L631' title='Defined at 631 in deps/lua/src/ldebug.c.'>luaG_runerror</a>(L, "invalid key to " <a href='../S/317.html#L201' title='Defined at 201 in deps/lua/src/luaconf.h.'>LUA_QL</a>("next"));  <i><font color='green'>/* key not found */</font></i>
+<a name='L157'>    <b>return</b> 0;  <i><font color='green'>/* to avoid warnings */</font></i>
+<a name='L158'>  <font color='red'>}</font>
+<a name='L159'><font color='red'>}</font>
+<a name='L160'>
+<a name='L161'>
+<a name='L162'><b>int</b> <a href='../R/2583.html' title='Multiple refered from 2 places.'>luaH_next</a> (lua_State *L, Table *t, StkId key) <font color='red'>{</font>
+<a name='L163'>  <b>int</b> i = <a href='../S/259.html#L137' title='Defined at 137 in deps/lua/src/ltable.c.'>findindex</a>(L, t, key);  <i><font color='green'>/* find original element */</font></i>
+<a name='L164'>  <b>for</b> (i++; i &lt; t-&gt;sizearray; i++) <font color='red'>{</font>  <i><font color='green'>/* try first array part */</font></i>
+<a name='L165'>    <b>if</b> (!<a href='../S/282.html#L79' title='Defined at 79 in deps/lua/src/lobject.h.'>ttisnil</a>(&amp;t-&gt;array[i])) <font color='red'>{</font>  <i><font color='green'>/* a non-nil value? */</font></i>
+<a name='L166'>      <a href='../S/282.html#L119' title='Defined at 119 in deps/lua/src/lobject.h.'>setnvalue</a>(key, <a href='../S/310.html#L79' title='Defined at 79 in deps/lua/src/llimits.h.'>cast_num</a>(i+1));
+<a name='L167'>      <a href='../S/282.html#L174' title='Defined at 174 in deps/lua/src/lobject.h.'>setobj2s</a>(L, key+1, &amp;t-&gt;array[i]);
+<a name='L168'>      <b>return</b> 1;
+<a name='L169'>    <font color='red'>}</font>
+<a name='L170'>  <font color='red'>}</font>
+<a name='L171'>  <b>for</b> (i -= t-&gt;sizearray; i &lt; <a href='../S/282.html#L360' title='Defined at 360 in deps/lua/src/lobject.h.'>sizenode</a>(t); i++) <font color='red'>{</font>  <i><font color='green'>/* then hash part */</font></i>
+<a name='L172'>    <b>if</b> (!<a href='../S/282.html#L79' title='Defined at 79 in deps/lua/src/lobject.h.'>ttisnil</a>(<a href='../S/281.html#L15' title='Defined at 15 in deps/lua/src/ltable.h.'>gval</a>(<a href='../S/281.html#L13' title='Defined at 13 in deps/lua/src/ltable.h.'>gnode</a>(t, i)))) <font color='red'>{</font>  <i><font color='green'>/* a non-nil value? */</font></i>
+<a name='L173'>      <a href='../S/282.html#L174' title='Defined at 174 in deps/lua/src/lobject.h.'>setobj2s</a>(L, key, <a href='../S/281.html#L18' title='Defined at 18 in deps/lua/src/ltable.h.'>key2tval</a>(<a href='../S/281.html#L13' title='Defined at 13 in deps/lua/src/ltable.h.'>gnode</a>(t, i)));
+<a name='L174'>      <a href='../S/282.html#L174' title='Defined at 174 in deps/lua/src/lobject.h.'>setobj2s</a>(L, key+1, <a href='../S/281.html#L15' title='Defined at 15 in deps/lua/src/ltable.h.'>gval</a>(<a href='../S/281.html#L13' title='Defined at 13 in deps/lua/src/ltable.h.'>gnode</a>(t, i)));
+<a name='L175'>      <b>return</b> 1;
+<a name='L176'>    <font color='red'>}</font>
+<a name='L177'>  <font color='red'>}</font>
+<a name='L178'>  <b>return</b> 0;  <i><font color='green'>/* no more elements */</font></i>
+<a name='L179'><font color='red'>}</font>
+<a name='L180'>
+<a name='L181'>
+<a name='L182'><i><font color='green'>/*</font></i>
+<a name='L183'><i><font color='green'>** {=============================================================</font></i>
+<a name='L184'><i><font color='green'>** Rehash</font></i>
+<a name='L185'><i><font color='green'>** ==============================================================</font></i>
+<a name='L186'><i><font color='green'>*/</font></i>
+<a name='L187'>
+<a name='L188'>
+<a name='L189'><b>static</b> <b>int</b> <a href='../S/259.html#L346' title='Refered from 346 in deps/lua/src/ltable.c.'>computesizes</a> (<b>int</b> nums[], <b>int</b> *narray) <font color='red'>{</font>
+<a name='L190'>  <b>int</b> i;
+<a name='L191'>  <b>int</b> twotoi;  <i><font color='green'>/* 2^i */</font></i>
+<a name='L192'>  <b>int</b> a = 0;  <i><font color='green'>/* number of elements smaller than 2^i */</font></i>
+<a name='L193'>  <b>int</b> na = 0;  <i><font color='green'>/* number of elements to go to array part */</font></i>
+<a name='L194'>  <b>int</b> n = 0;  <i><font color='green'>/* optimal size for array part */</font></i>
+<a name='L195'>  <b>for</b> (i = 0, twotoi = 1; twotoi/2 &lt; *narray; i++, twotoi *= 2) <font color='red'>{</font>
+<a name='L196'>    <b>if</b> (nums[i] &gt; 0) <font color='red'>{</font>
+<a name='L197'>      a += nums[i];
+<a name='L198'>      <b>if</b> (a &gt; twotoi/2) <font color='red'>{</font>  <i><font color='green'>/* more than half elements present? */</font></i>
+<a name='L199'>        n = twotoi;  <i><font color='green'>/* optimal size (till now) */</font></i>
+<a name='L200'>        na = a;  <i><font color='green'>/* all elements smaller than n will go to array part */</font></i>
+<a name='L201'>      <font color='red'>}</font>
+<a name='L202'>    <font color='red'>}</font>
+<a name='L203'>    <b>if</b> (a == *narray) <b>break</b>;  <i><font color='green'>/* all elements already counted */</font></i>
+<a name='L204'>  <font color='red'>}</font>
+<a name='L205'>  *narray = n;
+<a name='L206'>  <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(*narray/2 &lt;= na &amp;&amp; na &lt;= *narray);
+<a name='L207'>  <b>return</b> na;
+<a name='L208'><font color='red'>}</font>
+<a name='L209'>
+<a name='L210'>
+<a name='L211'><b>static</b> <b>int</b> <a href='../R/1688.html' title='Multiple refered from 2 places.'>countint</a> (<b>const</b> TValue *key, <b>int</b> *nums) <font color='red'>{</font>
+<a name='L212'>  <b>int</b> k = <a href='../S/259.html#L120' title='Defined at 120 in deps/lua/src/ltable.c.'>arrayindex</a>(key);
+<a name='L213'>  <b>if</b> (0 &lt; k &amp;&amp; k &lt;= <a href='../S/259.html#L47' title='Defined at 47 in deps/lua/src/ltable.c.'>MAXASIZE</a>) <font color='red'>{</font>  <i><font color='green'>/* is `key' an appropriate array index? */</font></i>
+<a name='L214'>    nums[<a href='../S/282.html#L367' title='Defined at 367 in deps/lua/src/lobject.h.'>ceillog2</a>(k)]++;  <i><font color='green'>/* count as such */</font></i>
+<a name='L215'>    <b>return</b> 1;
+<a name='L216'>  <font color='red'>}</font>
+<a name='L217'>  <b>else</b>
+<a name='L218'>    <b>return</b> 0;
+<a name='L219'><font color='red'>}</font>
+<a name='L220'>
+<a name='L221'>
+<a name='L222'><b>static</b> <b>int</b> <a href='../S/259.html#L339' title='Refered from 339 in deps/lua/src/ltable.c.'>numusearray</a> (<b>const</b> Table *t, <b>int</b> *nums) <font color='red'>{</font>
+<a name='L223'>  <b>int</b> lg;
+<a name='L224'>  <b>int</b> ttlg;  <i><font color='green'>/* 2^lg */</font></i>
+<a name='L225'>  <b>int</b> ause = 0;  <i><font color='green'>/* summation of `nums' */</font></i>
+<a name='L226'>  <b>int</b> i = 1;  <i><font color='green'>/* count to traverse all array keys */</font></i>
+<a name='L227'>  <b>for</b> (lg=0, ttlg=1; lg&lt;=<a href='../D/488.html' title='Multiple defined in 4 places.'>MAXBITS</a>; lg++, ttlg*=2) <font color='red'>{</font>  <i><font color='green'>/* for each slice */</font></i>
+<a name='L228'>    <b>int</b> lc = 0;  <i><font color='green'>/* counter */</font></i>
+<a name='L229'>    <b>int</b> lim = ttlg;
+<a name='L230'>    <b>if</b> (lim &gt; t-&gt;sizearray) <font color='red'>{</font>
+<a name='L231'>      lim = t-&gt;sizearray;  <i><font color='green'>/* adjust upper limit */</font></i>
+<a name='L232'>      <b>if</b> (i &gt; lim)
+<a name='L233'>        <b>break</b>;  <i><font color='green'>/* no more elements to count */</font></i>
+<a name='L234'>    <font color='red'>}</font>
+<a name='L235'>    <i><font color='green'>/* count elements in range (2^(lg-1), 2^lg] */</font></i>
+<a name='L236'>    <b>for</b> (; i &lt;= lim; i++) <font color='red'>{</font>
+<a name='L237'>      <b>if</b> (!<a href='../S/282.html#L79' title='Defined at 79 in deps/lua/src/lobject.h.'>ttisnil</a>(&amp;t-&gt;array[i-1]))
+<a name='L238'>        lc++;
+<a name='L239'>    <font color='red'>}</font>
+<a name='L240'>    nums[lg] += lc;
+<a name='L241'>    ause += lc;
+<a name='L242'>  <font color='red'>}</font>
+<a name='L243'>  <b>return</b> ause;
+<a name='L244'><font color='red'>}</font>
+<a name='L245'>
+<a name='L246'>
+<a name='L247'><b>static</b> <b>int</b> <a href='../S/259.html#L341' title='Refered from 341 in deps/lua/src/ltable.c.'>numusehash</a> (<b>const</b> Table *t, <b>int</b> *nums, <b>int</b> *pnasize) <font color='red'>{</font>
+<a name='L248'>  <b>int</b> totaluse = 0;  <i><font color='green'>/* total number of elements */</font></i>
+<a name='L249'>  <b>int</b> ause = 0;  <i><font color='green'>/* summation of `nums' */</font></i>
+<a name='L250'>  <b>int</b> i = <a href='../S/282.html#L360' title='Defined at 360 in deps/lua/src/lobject.h.'>sizenode</a>(t);
+<a name='L251'>  <b>while</b> (i--) <font color='red'>{</font>
+<a name='L252'>    <a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a> *n = &amp;t-&gt;node[i];
+<a name='L253'>    <b>if</b> (!<a href='../S/282.html#L79' title='Defined at 79 in deps/lua/src/lobject.h.'>ttisnil</a>(<a href='../S/281.html#L15' title='Defined at 15 in deps/lua/src/ltable.h.'>gval</a>(n))) <font color='red'>{</font>
+<a name='L254'>      ause += <a href='../S/259.html#L211' title='Defined at 211 in deps/lua/src/ltable.c.'>countint</a>(<a href='../S/281.html#L18' title='Defined at 18 in deps/lua/src/ltable.h.'>key2tval</a>(n), nums);
+<a name='L255'>      totaluse++;
+<a name='L256'>    <font color='red'>}</font>
+<a name='L257'>  <font color='red'>}</font>
+<a name='L258'>  *pnasize += ause;
+<a name='L259'>  <b>return</b> totaluse;
+<a name='L260'><font color='red'>}</font>
+<a name='L261'>
+<a name='L262'>
+<a name='L263'><b>static</b> <b>void</b> <a href='../R/3748.html' title='Multiple refered from 2 places.'>setarrayvector</a> (lua_State *L, Table *t, <b>int</b> size) <font color='red'>{</font>
+<a name='L264'>  <b>int</b> i;
+<a name='L265'>  <a href='../S/278.html#L37' title='Defined at 37 in deps/lua/src/lmem.h.'>luaM_reallocvector</a>(L, t-&gt;array, t-&gt;sizearray, size, <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a>);
+<a name='L266'>  <b>for</b> (i=t-&gt;sizearray; i&lt;size; i++)
+<a name='L267'>     <a href='../S/282.html#L117' title='Defined at 117 in deps/lua/src/lobject.h.'>setnilvalue</a>(&amp;t-&gt;array[i]);
+<a name='L268'>  t-&gt;sizearray = size;
+<a name='L269'><font color='red'>}</font>
+<a name='L270'>
+<a name='L271'>
+<a name='L272'><b>static</b> <b>void</b> <a href='../R/3761.html' title='Multiple refered from 2 places.'>setnodevector</a> (lua_State *L, Table *t, <b>int</b> size) <font color='red'>{</font>
+<a name='L273'>  <b>int</b> lsize;
+<a name='L274'>  <b>if</b> (size == 0) <font color='red'>{</font>  <i><font color='green'>/* no elements to hash part? */</font></i>
+<a name='L275'>    t-&gt;node = <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a> *, <a href='../S/259.html#L73' title='Defined at 73 in deps/lua/src/ltable.c.'>dummynode</a>);  <i><font color='green'>/* use common `dummynode' */</font></i>
+<a name='L276'>    lsize = 0;
+<a name='L277'>  <font color='red'>}</font>
+<a name='L278'>  <b>else</b> <font color='red'>{</font>
+<a name='L279'>    <b>int</b> i;
+<a name='L280'>    lsize = <a href='../S/282.html#L367' title='Defined at 367 in deps/lua/src/lobject.h.'>ceillog2</a>(size);
+<a name='L281'>    <b>if</b> (lsize &gt; <a href='../D/488.html' title='Multiple defined in 4 places.'>MAXBITS</a>)
+<a name='L282'>      <a href='../S/299.html#L631' title='Defined at 631 in deps/lua/src/ldebug.c.'>luaG_runerror</a>(L, "table overflow");
+<a name='L283'>    size = <a href='../S/282.html#L359' title='Defined at 359 in deps/lua/src/lobject.h.'>twoto</a>(lsize);
+<a name='L284'>    t-&gt;node = <a href='../S/278.html#L30' title='Defined at 30 in deps/lua/src/lmem.h.'>luaM_newvector</a>(L, size, <a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a>);
+<a name='L285'>    <b>for</b> (i=0; i&lt;size; i++) <font color='red'>{</font>
+<a name='L286'>      <a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a> *n = <a href='../S/281.html#L13' title='Defined at 13 in deps/lua/src/ltable.h.'>gnode</a>(t, i);
+<a name='L287'>      <a href='../S/281.html#L16' title='Defined at 16 in deps/lua/src/ltable.h.'>gnext</a>(n) = NULL;
+<a name='L288'>      <a href='../S/282.html#L117' title='Defined at 117 in deps/lua/src/lobject.h.'>setnilvalue</a>(<a href='../S/281.html#L14' title='Defined at 14 in deps/lua/src/ltable.h.'>gkey</a>(n));
+<a name='L289'>      <a href='../S/282.html#L117' title='Defined at 117 in deps/lua/src/lobject.h.'>setnilvalue</a>(<a href='../S/281.html#L15' title='Defined at 15 in deps/lua/src/ltable.h.'>gval</a>(n));
+<a name='L290'>    <font color='red'>}</font>
+<a name='L291'>  <font color='red'>}</font>
+<a name='L292'>  t-&gt;lsizenode = <a href='../S/310.html#L78' title='Defined at 78 in deps/lua/src/llimits.h.'>cast_byte</a>(lsize);
+<a name='L293'>  t-&gt;lastfree = <a href='../S/281.html#L13' title='Defined at 13 in deps/lua/src/ltable.h.'>gnode</a>(t, size);  <i><font color='green'>/* all positions are free */</font></i>
+<a name='L294'><font color='red'>}</font>
+<a name='L295'>
+<a name='L296'>
+<a name='L297'><b>static</b> <b>void</b> <a href='../R/3544.html' title='Multiple refered from 2 places.'>resize</a> (lua_State *L, Table *t, <b>int</b> nasize, <b>int</b> nhsize) <font color='red'>{</font>
+<a name='L298'>  <b>int</b> i;
+<a name='L299'>  <b>int</b> oldasize = t-&gt;sizearray;
+<a name='L300'>  <b>int</b> oldhsize = t-&gt;lsizenode;
+<a name='L301'>  <a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a> *nold = t-&gt;node;  <i><font color='green'>/* save old hash ... */</font></i>
+<a name='L302'>  <b>if</b> (nasize &gt; oldasize)  <i><font color='green'>/* array part must grow? */</font></i>
+<a name='L303'>    <a href='../S/259.html#L263' title='Defined at 263 in deps/lua/src/ltable.c.'>setarrayvector</a>(L, t, nasize);
+<a name='L304'>  <i><font color='green'>/* create new hash part with appropriate size */</font></i>
+<a name='L305'>  <a href='../S/259.html#L272' title='Defined at 272 in deps/lua/src/ltable.c.'>setnodevector</a>(L, t, nhsize);  
+<a name='L306'>  <b>if</b> (nasize &lt; oldasize) <font color='red'>{</font>  <i><font color='green'>/* array part must shrink? */</font></i>
+<a name='L307'>    t-&gt;sizearray = nasize;
+<a name='L308'>    <i><font color='green'>/* re-insert elements from vanishing slice */</font></i>
+<a name='L309'>    <b>for</b> (i=nasize; i&lt;oldasize; i++) <font color='red'>{</font>
+<a name='L310'>      <b>if</b> (!<a href='../S/282.html#L79' title='Defined at 79 in deps/lua/src/lobject.h.'>ttisnil</a>(&amp;t-&gt;array[i]))
+<a name='L311'>        <a href='../S/282.html#L179' title='Defined at 179 in deps/lua/src/lobject.h.'>setobjt2t</a>(L, <a href='../S/259.html#L508' title='Defined at 508 in deps/lua/src/ltable.c.'>luaH_setnum</a>(L, t, i+1), &amp;t-&gt;array[i]);
+<a name='L312'>    <font color='red'>}</font>
+<a name='L313'>    <i><font color='green'>/* shrink array */</font></i>
+<a name='L314'>    <a href='../S/278.html#L37' title='Defined at 37 in deps/lua/src/lmem.h.'>luaM_reallocvector</a>(L, t-&gt;array, oldasize, nasize, <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a>);
+<a name='L315'>  <font color='red'>}</font>
+<a name='L316'>  <i><font color='green'>/* re-insert elements from hash part */</font></i>
+<a name='L317'>  <b>for</b> (i = <a href='../S/282.html#L359' title='Defined at 359 in deps/lua/src/lobject.h.'>twoto</a>(oldhsize) - 1; i &gt;= 0; i--) <font color='red'>{</font>
+<a name='L318'>    <a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a> *old = nold+i;
+<a name='L319'>    <b>if</b> (!<a href='../S/282.html#L79' title='Defined at 79 in deps/lua/src/lobject.h.'>ttisnil</a>(<a href='../S/281.html#L15' title='Defined at 15 in deps/lua/src/ltable.h.'>gval</a>(old)))
+<a name='L320'>      <a href='../S/282.html#L179' title='Defined at 179 in deps/lua/src/lobject.h.'>setobjt2t</a>(L, <a href='../S/259.html#L494' title='Defined at 494 in deps/lua/src/ltable.c.'>luaH_set</a>(L, t, <a href='../S/281.html#L18' title='Defined at 18 in deps/lua/src/ltable.h.'>key2tval</a>(old)), <a href='../S/281.html#L15' title='Defined at 15 in deps/lua/src/ltable.h.'>gval</a>(old));
+<a name='L321'>  <font color='red'>}</font>
+<a name='L322'>  <b>if</b> (nold != <a href='../S/259.html#L73' title='Defined at 73 in deps/lua/src/ltable.c.'>dummynode</a>)
+<a name='L323'>    <a href='../S/278.html#L26' title='Defined at 26 in deps/lua/src/lmem.h.'>luaM_freearray</a>(L, nold, <a href='../S/282.html#L359' title='Defined at 359 in deps/lua/src/lobject.h.'>twoto</a>(oldhsize), <a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a>);  <i><font color='green'>/* free old array */</font></i>
+<a name='L324'><font color='red'>}</font>
+<a name='L325'>
+<a name='L326'>
+<a name='L327'><b>void</b> <a href='../R/2584.html' title='Multiple refered from 2 places.'>luaH_resizearray</a> (lua_State *L, Table *t, <b>int</b> nasize) <font color='red'>{</font>
+<a name='L328'>  <b>int</b> nsize = (t-&gt;node == <a href='../S/259.html#L73' title='Defined at 73 in deps/lua/src/ltable.c.'>dummynode</a>) ? 0 : <a href='../S/282.html#L360' title='Defined at 360 in deps/lua/src/lobject.h.'>sizenode</a>(t);
+<a name='L329'>  <a href='../S/259.html#L297' title='Defined at 297 in deps/lua/src/ltable.c.'>resize</a>(L, t, nasize, nsize);
+<a name='L330'><font color='red'>}</font>
+<a name='L331'>
+<a name='L332'>
+<a name='L333'><b>static</b> <b>void</b> <a href='../S/259.html#L405' title='Refered from 405 in deps/lua/src/ltable.c.'>rehash</a> (lua_State *L, Table *t, <b>const</b> TValue *ek) <font color='red'>{</font>
+<a name='L334'>  <b>int</b> nasize, na;
+<a name='L335'>  <b>int</b> nums[<a href='../D/488.html' title='Multiple defined in 4 places.'>MAXBITS</a>+1];  <i><font color='green'>/* nums[i] = number of keys between 2^(i-1) and 2^i */</font></i>
+<a name='L336'>  <b>int</b> i;
+<a name='L337'>  <b>int</b> totaluse;
+<a name='L338'>  <b>for</b> (i=0; i&lt;=<a href='../D/488.html' title='Multiple defined in 4 places.'>MAXBITS</a>; i++) nums[i] = 0;  <i><font color='green'>/* reset counts */</font></i>
+<a name='L339'>  nasize = <a href='../S/259.html#L222' title='Defined at 222 in deps/lua/src/ltable.c.'>numusearray</a>(t, nums);  <i><font color='green'>/* count keys in array part */</font></i>
+<a name='L340'>  totaluse = nasize;  <i><font color='green'>/* all those keys are integer keys */</font></i>
+<a name='L341'>  totaluse += <a href='../S/259.html#L247' title='Defined at 247 in deps/lua/src/ltable.c.'>numusehash</a>(t, nums, &amp;nasize);  <i><font color='green'>/* count keys in hash part */</font></i>
+<a name='L342'>  <i><font color='green'>/* count extra key */</font></i>
+<a name='L343'>  nasize += <a href='../S/259.html#L211' title='Defined at 211 in deps/lua/src/ltable.c.'>countint</a>(ek, nums);
+<a name='L344'>  totaluse++;
+<a name='L345'>  <i><font color='green'>/* compute new size for array part */</font></i>
+<a name='L346'>  na = <a href='../S/259.html#L189' title='Defined at 189 in deps/lua/src/ltable.c.'>computesizes</a>(nums, &amp;nasize);
+<a name='L347'>  <i><font color='green'>/* resize the table to new computed sizes */</font></i>
+<a name='L348'>  <a href='../S/259.html#L297' title='Defined at 297 in deps/lua/src/ltable.c.'>resize</a>(L, t, nasize, totaluse - na);
+<a name='L349'><font color='red'>}</font>
+<a name='L350'>
+<a name='L351'>
+<a name='L352'>
+<a name='L353'><i><font color='green'>/*</font></i>
+<a name='L354'><i><font color='green'>** }=============================================================</font></i>
+<a name='L355'><i><font color='green'>*/</font></i>
+<a name='L356'>
+<a name='L357'>
+<a name='L358'><a href='../D/1237.html' title='Multiple defined in 2 places.'>Table</a> *<a href='../R/2582.html' title='Multiple refered from 8 places.'>luaH_new</a> (lua_State *L, <b>int</b> narray, <b>int</b> nhash) <font color='red'>{</font>
+<a name='L359'>  <a href='../D/1237.html' title='Multiple defined in 2 places.'>Table</a> *t = <a href='../S/278.html#L29' title='Defined at 29 in deps/lua/src/lmem.h.'>luaM_new</a>(L, <a href='../D/1237.html' title='Multiple defined in 2 places.'>Table</a>);
+<a name='L360'>  <a href='../S/291.html#L686' title='Defined at 686 in deps/lua/src/lgc.c.'>luaC_link</a>(L, <a href='../S/298.html#L162' title='Defined at 162 in deps/lua/src/lstate.h.'>obj2gco</a>(t), <a href='../S/266.html#L79' title='Defined at 79 in deps/lua/src/lua.h.'>LUA_TTABLE</a>);
+<a name='L361'>  t-&gt;metatable = NULL;
+<a name='L362'>  t-&gt;flags = <a href='../S/310.html#L78' title='Defined at 78 in deps/lua/src/llimits.h.'>cast_byte</a>(~0);
+<a name='L363'>  <i><font color='green'>/* temporary values (kept only if some malloc fails) */</font></i>
+<a name='L364'>  t-&gt;array = NULL;
+<a name='L365'>  t-&gt;sizearray = 0;
+<a name='L366'>  t-&gt;lsizenode = 0;
+<a name='L367'>  t-&gt;node = <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a> *, <a href='../S/259.html#L73' title='Defined at 73 in deps/lua/src/ltable.c.'>dummynode</a>);
+<a name='L368'>  <a href='../S/259.html#L263' title='Defined at 263 in deps/lua/src/ltable.c.'>setarrayvector</a>(L, t, narray);
+<a name='L369'>  <a href='../S/259.html#L272' title='Defined at 272 in deps/lua/src/ltable.c.'>setnodevector</a>(L, t, nhash);
+<a name='L370'>  <b>return</b> t;
+<a name='L371'><font color='red'>}</font>
+<a name='L372'>
+<a name='L373'>
+<a name='L374'><b>void</b> <a href='../R/2575.html' title='Multiple refered from 2 places.'>luaH_free</a> (lua_State *L, Table *t) <font color='red'>{</font>
+<a name='L375'>  <b>if</b> (t-&gt;node != <a href='../S/259.html#L73' title='Defined at 73 in deps/lua/src/ltable.c.'>dummynode</a>)
+<a name='L376'>    <a href='../S/278.html#L26' title='Defined at 26 in deps/lua/src/lmem.h.'>luaM_freearray</a>(L, t-&gt;node, <a href='../S/282.html#L360' title='Defined at 360 in deps/lua/src/lobject.h.'>sizenode</a>(t), <a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a>);
+<a name='L377'>  <a href='../S/278.html#L26' title='Defined at 26 in deps/lua/src/lmem.h.'>luaM_freearray</a>(L, t-&gt;array, t-&gt;sizearray, <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a>);
+<a name='L378'>  <a href='../S/278.html#L25' title='Defined at 25 in deps/lua/src/lmem.h.'>luaM_free</a>(L, t);
+<a name='L379'><font color='red'>}</font>
+<a name='L380'>
+<a name='L381'>
+<a name='L382'><b>static</b> <a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a> *<a href='../S/259.html#L403' title='Refered from 403 in deps/lua/src/ltable.c.'>getfreepos</a> (Table *t) <font color='red'>{</font>
+<a name='L383'>  <b>while</b> (t-&gt;lastfree-- &gt; t-&gt;node) <font color='red'>{</font>
+<a name='L384'>    <b>if</b> (<a href='../S/282.html#L79' title='Defined at 79 in deps/lua/src/lobject.h.'>ttisnil</a>(<a href='../S/281.html#L14' title='Defined at 14 in deps/lua/src/ltable.h.'>gkey</a>(t-&gt;lastfree)))
+<a name='L385'>      <b>return</b> t-&gt;lastfree;
+<a name='L386'>  <font color='red'>}</font>
+<a name='L387'>  <b>return</b> NULL;  <i><font color='green'>/* could not find a free place */</font></i>
+<a name='L388'><font color='red'>}</font>
+<a name='L389'>
+<a name='L390'>
+<a name='L391'>
+<a name='L392'><i><font color='green'>/*</font></i>
+<a name='L393'><i><font color='green'>** inserts a new key into a hash table; first, check whether key's main </font></i>
+<a name='L394'><i><font color='green'>** position is free. If not, check whether colliding node is in its main </font></i>
+<a name='L395'><i><font color='green'>** position or not: if it is not, move colliding node to an empty place and </font></i>
+<a name='L396'><i><font color='green'>** put new key in its main position; otherwise (colliding node is in its main </font></i>
+<a name='L397'><i><font color='green'>** position), new key goes to an empty position. </font></i>
+<a name='L398'><i><font color='green'>*/</font></i>
+<a name='L399'><b>static</b> <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *<a href='../R/3069.html' title='Multiple refered from 3 places.'>newkey</a> (lua_State *L, Table *t, <b>const</b> TValue *key) <font color='red'>{</font>
+<a name='L400'>  <a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a> *mp = <a href='../S/259.html#L100' title='Defined at 100 in deps/lua/src/ltable.c.'>mainposition</a>(t, key);
+<a name='L401'>  <b>if</b> (!<a href='../S/282.html#L79' title='Defined at 79 in deps/lua/src/lobject.h.'>ttisnil</a>(<a href='../S/281.html#L15' title='Defined at 15 in deps/lua/src/ltable.h.'>gval</a>(mp)) || mp == <a href='../S/259.html#L73' title='Defined at 73 in deps/lua/src/ltable.c.'>dummynode</a>) <font color='red'>{</font>
+<a name='L402'>    <a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a> *othern;
+<a name='L403'>    <a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a> *n = <a href='../S/259.html#L382' title='Defined at 382 in deps/lua/src/ltable.c.'>getfreepos</a>(t);  <i><font color='green'>/* get a free place */</font></i>
+<a name='L404'>    <b>if</b> (n == NULL) <font color='red'>{</font>  <i><font color='green'>/* cannot find a free place? */</font></i>
+<a name='L405'>      <a href='../S/259.html#L333' title='Defined at 333 in deps/lua/src/ltable.c.'>rehash</a>(L, t, key);  <i><font color='green'>/* grow table */</font></i>
+<a name='L406'>      <b>return</b> <a href='../S/259.html#L494' title='Defined at 494 in deps/lua/src/ltable.c.'>luaH_set</a>(L, t, key);  <i><font color='green'>/* re-insert key into grown table */</font></i>
+<a name='L407'>    <font color='red'>}</font>
+<a name='L408'>    <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(n != <a href='../S/259.html#L73' title='Defined at 73 in deps/lua/src/ltable.c.'>dummynode</a>);
+<a name='L409'>    othern = <a href='../S/259.html#L100' title='Defined at 100 in deps/lua/src/ltable.c.'>mainposition</a>(t, <a href='../S/281.html#L18' title='Defined at 18 in deps/lua/src/ltable.h.'>key2tval</a>(mp));
+<a name='L410'>    <b>if</b> (othern != mp) <font color='red'>{</font>  <i><font color='green'>/* is colliding node out of its main position? */</font></i>
+<a name='L411'>      <i><font color='green'>/* yes; move colliding node into free position */</font></i>
+<a name='L412'>      <b>while</b> (<a href='../S/281.html#L16' title='Defined at 16 in deps/lua/src/ltable.h.'>gnext</a>(othern) != mp) othern = <a href='../S/281.html#L16' title='Defined at 16 in deps/lua/src/ltable.h.'>gnext</a>(othern);  <i><font color='green'>/* find previous */</font></i>
+<a name='L413'>      <a href='../S/281.html#L16' title='Defined at 16 in deps/lua/src/ltable.h.'>gnext</a>(othern) = n;  <i><font color='green'>/* redo the chain with `n' in place of `mp' */</font></i>
+<a name='L414'>      *n = *mp;  <i><font color='green'>/* copy colliding node into free pos. (mp-&gt;next also goes) */</font></i>
+<a name='L415'>      <a href='../S/281.html#L16' title='Defined at 16 in deps/lua/src/ltable.h.'>gnext</a>(mp) = NULL;  <i><font color='green'>/* now `mp' is free */</font></i>
+<a name='L416'>      <a href='../S/282.html#L117' title='Defined at 117 in deps/lua/src/lobject.h.'>setnilvalue</a>(<a href='../S/281.html#L15' title='Defined at 15 in deps/lua/src/ltable.h.'>gval</a>(mp));
+<a name='L417'>    <font color='red'>}</font>
+<a name='L418'>    <b>else</b> <font color='red'>{</font>  <i><font color='green'>/* colliding node is in its own main position */</font></i>
+<a name='L419'>      <i><font color='green'>/* new node will go into free position */</font></i>
+<a name='L420'>      <a href='../S/281.html#L16' title='Defined at 16 in deps/lua/src/ltable.h.'>gnext</a>(n) = <a href='../S/281.html#L16' title='Defined at 16 in deps/lua/src/ltable.h.'>gnext</a>(mp);  <i><font color='green'>/* chain new position */</font></i>
+<a name='L421'>      <a href='../S/281.html#L16' title='Defined at 16 in deps/lua/src/ltable.h.'>gnext</a>(mp) = n;
+<a name='L422'>      mp = n;
+<a name='L423'>    <font color='red'>}</font>
+<a name='L424'>  <font color='red'>}</font>
+<a name='L425'>  <a href='../S/281.html#L14' title='Defined at 14 in deps/lua/src/ltable.h.'>gkey</a>(mp)-&gt;value = key-&gt;value; <a href='../S/281.html#L14' title='Defined at 14 in deps/lua/src/ltable.h.'>gkey</a>(mp)-&gt;tt = key-&gt;tt;
+<a name='L426'>  <a href='../S/261.html#L89' title='Defined at 89 in deps/lua/src/lgc.h.'>luaC_barriert</a>(L, t, key);
+<a name='L427'>  <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(<a href='../S/282.html#L79' title='Defined at 79 in deps/lua/src/lobject.h.'>ttisnil</a>(<a href='../S/281.html#L15' title='Defined at 15 in deps/lua/src/ltable.h.'>gval</a>(mp)));
+<a name='L428'>  <b>return</b> <a href='../S/281.html#L15' title='Defined at 15 in deps/lua/src/ltable.h.'>gval</a>(mp);
+<a name='L429'><font color='red'>}</font>
+<a name='L430'>
+<a name='L431'>
+<a name='L432'><i><font color='green'>/*</font></i>
+<a name='L433'><i><font color='green'>** search function for integers</font></i>
+<a name='L434'><i><font color='green'>*/</font></i>
+<a name='L435'><b>const</b> <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *<a href='../R/2578.html' title='Multiple refered from 7 places.'>luaH_getnum</a> (Table *t, <b>int</b> key) <font color='red'>{</font>
+<a name='L436'>  <i><font color='green'>/* (1 &lt;= key &amp;&amp; key &lt;= t-&gt;sizearray) */</font></i>
+<a name='L437'>  <b>if</b> (<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>unsigned</b> <b>int</b>, key-1) &lt; <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>unsigned</b> <b>int</b>, t-&gt;sizearray))
+<a name='L438'>    <b>return</b> &amp;t-&gt;array[key-1];
+<a name='L439'>  <b>else</b> <font color='red'>{</font>
+<a name='L440'>    <a href='../S/266.html#L99' title='Defined at 99 in deps/lua/src/lua.h.'>lua_Number</a> nk = <a href='../S/310.html#L79' title='Defined at 79 in deps/lua/src/llimits.h.'>cast_num</a>(key);
+<a name='L441'>    <a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a> *n = <a href='../S/259.html#L84' title='Defined at 84 in deps/lua/src/ltable.c.'>hashnum</a>(t, nk);
+<a name='L442'>    <b>do</b> <font color='red'>{</font>  <i><font color='green'>/* check whether `key' is somewhere in the chain */</font></i>
+<a name='L443'>      <b>if</b> (<a href='../S/282.html#L80' title='Defined at 80 in deps/lua/src/lobject.h.'>ttisnumber</a>(<a href='../S/281.html#L14' title='Defined at 14 in deps/lua/src/ltable.h.'>gkey</a>(n)) &amp;&amp; <a href='../S/317.html#L540' title='Defined at 540 in deps/lua/src/luaconf.h.'>luai_numeq</a>(<a href='../S/282.html#L93' title='Defined at 93 in deps/lua/src/lobject.h.'>nvalue</a>(<a href='../S/281.html#L14' title='Defined at 14 in deps/lua/src/ltable.h.'>gkey</a>(n)), nk))
+<a name='L444'>        <b>return</b> <a href='../S/281.html#L15' title='Defined at 15 in deps/lua/src/ltable.h.'>gval</a>(n);  <i><font color='green'>/* that's it */</font></i>
+<a name='L445'>      <b>else</b> n = <a href='../S/281.html#L16' title='Defined at 16 in deps/lua/src/ltable.h.'>gnext</a>(n);
+<a name='L446'>    <font color='red'>}</font> <b>while</b> (n);
+<a name='L447'>    <b>return</b> <a href='../S/282.html#L363' title='Defined at 363 in deps/lua/src/lobject.h.'>luaO_nilobject</a>;
+<a name='L448'>  <font color='red'>}</font>
+<a name='L449'><font color='red'>}</font>
+<a name='L450'>
+<a name='L451'>
+<a name='L452'><i><font color='green'>/*</font></i>
+<a name='L453'><i><font color='green'>** search function for strings</font></i>
+<a name='L454'><i><font color='green'>*/</font></i>
+<a name='L455'><b>const</b> <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *<a href='../R/2579.html' title='Multiple refered from 5 places.'>luaH_getstr</a> (Table *t, TString *key) <font color='red'>{</font>
+<a name='L456'>  <a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a> *n = <a href='../S/259.html#L52' title='Defined at 52 in deps/lua/src/ltable.c.'>hashstr</a>(t, key);
+<a name='L457'>  <b>do</b> <font color='red'>{</font>  <i><font color='green'>/* check whether `key' is somewhere in the chain */</font></i>
+<a name='L458'>    <b>if</b> (<a href='../S/282.html#L81' title='Defined at 81 in deps/lua/src/lobject.h.'>ttisstring</a>(<a href='../S/281.html#L14' title='Defined at 14 in deps/lua/src/ltable.h.'>gkey</a>(n)) &amp;&amp; <a href='../S/282.html#L94' title='Defined at 94 in deps/lua/src/lobject.h.'>rawtsvalue</a>(<a href='../S/281.html#L14' title='Defined at 14 in deps/lua/src/ltable.h.'>gkey</a>(n)) == key)
+<a name='L459'>      <b>return</b> <a href='../S/281.html#L15' title='Defined at 15 in deps/lua/src/ltable.h.'>gval</a>(n);  <i><font color='green'>/* that's it */</font></i>
+<a name='L460'>    <b>else</b> n = <a href='../S/281.html#L16' title='Defined at 16 in deps/lua/src/ltable.h.'>gnext</a>(n);
+<a name='L461'>  <font color='red'>}</font> <b>while</b> (n);
+<a name='L462'>  <b>return</b> <a href='../S/282.html#L363' title='Defined at 363 in deps/lua/src/lobject.h.'>luaO_nilobject</a>;
+<a name='L463'><font color='red'>}</font>
+<a name='L464'>
+<a name='L465'>
+<a name='L466'><i><font color='green'>/*</font></i>
+<a name='L467'><i><font color='green'>** main search function</font></i>
+<a name='L468'><i><font color='green'>*/</font></i>
+<a name='L469'><b>const</b> <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *<a href='../R/2576.html' title='Multiple refered from 4 places.'>luaH_get</a> (Table *t, <b>const</b> TValue *key) <font color='red'>{</font>
+<a name='L470'>  <b>switch</b> (<a href='../S/282.html#L90' title='Defined at 90 in deps/lua/src/lobject.h.'>ttype</a>(key)) <font color='red'>{</font>
+<a name='L471'>    <b>case</b> <a href='../S/266.html#L74' title='Defined at 74 in deps/lua/src/lua.h.'>LUA_TNIL</a>: <b>return</b> <a href='../S/282.html#L363' title='Defined at 363 in deps/lua/src/lobject.h.'>luaO_nilobject</a>;
+<a name='L472'>    <b>case</b> <a href='../S/266.html#L78' title='Defined at 78 in deps/lua/src/lua.h.'>LUA_TSTRING</a>: <b>return</b> <a href='../S/259.html#L455' title='Defined at 455 in deps/lua/src/ltable.c.'>luaH_getstr</a>(t, <a href='../S/282.html#L94' title='Defined at 94 in deps/lua/src/lobject.h.'>rawtsvalue</a>(key));
+<a name='L473'>    <b>case</b> <a href='../S/266.html#L77' title='Defined at 77 in deps/lua/src/lua.h.'>LUA_TNUMBER</a>: <font color='red'>{</font>
+<a name='L474'>      <b>int</b> k;
+<a name='L475'>      <a href='../S/266.html#L99' title='Defined at 99 in deps/lua/src/lua.h.'>lua_Number</a> n = <a href='../S/282.html#L93' title='Defined at 93 in deps/lua/src/lobject.h.'>nvalue</a>(key);
+<a name='L476'>      <a href='../D/3145.html' title='Multiple defined in 3 places.'>lua_number2int</a>(k, n);
+<a name='L477'>      <b>if</b> (<a href='../S/317.html#L540' title='Defined at 540 in deps/lua/src/luaconf.h.'>luai_numeq</a>(<a href='../S/310.html#L79' title='Defined at 79 in deps/lua/src/llimits.h.'>cast_num</a>(k), <a href='../S/282.html#L93' title='Defined at 93 in deps/lua/src/lobject.h.'>nvalue</a>(key))) <i><font color='green'>/* index is int? */</font></i>
+<a name='L478'>        <b>return</b> <a href='../S/259.html#L435' title='Defined at 435 in deps/lua/src/ltable.c.'>luaH_getnum</a>(t, k);  <i><font color='green'>/* use specialized version */</font></i>
+<a name='L479'>      <i><font color='green'>/* else go through */</font></i>
+<a name='L480'>    <font color='red'>}</font>
+<a name='L481'>    <b>default</b>: <font color='red'>{</font>
+<a name='L482'>      <a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a> *n = <a href='../S/259.html#L100' title='Defined at 100 in deps/lua/src/ltable.c.'>mainposition</a>(t, key);
+<a name='L483'>      <b>do</b> <font color='red'>{</font>  <i><font color='green'>/* check whether `key' is somewhere in the chain */</font></i>
+<a name='L484'>        <b>if</b> (<a href='../S/311.html#L72' title='Defined at 72 in deps/lua/src/lobject.c.'>luaO_rawequalObj</a>(<a href='../S/281.html#L18' title='Defined at 18 in deps/lua/src/ltable.h.'>key2tval</a>(n), key))
+<a name='L485'>          <b>return</b> <a href='../S/281.html#L15' title='Defined at 15 in deps/lua/src/ltable.h.'>gval</a>(n);  <i><font color='green'>/* that's it */</font></i>
+<a name='L486'>        <b>else</b> n = <a href='../S/281.html#L16' title='Defined at 16 in deps/lua/src/ltable.h.'>gnext</a>(n);
+<a name='L487'>      <font color='red'>}</font> <b>while</b> (n);
+<a name='L488'>      <b>return</b> <a href='../S/282.html#L363' title='Defined at 363 in deps/lua/src/lobject.h.'>luaO_nilobject</a>;
+<a name='L489'>    <font color='red'>}</font>
+<a name='L490'>  <font color='red'>}</font>
+<a name='L491'><font color='red'>}</font>
+<a name='L492'>
+<a name='L493'>
+<a name='L494'><a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *<a href='../R/2585.html' title='Multiple refered from 6 places.'>luaH_set</a> (lua_State *L, Table *t, <b>const</b> TValue *key) <font color='red'>{</font>
+<a name='L495'>  <b>const</b> <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *p = <a href='../S/259.html#L469' title='Defined at 469 in deps/lua/src/ltable.c.'>luaH_get</a>(t, key);
+<a name='L496'>  t-&gt;flags = 0;
+<a name='L497'>  <b>if</b> (p != <a href='../S/282.html#L363' title='Defined at 363 in deps/lua/src/lobject.h.'>luaO_nilobject</a>)
+<a name='L498'>    <b>return</b> <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *, p);
+<a name='L499'>  <b>else</b> <font color='red'>{</font>
+<a name='L500'>    <b>if</b> (<a href='../S/282.html#L79' title='Defined at 79 in deps/lua/src/lobject.h.'>ttisnil</a>(key)) <a href='../S/299.html#L631' title='Defined at 631 in deps/lua/src/ldebug.c.'>luaG_runerror</a>(L, "table index is nil");
+<a name='L501'>    <b>else</b> <b>if</b> (<a href='../S/282.html#L80' title='Defined at 80 in deps/lua/src/lobject.h.'>ttisnumber</a>(key) &amp;&amp; <a href='../S/317.html#L543' title='Defined at 543 in deps/lua/src/luaconf.h.'>luai_numisnan</a>(<a href='../S/282.html#L93' title='Defined at 93 in deps/lua/src/lobject.h.'>nvalue</a>(key)))
+<a name='L502'>      <a href='../S/299.html#L631' title='Defined at 631 in deps/lua/src/ldebug.c.'>luaG_runerror</a>(L, "table index is NaN");
+<a name='L503'>    <b>return</b> <a href='../S/259.html#L399' title='Defined at 399 in deps/lua/src/ltable.c.'>newkey</a>(L, t, key);
+<a name='L504'>  <font color='red'>}</font>
+<a name='L505'><font color='red'>}</font>
+<a name='L506'>
+<a name='L507'>
+<a name='L508'><a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *<a href='../R/2586.html' title='Multiple refered from 6 places.'>luaH_setnum</a> (lua_State *L, Table *t, <b>int</b> key) <font color='red'>{</font>
+<a name='L509'>  <b>const</b> <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *p = <a href='../S/259.html#L435' title='Defined at 435 in deps/lua/src/ltable.c.'>luaH_getnum</a>(t, key);
+<a name='L510'>  <b>if</b> (p != <a href='../S/282.html#L363' title='Defined at 363 in deps/lua/src/lobject.h.'>luaO_nilobject</a>)
+<a name='L511'>    <b>return</b> <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *, p);
+<a name='L512'>  <b>else</b> <font color='red'>{</font>
+<a name='L513'>    <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> k;
+<a name='L514'>    <a href='../S/282.html#L119' title='Defined at 119 in deps/lua/src/lobject.h.'>setnvalue</a>(&amp;k, <a href='../S/310.html#L79' title='Defined at 79 in deps/lua/src/llimits.h.'>cast_num</a>(key));
+<a name='L515'>    <b>return</b> <a href='../S/259.html#L399' title='Defined at 399 in deps/lua/src/ltable.c.'>newkey</a>(L, t, &amp;k);
+<a name='L516'>  <font color='red'>}</font>
+<a name='L517'><font color='red'>}</font>
+<a name='L518'>
+<a name='L519'>
+<a name='L520'><a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *<a href='../R/2587.html' title='Multiple refered from 3 places.'>luaH_setstr</a> (lua_State *L, Table *t, TString *key) <font color='red'>{</font>
+<a name='L521'>  <b>const</b> <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *p = <a href='../S/259.html#L455' title='Defined at 455 in deps/lua/src/ltable.c.'>luaH_getstr</a>(t, key);
+<a name='L522'>  <b>if</b> (p != <a href='../S/282.html#L363' title='Defined at 363 in deps/lua/src/lobject.h.'>luaO_nilobject</a>)
+<a name='L523'>    <b>return</b> <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *, p);
+<a name='L524'>  <b>else</b> <font color='red'>{</font>
+<a name='L525'>    <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> k;
+<a name='L526'>    <a href='../S/282.html#L128' title='Defined at 128 in deps/lua/src/lobject.h.'>setsvalue</a>(L, &amp;k, key);
+<a name='L527'>    <b>return</b> <a href='../S/259.html#L399' title='Defined at 399 in deps/lua/src/ltable.c.'>newkey</a>(L, t, &amp;k);
+<a name='L528'>  <font color='red'>}</font>
+<a name='L529'><font color='red'>}</font>
+<a name='L530'>
+<a name='L531'>
+<a name='L532'><b>static</b> <b>int</b> <a href='../S/259.html#L575' title='Refered from 575 in deps/lua/src/ltable.c.'>unbound_search</a> (Table *t, <b>unsigned</b> <b>int</b> j) <font color='red'>{</font>
+<a name='L533'>  <b>unsigned</b> <b>int</b> i = j;  <i><font color='green'>/* i is zero or a present index */</font></i>
+<a name='L534'>  j++;
+<a name='L535'>  <i><font color='green'>/* find `i' and `j' such that i is present and j is not */</font></i>
+<a name='L536'>  <b>while</b> (!<a href='../S/282.html#L79' title='Defined at 79 in deps/lua/src/lobject.h.'>ttisnil</a>(<a href='../S/259.html#L435' title='Defined at 435 in deps/lua/src/ltable.c.'>luaH_getnum</a>(t, j))) <font color='red'>{</font>
+<a name='L537'>    i = j;
+<a name='L538'>    j *= 2;
+<a name='L539'>    <b>if</b> (j &gt; <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>unsigned</b> <b>int</b>, <a href='../S/310.html#L35' title='Defined at 35 in deps/lua/src/llimits.h.'>MAX_INT</a>)) <font color='red'>{</font>  <i><font color='green'>/* overflow? */</font></i>
+<a name='L540'>      <i><font color='green'>/* table was built with bad purposes: resort to linear search */</font></i>
+<a name='L541'>      i = 1;
+<a name='L542'>      <b>while</b> (!<a href='../S/282.html#L79' title='Defined at 79 in deps/lua/src/lobject.h.'>ttisnil</a>(<a href='../S/259.html#L435' title='Defined at 435 in deps/lua/src/ltable.c.'>luaH_getnum</a>(t, i))) i++;
+<a name='L543'>      <b>return</b> i - 1;
+<a name='L544'>    <font color='red'>}</font>
+<a name='L545'>  <font color='red'>}</font>
+<a name='L546'>  <i><font color='green'>/* now do a binary search between them */</font></i>
+<a name='L547'>  <b>while</b> (j - i &gt; 1) <font color='red'>{</font>
+<a name='L548'>    <b>unsigned</b> <b>int</b> m = (i+j)/2;
+<a name='L549'>    <b>if</b> (<a href='../S/282.html#L79' title='Defined at 79 in deps/lua/src/lobject.h.'>ttisnil</a>(<a href='../S/259.html#L435' title='Defined at 435 in deps/lua/src/ltable.c.'>luaH_getnum</a>(t, m))) j = m;
+<a name='L550'>    <b>else</b> i = m;
+<a name='L551'>  <font color='red'>}</font>
+<a name='L552'>  <b>return</b> i;
+<a name='L553'><font color='red'>}</font>
+<a name='L554'>
+<a name='L555'>
+<a name='L556'><i><font color='green'>/*</font></i>
+<a name='L557'><i><font color='green'>** Try to find a boundary in table `t'. A `boundary' is an integer index</font></i>
+<a name='L558'><i><font color='green'>** such that t[i] is non-nil and t[i+1] is nil (and 0 if t[1] is nil).</font></i>
+<a name='L559'><i><font color='green'>*/</font></i>
+<a name='L560'><b>int</b> <a href='../R/2577.html' title='Multiple refered from 3 places.'>luaH_getn</a> (Table *t) <font color='red'>{</font>
+<a name='L561'>  <b>unsigned</b> <b>int</b> j = t-&gt;sizearray;
+<a name='L562'>  <b>if</b> (j &gt; 0 &amp;&amp; <a href='../S/282.html#L79' title='Defined at 79 in deps/lua/src/lobject.h.'>ttisnil</a>(&amp;t-&gt;array[j - 1])) <font color='red'>{</font>
+<a name='L563'>    <i><font color='green'>/* there is a boundary in the array part: (binary) search for it */</font></i>
+<a name='L564'>    <b>unsigned</b> <b>int</b> i = 0;
+<a name='L565'>    <b>while</b> (j - i &gt; 1) <font color='red'>{</font>
+<a name='L566'>      <b>unsigned</b> <b>int</b> m = (i+j)/2;
+<a name='L567'>      <b>if</b> (<a href='../S/282.html#L79' title='Defined at 79 in deps/lua/src/lobject.h.'>ttisnil</a>(&amp;t-&gt;array[m - 1])) j = m;
+<a name='L568'>      <b>else</b> i = m;
+<a name='L569'>    <font color='red'>}</font>
+<a name='L570'>    <b>return</b> i;
+<a name='L571'>  <font color='red'>}</font>
+<a name='L572'>  <i><font color='green'>/* else must find a boundary in hash part */</font></i>
+<a name='L573'>  <b>else</b> <b>if</b> (t-&gt;node == <a href='../S/259.html#L73' title='Defined at 73 in deps/lua/src/ltable.c.'>dummynode</a>)  <i><font color='green'>/* hash part is empty? */</font></i>
+<a name='L574'>    <b>return</b> j;  <i><font color='green'>/* that is easy... */</font></i>
+<a name='L575'>  <b>else</b> <b>return</b> <a href='../S/259.html#L532' title='Defined at 532 in deps/lua/src/ltable.c.'>unbound_search</a>(t, j);
+<a name='L576'><font color='red'>}</font>
+<a name='L577'>
+<a name='L578'>
+<a name='L579'>
+<a name='L580'><font color='darkred'>#if</font> <b>defined</b>(LUA_DEBUG)
+<a name='L581'>
+<a name='L582'><a href='../D/524.html' title='Multiple defined in 2 places.'>Node</a> *<a href='../S/281.html#L35' title='Refered from 35 in deps/lua/src/ltable.h.'>luaH_mainposition</a> (<b>const</b> Table *t, <b>const</b> TValue *key) <font color='red'>{</font>
+<a name='L583'>  <b>return</b> <a href='../S/259.html#L100' title='Defined at 100 in deps/lua/src/ltable.c.'>mainposition</a>(t, key);
+<a name='L584'><font color='red'>}</font>
+<a name='L585'>
+<a name='L586'><b>int</b> <a href='../S/281.html#L36' title='Refered from 36 in deps/lua/src/ltable.h.'>luaH_isdummy</a> (Node *n) <font color='red'>{</font> <b>return</b> n == <a href='../S/259.html#L73' title='Defined at 73 in deps/lua/src/ltable.c.'>dummynode</a>; <font color='red'>}</font>
+<a name='L587'>
+<a name='L588'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L84'>[^]</a><a href='#L586'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

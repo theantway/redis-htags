@@ -1,0 +1,90 @@
+<html>
+<head>
+<title>S</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/308.html#L34'>S</a>                  34 deps/lua/src/lundump.c #define IF(c,s)		if (c) error(S,s)
+<a href='../S/308.html#L36'>S</a>                  36 deps/lua/src/lundump.c static void error(LoadState* S, const char* why)
+<a href='../S/308.html#L38'>S</a>                  38 deps/lua/src/lundump.c  luaO_pushfstring(S-&gt;L,"%s: %s in precompiled chunk",S-&gt;name,why);
+<a href='../S/308.html#L39'>S</a>                  39 deps/lua/src/lundump.c  luaD_throw(S-&gt;L,LUA_ERRSYNTAX);
+<a href='../S/308.html#L43'>S</a>                  43 deps/lua/src/lundump.c #define LoadMem(S,b,n,size)	LoadBlock(S,b,(n)*(size))
+<a href='../S/308.html#L44'>S</a>                  44 deps/lua/src/lundump.c #define	LoadByte(S)		(lu_byte)LoadChar(S)
+<a href='../S/308.html#L45'>S</a>                  45 deps/lua/src/lundump.c #define LoadVar(S,x)		LoadMem(S,&amp;x,1,sizeof(x))
+<a href='../S/308.html#L46'>S</a>                  46 deps/lua/src/lundump.c #define LoadVector(S,b,n,size)	LoadMem(S,b,n,size)
+<a href='../S/308.html#L48'>S</a>                  48 deps/lua/src/lundump.c static void LoadBlock(LoadState* S, void* b, size_t size)
+<a href='../S/308.html#L50'>S</a>                  50 deps/lua/src/lundump.c  size_t r=luaZ_read(S-&gt;Z,b,size);
+<a href='../S/308.html#L54'>S</a>                  54 deps/lua/src/lundump.c static int LoadChar(LoadState* S)
+<a href='../S/308.html#L57'>S</a>                  57 deps/lua/src/lundump.c  LoadVar(S,x);
+<a href='../S/308.html#L61'>S</a>                  61 deps/lua/src/lundump.c static int LoadInt(LoadState* S)
+<a href='../S/308.html#L64'>S</a>                  64 deps/lua/src/lundump.c  LoadVar(S,x);
+<a href='../S/308.html#L69'>S</a>                  69 deps/lua/src/lundump.c static lua_Number LoadNumber(LoadState* S)
+<a href='../S/308.html#L72'>S</a>                  72 deps/lua/src/lundump.c  LoadVar(S,x);
+<a href='../S/308.html#L76'>S</a>                  76 deps/lua/src/lundump.c static TString* LoadString(LoadState* S)
+<a href='../S/308.html#L79'>S</a>                  79 deps/lua/src/lundump.c  LoadVar(S,size);
+<a href='../S/308.html#L84'>S</a>                  84 deps/lua/src/lundump.c   char* s=luaZ_openspace(S-&gt;L,S-&gt;b,size);
+<a href='../S/308.html#L85'>S</a>                  85 deps/lua/src/lundump.c   LoadBlock(S,s,size);
+<a href='../S/308.html#L86'>S</a>                  86 deps/lua/src/lundump.c   return luaS_newlstr(S-&gt;L,s,size-1);		/* remove trailing '\0' */
+<a href='../S/308.html#L90'>S</a>                  90 deps/lua/src/lundump.c static void LoadCode(LoadState* S, Proto* f)
+<a href='../S/308.html#L92'>S</a>                  92 deps/lua/src/lundump.c  int n=LoadInt(S);
+<a href='../S/308.html#L93'>S</a>                  93 deps/lua/src/lundump.c  f-&gt;code=luaM_newvector(S-&gt;L,n,Instruction);
+<a href='../S/308.html#L95'>S</a>                  95 deps/lua/src/lundump.c  LoadVector(S,f-&gt;code,n,sizeof(Instruction));
+<a href='../S/308.html#L98'>S</a>                  98 deps/lua/src/lundump.c static Proto* LoadFunction(LoadState* S, TString* p);
+<a href='../S/308.html#L100'>S</a>                 100 deps/lua/src/lundump.c static void LoadConstants(LoadState* S, Proto* f)
+<a href='../S/308.html#L103'>S</a>                 103 deps/lua/src/lundump.c  n=LoadInt(S);
+<a href='../S/308.html#L104'>S</a>                 104 deps/lua/src/lundump.c  f-&gt;k=luaM_newvector(S-&gt;L,n,TValue);
+<a href='../S/308.html#L110'>S</a>                 110 deps/lua/src/lundump.c   int t=LoadChar(S);
+<a href='../S/308.html#L117'>S</a>                 117 deps/lua/src/lundump.c    	setbvalue(o,LoadChar(S)!=0);
+<a href='../S/308.html#L120'>S</a>                 120 deps/lua/src/lundump.c 	setnvalue(o,LoadNumber(S));
+<a href='../S/308.html#L123'>S</a>                 123 deps/lua/src/lundump.c 	setsvalue2n(S-&gt;L,o,LoadString(S));
+<a href='../S/308.html#L126'>S</a>                 126 deps/lua/src/lundump.c 	error(S,"bad constant");
+<a href='../S/308.html#L130'>S</a>                 130 deps/lua/src/lundump.c  n=LoadInt(S);
+<a href='../S/308.html#L131'>S</a>                 131 deps/lua/src/lundump.c  f-&gt;p=luaM_newvector(S-&gt;L,n,Proto*);
+<a href='../S/308.html#L134'>S</a>                 134 deps/lua/src/lundump.c  for (i=0; i&lt;n; i++) f-&gt;p[i]=LoadFunction(S,f-&gt;source);
+<a href='../S/308.html#L137'>S</a>                 137 deps/lua/src/lundump.c static void LoadDebug(LoadState* S, Proto* f)
+<a href='../S/308.html#L140'>S</a>                 140 deps/lua/src/lundump.c  n=LoadInt(S);
+<a href='../S/308.html#L141'>S</a>                 141 deps/lua/src/lundump.c  f-&gt;lineinfo=luaM_newvector(S-&gt;L,n,int);
+<a href='../S/308.html#L143'>S</a>                 143 deps/lua/src/lundump.c  LoadVector(S,f-&gt;lineinfo,n,sizeof(int));
+<a href='../S/308.html#L144'>S</a>                 144 deps/lua/src/lundump.c  n=LoadInt(S);
+<a href='../S/308.html#L145'>S</a>                 145 deps/lua/src/lundump.c  f-&gt;locvars=luaM_newvector(S-&gt;L,n,LocVar);
+<a href='../S/308.html#L150'>S</a>                 150 deps/lua/src/lundump.c   f-&gt;locvars[i].varname=LoadString(S);
+<a href='../S/308.html#L151'>S</a>                 151 deps/lua/src/lundump.c   f-&gt;locvars[i].startpc=LoadInt(S);
+<a href='../S/308.html#L152'>S</a>                 152 deps/lua/src/lundump.c   f-&gt;locvars[i].endpc=LoadInt(S);
+<a href='../S/308.html#L154'>S</a>                 154 deps/lua/src/lundump.c  n=LoadInt(S);
+<a href='../S/308.html#L155'>S</a>                 155 deps/lua/src/lundump.c  f-&gt;upvalues=luaM_newvector(S-&gt;L,n,TString*);
+<a href='../S/308.html#L158'>S</a>                 158 deps/lua/src/lundump.c  for (i=0; i&lt;n; i++) f-&gt;upvalues[i]=LoadString(S);
+<a href='../S/308.html#L161'>S</a>                 161 deps/lua/src/lundump.c static Proto* LoadFunction(LoadState* S, TString* p)
+<a href='../S/308.html#L164'>S</a>                 164 deps/lua/src/lundump.c  if (++S-&gt;L-&gt;nCcalls &gt; LUAI_MAXCCALLS) error(S,"code too deep");
+<a href='../S/308.html#L165'>S</a>                 165 deps/lua/src/lundump.c  f=luaF_newproto(S-&gt;L);
+<a href='../S/308.html#L166'>S</a>                 166 deps/lua/src/lundump.c  setptvalue2s(S-&gt;L,S-&gt;L-&gt;top,f); incr_top(S-&gt;L);
+<a href='../S/308.html#L167'>S</a>                 167 deps/lua/src/lundump.c  f-&gt;source=LoadString(S); if (f-&gt;source==NULL) f-&gt;source=p;
+<a href='../S/308.html#L168'>S</a>                 168 deps/lua/src/lundump.c  f-&gt;linedefined=LoadInt(S);
+<a href='../S/308.html#L169'>S</a>                 169 deps/lua/src/lundump.c  f-&gt;lastlinedefined=LoadInt(S);
+<a href='../S/308.html#L170'>S</a>                 170 deps/lua/src/lundump.c  f-&gt;nups=LoadByte(S);
+<a href='../S/308.html#L171'>S</a>                 171 deps/lua/src/lundump.c  f-&gt;numparams=LoadByte(S);
+<a href='../S/308.html#L172'>S</a>                 172 deps/lua/src/lundump.c  f-&gt;is_vararg=LoadByte(S);
+<a href='../S/308.html#L173'>S</a>                 173 deps/lua/src/lundump.c  f-&gt;maxstacksize=LoadByte(S);
+<a href='../S/308.html#L174'>S</a>                 174 deps/lua/src/lundump.c  LoadCode(S,f);
+<a href='../S/308.html#L175'>S</a>                 175 deps/lua/src/lundump.c  LoadConstants(S,f);
+<a href='../S/308.html#L176'>S</a>                 176 deps/lua/src/lundump.c  LoadDebug(S,f);
+<a href='../S/308.html#L178'>S</a>                 178 deps/lua/src/lundump.c  S-&gt;L-&gt;top--;
+<a href='../S/308.html#L179'>S</a>                 179 deps/lua/src/lundump.c  S-&gt;L-&gt;nCcalls--;
+<a href='../S/308.html#L183'>S</a>                 183 deps/lua/src/lundump.c static void LoadHeader(LoadState* S)
+<a href='../S/308.html#L188'>S</a>                 188 deps/lua/src/lundump.c  LoadBlock(S,s,LUAC_HEADERSIZE);
+<a href='../S/308.html#L197'>S</a>                 197 deps/lua/src/lundump.c  LoadState S;
+<a href='../S/308.html#L199'>S</a>                 199 deps/lua/src/lundump.c   S.name=name+1;
+<a href='../S/308.html#L201'>S</a>                 201 deps/lua/src/lundump.c   S.name="binary string";
+<a href='../S/308.html#L203'>S</a>                 203 deps/lua/src/lundump.c   S.name=name;
+<a href='../S/308.html#L204'>S</a>                 204 deps/lua/src/lundump.c  S.L=L;
+<a href='../S/308.html#L205'>S</a>                 205 deps/lua/src/lundump.c  S.Z=Z;
+<a href='../S/308.html#L206'>S</a>                 206 deps/lua/src/lundump.c  S.b=buff;
+<a href='../S/308.html#L207'>S</a>                 207 deps/lua/src/lundump.c  LoadHeader(&amp;S);
+<a href='../S/308.html#L208'>S</a>                 208 deps/lua/src/lundump.c  return LoadFunction(&amp;S,luaS_newliteral(L,"=?"));
+<a href='../S/283.html#L173'>S</a>                 173 deps/lua/src/print.c 	S(f-&gt;sizecode),f-&gt;sizecode*Sizeof(Instruction),VOID(f));
+<a href='../S/283.html#L176'>S</a>                 176 deps/lua/src/print.c 	S(f-&gt;maxstacksize),S(f-&gt;nups));
+<a href='../S/283.html#L178'>S</a>                 178 deps/lua/src/print.c 	S(f-&gt;sizelocvars),S(f-&gt;sizek),S(f-&gt;sizep));
+</pre>
+</body>
+</html>

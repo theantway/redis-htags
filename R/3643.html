@@ -1,0 +1,102 @@
+<html>
+<head>
+<title>sdsnew</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/117.html#L523'>sdsnew</a>            523 deps/hiredis/sds.c         sds x = sdsnew("foo"), y;
+<a href='../S/117.html#L552'>sdsnew</a>            552 deps/hiredis/sds.c         x = sdstrim(sdsnew("xxciaoyyy"),"xy");
+<a href='../S/117.html#L587'>sdsnew</a>            587 deps/hiredis/sds.c         x = sdsnew("foo");
+<a href='../S/117.html#L588'>sdsnew</a>            588 deps/hiredis/sds.c         y = sdsnew("foa");
+<a href='../S/117.html#L593'>sdsnew</a>            593 deps/hiredis/sds.c         x = sdsnew("bar");
+<a href='../S/117.html#L594'>sdsnew</a>            594 deps/hiredis/sds.c         y = sdsnew("bar");
+<a href='../S/117.html#L599'>sdsnew</a>            599 deps/hiredis/sds.c         x = sdsnew("aar");
+<a href='../S/117.html#L600'>sdsnew</a>            600 deps/hiredis/sds.c         y = sdsnew("bar");
+<a href='../S/112.html#L56'>sdsnew</a>             56 deps/hiredis/sds.h sds sdsnew(const char *init);
+<a href='../S/96.html#L218'>sdsnew</a>            218 src/config.c               server.masterhost = sdsnew(argv[1]);
+<a href='../S/18.html#L148'>sdsnew</a>            148 src/migrate.c          addReplySds(c,sdsnew("+NOKEY\r\n"));
+<a href='../S/18.html#L162'>sdsnew</a>            162 src/migrate.c          addReplySds(c,sdsnew("-IOERR error or timeout connecting to the client\r\n"));
+<a href='../S/18.html#L237'>sdsnew</a>            237 src/migrate.c      addReplySds(c,sdsnew("-IOERR error or timeout writing to target instance\r\n"));
+<a href='../S/18.html#L243'>sdsnew</a>            243 src/migrate.c      addReplySds(c,sdsnew("-IOERR error or timeout reading from target node\r\n"));
+<a href='../S/94.html#L419'>sdsnew</a>            419 src/redis-benchmark.c             config.tests = sdsnew(",");
+<a href='../S/94.html#L557'>sdsnew</a>            557 src/redis-benchmark.c         sds title = sdsnew(argv[0]);
+<a href='../S/27.html#L174'>sdsnew</a>            174 src/redis-cli.c         tmp.full = sdsnew(commandHelp[i].name);
+<a href='../S/27.html#L388'>sdsnew</a>            388 src/redis-cli.c             _prefix = sdscat(sdsnew(prefix),_prefixlen);
+<a href='../S/27.html#L527'>sdsnew</a>            527 src/redis-cli.c         config.hostip = sdsnew(p+1);
+<a href='../S/27.html#L635'>sdsnew</a>            635 src/redis-cli.c             config.hostip = sdsnew(argv[++i]);
+<a href='../S/27.html#L673'>sdsnew</a>            673 src/redis-cli.c             config.mb_delim = sdsnew(argv[++i]);
+<a href='../S/27.html#L751'>sdsnew</a>            751 src/redis-cli.c     sds[j] = sdsnew(args[j]);
+<a href='../S/27.html#L795'>sdsnew</a>            795 src/redis-cli.c                     config.hostip = sdsnew(argv[1]);
+<a href='../S/27.html#L882'>sdsnew</a>            882 src/redis-cli.c     argv2[0] = sdsnew("EVAL");
+<a href='../S/27.html#L889'>sdsnew</a>            889 src/redis-cli.c         argv2[j+3-got_comma] = sdsnew(argv[j]);
+<a href='../S/27.html#L1193'>sdsnew</a>           1193 src/redis-cli.c     config.hostip = sdsnew("127.0.0.1");
+<a href='../S/27.html#L1215'>sdsnew</a>           1215 src/redis-cli.c     config.mb_delim = sdsnew("\n");
+<a href='../S/35.html#L1015'>sdsnew</a>           1015 src/redis.c        shared.crlf = createObject(REDIS_STRING,sdsnew("\r\n"));
+<a href='../S/35.html#L1016'>sdsnew</a>           1016 src/redis.c        shared.ok = createObject(REDIS_STRING,sdsnew("+OK\r\n"));
+<a href='../S/35.html#L1017'>sdsnew</a>           1017 src/redis.c        shared.err = createObject(REDIS_STRING,sdsnew("-ERR\r\n"));
+<a href='../S/35.html#L1018'>sdsnew</a>           1018 src/redis.c        shared.emptybulk = createObject(REDIS_STRING,sdsnew("$0\r\n\r\n"));
+<a href='../S/35.html#L1019'>sdsnew</a>           1019 src/redis.c        shared.czero = createObject(REDIS_STRING,sdsnew(":0\r\n"));
+<a href='../S/35.html#L1020'>sdsnew</a>           1020 src/redis.c        shared.cone = createObject(REDIS_STRING,sdsnew(":1\r\n"));
+<a href='../S/35.html#L1021'>sdsnew</a>           1021 src/redis.c        shared.cnegone = createObject(REDIS_STRING,sdsnew(":-1\r\n"));
+<a href='../S/35.html#L1022'>sdsnew</a>           1022 src/redis.c        shared.nullbulk = createObject(REDIS_STRING,sdsnew("$-1\r\n"));
+<a href='../S/35.html#L1023'>sdsnew</a>           1023 src/redis.c        shared.nullmultibulk = createObject(REDIS_STRING,sdsnew("*-1\r\n"));
+<a href='../S/35.html#L1024'>sdsnew</a>           1024 src/redis.c        shared.emptymultibulk = createObject(REDIS_STRING,sdsnew("*0\r\n"));
+<a href='../S/35.html#L1025'>sdsnew</a>           1025 src/redis.c        shared.pong = createObject(REDIS_STRING,sdsnew("+PONG\r\n"));
+<a href='../S/35.html#L1026'>sdsnew</a>           1026 src/redis.c        shared.queued = createObject(REDIS_STRING,sdsnew("+QUEUED\r\n"));
+<a href='../S/35.html#L1027'>sdsnew</a>           1027 src/redis.c        shared.wrongtypeerr = createObject(REDIS_STRING,sdsnew(
+<a href='../S/35.html#L1029'>sdsnew</a>           1029 src/redis.c        shared.nokeyerr = createObject(REDIS_STRING,sdsnew(
+<a href='../S/35.html#L1031'>sdsnew</a>           1031 src/redis.c        shared.syntaxerr = createObject(REDIS_STRING,sdsnew(
+<a href='../S/35.html#L1033'>sdsnew</a>           1033 src/redis.c        shared.sameobjecterr = createObject(REDIS_STRING,sdsnew(
+<a href='../S/35.html#L1035'>sdsnew</a>           1035 src/redis.c        shared.outofrangeerr = createObject(REDIS_STRING,sdsnew(
+<a href='../S/35.html#L1037'>sdsnew</a>           1037 src/redis.c        shared.noscripterr = createObject(REDIS_STRING,sdsnew(
+<a href='../S/35.html#L1039'>sdsnew</a>           1039 src/redis.c        shared.loadingerr = createObject(REDIS_STRING,sdsnew(
+<a href='../S/35.html#L1041'>sdsnew</a>           1041 src/redis.c        shared.slowscripterr = createObject(REDIS_STRING,sdsnew(
+<a href='../S/35.html#L1043'>sdsnew</a>           1043 src/redis.c        shared.masterdownerr = createObject(REDIS_STRING,sdsnew(
+<a href='../S/35.html#L1045'>sdsnew</a>           1045 src/redis.c        shared.bgsaveerr = createObject(REDIS_STRING,sdsnew(
+<a href='../S/35.html#L1047'>sdsnew</a>           1047 src/redis.c        shared.roslaveerr = createObject(REDIS_STRING,sdsnew(
+<a href='../S/35.html#L1049'>sdsnew</a>           1049 src/redis.c        shared.oomerr = createObject(REDIS_STRING,sdsnew(
+<a href='../S/35.html#L1051'>sdsnew</a>           1051 src/redis.c        shared.execaborterr = createObject(REDIS_STRING,sdsnew(
+<a href='../S/35.html#L1053'>sdsnew</a>           1053 src/redis.c        shared.space = createObject(REDIS_STRING,sdsnew(" "));
+<a href='../S/35.html#L1054'>sdsnew</a>           1054 src/redis.c        shared.colon = createObject(REDIS_STRING,sdsnew(":"));
+<a href='../S/35.html#L1055'>sdsnew</a>           1055 src/redis.c        shared.plus = createObject(REDIS_STRING,sdsnew("+"));
+<a href='../S/35.html#L1392'>sdsnew</a>           1392 src/redis.c            retval = dictAdd(server.commands, sdsnew(c-&gt;name), c);
+<a href='../S/35.html#L1454'>sdsnew</a>           1454 src/redis.c        sds name = sdsnew(s);
+<a href='../S/14.html#L80'>sdsnew</a>             80 src/replication.c     sds cmdrepr = sdsnew("+");
+<a href='../S/14.html#L721'>sdsnew</a>            721 src/replication.c             addReplySds(c,sdsnew("+OK Already connected to specified master\r\n"));
+<a href='../S/14.html#L794'>sdsnew</a>            794 src/replication.c                 addReplySds(slave,sdsnew("*1\r\n$4\r\nPING\r\n"));
+<a href='../S/75.html#L685'>sdsnew</a>            685 src/scripting.c             sds err = sdsnew(lua_tostring(lua,-1));
+<a href='../S/75.html#L698'>sdsnew</a>            698 src/scripting.c             sds ok = sdsnew(lua_tostring(lua,-1));
+<a href='../S/75.html#L1009'>sdsnew</a>           1009 src/scripting.c             addReplySds(c,sdsnew("-NOTBUSY No scripts in execution right now.\r\n"));
+<a href='../S/75.html#L1011'>sdsnew</a>           1011 src/scripting.c             addReplySds(c,sdsnew("-UNKILLABLE Sorry the script already executed write commands against the dataset. You can either wait the script termination or kill the server in an hard way using the SHUTDOWN NOSAVE command.\r\n"));
+<a href='../S/63.html#L628'>sdsnew</a>            628 src/sds.c              sds x = sdsnew("foo"), y;
+<a href='../S/63.html#L657'>sdsnew</a>            657 src/sds.c              x = sdstrim(sdsnew("xxciaoyyy"),"xy");
+<a href='../S/63.html#L692'>sdsnew</a>            692 src/sds.c              x = sdsnew("foo");
+<a href='../S/63.html#L693'>sdsnew</a>            693 src/sds.c              y = sdsnew("foa");
+<a href='../S/63.html#L698'>sdsnew</a>            698 src/sds.c              x = sdsnew("bar");
+<a href='../S/63.html#L699'>sdsnew</a>            699 src/sds.c              y = sdsnew("bar");
+<a href='../S/63.html#L704'>sdsnew</a>            704 src/sds.c              x = sdsnew("aar");
+<a href='../S/63.html#L705'>sdsnew</a>            705 src/sds.c              y = sdsnew("bar");
+<a href='../S/63.html#L712'>sdsnew</a>            712 src/sds.c                  x = sdsnew("0");
+<a href='../S/41.html#L58'>sdsnew</a>             58 src/sds.h      sds sdsnew(const char *init);
+<a href='../S/82.html#L399'>sdsnew</a>            399 src/sentinel.c         retval = dictAdd(server.commands, sdsnew(cmd-&gt;name), cmd);
+<a href='../S/82.html#L432'>sdsnew</a>            432 src/sentinel.c     sa-&gt;ip = sdsnew(buf);
+<a href='../S/82.html#L548'>sdsnew</a>            548 src/sentinel.c         argv[argc] = sdsnew(argv[argc]); /* Copy the string. */
+<a href='../S/82.html#L552'>sdsnew</a>            552 src/sentinel.c     argv[0] = sdsnew(path);
+<a href='../S/82.html#L847'>sdsnew</a>            847 src/sentinel.c     sdsname = sdsnew(name);
+<a href='../S/82.html#L1031'>sdsnew</a>           1031 src/sentinel.c     sds sdsname = sdsnew(name);
+<a href='../S/82.html#L1202'>sdsnew</a>           1202 src/sentinel.c         ri-&gt;notification_script = sdsnew(argv[2]);
+<a href='../S/82.html#L1210'>sdsnew</a>           1210 src/sentinel.c         ri-&gt;client_reconfig_script = sdsnew(argv[2]);
+<a href='../S/82.html#L1215'>sdsnew</a>           1215 src/sentinel.c         ri-&gt;auth_pass = sdsnew(argv[2]);
+<a href='../S/82.html#L1426'>sdsnew</a>           1426 src/sentinel.c                 ri-&gt;slave_master_host = sdsnew(l+12);
+<a href='../S/82.html#L1699'>sdsnew</a>           1699 src/sentinel.c                     sentinel-&gt;runid = sdsnew(token[2]);
+<a href='../S/82.html#L2034'>sdsnew</a>           2034 src/sentinel.c             addReplySds(c,sdsnew("-IDONTKNOW I have not enough information to reply. Please ask another Sentinel.\r\n"));
+<a href='../S/82.html#L2052'>sdsnew</a>           2052 src/sentinel.c             addReplySds(c,sdsnew("-INPROG Failover already in progress\r\n"));
+<a href='../S/82.html#L2056'>sdsnew</a>           2056 src/sentinel.c             addReplySds(c,sdsnew("-NOGOODSLAVE No suitable slave to promote\r\n"));
+<a href='../S/82.html#L2245'>sdsnew</a>           2245 src/sentinel.c         ri-&gt;leader = sdsnew(r-&gt;element[1]-&gt;str);
+<a href='../S/82.html#L2345'>sdsnew</a>           2345 src/sentinel.c         leader = sdsnew(instance[0]);
+<a href='../S/82.html#L2428'>sdsnew</a>           2428 src/sentinel.c     winner = winner ? sdsnew(winner) : NULL;
+</pre>
+</body>
+</html>

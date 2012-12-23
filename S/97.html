@@ -1,0 +1,810 @@
+<html>
+<head>
+<title>src/t_hash.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/t_hash.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L40'>[^]</a><a href='#L748'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L40' title='Defined at 40.'>hashTypeTryConversion</a>
+<li><a href='#L56' title='Defined at 56.'>hashTypeTryObjectEncoding</a>
+<li><a href='#L65' title='Defined at 65.'>hashTypeGetFromZiplist</a>
+<li><a href='#L101' title='Defined at 101.'>hashTypeGetFromHashTable</a>
+<li><a href='#L118' title='Defined at 118.'>hashTypeGetObject</a>
+<li><a href='#L149' title='Defined at 149.'>hashTypeExists</a>
+<li><a href='#L170' title='Defined at 170.'>hashTypeSet</a>
+<li><a href='#L224' title='Defined at 224.'>hashTypeDelete</a>
+<li><a href='#L262' title='Defined at 262.'>hashTypeLength</a>
+<li><a href='#L276' title='Defined at 276.'>hashTypeInitIterator</a>
+<li><a href='#L293' title='Defined at 293.'>hashTypeReleaseIterator</a>
+<li><a href='#L303' title='Defined at 303.'>hashTypeNext</a>
+<li><a href='#L340' title='Defined at 340.'>hashTypeCurrentFromZiplist</a>
+<li><a href='#L360' title='Defined at 360.'>hashTypeCurrentFromHashTable</a>
+<li><a href='#L373' title='Defined at 373.'>hashTypeCurrentObject</a>
+<li><a href='#L399' title='Defined at 399.'>hashTypeLookupWriteOrCreate</a>
+<li><a href='#L413' title='Defined at 413.'>hashTypeConvertZiplist</a>
+<li><a href='#L453' title='Defined at 453.'>hashTypeConvert</a>
+<li><a href='#L467' title='Defined at 467.'>hsetCommand</a>
+<li><a href='#L480' title='Defined at 480.'>hsetnxCommand</a>
+<li><a href='#L496' title='Defined at 496.'>hmsetCommand</a>
+<li><a href='#L516' title='Defined at 516.'>hincrbyCommand</a>
+<li><a href='#L549' title='Defined at 549.'>hincrbyfloatCommand</a>
+<li><a href='#L584' title='Defined at 584.'>addHashFieldToReply</a>
+<li><a href='#L623' title='Defined at 623.'>hgetCommand</a>
+<li><a href='#L632' title='Defined at 632.'>hmgetCommand</a>
+<li><a href='#L650' title='Defined at 650.'>hdelCommand</a>
+<li><a href='#L673' title='Defined at 673.'>hlenCommand</a>
+<li><a href='#L681' title='Defined at 681.'>addHashIteratorCursorToReply</a>
+<li><a href='#L705' title='Defined at 705.'>genericHgetallCommand</a>
+<li><a href='#L736' title='Defined at 736.'>hkeysCommand</a>
+<li><a href='#L740' title='Defined at 740.'>hvalsCommand</a>
+<li><a href='#L744' title='Defined at 744.'>hgetallCommand</a>
+<li><a href='#L748' title='Defined at 748.'>hexistsCommand</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L3'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L4'><i><font color='green'> *</font></i>
+<a name='L5'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L6'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L7'><i><font color='green'> *</font></i>
+<a name='L8'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L9'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L10'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L11'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L12'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L13'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L14'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L15'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L16'><i><font color='green'> *</font></i>
+<a name='L17'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L18'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L19'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L20'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L21'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L22'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L23'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L24'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L25'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L26'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L27'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L28'><i><font color='green'> */</font></i>
+<a name='L29'>
+<a name='L30'><font color='darkred'>#include</font> "<a href='32.html'>redis.h</a>"
+<a name='L31'><font color='darkred'>#include</font> &lt;math.h&gt;
+<a name='L32'>
+<a name='L33'><i><font color='green'>/*-----------------------------------------------------------------------------</font></i>
+<a name='L34'><i><font color='green'> * Hash type API</font></i>
+<a name='L35'><i><font color='green'> *----------------------------------------------------------------------------*/</font></i>
+<a name='L36'>
+<a name='L37'><i><font color='green'>/* Check the length of a number of objects to see if we need to convert a</font></i>
+<a name='L38'><i><font color='green'> * ziplist to a real hash. Note that we only check string encoded objects</font></i>
+<a name='L39'><i><font color='green'> * as their string length can be queried in constant time. */</font></i>
+<a name='L40'><b>void</b> <a href='../R/2132.html' title='Multiple refered from 4 places.'>hashTypeTryConversion</a>(robj *o, robj **argv, <b>int</b> start, <b>int</b> end) <font color='red'>{</font>
+<a name='L41'>    <b>int</b> i;
+<a name='L42'>
+<a name='L43'>    <b>if</b> (o-&gt;encoding != <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <b>return</b>;
+<a name='L44'>
+<a name='L45'>    <b>for</b> (i = start; i &lt;= end; i++) <font color='red'>{</font>
+<a name='L46'>        <b>if</b> (argv[i]-&gt;encoding == <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a> &amp;&amp;
+<a name='L47'>            <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(argv[i]-&gt;ptr) &gt; server.hash_max_ziplist_value)
+<a name='L48'>        <font color='red'>{</font>
+<a name='L49'>            <a href='../S/97.html#L453' title='Defined at 453 in src/t_hash.c.'>hashTypeConvert</a>(o, <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>);
+<a name='L50'>            <b>break</b>;
+<a name='L51'>        <font color='red'>}</font>
+<a name='L52'>    <font color='red'>}</font>
+<a name='L53'><font color='red'>}</font>
+<a name='L54'>
+<a name='L55'><i><font color='green'>/* Encode given objects in-place when the hash uses a dict. */</font></i>
+<a name='L56'><b>void</b> <a href='../R/2133.html' title='Multiple refered from 6 places.'>hashTypeTryObjectEncoding</a>(robj *subject, robj **o1, robj **o2) <font color='red'>{</font>
+<a name='L57'>    <b>if</b> (subject-&gt;encoding == <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>) <font color='red'>{</font>
+<a name='L58'>        <b>if</b> (o1) *o1 = <a href='../S/71.html#L273' title='Defined at 273 in src/object.c.'>tryObjectEncoding</a>(*o1);
+<a name='L59'>        <b>if</b> (o2) *o2 = <a href='../S/71.html#L273' title='Defined at 273 in src/object.c.'>tryObjectEncoding</a>(*o2);
+<a name='L60'>    <font color='red'>}</font>
+<a name='L61'><font color='red'>}</font>
+<a name='L62'>
+<a name='L63'><i><font color='green'>/* Get the value from a ziplist encoded hash, identified by field.</font></i>
+<a name='L64'><i><font color='green'> * Returns -1 when the field cannot be found. */</font></i>
+<a name='L65'><b>int</b> <a href='../R/2123.html' title='Multiple refered from 3 places.'>hashTypeGetFromZiplist</a>(robj *o, robj *field,
+<a name='L66'>                           <b>unsigned</b> <b>char</b> **vstr,
+<a name='L67'>                           <b>unsigned</b> <b>int</b> *vlen,
+<a name='L68'>                           <b>long</b> <b>long</b> *vll)
+<a name='L69'><font color='red'>{</font>
+<a name='L70'>    <b>unsigned</b> <b>char</b> *zl, *fptr = NULL, *vptr = NULL;
+<a name='L71'>    <b>int</b> ret;
+<a name='L72'>
+<a name='L73'>    <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(o-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>);
+<a name='L74'>
+<a name='L75'>    <a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a> = <a href='../S/71.html#L312' title='Defined at 312 in src/object.c.'>getDecodedObject</a>(<a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>);
+<a name='L76'>
+<a name='L77'>    zl = o-&gt;ptr;
+<a name='L78'>    fptr = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl, <a href='../S/66.html#L31' title='Defined at 31 in src/ziplist.h.'>ZIPLIST_HEAD</a>);
+<a name='L79'>    <b>if</b> (fptr != NULL) <font color='red'>{</font>
+<a name='L80'>        fptr = <a href='../S/89.html#L819' title='Defined at 819 in src/ziplist.c.'>ziplistFind</a>(fptr, <a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>-&gt;ptr, <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(<a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>-&gt;ptr), 1);
+<a name='L81'>        <b>if</b> (fptr != NULL) <font color='red'>{</font>
+<a name='L82'>            <i><font color='green'>/* Grab pointer to the value (fptr points to the field) */</font></i>
+<a name='L83'>            vptr = <a href='../S/89.html#L705' title='Defined at 705 in src/ziplist.c.'>ziplistNext</a>(zl, fptr);
+<a name='L84'>            <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(vptr != NULL);
+<a name='L85'>        <font color='red'>}</font>
+<a name='L86'>    <font color='red'>}</font>
+<a name='L87'>
+<a name='L88'>    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(<a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>);
+<a name='L89'>
+<a name='L90'>    <b>if</b> (vptr != NULL) <font color='red'>{</font>
+<a name='L91'>        ret = <a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(vptr, vstr, vlen, vll);
+<a name='L92'>        <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(ret);
+<a name='L93'>        <b>return</b> 0;
+<a name='L94'>    <font color='red'>}</font>
+<a name='L95'>
+<a name='L96'>    <b>return</b> -1;
+<a name='L97'><font color='red'>}</font>
+<a name='L98'>
+<a name='L99'><i><font color='green'>/* Get the value from a hash table encoded hash, identified by field.</font></i>
+<a name='L100'><i><font color='green'> * Returns -1 when the field cannot be found. */</font></i>
+<a name='L101'><b>int</b> <a href='../R/2122.html' title='Multiple refered from 3 places.'>hashTypeGetFromHashTable</a>(robj *o, robj *field, robj **value) <font color='red'>{</font>
+<a name='L102'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *de;
+<a name='L103'>
+<a name='L104'>    <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(o-&gt;encoding == <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>);
+<a name='L105'>
+<a name='L106'>    de = <a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(o-&gt;ptr, <a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>);
+<a name='L107'>    <b>if</b> (de == NULL) <b>return</b> -1;
+<a name='L108'>    *value = <a href='../S/88.html#L132' title='Defined at 132 in src/dict.h.'>dictGetVal</a>(de);
+<a name='L109'>    <b>return</b> 0;
+<a name='L110'><font color='red'>}</font>
+<a name='L111'>
+<a name='L112'><i><font color='green'>/* Higher level function of hashTypeGet*() that always returns a Redis</font></i>
+<a name='L113'><i><font color='green'> * object (either new or with refcount incremented), so that the caller</font></i>
+<a name='L114'><i><font color='green'> * can retain a reference or call decrRefCount after the usage.</font></i>
+<a name='L115'><i><font color='green'> *</font></i>
+<a name='L116'><i><font color='green'> * The lower level function can prevent copy on write so it is</font></i>
+<a name='L117'><i><font color='green'> * the preferred way of doing read operations. */</font></i>
+<a name='L118'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/2124.html' title='Multiple refered from 4 places.'>hashTypeGetObject</a>(robj *o, robj *field) <font color='red'>{</font>
+<a name='L119'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *value = NULL;
+<a name='L120'>
+<a name='L121'>    <b>if</b> (o-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L122'>        <b>unsigned</b> <b>char</b> *vstr = NULL;
+<a name='L123'>        <b>unsigned</b> <b>int</b> vlen = UINT_MAX;
+<a name='L124'>        <b>long</b> <b>long</b> vll = LLONG_MAX;
+<a name='L125'>
+<a name='L126'>        <b>if</b> (<a href='../S/97.html#L65' title='Defined at 65 in src/t_hash.c.'>hashTypeGetFromZiplist</a>(o, <a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>, &amp;vstr, &amp;vlen, &amp;vll) == 0) <font color='red'>{</font>
+<a name='L127'>            <b>if</b> (vstr) <font color='red'>{</font>
+<a name='L128'>                value = <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>((<b>char</b>*)vstr, vlen);
+<a name='L129'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L130'>                value = <a href='../S/71.html#L51' title='Defined at 51 in src/object.c.'>createStringObjectFromLongLong</a>(vll);
+<a name='L131'>            <font color='red'>}</font>
+<a name='L132'>        <font color='red'>}</font>
+<a name='L133'>
+<a name='L134'>    <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;encoding == <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>) <font color='red'>{</font>
+<a name='L135'>        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *aux;
+<a name='L136'>
+<a name='L137'>        <b>if</b> (<a href='../S/97.html#L101' title='Defined at 101 in src/t_hash.c.'>hashTypeGetFromHashTable</a>(o, <a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>, &amp;aux) == 0) <font color='red'>{</font>
+<a name='L138'>            <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(aux);
+<a name='L139'>            value = aux;
+<a name='L140'>        <font color='red'>}</font>
+<a name='L141'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L142'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown hash encoding");
+<a name='L143'>    <font color='red'>}</font>
+<a name='L144'>    <b>return</b> value;
+<a name='L145'><font color='red'>}</font>
+<a name='L146'>
+<a name='L147'><i><font color='green'>/* Test if the specified field exists in the given hash. Returns 1 if the field</font></i>
+<a name='L148'><i><font color='green'> * exists, and 0 when it doesn't. */</font></i>
+<a name='L149'><b>int</b> <a href='../R/2121.html' title='Multiple refered from 3 places.'>hashTypeExists</a>(robj *o, robj *field) <font color='red'>{</font>
+<a name='L150'>    <b>if</b> (o-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L151'>        <b>unsigned</b> <b>char</b> *vstr = NULL;
+<a name='L152'>        <b>unsigned</b> <b>int</b> vlen = UINT_MAX;
+<a name='L153'>        <b>long</b> <b>long</b> vll = LLONG_MAX;
+<a name='L154'>
+<a name='L155'>        <b>if</b> (<a href='../S/97.html#L65' title='Defined at 65 in src/t_hash.c.'>hashTypeGetFromZiplist</a>(o, <a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>, &amp;vstr, &amp;vlen, &amp;vll) == 0) <b>return</b> 1;
+<a name='L156'>    <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;encoding == <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>) <font color='red'>{</font>
+<a name='L157'>        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *aux;
+<a name='L158'>
+<a name='L159'>        <b>if</b> (<a href='../S/97.html#L101' title='Defined at 101 in src/t_hash.c.'>hashTypeGetFromHashTable</a>(o, <a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>, &amp;aux) == 0) <b>return</b> 1;
+<a name='L160'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L161'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown hash encoding");
+<a name='L162'>    <font color='red'>}</font>
+<a name='L163'>    <b>return</b> 0;
+<a name='L164'><font color='red'>}</font>
+<a name='L165'>
+<a name='L166'><i><font color='green'>/* Add an element, discard the old if the key already exists.</font></i>
+<a name='L167'><i><font color='green'> * Return 0 on insert and 1 on update.</font></i>
+<a name='L168'><i><font color='green'> * This function will take care of incrementing the reference count of the</font></i>
+<a name='L169'><i><font color='green'> * retained fields and value objects. */</font></i>
+<a name='L170'><b>int</b> <a href='../R/2131.html' title='Multiple refered from 6 places.'>hashTypeSet</a>(robj *o, robj *field, robj *value) <font color='red'>{</font>
+<a name='L171'>    <b>int</b> update = 0;
+<a name='L172'>
+<a name='L173'>    <b>if</b> (o-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L174'>        <b>unsigned</b> <b>char</b> *zl, *fptr, *vptr;
+<a name='L175'>
+<a name='L176'>        <a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a> = <a href='../S/71.html#L312' title='Defined at 312 in src/object.c.'>getDecodedObject</a>(<a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>);
+<a name='L177'>        value = <a href='../S/71.html#L312' title='Defined at 312 in src/object.c.'>getDecodedObject</a>(value);
+<a name='L178'>
+<a name='L179'>        zl = o-&gt;ptr;
+<a name='L180'>        fptr = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl, <a href='../S/66.html#L31' title='Defined at 31 in src/ziplist.h.'>ZIPLIST_HEAD</a>);
+<a name='L181'>        <b>if</b> (fptr != NULL) <font color='red'>{</font>
+<a name='L182'>            fptr = <a href='../S/89.html#L819' title='Defined at 819 in src/ziplist.c.'>ziplistFind</a>(fptr, <a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>-&gt;ptr, <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(<a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>-&gt;ptr), 1);
+<a name='L183'>            <b>if</b> (fptr != NULL) <font color='red'>{</font>
+<a name='L184'>                <i><font color='green'>/* Grab pointer to the value (fptr points to the field) */</font></i>
+<a name='L185'>                vptr = <a href='../S/89.html#L705' title='Defined at 705 in src/ziplist.c.'>ziplistNext</a>(zl, fptr);
+<a name='L186'>                <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(vptr != NULL);
+<a name='L187'>                update = 1;
+<a name='L188'>
+<a name='L189'>                <i><font color='green'>/* Delete value */</font></i>
+<a name='L190'>                zl = <a href='../S/89.html#L773' title='Defined at 773 in src/ziplist.c.'>ziplistDelete</a>(zl, &amp;vptr);
+<a name='L191'>
+<a name='L192'>                <i><font color='green'>/* Insert new value */</font></i>
+<a name='L193'>                zl = <a href='../S/89.html#L766' title='Defined at 766 in src/ziplist.c.'>ziplistInsert</a>(zl, vptr, value-&gt;ptr, <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(value-&gt;ptr));
+<a name='L194'>            <font color='red'>}</font>
+<a name='L195'>        <font color='red'>}</font>
+<a name='L196'>
+<a name='L197'>        <b>if</b> (!update) <font color='red'>{</font>
+<a name='L198'>            <i><font color='green'>/* Push new field/value pair onto the tail of the ziplist */</font></i>
+<a name='L199'>            zl = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(zl, <a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>-&gt;ptr, <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(<a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>-&gt;ptr), <a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>);
+<a name='L200'>            zl = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(zl, value-&gt;ptr, <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(value-&gt;ptr), <a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>);
+<a name='L201'>        <font color='red'>}</font>
+<a name='L202'>        o-&gt;ptr = zl;
+<a name='L203'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(<a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>);
+<a name='L204'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(value);
+<a name='L205'>
+<a name='L206'>        <i><font color='green'>/* Check if the ziplist needs to be converted to a hash table */</font></i>
+<a name='L207'>        <b>if</b> (<a href='../S/97.html#L262' title='Defined at 262 in src/t_hash.c.'>hashTypeLength</a>(o) &gt; server.hash_max_ziplist_entries)
+<a name='L208'>            <a href='../S/97.html#L453' title='Defined at 453 in src/t_hash.c.'>hashTypeConvert</a>(o, <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>);
+<a name='L209'>    <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;encoding == <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>) <font color='red'>{</font>
+<a name='L210'>        <b>if</b> (<a href='../D/2110.html' title='Multiple defined in 2 places.'>dictReplace</a>(o-&gt;ptr, <a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>, value)) <font color='red'>{</font> <i><font color='green'>/* Insert */</font></i>
+<a name='L211'>            <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(<a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>);
+<a name='L212'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font> <i><font color='green'>/* Update */</font></i>
+<a name='L213'>            update = 1;
+<a name='L214'>        <font color='red'>}</font>
+<a name='L215'>        <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(value);
+<a name='L216'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L217'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown hash encoding");
+<a name='L218'>    <font color='red'>}</font>
+<a name='L219'>    <b>return</b> update;
+<a name='L220'><font color='red'>}</font>
+<a name='L221'>
+<a name='L222'><i><font color='green'>/* Delete an element from a hash.</font></i>
+<a name='L223'><i><font color='green'> * Return 1 on deleted and 0 on not found. */</font></i>
+<a name='L224'><b>int</b> <a href='../R/2120.html' title='Multiple refered from 2 places.'>hashTypeDelete</a>(robj *o, robj *field) <font color='red'>{</font>
+<a name='L225'>    <b>int</b> deleted = 0;
+<a name='L226'>
+<a name='L227'>    <b>if</b> (o-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L228'>        <b>unsigned</b> <b>char</b> *zl, *fptr;
+<a name='L229'>
+<a name='L230'>        <a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a> = <a href='../S/71.html#L312' title='Defined at 312 in src/object.c.'>getDecodedObject</a>(<a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>);
+<a name='L231'>
+<a name='L232'>        zl = o-&gt;ptr;
+<a name='L233'>        fptr = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl, <a href='../S/66.html#L31' title='Defined at 31 in src/ziplist.h.'>ZIPLIST_HEAD</a>);
+<a name='L234'>        <b>if</b> (fptr != NULL) <font color='red'>{</font>
+<a name='L235'>            fptr = <a href='../S/89.html#L819' title='Defined at 819 in src/ziplist.c.'>ziplistFind</a>(fptr, <a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>-&gt;ptr, <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(<a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>-&gt;ptr), 1);
+<a name='L236'>            <b>if</b> (fptr != NULL) <font color='red'>{</font>
+<a name='L237'>                zl = <a href='../S/89.html#L773' title='Defined at 773 in src/ziplist.c.'>ziplistDelete</a>(zl,&amp;fptr);
+<a name='L238'>                zl = <a href='../S/89.html#L773' title='Defined at 773 in src/ziplist.c.'>ziplistDelete</a>(zl,&amp;fptr);
+<a name='L239'>                o-&gt;ptr = zl;
+<a name='L240'>                deleted = 1;
+<a name='L241'>            <font color='red'>}</font>
+<a name='L242'>        <font color='red'>}</font>
+<a name='L243'>
+<a name='L244'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(<a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>);
+<a name='L245'>
+<a name='L246'>    <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;encoding == <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>) <font color='red'>{</font>
+<a name='L247'>        <b>if</b> (<a href='../D/2066.html' title='Multiple defined in 2 places.'>dictDelete</a>((<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>*)o-&gt;ptr, <a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>) == <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L248'>            deleted = 1;
+<a name='L249'>
+<a name='L250'>            <i><font color='green'>/* Always check if the dictionary needs a resize after a delete. */</font></i>
+<a name='L251'>            <b>if</b> (<a href='../S/35.html#L562' title='Defined at 562 in src/redis.c.'>htNeedsResize</a>(o-&gt;ptr)) <a href='../S/29.html#L198' title='Defined at 198 in src/dict.c.'>dictResize</a>(o-&gt;ptr);
+<a name='L252'>        <font color='red'>}</font>
+<a name='L253'>
+<a name='L254'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L255'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown hash encoding");
+<a name='L256'>    <font color='red'>}</font>
+<a name='L257'>
+<a name='L258'>    <b>return</b> deleted;
+<a name='L259'><font color='red'>}</font>
+<a name='L260'>
+<a name='L261'><i><font color='green'>/* Return the number of elements in a hash. */</font></i>
+<a name='L262'><b>unsigned</b> <b>long</b> <a href='../R/2127.html' title='Multiple refered from 9 places.'>hashTypeLength</a>(robj *o) <font color='red'>{</font>
+<a name='L263'>    <b>unsigned</b> <b>long</b> length = ULONG_MAX;
+<a name='L264'>
+<a name='L265'>    <b>if</b> (o-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L266'>        length = <a href='../S/89.html#L879' title='Defined at 879 in src/ziplist.c.'>ziplistLen</a>(o-&gt;ptr) / 2;
+<a name='L267'>    <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;encoding == <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>) <font color='red'>{</font>
+<a name='L268'>        length = <a href='../D/2125.html' title='Multiple defined in 2 places.'>dictSize</a>((<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>*)o-&gt;ptr);
+<a name='L269'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L270'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown hash encoding");
+<a name='L271'>    <font color='red'>}</font>
+<a name='L272'>
+<a name='L273'>    <b>return</b> length;
+<a name='L274'><font color='red'>}</font>
+<a name='L275'>
+<a name='L276'><a href='../S/32.html#L743' title='Defined at 743 in src/redis.h.'>hashTypeIterator</a> *<a href='../R/2125.html' title='Multiple refered from 5 places.'>hashTypeInitIterator</a>(robj *subject) <font color='red'>{</font>
+<a name='L277'>    <a href='../S/32.html#L743' title='Defined at 743 in src/redis.h.'>hashTypeIterator</a> *hi = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<a href='../S/32.html#L743' title='Defined at 743 in src/redis.h.'>hashTypeIterator</a>));
+<a name='L278'>    hi-&gt;subject = subject;
+<a name='L279'>    hi-&gt;encoding = subject-&gt;encoding;
+<a name='L280'>
+<a name='L281'>    <b>if</b> (hi-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L282'>        hi-&gt;fptr = NULL;
+<a name='L283'>        hi-&gt;vptr = NULL;
+<a name='L284'>    <font color='red'>}</font> <b>else</b> <b>if</b> (hi-&gt;encoding == <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>) <font color='red'>{</font>
+<a name='L285'>        hi-&gt;di = <a href='../D/2087.html' title='Multiple defined in 2 places.'>dictGetIterator</a>(subject-&gt;ptr);
+<a name='L286'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L287'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown hash encoding");
+<a name='L288'>    <font color='red'>}</font>
+<a name='L289'>
+<a name='L290'>    <b>return</b> hi;
+<a name='L291'><font color='red'>}</font>
+<a name='L292'>
+<a name='L293'><b>void</b> <a href='../R/2130.html' title='Multiple refered from 5 places.'>hashTypeReleaseIterator</a>(hashTypeIterator *hi) <font color='red'>{</font>
+<a name='L294'>    <b>if</b> (hi-&gt;encoding == <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>) <font color='red'>{</font>
+<a name='L295'>        <a href='../D/2109.html' title='Multiple defined in 2 places.'>dictReleaseIterator</a>(hi-&gt;di);
+<a name='L296'>    <font color='red'>}</font>
+<a name='L297'>
+<a name='L298'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(hi);
+<a name='L299'><font color='red'>}</font>
+<a name='L300'>
+<a name='L301'><i><font color='green'>/* Move to the next entry in the hash. Return REDIS_OK when the next entry</font></i>
+<a name='L302'><i><font color='green'> * could be found and REDIS_ERR when the iterator reaches the end. */</font></i>
+<a name='L303'><b>int</b> <a href='../R/2129.html' title='Multiple refered from 5 places.'>hashTypeNext</a>(hashTypeIterator *hi) <font color='red'>{</font>
+<a name='L304'>    <b>if</b> (hi-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L305'>        <b>unsigned</b> <b>char</b> *zl;
+<a name='L306'>        <b>unsigned</b> <b>char</b> *fptr, *vptr;
+<a name='L307'>
+<a name='L308'>        zl = hi-&gt;subject-&gt;ptr;
+<a name='L309'>        fptr = hi-&gt;fptr;
+<a name='L310'>        vptr = hi-&gt;vptr;
+<a name='L311'>
+<a name='L312'>        <b>if</b> (fptr == NULL) <font color='red'>{</font>
+<a name='L313'>            <i><font color='green'>/* Initialize cursor */</font></i>
+<a name='L314'>            <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(vptr == NULL);
+<a name='L315'>            fptr = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl, 0);
+<a name='L316'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L317'>            <i><font color='green'>/* Advance cursor */</font></i>
+<a name='L318'>            <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(vptr != NULL);
+<a name='L319'>            fptr = <a href='../S/89.html#L705' title='Defined at 705 in src/ziplist.c.'>ziplistNext</a>(zl, vptr);
+<a name='L320'>        <font color='red'>}</font>
+<a name='L321'>        <b>if</b> (fptr == NULL) <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L322'>
+<a name='L323'>        <i><font color='green'>/* Grab pointer to the value (fptr points to the field) */</font></i>
+<a name='L324'>        vptr = <a href='../S/89.html#L705' title='Defined at 705 in src/ziplist.c.'>ziplistNext</a>(zl, fptr);
+<a name='L325'>        <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(vptr != NULL);
+<a name='L326'>
+<a name='L327'>        <i><font color='green'>/* fptr, vptr now point to the first or next pair */</font></i>
+<a name='L328'>        hi-&gt;fptr = fptr;
+<a name='L329'>        hi-&gt;vptr = vptr;
+<a name='L330'>    <font color='red'>}</font> <b>else</b> <b>if</b> (hi-&gt;encoding == <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>) <font color='red'>{</font>
+<a name='L331'>        <b>if</b> ((hi-&gt;de = <a href='../D/2101.html' title='Multiple defined in 2 places.'>dictNext</a>(hi-&gt;di)) == NULL) <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L332'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L333'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown hash encoding");
+<a name='L334'>    <font color='red'>}</font>
+<a name='L335'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L336'><font color='red'>}</font>
+<a name='L337'>
+<a name='L338'><i><font color='green'>/* Get the field or value at iterator cursor, for an iterator on a hash value</font></i>
+<a name='L339'><i><font color='green'> * encoded as a ziplist. Prototype is similar to `hashTypeGetFromZiplist`. */</font></i>
+<a name='L340'><b>void</b> <a href='../R/2118.html' title='Multiple refered from 4 places.'>hashTypeCurrentFromZiplist</a>(hashTypeIterator *hi, <b>int</b> what,
+<a name='L341'>                                <b>unsigned</b> <b>char</b> **vstr,
+<a name='L342'>                                <b>unsigned</b> <b>int</b> *vlen,
+<a name='L343'>                                <b>long</b> <b>long</b> *vll)
+<a name='L344'><font color='red'>{</font>
+<a name='L345'>    <b>int</b> ret;
+<a name='L346'>
+<a name='L347'>    <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(hi-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>);
+<a name='L348'>
+<a name='L349'>    <b>if</b> (what &amp; <a href='../S/32.html#L745' title='Defined at 745 in src/redis.h.'>REDIS_HASH_KEY</a>) <font color='red'>{</font>
+<a name='L350'>        ret = <a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(hi-&gt;fptr, vstr, vlen, vll);
+<a name='L351'>        <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(ret);
+<a name='L352'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L353'>        ret = <a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(hi-&gt;vptr, vstr, vlen, vll);
+<a name='L354'>        <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(ret);
+<a name='L355'>    <font color='red'>}</font>
+<a name='L356'><font color='red'>}</font>
+<a name='L357'>
+<a name='L358'><i><font color='green'>/* Get the field or value at iterator cursor, for an iterator on a hash value</font></i>
+<a name='L359'><i><font color='green'> * encoded as a ziplist. Prototype is similar to `hashTypeGetFromHashTable`. */</font></i>
+<a name='L360'><b>void</b> <a href='../R/2117.html' title='Multiple refered from 4 places.'>hashTypeCurrentFromHashTable</a>(hashTypeIterator *hi, <b>int</b> what, robj **dst) <font color='red'>{</font>
+<a name='L361'>    <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(hi-&gt;encoding == <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>);
+<a name='L362'>
+<a name='L363'>    <b>if</b> (what &amp; <a href='../S/32.html#L745' title='Defined at 745 in src/redis.h.'>REDIS_HASH_KEY</a>) <font color='red'>{</font>
+<a name='L364'>        *dst = <a href='../S/88.html#L131' title='Defined at 131 in src/dict.h.'>dictGetKey</a>(hi-&gt;de);
+<a name='L365'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L366'>        *dst = <a href='../S/88.html#L132' title='Defined at 132 in src/dict.h.'>dictGetVal</a>(hi-&gt;de);
+<a name='L367'>    <font color='red'>}</font>
+<a name='L368'><font color='red'>}</font>
+<a name='L369'>
+<a name='L370'><i><font color='green'>/* A non copy-on-write friendly but higher level version of hashTypeCurrent*()</font></i>
+<a name='L371'><i><font color='green'> * that returns an object with incremented refcount (or a new object). It is up</font></i>
+<a name='L372'><i><font color='green'> * to the caller to decrRefCount() the object if no reference is retained. */</font></i>
+<a name='L373'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/2119.html' title='Multiple refered from 5 places.'>hashTypeCurrentObject</a>(hashTypeIterator *hi, <b>int</b> what) <font color='red'>{</font>
+<a name='L374'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *dst;
+<a name='L375'>
+<a name='L376'>    <b>if</b> (hi-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L377'>        <b>unsigned</b> <b>char</b> *vstr = NULL;
+<a name='L378'>        <b>unsigned</b> <b>int</b> vlen = UINT_MAX;
+<a name='L379'>        <b>long</b> <b>long</b> vll = LLONG_MAX;
+<a name='L380'>
+<a name='L381'>        <a href='../S/97.html#L340' title='Defined at 340 in src/t_hash.c.'>hashTypeCurrentFromZiplist</a>(hi, what, &amp;vstr, &amp;vlen, &amp;vll);
+<a name='L382'>        <b>if</b> (vstr) <font color='red'>{</font>
+<a name='L383'>            dst = <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>((<b>char</b>*)vstr, vlen);
+<a name='L384'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L385'>            dst = <a href='../S/71.html#L51' title='Defined at 51 in src/object.c.'>createStringObjectFromLongLong</a>(vll);
+<a name='L386'>        <font color='red'>}</font>
+<a name='L387'>
+<a name='L388'>    <font color='red'>}</font> <b>else</b> <b>if</b> (hi-&gt;encoding == <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>) <font color='red'>{</font>
+<a name='L389'>        <a href='../S/97.html#L360' title='Defined at 360 in src/t_hash.c.'>hashTypeCurrentFromHashTable</a>(hi, what, &amp;dst);
+<a name='L390'>        <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(dst);
+<a name='L391'>
+<a name='L392'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L393'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown hash encoding");
+<a name='L394'>    <font color='red'>}</font>
+<a name='L395'>
+<a name='L396'>    <b>return</b> dst;
+<a name='L397'><font color='red'>}</font>
+<a name='L398'>
+<a name='L399'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/2128.html' title='Multiple refered from 6 places.'>hashTypeLookupWriteOrCreate</a>(redisClient *c, robj *key) <font color='red'>{</font>
+<a name='L400'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o = <a href='../S/31.html#L70' title='Defined at 70 in src/db.c.'>lookupKeyWrite</a>(c-&gt;db,key);
+<a name='L401'>    <b>if</b> (o == NULL) <font color='red'>{</font>
+<a name='L402'>        o = <a href='../S/71.html#L126' title='Defined at 126 in src/object.c.'>createHashObject</a>();
+<a name='L403'>        <a href='../S/31.html#L91' title='Defined at 91 in src/db.c.'>dbAdd</a>(c-&gt;db,key,o);
+<a name='L404'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L405'>        <b>if</b> (o-&gt;type != <a href='../D/807.html' title='Multiple defined in 2 places.'>REDIS_HASH</a>) <font color='red'>{</font>
+<a name='L406'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.wrongtypeerr);
+<a name='L407'>            <b>return</b> NULL;
+<a name='L408'>        <font color='red'>}</font>
+<a name='L409'>    <font color='red'>}</font>
+<a name='L410'>    <b>return</b> o;
+<a name='L411'><font color='red'>}</font>
+<a name='L412'>
+<a name='L413'><b>void</b> <a href='../S/97.html#L455' title='Refered from 455 in src/t_hash.c.'>hashTypeConvertZiplist</a>(robj *o, <b>int</b> enc) <font color='red'>{</font>
+<a name='L414'>    <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(o-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>);
+<a name='L415'>
+<a name='L416'>    <b>if</b> (enc == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L417'>        <i><font color='green'>/* Nothing to do... */</font></i>
+<a name='L418'>
+<a name='L419'>    <font color='red'>}</font> <b>else</b> <b>if</b> (enc == <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>) <font color='red'>{</font>
+<a name='L420'>        <a href='../S/32.html#L743' title='Defined at 743 in src/redis.h.'>hashTypeIterator</a> *hi;
+<a name='L421'>        <a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a> *<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>;
+<a name='L422'>        <b>int</b> ret;
+<a name='L423'>
+<a name='L424'>        hi = <a href='../S/97.html#L276' title='Defined at 276 in src/t_hash.c.'>hashTypeInitIterator</a>(o);
+<a name='L425'>        <a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a> = <a href='../D/2065.html' title='Multiple defined in 2 places.'>dictCreate</a>(&amp;hashDictType, NULL);
+<a name='L426'>
+<a name='L427'>        <b>while</b> (<a href='../S/97.html#L303' title='Defined at 303 in src/t_hash.c.'>hashTypeNext</a>(hi) != <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>) <font color='red'>{</font>
+<a name='L428'>            <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>, *value;
+<a name='L429'>
+<a name='L430'>            <a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a> = <a href='../S/97.html#L373' title='Defined at 373 in src/t_hash.c.'>hashTypeCurrentObject</a>(hi, <a href='../S/32.html#L745' title='Defined at 745 in src/redis.h.'>REDIS_HASH_KEY</a>);
+<a name='L431'>            <a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a> = <a href='../S/71.html#L273' title='Defined at 273 in src/object.c.'>tryObjectEncoding</a>(<a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>);
+<a name='L432'>            value = <a href='../S/97.html#L373' title='Defined at 373 in src/t_hash.c.'>hashTypeCurrentObject</a>(hi, <a href='../S/32.html#L746' title='Defined at 746 in src/redis.h.'>REDIS_HASH_VALUE</a>);
+<a name='L433'>            value = <a href='../S/71.html#L273' title='Defined at 273 in src/object.c.'>tryObjectEncoding</a>(value);
+<a name='L434'>            ret = <a href='../D/2061.html' title='Multiple defined in 2 places.'>dictAdd</a>(<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>, <a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>, value);
+<a name='L435'>            <b>if</b> (ret != <a href='../D/124.html' title='Multiple defined in 2 places.'>DICT_OK</a>) <font color='red'>{</font>
+<a name='L436'>                <a href='../S/69.html#L724' title='Defined at 724 in src/debug.c.'>redisLogHexDump</a>(<a href='../S/32.html#L232' title='Defined at 232 in src/redis.h.'>REDIS_WARNING</a>,"ziplist with dup elements dump",
+<a name='L437'>                    o-&gt;ptr,<a href='../S/89.html#L897' title='Defined at 897 in src/ziplist.c.'>ziplistBlobLen</a>(o-&gt;ptr));
+<a name='L438'>                <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(ret == <a href='../D/124.html' title='Multiple defined in 2 places.'>DICT_OK</a>);
+<a name='L439'>            <font color='red'>}</font>
+<a name='L440'>        <font color='red'>}</font>
+<a name='L441'>
+<a name='L442'>        <a href='../S/97.html#L293' title='Defined at 293 in src/t_hash.c.'>hashTypeReleaseIterator</a>(hi);
+<a name='L443'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(o-&gt;ptr);
+<a name='L444'>
+<a name='L445'>        o-&gt;encoding = <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>;
+<a name='L446'>        o-&gt;ptr = <a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>;
+<a name='L447'>
+<a name='L448'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L449'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown hash encoding");
+<a name='L450'>    <font color='red'>}</font>
+<a name='L451'><font color='red'>}</font>
+<a name='L452'>
+<a name='L453'><b>void</b> <a href='../R/2115.html' title='Multiple refered from 7 places.'>hashTypeConvert</a>(robj *o, <b>int</b> enc) <font color='red'>{</font>
+<a name='L454'>    <b>if</b> (o-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L455'>        <a href='../S/97.html#L413' title='Defined at 413 in src/t_hash.c.'>hashTypeConvertZiplist</a>(o, enc);
+<a name='L456'>    <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;encoding == <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>) <font color='red'>{</font>
+<a name='L457'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Not implemented");
+<a name='L458'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L459'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown hash encoding");
+<a name='L460'>    <font color='red'>}</font>
+<a name='L461'><font color='red'>}</font>
+<a name='L462'>
+<a name='L463'><i><font color='green'>/*-----------------------------------------------------------------------------</font></i>
+<a name='L464'><i><font color='green'> * Hash type commands</font></i>
+<a name='L465'><i><font color='green'> *----------------------------------------------------------------------------*/</font></i>
+<a name='L466'>
+<a name='L467'><b>void</b> <a href='../R/2156.html' title='Multiple refered from 2 places.'>hsetCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L468'>    <b>int</b> update;
+<a name='L469'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L470'>
+<a name='L471'>    <b>if</b> ((o = <a href='../S/97.html#L399' title='Defined at 399 in src/t_hash.c.'>hashTypeLookupWriteOrCreate</a>(c,c-&gt;argv[1])) == NULL) <b>return</b>;
+<a name='L472'>    <a href='../S/97.html#L40' title='Defined at 40 in src/t_hash.c.'>hashTypeTryConversion</a>(o,c-&gt;argv,2,3);
+<a name='L473'>    <a href='../S/97.html#L56' title='Defined at 56 in src/t_hash.c.'>hashTypeTryObjectEncoding</a>(o,&amp;c-&gt;argv[2], &amp;c-&gt;argv[3]);
+<a name='L474'>    update = <a href='../S/97.html#L170' title='Defined at 170 in src/t_hash.c.'>hashTypeSet</a>(o,c-&gt;argv[2],c-&gt;argv[3]);
+<a name='L475'>    <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c, update ? shared.czero : shared.cone);
+<a name='L476'>    <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L477'>    server.dirty++;
+<a name='L478'><font color='red'>}</font>
+<a name='L479'>
+<a name='L480'><b>void</b> <a href='../R/2157.html' title='Multiple refered from 2 places.'>hsetnxCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L481'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L482'>    <b>if</b> ((o = <a href='../S/97.html#L399' title='Defined at 399 in src/t_hash.c.'>hashTypeLookupWriteOrCreate</a>(c,c-&gt;argv[1])) == NULL) <b>return</b>;
+<a name='L483'>    <a href='../S/97.html#L40' title='Defined at 40 in src/t_hash.c.'>hashTypeTryConversion</a>(o,c-&gt;argv,2,3);
+<a name='L484'>
+<a name='L485'>    <b>if</b> (<a href='../S/97.html#L149' title='Defined at 149 in src/t_hash.c.'>hashTypeExists</a>(o, c-&gt;argv[2])) <font color='red'>{</font>
+<a name='L486'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c, shared.czero);
+<a name='L487'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L488'>        <a href='../S/97.html#L56' title='Defined at 56 in src/t_hash.c.'>hashTypeTryObjectEncoding</a>(o,&amp;c-&gt;argv[2], &amp;c-&gt;argv[3]);
+<a name='L489'>        <a href='../S/97.html#L170' title='Defined at 170 in src/t_hash.c.'>hashTypeSet</a>(o,c-&gt;argv[2],c-&gt;argv[3]);
+<a name='L490'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c, shared.cone);
+<a name='L491'>        <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L492'>        server.dirty++;
+<a name='L493'>    <font color='red'>}</font>
+<a name='L494'><font color='red'>}</font>
+<a name='L495'>
+<a name='L496'><b>void</b> <a href='../R/2154.html' title='Multiple refered from 2 places.'>hmsetCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L497'>    <b>int</b> i;
+<a name='L498'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L499'>
+<a name='L500'>    <b>if</b> ((c-&gt;argc % 2) == 1) <font color='red'>{</font>
+<a name='L501'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"wrong number of arguments for HMSET");
+<a name='L502'>        <b>return</b>;
+<a name='L503'>    <font color='red'>}</font>
+<a name='L504'>
+<a name='L505'>    <b>if</b> ((o = <a href='../S/97.html#L399' title='Defined at 399 in src/t_hash.c.'>hashTypeLookupWriteOrCreate</a>(c,c-&gt;argv[1])) == NULL) <b>return</b>;
+<a name='L506'>    <a href='../S/97.html#L40' title='Defined at 40 in src/t_hash.c.'>hashTypeTryConversion</a>(o,c-&gt;argv,2,c-&gt;argc-1);
+<a name='L507'>    <b>for</b> (i = 2; i &lt; c-&gt;argc; i += 2) <font color='red'>{</font>
+<a name='L508'>        <a href='../S/97.html#L56' title='Defined at 56 in src/t_hash.c.'>hashTypeTryObjectEncoding</a>(o,&amp;c-&gt;argv[i], &amp;c-&gt;argv[i+1]);
+<a name='L509'>        <a href='../S/97.html#L170' title='Defined at 170 in src/t_hash.c.'>hashTypeSet</a>(o,c-&gt;argv[i],c-&gt;argv[i+1]);
+<a name='L510'>    <font color='red'>}</font>
+<a name='L511'>    <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c, shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L512'>    <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L513'>    server.dirty++;
+<a name='L514'><font color='red'>}</font>
+<a name='L515'>
+<a name='L516'><b>void</b> <a href='../R/2149.html' title='Multiple refered from 2 places.'>hincrbyCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L517'>    <b>long</b> <b>long</b> value, incr, oldvalue;
+<a name='L518'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o, *current, *new;
+<a name='L519'>
+<a name='L520'>    <b>if</b> (<a href='../S/71.html#L484' title='Defined at 484 in src/object.c.'>getLongLongFromObjectOrReply</a>(c,c-&gt;argv[3],&amp;incr,NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <b>return</b>;
+<a name='L521'>    <b>if</b> ((o = <a href='../S/97.html#L399' title='Defined at 399 in src/t_hash.c.'>hashTypeLookupWriteOrCreate</a>(c,c-&gt;argv[1])) == NULL) <b>return</b>;
+<a name='L522'>    <b>if</b> ((current = <a href='../S/97.html#L118' title='Defined at 118 in src/t_hash.c.'>hashTypeGetObject</a>(o,c-&gt;argv[2])) != NULL) <font color='red'>{</font>
+<a name='L523'>        <b>if</b> (<a href='../S/71.html#L484' title='Defined at 484 in src/object.c.'>getLongLongFromObjectOrReply</a>(c,current,&amp;value,
+<a name='L524'>            "hash value is not an integer") != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L525'>            <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(current);
+<a name='L526'>            <b>return</b>;
+<a name='L527'>        <font color='red'>}</font>
+<a name='L528'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(current);
+<a name='L529'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L530'>        value = 0;
+<a name='L531'>    <font color='red'>}</font>
+<a name='L532'>
+<a name='L533'>    oldvalue = value;
+<a name='L534'>    <b>if</b> ((incr &lt; 0 &amp;&amp; oldvalue &lt; 0 &amp;&amp; incr &lt; (LLONG_MIN-oldvalue)) ||
+<a name='L535'>        (incr &gt; 0 &amp;&amp; oldvalue &gt; 0 &amp;&amp; incr &gt; (LLONG_MAX-oldvalue))) <font color='red'>{</font>
+<a name='L536'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"increment or decrement would overflow");
+<a name='L537'>        <b>return</b>;
+<a name='L538'>    <font color='red'>}</font>
+<a name='L539'>    value += incr;
+<a name='L540'>    new = <a href='../S/71.html#L51' title='Defined at 51 in src/object.c.'>createStringObjectFromLongLong</a>(value);
+<a name='L541'>    <a href='../S/97.html#L56' title='Defined at 56 in src/t_hash.c.'>hashTypeTryObjectEncoding</a>(o,&amp;c-&gt;argv[2],NULL);
+<a name='L542'>    <a href='../S/97.html#L170' title='Defined at 170 in src/t_hash.c.'>hashTypeSet</a>(o,c-&gt;argv[2],new);
+<a name='L543'>    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(new);
+<a name='L544'>    <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,value);
+<a name='L545'>    <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L546'>    server.dirty++;
+<a name='L547'><font color='red'>}</font>
+<a name='L548'>
+<a name='L549'><b>void</b> <a href='../R/2150.html' title='Multiple refered from 2 places.'>hincrbyfloatCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L550'>    <b>double</b> <b>long</b> value, incr;
+<a name='L551'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o, *current, *new, *aux;
+<a name='L552'>
+<a name='L553'>    <b>if</b> (<a href='../S/71.html#L446' title='Defined at 446 in src/object.c.'>getLongDoubleFromObjectOrReply</a>(c,c-&gt;argv[3],&amp;incr,NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <b>return</b>;
+<a name='L554'>    <b>if</b> ((o = <a href='../S/97.html#L399' title='Defined at 399 in src/t_hash.c.'>hashTypeLookupWriteOrCreate</a>(c,c-&gt;argv[1])) == NULL) <b>return</b>;
+<a name='L555'>    <b>if</b> ((current = <a href='../S/97.html#L118' title='Defined at 118 in src/t_hash.c.'>hashTypeGetObject</a>(o,c-&gt;argv[2])) != NULL) <font color='red'>{</font>
+<a name='L556'>        <b>if</b> (<a href='../S/71.html#L446' title='Defined at 446 in src/object.c.'>getLongDoubleFromObjectOrReply</a>(c,current,&amp;value,
+<a name='L557'>            "hash value is not a valid float") != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L558'>            <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(current);
+<a name='L559'>            <b>return</b>;
+<a name='L560'>        <font color='red'>}</font>
+<a name='L561'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(current);
+<a name='L562'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L563'>        value = 0;
+<a name='L564'>    <font color='red'>}</font>
+<a name='L565'>
+<a name='L566'>    value += incr;
+<a name='L567'>    new = <a href='../S/71.html#L70' title='Defined at 70 in src/object.c.'>createStringObjectFromLongDouble</a>(value);
+<a name='L568'>    <a href='../S/97.html#L56' title='Defined at 56 in src/t_hash.c.'>hashTypeTryObjectEncoding</a>(o,&amp;c-&gt;argv[2],NULL);
+<a name='L569'>    <a href='../S/97.html#L170' title='Defined at 170 in src/t_hash.c.'>hashTypeSet</a>(o,c-&gt;argv[2],new);
+<a name='L570'>    <a href='../S/86.html#L475' title='Defined at 475 in src/networking.c.'>addReplyBulk</a>(c,new);
+<a name='L571'>    <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L572'>    server.dirty++;
+<a name='L573'>
+<a name='L574'>    <i><font color='green'>/* Always replicate HINCRBYFLOAT as an HSET command with the final value</font></i>
+<a name='L575'><i><font color='green'>     * in order to make sure that differences in float pricision or formatting</font></i>
+<a name='L576'><i><font color='green'>     * will not create differences in replicas or after an AOF restart. */</font></i>
+<a name='L577'>    aux = <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>("HSET",4);
+<a name='L578'>    <a href='../S/86.html#L1228' title='Defined at 1228 in src/networking.c.'>rewriteClientCommandArgument</a>(c,0,aux);
+<a name='L579'>    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(aux);
+<a name='L580'>    <a href='../S/86.html#L1228' title='Defined at 1228 in src/networking.c.'>rewriteClientCommandArgument</a>(c,3,new);
+<a name='L581'>    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(new);
+<a name='L582'><font color='red'>}</font>
+<a name='L583'>
+<a name='L584'><b>static</b> <b>void</b> <a href='../R/1195.html' title='Multiple refered from 2 places.'>addHashFieldToReply</a>(redisClient *c, robj *o, robj *field) <font color='red'>{</font>
+<a name='L585'>    <b>int</b> ret;
+<a name='L586'>
+<a name='L587'>    <b>if</b> (o == NULL) <font color='red'>{</font>
+<a name='L588'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c, shared.nullbulk);
+<a name='L589'>        <b>return</b>;
+<a name='L590'>    <font color='red'>}</font>
+<a name='L591'>
+<a name='L592'>    <b>if</b> (o-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L593'>        <b>unsigned</b> <b>char</b> *vstr = NULL;
+<a name='L594'>        <b>unsigned</b> <b>int</b> vlen = UINT_MAX;
+<a name='L595'>        <b>long</b> <b>long</b> vll = LLONG_MAX;
+<a name='L596'>
+<a name='L597'>        ret = <a href='../S/97.html#L65' title='Defined at 65 in src/t_hash.c.'>hashTypeGetFromZiplist</a>(o, <a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>, &amp;vstr, &amp;vlen, &amp;vll);
+<a name='L598'>        <b>if</b> (ret &lt; 0) <font color='red'>{</font>
+<a name='L599'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c, shared.nullbulk);
+<a name='L600'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L601'>            <b>if</b> (vstr) <font color='red'>{</font>
+<a name='L602'>                <a href='../S/86.html#L482' title='Defined at 482 in src/networking.c.'>addReplyBulkCBuffer</a>(c, vstr, vlen);
+<a name='L603'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L604'>                <a href='../S/86.html#L498' title='Defined at 498 in src/networking.c.'>addReplyBulkLongLong</a>(c, vll);
+<a name='L605'>            <font color='red'>}</font>
+<a name='L606'>        <font color='red'>}</font>
+<a name='L607'>
+<a name='L608'>    <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;encoding == <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>) <font color='red'>{</font>
+<a name='L609'>        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *value;
+<a name='L610'>
+<a name='L611'>        ret = <a href='../S/97.html#L101' title='Defined at 101 in src/t_hash.c.'>hashTypeGetFromHashTable</a>(o, <a href='../S/304.html#L407' title='Defined at 407 in deps/lua/src/lparser.c.'>field</a>, &amp;value);
+<a name='L612'>        <b>if</b> (ret &lt; 0) <font color='red'>{</font>
+<a name='L613'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c, shared.nullbulk);
+<a name='L614'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L615'>            <a href='../S/86.html#L475' title='Defined at 475 in src/networking.c.'>addReplyBulk</a>(c, value);
+<a name='L616'>        <font color='red'>}</font>
+<a name='L617'>
+<a name='L618'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L619'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown hash encoding");
+<a name='L620'>    <font color='red'>}</font>
+<a name='L621'><font color='red'>}</font>
+<a name='L622'>
+<a name='L623'><b>void</b> <a href='../R/2147.html' title='Multiple refered from 2 places.'>hgetCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L624'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L625'>
+<a name='L626'>    <b>if</b> ((o = <a href='../S/31.html#L75' title='Defined at 75 in src/db.c.'>lookupKeyReadOrReply</a>(c,c-&gt;argv[1],shared.nullbulk)) == NULL ||
+<a name='L627'>        <a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(c,o,<a href='../D/807.html' title='Multiple defined in 2 places.'>REDIS_HASH</a>)) <b>return</b>;
+<a name='L628'>
+<a name='L629'>    <a href='../S/97.html#L584' title='Defined at 584 in src/t_hash.c.'>addHashFieldToReply</a>(c, o, c-&gt;argv[2]);
+<a name='L630'><font color='red'>}</font>
+<a name='L631'>
+<a name='L632'><b>void</b> <a href='../R/2153.html' title='Multiple refered from 2 places.'>hmgetCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L633'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L634'>    <b>int</b> i;
+<a name='L635'>
+<a name='L636'>    <i><font color='green'>/* Don't abort when the key cannot be found. Non-existing keys are empty</font></i>
+<a name='L637'><i><font color='green'>     * hashes, where HMGET should respond with a series of null bulks. */</font></i>
+<a name='L638'>    o = <a href='../S/31.html#L58' title='Defined at 58 in src/db.c.'>lookupKeyRead</a>(c-&gt;db, c-&gt;argv[1]);
+<a name='L639'>    <b>if</b> (o != NULL &amp;&amp; o-&gt;type != <a href='../D/807.html' title='Multiple defined in 2 places.'>REDIS_HASH</a>) <font color='red'>{</font>
+<a name='L640'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c, shared.wrongtypeerr);
+<a name='L641'>        <b>return</b>;
+<a name='L642'>    <font color='red'>}</font>
+<a name='L643'>
+<a name='L644'>    <a href='../S/86.html#L448' title='Defined at 448 in src/networking.c.'>addReplyMultiBulkLen</a>(c, c-&gt;argc-2);
+<a name='L645'>    <b>for</b> (i = 2; i &lt; c-&gt;argc; i++) <font color='red'>{</font>
+<a name='L646'>        <a href='../S/97.html#L584' title='Defined at 584 in src/t_hash.c.'>addHashFieldToReply</a>(c, o, c-&gt;argv[i]);
+<a name='L647'>    <font color='red'>}</font>
+<a name='L648'><font color='red'>}</font>
+<a name='L649'>
+<a name='L650'><b>void</b> <a href='../R/2142.html' title='Multiple refered from 2 places.'>hdelCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L651'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L652'>    <b>int</b> j, deleted = 0;
+<a name='L653'>
+<a name='L654'>    <b>if</b> ((o = <a href='../S/31.html#L81' title='Defined at 81 in src/db.c.'>lookupKeyWriteOrReply</a>(c,c-&gt;argv[1],shared.czero)) == NULL ||
+<a name='L655'>        <a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(c,o,<a href='../D/807.html' title='Multiple defined in 2 places.'>REDIS_HASH</a>)) <b>return</b>;
+<a name='L656'>
+<a name='L657'>    <b>for</b> (j = 2; j &lt; c-&gt;argc; j++) <font color='red'>{</font>
+<a name='L658'>        <b>if</b> (<a href='../S/97.html#L224' title='Defined at 224 in src/t_hash.c.'>hashTypeDelete</a>(o,c-&gt;argv[j])) <font color='red'>{</font>
+<a name='L659'>            deleted++;
+<a name='L660'>            <b>if</b> (<a href='../S/97.html#L262' title='Defined at 262 in src/t_hash.c.'>hashTypeLength</a>(o) == 0) <font color='red'>{</font>
+<a name='L661'>                <a href='../S/31.html#L158' title='Defined at 158 in src/db.c.'>dbDelete</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L662'>                <b>break</b>;
+<a name='L663'>            <font color='red'>}</font>
+<a name='L664'>        <font color='red'>}</font>
+<a name='L665'>    <font color='red'>}</font>
+<a name='L666'>    <b>if</b> (deleted) <font color='red'>{</font>
+<a name='L667'>        <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L668'>        server.dirty += deleted;
+<a name='L669'>    <font color='red'>}</font>
+<a name='L670'>    <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,deleted);
+<a name='L671'><font color='red'>}</font>
+<a name='L672'>
+<a name='L673'><b>void</b> <a href='../R/2152.html' title='Multiple refered from 2 places.'>hlenCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L674'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L675'>    <b>if</b> ((o = <a href='../S/31.html#L75' title='Defined at 75 in src/db.c.'>lookupKeyReadOrReply</a>(c,c-&gt;argv[1],shared.czero)) == NULL ||
+<a name='L676'>        <a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(c,o,<a href='../D/807.html' title='Multiple defined in 2 places.'>REDIS_HASH</a>)) <b>return</b>;
+<a name='L677'>
+<a name='L678'>    <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,<a href='../S/97.html#L262' title='Defined at 262 in src/t_hash.c.'>hashTypeLength</a>(o));
+<a name='L679'><font color='red'>}</font>
+<a name='L680'>
+<a name='L681'><b>static</b> <b>void</b> <a href='../R/1196.html' title='Multiple refered from 2 places.'>addHashIteratorCursorToReply</a>(redisClient *c, hashTypeIterator *hi, <b>int</b> what) <font color='red'>{</font>
+<a name='L682'>    <b>if</b> (hi-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L683'>        <b>unsigned</b> <b>char</b> *vstr = NULL;
+<a name='L684'>        <b>unsigned</b> <b>int</b> vlen = UINT_MAX;
+<a name='L685'>        <b>long</b> <b>long</b> vll = LLONG_MAX;
+<a name='L686'>
+<a name='L687'>        <a href='../S/97.html#L340' title='Defined at 340 in src/t_hash.c.'>hashTypeCurrentFromZiplist</a>(hi, what, &amp;vstr, &amp;vlen, &amp;vll);
+<a name='L688'>        <b>if</b> (vstr) <font color='red'>{</font>
+<a name='L689'>            <a href='../S/86.html#L482' title='Defined at 482 in src/networking.c.'>addReplyBulkCBuffer</a>(c, vstr, vlen);
+<a name='L690'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L691'>            <a href='../S/86.html#L498' title='Defined at 498 in src/networking.c.'>addReplyBulkLongLong</a>(c, vll);
+<a name='L692'>        <font color='red'>}</font>
+<a name='L693'>
+<a name='L694'>    <font color='red'>}</font> <b>else</b> <b>if</b> (hi-&gt;encoding == <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>) <font color='red'>{</font>
+<a name='L695'>        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *value;
+<a name='L696'>
+<a name='L697'>        <a href='../S/97.html#L360' title='Defined at 360 in src/t_hash.c.'>hashTypeCurrentFromHashTable</a>(hi, what, &amp;value);
+<a name='L698'>        <a href='../S/86.html#L475' title='Defined at 475 in src/networking.c.'>addReplyBulk</a>(c, value);
+<a name='L699'>
+<a name='L700'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L701'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown hash encoding");
+<a name='L702'>    <font color='red'>}</font>
+<a name='L703'><font color='red'>}</font>
+<a name='L704'>
+<a name='L705'><b>void</b> <a href='../R/2031.html' title='Multiple refered from 3 places.'>genericHgetallCommand</a>(redisClient *c, <b>int</b> flags) <font color='red'>{</font>
+<a name='L706'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L707'>    <a href='../S/32.html#L743' title='Defined at 743 in src/redis.h.'>hashTypeIterator</a> *hi;
+<a name='L708'>    <b>int</b> multiplier = 0;
+<a name='L709'>    <b>int</b> length, count = 0;
+<a name='L710'>
+<a name='L711'>    <b>if</b> ((o = <a href='../S/31.html#L75' title='Defined at 75 in src/db.c.'>lookupKeyReadOrReply</a>(c,c-&gt;argv[1],shared.emptymultibulk)) == NULL
+<a name='L712'>        || <a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(c,o,<a href='../D/807.html' title='Multiple defined in 2 places.'>REDIS_HASH</a>)) <b>return</b>;
+<a name='L713'>
+<a name='L714'>    <b>if</b> (flags &amp; <a href='../S/32.html#L745' title='Defined at 745 in src/redis.h.'>REDIS_HASH_KEY</a>) multiplier++;
+<a name='L715'>    <b>if</b> (flags &amp; <a href='../S/32.html#L746' title='Defined at 746 in src/redis.h.'>REDIS_HASH_VALUE</a>) multiplier++;
+<a name='L716'>
+<a name='L717'>    length = <a href='../S/97.html#L262' title='Defined at 262 in src/t_hash.c.'>hashTypeLength</a>(o) * multiplier;
+<a name='L718'>    <a href='../S/86.html#L448' title='Defined at 448 in src/networking.c.'>addReplyMultiBulkLen</a>(c, length);
+<a name='L719'>
+<a name='L720'>    hi = <a href='../S/97.html#L276' title='Defined at 276 in src/t_hash.c.'>hashTypeInitIterator</a>(o);
+<a name='L721'>    <b>while</b> (<a href='../S/97.html#L303' title='Defined at 303 in src/t_hash.c.'>hashTypeNext</a>(hi) != <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>) <font color='red'>{</font>
+<a name='L722'>        <b>if</b> (flags &amp; <a href='../S/32.html#L745' title='Defined at 745 in src/redis.h.'>REDIS_HASH_KEY</a>) <font color='red'>{</font>
+<a name='L723'>            <a href='../S/97.html#L681' title='Defined at 681 in src/t_hash.c.'>addHashIteratorCursorToReply</a>(c, hi, <a href='../S/32.html#L745' title='Defined at 745 in src/redis.h.'>REDIS_HASH_KEY</a>);
+<a name='L724'>            count++;
+<a name='L725'>        <font color='red'>}</font>
+<a name='L726'>        <b>if</b> (flags &amp; <a href='../S/32.html#L746' title='Defined at 746 in src/redis.h.'>REDIS_HASH_VALUE</a>) <font color='red'>{</font>
+<a name='L727'>            <a href='../S/97.html#L681' title='Defined at 681 in src/t_hash.c.'>addHashIteratorCursorToReply</a>(c, hi, <a href='../S/32.html#L746' title='Defined at 746 in src/redis.h.'>REDIS_HASH_VALUE</a>);
+<a name='L728'>            count++;
+<a name='L729'>        <font color='red'>}</font>
+<a name='L730'>    <font color='red'>}</font>
+<a name='L731'>
+<a name='L732'>    <a href='../S/97.html#L293' title='Defined at 293 in src/t_hash.c.'>hashTypeReleaseIterator</a>(hi);
+<a name='L733'>    <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(count == length);
+<a name='L734'><font color='red'>}</font>
+<a name='L735'>
+<a name='L736'><b>void</b> <a href='../R/2151.html' title='Multiple refered from 2 places.'>hkeysCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L737'>    <a href='../S/97.html#L705' title='Defined at 705 in src/t_hash.c.'>genericHgetallCommand</a>(c,<a href='../S/32.html#L745' title='Defined at 745 in src/redis.h.'>REDIS_HASH_KEY</a>);
+<a name='L738'><font color='red'>}</font>
+<a name='L739'>
+<a name='L740'><b>void</b> <a href='../R/2175.html' title='Multiple refered from 2 places.'>hvalsCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L741'>    <a href='../S/97.html#L705' title='Defined at 705 in src/t_hash.c.'>genericHgetallCommand</a>(c,<a href='../S/32.html#L746' title='Defined at 746 in src/redis.h.'>REDIS_HASH_VALUE</a>);
+<a name='L742'><font color='red'>}</font>
+<a name='L743'>
+<a name='L744'><b>void</b> <a href='../R/2148.html' title='Multiple refered from 2 places.'>hgetallCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L745'>    <a href='../S/97.html#L705' title='Defined at 705 in src/t_hash.c.'>genericHgetallCommand</a>(c,<a href='../S/32.html#L745' title='Defined at 745 in src/redis.h.'>REDIS_HASH_KEY</a>|<a href='../S/32.html#L746' title='Defined at 746 in src/redis.h.'>REDIS_HASH_VALUE</a>);
+<a name='L746'><font color='red'>}</font>
+<a name='L747'>
+<a name='L748'><b>void</b> <a href='../R/2146.html' title='Multiple refered from 2 places.'>hexistsCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L749'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L750'>    <b>if</b> ((o = <a href='../S/31.html#L75' title='Defined at 75 in src/db.c.'>lookupKeyReadOrReply</a>(c,c-&gt;argv[1],shared.czero)) == NULL ||
+<a name='L751'>        <a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(c,o,<a href='../D/807.html' title='Multiple defined in 2 places.'>REDIS_HASH</a>)) <b>return</b>;
+<a name='L752'>
+<a name='L753'>    <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c, <a href='../S/97.html#L149' title='Defined at 149 in src/t_hash.c.'>hashTypeExists</a>(o,c-&gt;argv[2]) ? shared.cone : shared.czero);
+<a name='L754'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L40'>[^]</a><a href='#L748'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

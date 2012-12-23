@@ -1,0 +1,75 @@
+<html>
+<head>
+<title>deps/lua/etc/noparser.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/399.html'>etc</a>/noparser.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L21'>[^]</a><a href='#L37'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L21' title='Defined at 21.'>luaX_init</a>
+<li><a href='#L25' title='Defined at 25.'>luaY_parser</a>
+<li><a href='#L37' title='Defined at 37.'>luaU_dump</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>* The code below can be used to make a Lua core that does not contain the</font></i>
+<a name='L3'><i><font color='green'>* parsing modules (lcode, llex, lparser), which represent 35% of the total core.</font></i>
+<a name='L4'><i><font color='green'>* You'll only be able to load binary files and strings, precompiled with luac.</font></i>
+<a name='L5'><i><font color='green'>* (Of course, you'll have to build luac with the original parsing modules!)</font></i>
+<a name='L6'><i><font color='green'>*</font></i>
+<a name='L7'><i><font color='green'>* To use this module, simply compile it ("make noparser" does that) and list</font></i>
+<a name='L8'><i><font color='green'>* its object file before the Lua libraries. The linker should then not load</font></i>
+<a name='L9'><i><font color='green'>* the parsing modules. To try it, do "make luab".</font></i>
+<a name='L10'><i><font color='green'>*</font></i>
+<a name='L11'><i><font color='green'>* If you also want to avoid the dump module (ldump.o), define NODUMP.</font></i>
+<a name='L12'><i><font color='green'>* #define NODUMP</font></i>
+<a name='L13'><i><font color='green'>*/</font></i>
+<a name='L14'>
+<a name='L15'><font color='darkred'>#define</font> <a href='../R/303.html' title='Multiple refered from 2 places.'>LUA_CORE</a>
+<a name='L16'>
+<a name='L17'><font color='darkred'>#include</font> "<a href='292.html'>llex.h</a>"
+<a name='L18'><font color='darkred'>#include</font> "<a href='286.html'>lparser.h</a>"
+<a name='L19'><font color='darkred'>#include</font> "<a href='312.html'>lzio.h</a>"
+<a name='L20'>
+<a name='L21'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../R/2729.html' title='Multiple refered from 2 places.'>luaX_init</a> (lua_State *L) <font color='red'>{</font>
+<a name='L22'>  <a href='../S/310.html#L70' title='Defined at 70 in deps/lua/src/llimits.h.'>UNUSED</a>(L);
+<a name='L23'><font color='red'>}</font>
+<a name='L24'>
+<a name='L25'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <a href='../D/722.html' title='Multiple defined in 2 places.'>Proto</a> *<a href='../R/2738.html' title='Multiple refered from 2 places.'>luaY_parser</a> (lua_State *L, <a href='../S/312.html#L18' title='Defined at 18 in deps/lua/src/lzio.h.'>ZIO</a> *z, Mbuffer *buff, <b>const</b> <b>char</b> *name) <font color='red'>{</font>
+<a name='L26'>  <a href='../S/310.html#L70' title='Defined at 70 in deps/lua/src/llimits.h.'>UNUSED</a>(z);
+<a name='L27'>  <a href='../S/310.html#L70' title='Defined at 70 in deps/lua/src/llimits.h.'>UNUSED</a>(buff);
+<a name='L28'>  <a href='../S/310.html#L70' title='Defined at 70 in deps/lua/src/llimits.h.'>UNUSED</a>(name);
+<a name='L29'>  <a href='../S/266.html#L273' title='Defined at 273 in deps/lua/src/lua.h.'>lua_pushliteral</a>(L,"parser not loaded");
+<a name='L30'>  <a href='../S/272.html#L964' title='Defined at 964 in deps/lua/src/lapi.c.'>lua_error</a>(L);
+<a name='L31'>  <b>return</b> NULL;
+<a name='L32'><font color='red'>}</font>
+<a name='L33'>
+<a name='L34'><font color='darkred'>#ifdef</font> NODUMP
+<a name='L35'><font color='darkred'>#include</font> "<a href='271.html'>lundump.h</a>"
+<a name='L36'>
+<a name='L37'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>int</b> <a href='../R/2718.html' title='Multiple refered from 3 places.'>luaU_dump</a> (lua_State* L, <b>const</b> Proto* f, lua_Writer w, <b>void</b>* data, <b>int</b> strip) <font color='red'>{</font>
+<a name='L38'>  <a href='../S/310.html#L70' title='Defined at 70 in deps/lua/src/llimits.h.'>UNUSED</a>(f);
+<a name='L39'>  <a href='../S/310.html#L70' title='Defined at 70 in deps/lua/src/llimits.h.'>UNUSED</a>(w);
+<a name='L40'>  <a href='../S/310.html#L70' title='Defined at 70 in deps/lua/src/llimits.h.'>UNUSED</a>(data);
+<a name='L41'>  <a href='../S/310.html#L70' title='Defined at 70 in deps/lua/src/llimits.h.'>UNUSED</a>(strip);
+<a name='L42'><font color='darkred'>#if</font> 1
+<a name='L43'>  <a href='../S/310.html#L70' title='Defined at 70 in deps/lua/src/llimits.h.'>UNUSED</a>(L);
+<a name='L44'>  <b>return</b> 0;
+<a name='L45'><font color='darkred'>#else</font>
+<a name='L46'>  <a href='../S/266.html#L273' title='Defined at 273 in deps/lua/src/lua.h.'>lua_pushliteral</a>(L,"dumper not loaded");
+<a name='L47'>  <a href='../S/272.html#L964' title='Defined at 964 in deps/lua/src/lapi.c.'>lua_error</a>(L);
+<a name='L48'><font color='darkred'>#endif</font>
+<a name='L49'><font color='red'>}</font>
+<a name='L50'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L21'>[^]</a><a href='#L37'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

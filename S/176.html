@@ -1,0 +1,83 @@
+<html>
+<head>
+<title>deps/jemalloc/test/mremap.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/396.html'>test</a>/mremap.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L5'>[^]</a>[v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L5' title='Defined at 5.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> JEMALLOC_MANGLE
+<a name='L2'><font color='darkred'>#include</font> "jemalloc_test.h"
+<a name='L3'>
+<a name='L4'><b>int</b>
+<a name='L5'>main(<b>void</b>)
+<a name='L6'><font color='red'>{</font>
+<a name='L7'>        <b>int</b> ret, err;
+<a name='L8'>        size_t sz, lg_chunk, <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a>, i;
+<a name='L9'>        <b>char</b> *p, *q;
+<a name='L10'>
+<a name='L11'>        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Test begin\n");
+<a name='L12'>
+<a name='L13'>        sz = <b>sizeof</b>(lg_chunk);
+<a name='L14'>        <b>if</b> ((err = mallctl("opt.lg_chunk", &amp;lg_chunk, &amp;sz, NULL, 0))) <font color='red'>{</font>
+<a name='L15'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(err != ENOENT);
+<a name='L16'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("%s(): Error in mallctl(): %s\n", __func__,
+<a name='L17'>                    strerror(err));
+<a name='L18'>                ret = 1;
+<a name='L19'>                <b>goto</b> label_return;
+<a name='L20'>        <font color='red'>}</font>
+<a name='L21'>        <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a> = ((size_t)1U) &lt;&lt; lg_chunk;
+<a name='L22'>
+<a name='L23'>        p = (<b>char</b> *)<a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a>);
+<a name='L24'>        <b>if</b> (p == NULL) <font color='red'>{</font>
+<a name='L25'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("malloc(%zu) --&gt; %p\n", <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a>, p);
+<a name='L26'>                ret = 1;
+<a name='L27'>                <b>goto</b> label_return;
+<a name='L28'>        <font color='red'>}</font>
+<a name='L29'>        memset(p, 'a', <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a>);
+<a name='L30'>
+<a name='L31'>        q = (<b>char</b> *)<a href='../D/3747.html' title='Multiple defined in 2 places.'>realloc</a>(p, <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a> * 2);
+<a name='L32'>        <b>if</b> (q == NULL) <font color='red'>{</font>
+<a name='L33'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("realloc(%p, %zu) --&gt; %p\n", p, <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a> * 2,
+<a name='L34'>                    q);
+<a name='L35'>                ret = 1;
+<a name='L36'>                <b>goto</b> label_return;
+<a name='L37'>        <font color='red'>}</font>
+<a name='L38'>        <b>for</b> (i = 0; i &lt; <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a>; i++) <font color='red'>{</font>
+<a name='L39'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(q[i] == 'a');
+<a name='L40'>        <font color='red'>}</font>
+<a name='L41'>
+<a name='L42'>        p = q;
+<a name='L43'>
+<a name='L44'>        q = (<b>char</b> *)<a href='../D/3747.html' title='Multiple defined in 2 places.'>realloc</a>(p, <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a>);
+<a name='L45'>        <b>if</b> (q == NULL) <font color='red'>{</font>
+<a name='L46'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("realloc(%p, %zu) --&gt; %p\n", p, <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a>, q);
+<a name='L47'>                ret = 1;
+<a name='L48'>                <b>goto</b> label_return;
+<a name='L49'>        <font color='red'>}</font>
+<a name='L50'>        <b>for</b> (i = 0; i &lt; <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a>; i++) <font color='red'>{</font>
+<a name='L51'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(q[i] == 'a');
+<a name='L52'>        <font color='red'>}</font>
+<a name='L53'>
+<a name='L54'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(q);
+<a name='L55'>
+<a name='L56'>        ret = 0;
+<a name='L57'>label_return:
+<a name='L58'>        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Test end\n");
+<a name='L59'>        <b>return</b> (ret);
+<a name='L60'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^]<a href='#L5'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<html>
+<head>
+<title>prof_ctx_t</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/146.html#L87'>prof_ctx_t</a>         87 deps/jemalloc/include/jemalloc/internal/arena.h 	prof_ctx_t			*prof_ctx;
+<a href='../S/146.html#L471'>prof_ctx_t</a>        471 deps/jemalloc/include/jemalloc/internal/arena.h prof_ctx_t	*arena_prof_ctx_get(const void *ptr);
+<a href='../S/146.html#L472'>prof_ctx_t</a>        472 deps/jemalloc/include/jemalloc/internal/arena.h void	arena_prof_ctx_set(const void *ptr, prof_ctx_t *ctx);
+<a href='../S/146.html#L786'>prof_ctx_t</a>        786 deps/jemalloc/include/jemalloc/internal/arena.h JEMALLOC_INLINE prof_ctx_t *
+<a href='../S/146.html#L789'>prof_ctx_t</a>        789 deps/jemalloc/include/jemalloc/internal/arena.h 	prof_ctx_t *ret;
+<a href='../S/146.html#L803'>prof_ctx_t</a>        803 deps/jemalloc/include/jemalloc/internal/arena.h 			ret = (prof_ctx_t *)(uintptr_t)1U;
+<a href='../S/146.html#L814'>prof_ctx_t</a>        814 deps/jemalloc/include/jemalloc/internal/arena.h 			ret = *(prof_ctx_t **)((uintptr_t)run +
+<a href='../S/146.html#L816'>prof_ctx_t</a>        816 deps/jemalloc/include/jemalloc/internal/arena.h 			    sizeof(prof_ctx_t *)));
+<a href='../S/146.html#L825'>prof_ctx_t</a>        825 deps/jemalloc/include/jemalloc/internal/arena.h arena_prof_ctx_set(const void *ptr, prof_ctx_t *ctx)
+<a href='../S/146.html#L851'>prof_ctx_t</a>        851 deps/jemalloc/include/jemalloc/internal/arena.h 			*((prof_ctx_t **)((uintptr_t)run + bin_info-&gt;ctx0_offset
+<a href='../S/146.html#L852'>prof_ctx_t</a>        852 deps/jemalloc/include/jemalloc/internal/arena.h 			    + (regind * sizeof(prof_ctx_t *)))) = ctx;
+<a href='../S/147.html#L19'>prof_ctx_t</a>         19 deps/jemalloc/include/jemalloc/internal/extent.h 	prof_ctx_t		*prof_ctx;
+<a href='../S/143.html#L28'>prof_ctx_t</a>         28 deps/jemalloc/include/jemalloc/internal/huge.h prof_ctx_t	*huge_prof_ctx_get(const void *ptr);
+<a href='../S/143.html#L29'>prof_ctx_t</a>         29 deps/jemalloc/include/jemalloc/internal/huge.h void	huge_prof_ctx_set(const void *ptr, prof_ctx_t *ctx);
+<a href='../S/141.html#L97'>prof_ctx_t</a>         97 deps/jemalloc/include/jemalloc/internal/prof.h 	prof_ctx_t		*ctx;
+<a href='../S/141.html#L291'>prof_ctx_t</a>        291 deps/jemalloc/include/jemalloc/internal/prof.h prof_ctx_t	*prof_ctx_get(const void *ptr);
+<a href='../S/141.html#L292'>prof_ctx_t</a>        292 deps/jemalloc/include/jemalloc/internal/prof.h void	prof_ctx_set(const void *ptr, prof_ctx_t *ctx);
+<a href='../S/141.html#L296'>prof_ctx_t</a>        296 deps/jemalloc/include/jemalloc/internal/prof.h     size_t old_size, prof_ctx_t *old_ctx);
+<a href='../S/141.html#L356'>prof_ctx_t</a>        356 deps/jemalloc/include/jemalloc/internal/prof.h JEMALLOC_INLINE prof_ctx_t *
+<a href='../S/141.html#L359'>prof_ctx_t</a>        359 deps/jemalloc/include/jemalloc/internal/prof.h 	prof_ctx_t *ret;
+<a href='../S/141.html#L376'>prof_ctx_t</a>        376 deps/jemalloc/include/jemalloc/internal/prof.h prof_ctx_set(const void *ptr, prof_ctx_t *ctx)
+<a href='../S/141.html#L462'>prof_ctx_t</a>        462 deps/jemalloc/include/jemalloc/internal/prof.h 		prof_ctx_set(ptr, (prof_ctx_t *)(uintptr_t)1U);
+<a href='../S/141.html#L467'>prof_ctx_t</a>        467 deps/jemalloc/include/jemalloc/internal/prof.h     size_t old_size, prof_ctx_t *old_ctx)
+<a href='../S/141.html#L513'>prof_ctx_t</a>        513 deps/jemalloc/include/jemalloc/internal/prof.h 		prof_ctx_set(ptr, (prof_ctx_t *)(uintptr_t)1U);
+<a href='../S/141.html#L543'>prof_ctx_t</a>        543 deps/jemalloc/include/jemalloc/internal/prof.h 	prof_ctx_t *ctx = prof_ctx_get(ptr);
+<a href='../S/203.html#L2230'>prof_ctx_t</a>       2230 deps/jemalloc/src/arena.c 			try_hdr_size += try_nregs * sizeof(prof_ctx_t *);
+<a href='../S/203.html#L2274'>prof_ctx_t</a>       2274 deps/jemalloc/src/arena.c 				    sizeof(prof_ctx_t *);
+<a href='../S/207.html#L239'>prof_ctx_t</a>        239 deps/jemalloc/src/huge.c prof_ctx_t *
+<a href='../S/207.html#L242'>prof_ctx_t</a>        242 deps/jemalloc/src/huge.c 	prof_ctx_t *ret;
+<a href='../S/207.html#L260'>prof_ctx_t</a>        260 deps/jemalloc/src/huge.c huge_prof_ctx_set(const void *ptr, prof_ctx_t *ctx)
+<a href='../S/213.html#L1084'>prof_ctx_t</a>       1084 deps/jemalloc/src/jemalloc.c 	prof_ctx_t *old_ctx JEMALLOC_CC_SILENCE_INIT(NULL);
+<a href='../S/213.html#L1518'>prof_ctx_t</a>       1518 deps/jemalloc/src/jemalloc.c 		prof_ctx_t *old_ctx = prof_ctx_get(p);
+<a href='../S/209.html#L82'>prof_ctx_t</a>         82 deps/jemalloc/src/prof.c static void	prof_ctx_sum(prof_ctx_t *ctx, prof_cnt_t *cnt_all,
+<a href='../S/209.html#L84'>prof_ctx_t</a>         84 deps/jemalloc/src/prof.c static void	prof_ctx_destroy(prof_ctx_t *ctx);
+<a href='../S/209.html#L85'>prof_ctx_t</a>         85 deps/jemalloc/src/prof.c static void	prof_ctx_merge(prof_ctx_t *ctx, prof_thr_cnt_t *cnt);
+<a href='../S/209.html#L86'>prof_ctx_t</a>         86 deps/jemalloc/src/prof.c static bool	prof_dump_ctx(bool propagate_err, prof_ctx_t *ctx,
+<a href='../S/209.html#L452'>prof_ctx_t</a>        452 deps/jemalloc/src/prof.c 			prof_ctx_t	*p;
+<a href='../S/209.html#L464'>prof_ctx_t</a>        464 deps/jemalloc/src/prof.c 			ctx.v = imalloc(sizeof(prof_ctx_t));
+<a href='../S/209.html#L625'>prof_ctx_t</a>        625 deps/jemalloc/src/prof.c prof_ctx_sum(prof_ctx_t *ctx, prof_cnt_t *cnt_all, size_t *leak_nctx)
+<a href='../S/209.html#L675'>prof_ctx_t</a>        675 deps/jemalloc/src/prof.c prof_ctx_destroy(prof_ctx_t *ctx)
+<a href='../S/209.html#L717'>prof_ctx_t</a>        717 deps/jemalloc/src/prof.c prof_ctx_merge(prof_ctx_t *ctx, prof_thr_cnt_t *cnt)
+<a href='../S/209.html#L755'>prof_ctx_t</a>        755 deps/jemalloc/src/prof.c prof_dump_ctx(bool propagate_err, prof_ctx_t *ctx, prof_bt_t *bt)
+<a href='../S/209.html#L841'>prof_ctx_t</a>        841 deps/jemalloc/src/prof.c 		prof_ctx_t	*p;
+</pre>
+</body>
+</html>

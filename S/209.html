@@ -1,0 +1,1374 @@
+<html>
+<head>
+<title>deps/jemalloc/src/prof.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/395.html'>src</a>/prof.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L80'>[^]</a><a href='#L1302'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L80' title='Defined at 80.'>prof_printf</a>
+<li><a href='#L111' title='Defined at 111.'>bt_destroy</a>
+<li><a href='#L120' title='Defined at 120.'>bt_dup</a>
+<li><a href='#L146' title='Defined at 146.'>prof_enter</a>
+<li><a href='#L158' title='Defined at 158.'>prof_leave</a>
+<li><a href='#L181' title='Defined at 181.'>prof_backtrace</a>
+<li><a href='#L216' title='Defined at 216.'>prof_unwind_init_callback</a>
+<li><a href='#L225' title='Defined at 225.'>prof_unwind_callback</a>
+<li><a href='#L244' title='Defined at 244.'>prof_backtrace</a>
+<li><a href='#L254' title='Defined at 254.'>prof_backtrace</a>
+<li><a href='#L423' title='Defined at 423.'>prof_backtrace</a>
+<li><a href='#L432' title='Defined at 432.'>prof_lookup</a>
+<li><a href='#L556' title='Defined at 556.'>prof_flush</a>
+<li><a href='#L579' title='Defined at 579.'>prof_write</a>
+<li><a href='#L608' title='Defined at 608.'>JEMALLOC_ATTR</a>
+<li><a href='#L625' title='Defined at 625.'>prof_ctx_sum</a>
+<li><a href='#L675' title='Defined at 675.'>prof_ctx_destroy</a>
+<li><a href='#L717' title='Defined at 717.'>prof_ctx_merge</a>
+<li><a href='#L755' title='Defined at 755.'>prof_dump_ctx</a>
+<li><a href='#L796' title='Defined at 796.'>prof_dump_maps</a>
+<li><a href='#L831' title='Defined at 831.'>prof_dump</a>
+<li><a href='#L923' title='Defined at 923.'>prof_dump_filename</a>
+<li><a href='#L943' title='Defined at 943.'>prof_fdump</a>
+<li><a href='#L961' title='Defined at 961.'>prof_idump</a>
+<li><a href='#L992' title='Defined at 992.'>prof_mdump</a>
+<li><a href='#L1015' title='Defined at 1015.'>prof_gdump</a>
+<li><a href='#L1046' title='Defined at 1046.'>prof_bt_hash</a>
+<li><a href='#L1077' title='Defined at 1077.'>prof_bt_keycomp</a>
+<li><a href='#L1090' title='Defined at 1090.'>prof_ctx_mutex_choose</a>
+<li><a href='#L1098' title='Defined at 1098.'>prof_tdata_init</a>
+<li><a href='#L1137' title='Defined at 1137.'>prof_tdata_cleanup</a>
+<li><a href='#L1182' title='Defined at 1182.'>prof_boot0</a>
+<li><a href='#L1192' title='Defined at 1192.'>prof_boot1</a>
+<li><a href='#L1222' title='Defined at 1222.'>prof_boot2</a>
+<li><a href='#L1274' title='Defined at 1274.'>prof_prefork</a>
+<li><a href='#L1288' title='Defined at 1288.'>prof_postfork_parent</a>
+<li><a href='#L1302' title='Defined at 1302.'>prof_postfork_child</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> <a href='../S/141.html#L300' title='Refered from 300 in deps/jemalloc/include/jemalloc/internal/prof.h.'>JEMALLOC_PROF_C_</a>
+<a name='L2'><font color='darkred'>#include</font> "jemalloc/internal/jemalloc_internal.h"
+<a name='L3'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L4'>
+<a name='L5'><font color='darkred'>#ifdef</font> JEMALLOC_PROF_LIBUNWIND
+<a name='L6'><font color='darkred'>#define</font> UNW_LOCAL_ONLY
+<a name='L7'><font color='darkred'>#include</font> &lt;libunwind.h&gt;
+<a name='L8'><font color='darkred'>#endif</font>
+<a name='L9'>
+<a name='L10'><font color='darkred'>#ifdef</font> JEMALLOC_PROF_LIBGCC
+<a name='L11'><font color='darkred'>#include</font> &lt;unwind.h&gt;
+<a name='L12'><font color='darkred'>#endif</font>
+<a name='L13'>
+<a name='L14'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L15'><i><font color='green'>/* Data. */</font></i>
+<a name='L16'>
+<a name='L17'><a href='../D/3287.html' title='Multiple defined in 5 places.'>malloc_tsd_data</a>(, prof_tdata, <a href='../S/141.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_tdata_t</a> *, NULL)
+<a name='L18'>
+<a name='L19'>bool            opt_prof = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L20'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>            <a href='../S/138.html#L248' title='Defined at 248 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_active</a> = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L21'>size_t          <a href='../S/138.html#L243' title='Defined at 243 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_lg_prof_sample</a> = <a href='../S/141.html#L12' title='Defined at 12 in deps/jemalloc/include/jemalloc/internal/prof.h.'>LG_PROF_SAMPLE_DEFAULT</a>;
+<a name='L22'>ssize_t         <a href='../S/138.html#L242' title='Defined at 242 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_lg_prof_interval</a> = <a href='../S/141.html#L13' title='Defined at 13 in deps/jemalloc/include/jemalloc/internal/prof.h.'>LG_PROF_INTERVAL_DEFAULT</a>;
+<a name='L23'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>            <a href='../S/138.html#L250' title='Defined at 250 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_gdump</a> = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L24'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>            <a href='../S/138.html#L249' title='Defined at 249 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_final</a> = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L25'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>            <a href='../S/138.html#L251' title='Defined at 251 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_leak</a> = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L26'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>            <a href='../S/138.html#L247' title='Defined at 247 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_accum</a> = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L27'><b>char</b>            <a href='../S/138.html#L252' title='Defined at 252 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_prefix</a>[PATH_MAX + 1];
+<a name='L28'>
+<a name='L29'><a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        <a href='../S/138.html#L273' title='Defined at 273 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_interval</a>;
+<a name='L30'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>            <a href='../S/138.html#L280' title='Defined at 280 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_promote</a>;
+<a name='L31'>
+<a name='L32'><i><font color='green'>/*</font></i>
+<a name='L33'><i><font color='green'> * Table of mutexes that are shared among ctx's.  These are leaf locks, so</font></i>
+<a name='L34'><i><font color='green'> * there is no problem with using them for more than one ctx at the same time.</font></i>
+<a name='L35'><i><font color='green'> * The primary motivation for this sharing though is that ctx's are ephemeral,</font></i>
+<a name='L36'><i><font color='green'> * and destroying mutexes causes complications for systems that allocate when</font></i>
+<a name='L37'><i><font color='green'> * creating/destroying mutexes.</font></i>
+<a name='L38'><i><font color='green'> */</font></i>
+<a name='L39'><b>static</b> <a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a>   *ctx_locks;
+<a name='L40'><b>static</b> <b>unsigned</b>         cum_ctxs; <i><font color='green'>/* Atomic counter. */</font></i>
+<a name='L41'>
+<a name='L42'><i><font color='green'>/*</font></i>
+<a name='L43'><i><font color='green'> * Global hash of (prof_bt_t *)--&gt;(prof_ctx_t *).  This is the master data</font></i>
+<a name='L44'><i><font color='green'> * structure that knows about all backtraces currently captured.</font></i>
+<a name='L45'><i><font color='green'> */</font></i>
+<a name='L46'><b>static</b> <a href='../S/134.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/ckh.h.'>ckh_t</a>            bt2ctx;
+<a name='L47'><b>static</b> <a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a>   bt2ctx_mtx;
+<a name='L48'>
+<a name='L49'><b>static</b> <a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a>   prof_dump_seq_mtx;
+<a name='L50'><b>static</b> <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>         prof_dump_seq;
+<a name='L51'><b>static</b> <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>         prof_dump_iseq;
+<a name='L52'><b>static</b> <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>         prof_dump_mseq;
+<a name='L53'><b>static</b> <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>         prof_dump_useq;
+<a name='L54'>
+<a name='L55'><i><font color='green'>/*</font></i>
+<a name='L56'><i><font color='green'> * This buffer is rather large for stack allocation, so use a single buffer for</font></i>
+<a name='L57'><i><font color='green'> * all profile dumps.  The buffer is implicitly protected by bt2ctx_mtx, since</font></i>
+<a name='L58'><i><font color='green'> * it must be locked anyway during dumping.</font></i>
+<a name='L59'><i><font color='green'> */</font></i>
+<a name='L60'><b>static</b> <b>char</b>             prof_dump_buf[<a href='../S/141.html#L29' title='Defined at 29 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_DUMP_BUFSIZE</a>];
+<a name='L61'><b>static</b> <b>unsigned</b>         prof_dump_buf_end;
+<a name='L62'><b>static</b> <b>int</b>              prof_dump_fd;
+<a name='L63'>
+<a name='L64'><i><font color='green'>/* Do not dump any profiles until bootstrapping is complete. */</font></i>
+<a name='L65'><b>static</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>             prof_booted = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L66'>
+<a name='L67'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L68'><i><font color='green'>/* Function prototypes for non-inline static functions. */</font></i>
+<a name='L69'>
+<a name='L70'><b>static</b> <a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a>        *<a href='../S/209.html#L120' title='Defined at 120 in deps/jemalloc/src/prof.c.'>bt_dup</a>(<a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *bt);
+<a name='L71'><b>static</b> <b>void</b>     <a href='../S/209.html#L111' title='Defined at 111 in deps/jemalloc/src/prof.c.'>bt_destroy</a>(<a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *bt);
+<a name='L72'><font color='darkred'>#ifdef</font> JEMALLOC_PROF_LIBGCC
+<a name='L73'><b>static</b> _Unwind_Reason_Code      <a href='../S/209.html#L216' title='Defined at 216 in deps/jemalloc/src/prof.c.'>prof_unwind_init_callback</a>(
+<a name='L74'>    <b>struct</b> _Unwind_Context *context, <b>void</b> *arg);
+<a name='L75'><b>static</b> _Unwind_Reason_Code      <a href='../S/209.html#L225' title='Defined at 225 in deps/jemalloc/src/prof.c.'>prof_unwind_callback</a>(
+<a name='L76'>    <b>struct</b> _Unwind_Context *context, <b>void</b> *arg);
+<a name='L77'><font color='darkred'>#endif</font>
+<a name='L78'><b>static</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>     <a href='../S/209.html#L556' title='Defined at 556 in deps/jemalloc/src/prof.c.'>prof_flush</a>(bool propagate_err);
+<a name='L79'><b>static</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>     <a href='../S/209.html#L579' title='Defined at 579 in deps/jemalloc/src/prof.c.'>prof_write</a>(bool propagate_err, <b>const</b> <b>char</b> *s);
+<a name='L80'><b>static</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>     <a href='../R/3222.html' title='Multiple refered from 4 places.'>prof_printf</a>(bool propagate_err, <b>const</b> <b>char</b> *format, ...)
+<a name='L81'>    <a href='../D/250.html' title='Multiple defined in 8 places.'>JEMALLOC_ATTR</a>(format(printf, 2, 3));
+<a name='L82'><b>static</b> <b>void</b>     prof_ctx_sum(<a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> *ctx, <a href='../S/141.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_cnt_t</a> *cnt_all,
+<a name='L83'>    size_t *leak_nctx);
+<a name='L84'><b>static</b> <b>void</b>     prof_ctx_destroy(<a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> *ctx);
+<a name='L85'><b>static</b> <b>void</b>     prof_ctx_merge(<a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> *ctx, <a href='../S/141.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_thr_cnt_t</a> *cnt);
+<a name='L86'><b>static</b> bool     prof_dump_ctx(bool propagate_err, <a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> *ctx,
+<a name='L87'>    <a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *bt);
+<a name='L88'><b>static</b> bool     prof_dump_maps(bool propagate_err);
+<a name='L89'><b>static</b> bool     prof_dump(bool propagate_err, <b>const</b> <b>char</b> *filename,
+<a name='L90'>    bool leakcheck);
+<a name='L91'><b>static</b> <b>void</b>     prof_dump_filename(<b>char</b> *filename, <b>char</b> v, <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> vseq);
+<a name='L92'><b>static</b> <b>void</b>     prof_fdump(<b>void</b>);
+<a name='L93'><b>static</b> <b>void</b>     prof_bt_hash(<b>const</b> <b>void</b> *key, <b>unsigned</b> minbits, size_t *hash1,
+<a name='L94'>    size_t *hash2);
+<a name='L95'><b>static</b> bool     prof_bt_keycomp(<b>const</b> <b>void</b> *k1, <b>const</b> <b>void</b> *k2);
+<a name='L96'><b>static</b> <a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a>   *prof_ctx_mutex_choose(<b>void</b>);
+<a name='L97'>
+<a name='L98'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L99'>
+<a name='L100'><b>void</b>
+<a name='L101'>bt_init(<a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *bt, <b>void</b> **vec)
+<a name='L102'><font color='red'>{</font>
+<a name='L103'>
+<a name='L104'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L105'>
+<a name='L106'>        bt-&gt;vec = vec;
+<a name='L107'>        bt-&gt;len = 0;
+<a name='L108'><font color='red'>}</font>
+<a name='L109'>
+<a name='L110'><b>static</b> <b>void</b>
+<a name='L111'><a href='../R/1499.html' title='Multiple refered from 2 places.'>bt_destroy</a>(<a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *bt)
+<a name='L112'><font color='red'>{</font>
+<a name='L113'>
+<a name='L114'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L115'>
+<a name='L116'>        <a href='../S/138.html#L196' title='Defined at 196 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>idalloc</a>(bt);
+<a name='L117'><font color='red'>}</font>
+<a name='L118'>
+<a name='L119'><b>static</b> <a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *
+<a name='L120'><a href='../R/1500.html' title='Multiple refered from 2 places.'>bt_dup</a>(<a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *bt)
+<a name='L121'><font color='red'>{</font>
+<a name='L122'>        <a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *ret;
+<a name='L123'>
+<a name='L124'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L125'>
+<a name='L126'>        <i><font color='green'>/*</font></i>
+<a name='L127'><i><font color='green'>         * Create a single allocation that has space for vec immediately</font></i>
+<a name='L128'><i><font color='green'>         * following the prof_bt_t structure.  The backtraces that get</font></i>
+<a name='L129'><i><font color='green'>         * stored in the backtrace caches are copied from stack-allocated</font></i>
+<a name='L130'><i><font color='green'>         * temporary variables, so size is known at creation time.  Making this</font></i>
+<a name='L131'><i><font color='green'>         * a contiguous object improves cache locality.</font></i>
+<a name='L132'><i><font color='green'>         */</font></i>
+<a name='L133'>        ret = (<a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *)<a href='../S/138.html#L198' title='Defined at 198 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>imalloc</a>(QUANTUM_CEILING(<b>sizeof</b>(<a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a>)) +
+<a name='L134'>            (bt-&gt;len * <b>sizeof</b>(<b>void</b> *)));
+<a name='L135'>        <b>if</b> (ret == NULL)
+<a name='L136'>                <b>return</b> (NULL);
+<a name='L137'>        ret-&gt;vec = (<b>void</b> **)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ret +
+<a name='L138'>            QUANTUM_CEILING(<b>sizeof</b>(<a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a>)));
+<a name='L139'>        memcpy(ret-&gt;vec, bt-&gt;vec, bt-&gt;len * <b>sizeof</b>(<b>void</b> *));
+<a name='L140'>        ret-&gt;len = bt-&gt;len;
+<a name='L141'>
+<a name='L142'>        <b>return</b> (ret);
+<a name='L143'><font color='red'>}</font>
+<a name='L144'>
+<a name='L145'><b>static</b> <b>inline</b> <b>void</b>
+<a name='L146'><a href='../R/3208.html' title='Multiple refered from 3 places.'>prof_enter</a>(<a href='../S/141.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_tdata_t</a> *prof_tdata)
+<a name='L147'><font color='red'>{</font>
+<a name='L148'>
+<a name='L149'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L150'>
+<a name='L151'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(prof_tdata-&gt;enq == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L152'>        prof_tdata-&gt;enq = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L153'>
+<a name='L154'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;bt2ctx_mtx);
+<a name='L155'><font color='red'>}</font>
+<a name='L156'>
+<a name='L157'><b>static</b> <b>inline</b> <b>void</b>
+<a name='L158'><a href='../R/3215.html' title='Multiple refered from 8 places.'>prof_leave</a>(<a href='../S/141.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_tdata_t</a> *prof_tdata)
+<a name='L159'><font color='red'>{</font>
+<a name='L160'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> idump, gdump;
+<a name='L161'>
+<a name='L162'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L163'>
+<a name='L164'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;bt2ctx_mtx);
+<a name='L165'>
+<a name='L166'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(prof_tdata-&gt;enq);
+<a name='L167'>        prof_tdata-&gt;enq = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L168'>        idump = prof_tdata-&gt;enq_idump;
+<a name='L169'>        prof_tdata-&gt;enq_idump = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L170'>        gdump = prof_tdata-&gt;enq_gdump;
+<a name='L171'>        prof_tdata-&gt;enq_gdump = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L172'>
+<a name='L173'>        <b>if</b> (idump)
+<a name='L174'>                <a href='../D/3563.html' title='Multiple defined in 2 places.'>prof_idump</a>();
+<a name='L175'>        <b>if</b> (gdump)
+<a name='L176'>                <a href='../D/3562.html' title='Multiple defined in 2 places.'>prof_gdump</a>();
+<a name='L177'><font color='red'>}</font>
+<a name='L178'>
+<a name='L179'><font color='darkred'>#ifdef</font> JEMALLOC_PROF_LIBUNWIND
+<a name='L180'><b>void</b>
+<a name='L181'><a href='../R/3186.html' title='Multiple refered from 4 places.'>prof_backtrace</a>(<a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *bt, <b>unsigned</b> nignore)
+<a name='L182'><font color='red'>{</font>
+<a name='L183'>        unw_context_t uc;
+<a name='L184'>        unw_cursor_t cursor;
+<a name='L185'>        <b>unsigned</b> i;
+<a name='L186'>        <b>int</b> err;
+<a name='L187'>
+<a name='L188'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L189'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(bt-&gt;len == 0);
+<a name='L190'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(bt-&gt;vec != NULL);
+<a name='L191'>
+<a name='L192'>        unw_getcontext(&amp;uc);
+<a name='L193'>        unw_init_local(&amp;cursor, &amp;uc);
+<a name='L194'>
+<a name='L195'>        <i><font color='green'>/* Throw away (nignore+1) stack frames, if that many exist. */</font></i>
+<a name='L196'>        <b>for</b> (i = 0; i &lt; nignore + 1; i++) <font color='red'>{</font>
+<a name='L197'>                err = unw_step(&amp;cursor);
+<a name='L198'>                <b>if</b> (err &lt;= 0)
+<a name='L199'>                        <b>return</b>;
+<a name='L200'>        <font color='red'>}</font>
+<a name='L201'>
+<a name='L202'>        <i><font color='green'>/*</font></i>
+<a name='L203'><i><font color='green'>         * Iterate over stack frames until there are no more, or until no space</font></i>
+<a name='L204'><i><font color='green'>         * remains in bt.</font></i>
+<a name='L205'><i><font color='green'>         */</font></i>
+<a name='L206'>        <b>for</b> (i = 0; i &lt; <a href='../S/141.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_BT_MAX</a>; i++) <font color='red'>{</font>
+<a name='L207'>                unw_get_reg(&amp;cursor, UNW_REG_IP, (unw_word_t *)&amp;bt-&gt;vec[i]);
+<a name='L208'>                bt-&gt;len++;
+<a name='L209'>                err = unw_step(&amp;cursor);
+<a name='L210'>                <b>if</b> (err &lt;= 0)
+<a name='L211'>                        <b>break</b>;
+<a name='L212'>        <font color='red'>}</font>
+<a name='L213'><font color='red'>}</font>
+<a name='L214'><font color='darkred'>#elif</font> (<b>defined</b>(JEMALLOC_PROF_LIBGCC))
+<a name='L215'><b>static</b> _Unwind_Reason_Code
+<a name='L216'><a href='../R/3244.html' title='Multiple refered from 2 places.'>prof_unwind_init_callback</a>(<b>struct</b> _Unwind_Context *context, <b>void</b> *arg)
+<a name='L217'><font color='red'>{</font>
+<a name='L218'>
+<a name='L219'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L220'>
+<a name='L221'>        <b>return</b> (_URC_NO_REASON);
+<a name='L222'><font color='red'>}</font>
+<a name='L223'>
+<a name='L224'><b>static</b> _Unwind_Reason_Code
+<a name='L225'><a href='../R/3242.html' title='Multiple refered from 2 places.'>prof_unwind_callback</a>(<b>struct</b> _Unwind_Context *context, <b>void</b> *arg)
+<a name='L226'><font color='red'>{</font>
+<a name='L227'>        <a href='../S/141.html#L64' title='Defined at 64 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_unwind_data_t</a> *data = (<a href='../S/141.html#L64' title='Defined at 64 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_unwind_data_t</a> *)arg;
+<a name='L228'>
+<a name='L229'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L230'>
+<a name='L231'>        <b>if</b> (data-&gt;nignore &gt; 0)
+<a name='L232'>                data-&gt;nignore--;
+<a name='L233'>        <b>else</b> <font color='red'>{</font>
+<a name='L234'>                data-&gt;bt-&gt;vec[data-&gt;bt-&gt;len] = (<b>void</b> *)_Unwind_GetIP(context);
+<a name='L235'>                data-&gt;bt-&gt;len++;
+<a name='L236'>                <b>if</b> (data-&gt;bt-&gt;len == data-&gt;max)
+<a name='L237'>                        <b>return</b> (_URC_END_OF_STACK);
+<a name='L238'>        <font color='red'>}</font>
+<a name='L239'>
+<a name='L240'>        <b>return</b> (_URC_NO_REASON);
+<a name='L241'><font color='red'>}</font>
+<a name='L242'>
+<a name='L243'><b>void</b>
+<a name='L244'><a href='../R/3186.html' title='Multiple refered from 4 places.'>prof_backtrace</a>(<a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *bt, <b>unsigned</b> nignore)
+<a name='L245'><font color='red'>{</font>
+<a name='L246'>        <a href='../S/141.html#L64' title='Defined at 64 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_unwind_data_t</a> data = <font color='red'>{</font>bt, nignore, <a href='../S/141.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_BT_MAX</a><font color='red'>}</font>;
+<a name='L247'>
+<a name='L248'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L249'>
+<a name='L250'>        _Unwind_Backtrace(<a href='../S/209.html#L225' title='Defined at 225 in deps/jemalloc/src/prof.c.'>prof_unwind_callback</a>, &amp;data);
+<a name='L251'><font color='red'>}</font>
+<a name='L252'><font color='darkred'>#elif</font> (<b>defined</b>(JEMALLOC_PROF_GCC))
+<a name='L253'><b>void</b>
+<a name='L254'><a href='../R/3186.html' title='Multiple refered from 4 places.'>prof_backtrace</a>(<a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *bt, <b>unsigned</b> nignore)
+<a name='L255'><font color='red'>{</font>
+<a name='L256'><font color='darkred'>#define</font> <a href='../R/48.html' title='Multiple refered from 131 places.'>BT_FRAME</a>(i)                                                     \
+<a name='L257'>        <b>if</b> ((i) &lt; nignore + <a href='../S/141.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_BT_MAX</a>) <font color='red'>{</font>                              \
+<a name='L258'>                <b>void</b> *p;                                                \
+<a name='L259'>                <b>if</b> (__builtin_frame_address(i) == 0)                    \
+<a name='L260'>                        <b>return</b>;                                         \
+<a name='L261'>                p = __builtin_return_address(i);                        \
+<a name='L262'>                <b>if</b> (p == NULL)                                          \
+<a name='L263'>                        <b>return</b>;                                         \
+<a name='L264'>                <b>if</b> (i &gt;= nignore) <font color='red'>{</font>                                     \
+<a name='L265'>                        bt-&gt;vec[(i) - nignore] = p;                     \
+<a name='L266'>                        bt-&gt;len = (i) - nignore + 1;                    \
+<a name='L267'>                <font color='red'>}</font>                                                       \
+<a name='L268'>        <font color='red'>}</font> <b>else</b>                                                          \
+<a name='L269'>                <b>return</b>;
+<a name='L270'>
+<a name='L271'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L272'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(nignore &lt;= 3);
+<a name='L273'>
+<a name='L274'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(0)
+<a name='L275'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(1)
+<a name='L276'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(2)
+<a name='L277'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(3)
+<a name='L278'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(4)
+<a name='L279'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(5)
+<a name='L280'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(6)
+<a name='L281'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(7)
+<a name='L282'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(8)
+<a name='L283'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(9)
+<a name='L284'>
+<a name='L285'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(10)
+<a name='L286'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(11)
+<a name='L287'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(12)
+<a name='L288'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(13)
+<a name='L289'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(14)
+<a name='L290'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(15)
+<a name='L291'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(16)
+<a name='L292'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(17)
+<a name='L293'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(18)
+<a name='L294'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(19)
+<a name='L295'>
+<a name='L296'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(20)
+<a name='L297'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(21)
+<a name='L298'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(22)
+<a name='L299'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(23)
+<a name='L300'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(24)
+<a name='L301'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(25)
+<a name='L302'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(26)
+<a name='L303'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(27)
+<a name='L304'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(28)
+<a name='L305'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(29)
+<a name='L306'>
+<a name='L307'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(30)
+<a name='L308'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(31)
+<a name='L309'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(32)
+<a name='L310'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(33)
+<a name='L311'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(34)
+<a name='L312'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(35)
+<a name='L313'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(36)
+<a name='L314'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(37)
+<a name='L315'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(38)
+<a name='L316'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(39)
+<a name='L317'>
+<a name='L318'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(40)
+<a name='L319'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(41)
+<a name='L320'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(42)
+<a name='L321'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(43)
+<a name='L322'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(44)
+<a name='L323'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(45)
+<a name='L324'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(46)
+<a name='L325'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(47)
+<a name='L326'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(48)
+<a name='L327'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(49)
+<a name='L328'>
+<a name='L329'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(50)
+<a name='L330'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(51)
+<a name='L331'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(52)
+<a name='L332'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(53)
+<a name='L333'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(54)
+<a name='L334'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(55)
+<a name='L335'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(56)
+<a name='L336'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(57)
+<a name='L337'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(58)
+<a name='L338'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(59)
+<a name='L339'>
+<a name='L340'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(60)
+<a name='L341'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(61)
+<a name='L342'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(62)
+<a name='L343'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(63)
+<a name='L344'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(64)
+<a name='L345'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(65)
+<a name='L346'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(66)
+<a name='L347'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(67)
+<a name='L348'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(68)
+<a name='L349'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(69)
+<a name='L350'>
+<a name='L351'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(70)
+<a name='L352'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(71)
+<a name='L353'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(72)
+<a name='L354'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(73)
+<a name='L355'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(74)
+<a name='L356'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(75)
+<a name='L357'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(76)
+<a name='L358'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(77)
+<a name='L359'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(78)
+<a name='L360'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(79)
+<a name='L361'>
+<a name='L362'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(80)
+<a name='L363'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(81)
+<a name='L364'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(82)
+<a name='L365'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(83)
+<a name='L366'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(84)
+<a name='L367'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(85)
+<a name='L368'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(86)
+<a name='L369'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(87)
+<a name='L370'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(88)
+<a name='L371'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(89)
+<a name='L372'>
+<a name='L373'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(90)
+<a name='L374'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(91)
+<a name='L375'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(92)
+<a name='L376'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(93)
+<a name='L377'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(94)
+<a name='L378'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(95)
+<a name='L379'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(96)
+<a name='L380'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(97)
+<a name='L381'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(98)
+<a name='L382'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(99)
+<a name='L383'>
+<a name='L384'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(100)
+<a name='L385'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(101)
+<a name='L386'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(102)
+<a name='L387'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(103)
+<a name='L388'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(104)
+<a name='L389'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(105)
+<a name='L390'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(106)
+<a name='L391'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(107)
+<a name='L392'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(108)
+<a name='L393'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(109)
+<a name='L394'>
+<a name='L395'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(110)
+<a name='L396'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(111)
+<a name='L397'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(112)
+<a name='L398'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(113)
+<a name='L399'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(114)
+<a name='L400'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(115)
+<a name='L401'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(116)
+<a name='L402'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(117)
+<a name='L403'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(118)
+<a name='L404'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(119)
+<a name='L405'>
+<a name='L406'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(120)
+<a name='L407'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(121)
+<a name='L408'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(122)
+<a name='L409'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(123)
+<a name='L410'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(124)
+<a name='L411'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(125)
+<a name='L412'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(126)
+<a name='L413'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(127)
+<a name='L414'>
+<a name='L415'>        <i><font color='green'>/* Extras to compensate for nignore. */</font></i>
+<a name='L416'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(128)
+<a name='L417'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(129)
+<a name='L418'>        <a href='../D/49.html' title='Multiple defined in 2 places.'>BT_FRAME</a>(130)
+<a name='L419'><font color='darkred'>#undef</font> <a href='../R/48.html' title='Multiple refered from 131 places.'>BT_FRAME</a>
+<a name='L420'><font color='red'>}</font>
+<a name='L421'><font color='darkred'>#else</font>
+<a name='L422'><b>void</b>
+<a name='L423'><a href='../R/3186.html' title='Multiple refered from 4 places.'>prof_backtrace</a>(<a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *bt, <b>unsigned</b> nignore)
+<a name='L424'><font color='red'>{</font>
+<a name='L425'>
+<a name='L426'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L427'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L428'><font color='red'>}</font>
+<a name='L429'><font color='darkred'>#endif</font>
+<a name='L430'>
+<a name='L431'><a href='../S/141.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_thr_cnt_t</a> *
+<a name='L432'><a href='../R/3216.html' title='Multiple refered from 6 places.'>prof_lookup</a>(<a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *bt)
+<a name='L433'><font color='red'>{</font>
+<a name='L434'>        <b>union</b> <font color='red'>{</font>
+<a name='L435'>                <a href='../S/141.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_thr_cnt_t</a>  *p;
+<a name='L436'>                <b>void</b>            *v;
+<a name='L437'>        <font color='red'>}</font> ret;
+<a name='L438'>        <a href='../S/141.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_tdata_t</a> *prof_tdata;
+<a name='L439'>
+<a name='L440'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L441'>
+<a name='L442'>        prof_tdata = <a href='../S/138.html#L286' title='Defined at 286 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_tdata_get</a>();
+<a name='L443'>        <b>if</b> ((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)prof_tdata &lt;= (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/141.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_TDATA_STATE_MAX</a>)
+<a name='L444'>                <b>return</b> (NULL);
+<a name='L445'>
+<a name='L446'>        <b>if</b> (<a href='../D/1884.html' title='Multiple defined in 2 places.'>ckh_search</a>(&amp;prof_tdata-&gt;bt2cnt, bt, NULL, &amp;ret.v)) <font color='red'>{</font>
+<a name='L447'>                <b>union</b> <font color='red'>{</font>
+<a name='L448'>                        <a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a>       *p;
+<a name='L449'>                        <b>void</b>            *v;
+<a name='L450'>                <font color='red'>}</font> btkey;
+<a name='L451'>                <b>union</b> <font color='red'>{</font>
+<a name='L452'>                        <a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a>      *p;
+<a name='L453'>                        <b>void</b>            *v;
+<a name='L454'>                <font color='red'>}</font> ctx;
+<a name='L455'>                <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> new_ctx;
+<a name='L456'>
+<a name='L457'>                <i><font color='green'>/*</font></i>
+<a name='L458'><i><font color='green'>                 * This thread's cache lacks bt.  Look for it in the global</font></i>
+<a name='L459'><i><font color='green'>                 * cache.</font></i>
+<a name='L460'><i><font color='green'>                 */</font></i>
+<a name='L461'>                <a href='../S/209.html#L146' title='Defined at 146 in deps/jemalloc/src/prof.c.'>prof_enter</a>(prof_tdata);
+<a name='L462'>                <b>if</b> (<a href='../D/1884.html' title='Multiple defined in 2 places.'>ckh_search</a>(&amp;bt2ctx, bt, &amp;btkey.v, &amp;ctx.v)) <font color='red'>{</font>
+<a name='L463'>                        <i><font color='green'>/* bt has never been seen before.  Insert it. */</font></i>
+<a name='L464'>                        ctx.v = <a href='../S/138.html#L198' title='Defined at 198 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>imalloc</a>(<b>sizeof</b>(<a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a>));
+<a name='L465'>                        <b>if</b> (ctx.v == NULL) <font color='red'>{</font>
+<a name='L466'>                                <a href='../S/209.html#L158' title='Defined at 158 in deps/jemalloc/src/prof.c.'>prof_leave</a>(prof_tdata);
+<a name='L467'>                                <b>return</b> (NULL);
+<a name='L468'>                        <font color='red'>}</font>
+<a name='L469'>                        btkey.p = <a href='../S/209.html#L120' title='Defined at 120 in deps/jemalloc/src/prof.c.'>bt_dup</a>(bt);
+<a name='L470'>                        <b>if</b> (btkey.v == NULL) <font color='red'>{</font>
+<a name='L471'>                                <a href='../S/209.html#L158' title='Defined at 158 in deps/jemalloc/src/prof.c.'>prof_leave</a>(prof_tdata);
+<a name='L472'>                                <a href='../S/138.html#L196' title='Defined at 196 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>idalloc</a>(ctx.v);
+<a name='L473'>                                <b>return</b> (NULL);
+<a name='L474'>                        <font color='red'>}</font>
+<a name='L475'>                        ctx.p-&gt;bt = btkey.p;
+<a name='L476'>                        ctx.p-&gt;lock = <a href='../S/209.html#L1090' title='Defined at 1090 in deps/jemalloc/src/prof.c.'>prof_ctx_mutex_choose</a>();
+<a name='L477'>                        <i><font color='green'>/*</font></i>
+<a name='L478'><i><font color='green'>                         * Set nlimbo to 1, in order to avoid a race condition</font></i>
+<a name='L479'><i><font color='green'>                         * with prof_ctx_merge()/prof_ctx_destroy().</font></i>
+<a name='L480'><i><font color='green'>                         */</font></i>
+<a name='L481'>                        ctx.p-&gt;nlimbo = 1;
+<a name='L482'>                        memset(&amp;ctx.p-&gt;cnt_merged, 0, <b>sizeof</b>(<a href='../S/141.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_cnt_t</a>));
+<a name='L483'>                        <a href='../S/136.html#L14' title='Defined at 14 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_new</a>(&amp;ctx.p-&gt;cnts_ql);
+<a name='L484'>                        <b>if</b> (<a href='../D/1874.html' title='Multiple defined in 2 places.'>ckh_insert</a>(&amp;bt2ctx, btkey.v, ctx.v)) <font color='red'>{</font>
+<a name='L485'>                                <i><font color='green'>/* OOM. */</font></i>
+<a name='L486'>                                <a href='../S/209.html#L158' title='Defined at 158 in deps/jemalloc/src/prof.c.'>prof_leave</a>(prof_tdata);
+<a name='L487'>                                <a href='../S/138.html#L196' title='Defined at 196 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>idalloc</a>(btkey.v);
+<a name='L488'>                                <a href='../S/138.html#L196' title='Defined at 196 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>idalloc</a>(ctx.v);
+<a name='L489'>                                <b>return</b> (NULL);
+<a name='L490'>                        <font color='red'>}</font>
+<a name='L491'>                        new_ctx = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L492'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L493'>                        <i><font color='green'>/*</font></i>
+<a name='L494'><i><font color='green'>                         * Increment nlimbo, in order to avoid a race condition</font></i>
+<a name='L495'><i><font color='green'>                         * with prof_ctx_merge()/prof_ctx_destroy().</font></i>
+<a name='L496'><i><font color='green'>                         */</font></i>
+<a name='L497'>                        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(ctx.p-&gt;lock);
+<a name='L498'>                        ctx.p-&gt;nlimbo++;
+<a name='L499'>                        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(ctx.p-&gt;lock);
+<a name='L500'>                        new_ctx = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L501'>                <font color='red'>}</font>
+<a name='L502'>                <a href='../S/209.html#L158' title='Defined at 158 in deps/jemalloc/src/prof.c.'>prof_leave</a>(prof_tdata);
+<a name='L503'>
+<a name='L504'>                <i><font color='green'>/* Link a prof_thd_cnt_t into ctx for this thread. */</font></i>
+<a name='L505'>                <b>if</b> (<a href='../D/1869.html' title='Multiple defined in 2 places.'>ckh_count</a>(&amp;prof_tdata-&gt;bt2cnt) == <a href='../S/141.html#L23' title='Defined at 23 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_TCMAX</a>) <font color='red'>{</font>
+<a name='L506'>                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1869.html' title='Multiple defined in 2 places.'>ckh_count</a>(&amp;prof_tdata-&gt;bt2cnt) &gt; 0);
+<a name='L507'>                        <i><font color='green'>/*</font></i>
+<a name='L508'><i><font color='green'>                         * Flush the least recently used cnt in order to keep</font></i>
+<a name='L509'><i><font color='green'>                         * bt2cnt from becoming too large.</font></i>
+<a name='L510'><i><font color='green'>                         */</font></i>
+<a name='L511'>                        ret.p = <a href='../S/136.html#L22' title='Defined at 22 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_last</a>(&amp;prof_tdata-&gt;lru_ql, lru_link);
+<a name='L512'>                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ret.v != NULL);
+<a name='L513'>                        <b>if</b> (<a href='../D/1882.html' title='Multiple defined in 2 places.'>ckh_remove</a>(&amp;prof_tdata-&gt;bt2cnt, ret.p-&gt;ctx-&gt;bt,
+<a name='L514'>                            NULL, NULL))
+<a name='L515'>                                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L516'>                        <a href='../S/136.html#L58' title='Defined at 58 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_remove</a>(&amp;prof_tdata-&gt;lru_ql, ret.p, lru_link);
+<a name='L517'>                        <a href='../S/209.html#L717' title='Defined at 717 in deps/jemalloc/src/prof.c.'>prof_ctx_merge</a>(ret.p-&gt;ctx, ret.p);
+<a name='L518'>                        <i><font color='green'>/* ret can now be re-used. */</font></i>
+<a name='L519'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L520'>                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../D/1869.html' title='Multiple defined in 2 places.'>ckh_count</a>(&amp;prof_tdata-&gt;bt2cnt) &lt; <a href='../S/141.html#L23' title='Defined at 23 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_TCMAX</a>);
+<a name='L521'>                        <i><font color='green'>/* Allocate and partially initialize a new cnt. */</font></i>
+<a name='L522'>                        ret.v = <a href='../S/138.html#L198' title='Defined at 198 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>imalloc</a>(<b>sizeof</b>(<a href='../S/141.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_thr_cnt_t</a>));
+<a name='L523'>                        <b>if</b> (ret.p == NULL) <font color='red'>{</font>
+<a name='L524'>                                <b>if</b> (new_ctx)
+<a name='L525'>                                        <a href='../S/209.html#L675' title='Defined at 675 in deps/jemalloc/src/prof.c.'>prof_ctx_destroy</a>(ctx.p);
+<a name='L526'>                                <b>return</b> (NULL);
+<a name='L527'>                        <font color='red'>}</font>
+<a name='L528'>                        <a href='../S/136.html#L18' title='Defined at 18 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_elm_new</a>(ret.p, cnts_link);
+<a name='L529'>                        <a href='../S/136.html#L18' title='Defined at 18 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_elm_new</a>(ret.p, lru_link);
+<a name='L530'>                <font color='red'>}</font>
+<a name='L531'>                <i><font color='green'>/* Finish initializing ret. */</font></i>
+<a name='L532'>                ret.p-&gt;ctx = ctx.p;
+<a name='L533'>                ret.p-&gt;epoch = 0;
+<a name='L534'>                memset(&amp;ret.p-&gt;cnts, 0, <b>sizeof</b>(<a href='../S/141.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_cnt_t</a>));
+<a name='L535'>                <b>if</b> (<a href='../D/1874.html' title='Multiple defined in 2 places.'>ckh_insert</a>(&amp;prof_tdata-&gt;bt2cnt, btkey.v, ret.v)) <font color='red'>{</font>
+<a name='L536'>                        <b>if</b> (new_ctx)
+<a name='L537'>                                <a href='../S/209.html#L675' title='Defined at 675 in deps/jemalloc/src/prof.c.'>prof_ctx_destroy</a>(ctx.p);
+<a name='L538'>                        <a href='../S/138.html#L196' title='Defined at 196 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>idalloc</a>(ret.v);
+<a name='L539'>                        <b>return</b> (NULL);
+<a name='L540'>                <font color='red'>}</font>
+<a name='L541'>                <a href='../S/136.html#L44' title='Defined at 44 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_head_insert</a>(&amp;prof_tdata-&gt;lru_ql, ret.p, lru_link);
+<a name='L542'>                <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(ctx.p-&gt;lock);
+<a name='L543'>                <a href='../S/136.html#L51' title='Defined at 51 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_tail_insert</a>(&amp;ctx.p-&gt;cnts_ql, ret.p, cnts_link);
+<a name='L544'>                ctx.p-&gt;nlimbo--;
+<a name='L545'>                <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(ctx.p-&gt;lock);
+<a name='L546'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L547'>                <i><font color='green'>/* Move ret to the front of the LRU. */</font></i>
+<a name='L548'>                <a href='../S/136.html#L58' title='Defined at 58 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_remove</a>(&amp;prof_tdata-&gt;lru_ql, ret.p, lru_link);
+<a name='L549'>                <a href='../S/136.html#L44' title='Defined at 44 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_head_insert</a>(&amp;prof_tdata-&gt;lru_ql, ret.p, lru_link);
+<a name='L550'>        <font color='red'>}</font>
+<a name='L551'>
+<a name='L552'>        <b>return</b> (ret.p);
+<a name='L553'><font color='red'>}</font>
+<a name='L554'>
+<a name='L555'><b>static</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L556'><a href='../R/3210.html' title='Multiple refered from 4 places.'>prof_flush</a>(bool propagate_err)
+<a name='L557'><font color='red'>{</font>
+<a name='L558'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> ret = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L559'>        ssize_t err;
+<a name='L560'>
+<a name='L561'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L562'>
+<a name='L563'>        err = write(prof_dump_fd, prof_dump_buf, prof_dump_buf_end);
+<a name='L564'>        <b>if</b> (err == -1) <font color='red'>{</font>
+<a name='L565'>                <b>if</b> (propagate_err == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>) <font color='red'>{</font>
+<a name='L566'>                        <a href='../D/3296.html' title='Multiple defined in 2 places.'>malloc_write</a>("&lt;jemalloc&gt;: write() failed during heap "
+<a name='L567'>                            "profile flush\n");
+<a name='L568'>                        <b>if</b> (<a href='../S/138.html#L238' title='Defined at 238 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_abort</a>)
+<a name='L569'>                                abort();
+<a name='L570'>                <font color='red'>}</font>
+<a name='L571'>                ret = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L572'>        <font color='red'>}</font>
+<a name='L573'>        prof_dump_buf_end = 0;
+<a name='L574'>
+<a name='L575'>        <b>return</b> (ret);
+<a name='L576'><font color='red'>}</font>
+<a name='L577'>
+<a name='L578'><b>static</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L579'><a href='../R/3245.html' title='Multiple refered from 4 places.'>prof_write</a>(bool propagate_err, <b>const</b> <b>char</b> *s)
+<a name='L580'><font color='red'>{</font>
+<a name='L581'>        <b>unsigned</b> i, slen, n;
+<a name='L582'>
+<a name='L583'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L584'>
+<a name='L585'>        i = 0;
+<a name='L586'>        slen = strlen(s);
+<a name='L587'>        <b>while</b> (i &lt; slen) <font color='red'>{</font>
+<a name='L588'>                <i><font color='green'>/* Flush the buffer if it is full. */</font></i>
+<a name='L589'>                <b>if</b> (prof_dump_buf_end == <a href='../S/141.html#L29' title='Defined at 29 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_DUMP_BUFSIZE</a>)
+<a name='L590'>                        <b>if</b> (<a href='../S/209.html#L556' title='Defined at 556 in deps/jemalloc/src/prof.c.'>prof_flush</a>(propagate_err) &amp;&amp; propagate_err)
+<a name='L591'>                                <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L592'>
+<a name='L593'>                <b>if</b> (prof_dump_buf_end + slen &lt;= <a href='../S/141.html#L29' title='Defined at 29 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_DUMP_BUFSIZE</a>) <font color='red'>{</font>
+<a name='L594'>                        <i><font color='green'>/* Finish writing. */</font></i>
+<a name='L595'>                        n = slen - i;
+<a name='L596'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L597'>                        <i><font color='green'>/* Write as much of s as will fit. */</font></i>
+<a name='L598'>                        n = <a href='../S/141.html#L29' title='Defined at 29 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_DUMP_BUFSIZE</a> - prof_dump_buf_end;
+<a name='L599'>                <font color='red'>}</font>
+<a name='L600'>                memcpy(&amp;prof_dump_buf[prof_dump_buf_end], &amp;s[i], n);
+<a name='L601'>                prof_dump_buf_end += n;
+<a name='L602'>                i += n;
+<a name='L603'>        <font color='red'>}</font>
+<a name='L604'>
+<a name='L605'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L606'><font color='red'>}</font>
+<a name='L607'>
+<a name='L608'><a href='../R/219.html' title='Multiple refered from 11 places.'>JEMALLOC_ATTR</a>(format(printf, 2, 3))
+<a name='L609'><b>static</b> bool
+<a name='L610'>prof_printf(bool propagate_err, <b>const</b> <b>char</b> *format, ...)
+<a name='L611'><font color='red'>{</font>
+<a name='L612'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> ret;
+<a name='L613'>        va_list ap;
+<a name='L614'>        <b>char</b> buf[<a href='../S/141.html#L32' title='Defined at 32 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_PRINTF_BUFSIZE</a>];
+<a name='L615'>
+<a name='L616'>        va_start(ap, format);
+<a name='L617'>        <a href='../D/3295.html' title='Multiple defined in 2 places.'>malloc_vsnprintf</a>(buf, <b>sizeof</b>(buf), format, ap);
+<a name='L618'>        va_end(ap);
+<a name='L619'>        ret = <a href='../S/209.html#L579' title='Defined at 579 in deps/jemalloc/src/prof.c.'>prof_write</a>(propagate_err, buf);
+<a name='L620'>
+<a name='L621'>        <b>return</b> (ret);
+<a name='L622'><font color='red'>}</font>
+<a name='L623'>
+<a name='L624'><b>static</b> <b>void</b>
+<a name='L625'><a href='../S/209.html#L868' title='Refered from 868 in deps/jemalloc/src/prof.c.'>prof_ctx_sum</a>(<a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> *ctx, <a href='../S/141.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_cnt_t</a> *cnt_all, size_t *leak_nctx)
+<a name='L626'><font color='red'>{</font>
+<a name='L627'>        <a href='../S/141.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_thr_cnt_t</a> *thr_cnt;
+<a name='L628'>        <a href='../S/141.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_cnt_t</a> tcnt;
+<a name='L629'>
+<a name='L630'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L631'>
+<a name='L632'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(ctx-&gt;lock);
+<a name='L633'>
+<a name='L634'>        memcpy(&amp;ctx-&gt;cnt_summed, &amp;ctx-&gt;cnt_merged, <b>sizeof</b>(<a href='../S/141.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_cnt_t</a>));
+<a name='L635'>        <a href='../S/136.html#L79' title='Defined at 79 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_foreach</a>(thr_cnt, &amp;ctx-&gt;cnts_ql, cnts_link) <font color='red'>{</font>
+<a name='L636'>                <b>volatile</b> <b>unsigned</b> *epoch = &amp;thr_cnt-&gt;epoch;
+<a name='L637'>
+<a name='L638'>                <b>while</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>) <font color='red'>{</font>
+<a name='L639'>                        <b>unsigned</b> epoch0 = *epoch;
+<a name='L640'>
+<a name='L641'>                        <i><font color='green'>/* Make sure epoch is even. */</font></i>
+<a name='L642'>                        <b>if</b> (epoch0 &amp; 1U)
+<a name='L643'>                                <b>continue</b>;
+<a name='L644'>
+<a name='L645'>                        memcpy(&amp;tcnt, &amp;thr_cnt-&gt;cnts, <b>sizeof</b>(<a href='../S/141.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_cnt_t</a>));
+<a name='L646'>
+<a name='L647'>                        <i><font color='green'>/* Terminate if epoch didn't change while reading. */</font></i>
+<a name='L648'>                        <b>if</b> (*epoch == epoch0)
+<a name='L649'>                                <b>break</b>;
+<a name='L650'>                <font color='red'>}</font>
+<a name='L651'>
+<a name='L652'>                ctx-&gt;cnt_summed.curobjs += tcnt.curobjs;
+<a name='L653'>                ctx-&gt;cnt_summed.curbytes += tcnt.curbytes;
+<a name='L654'>                <b>if</b> (<a href='../S/138.html#L247' title='Defined at 247 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_accum</a>) <font color='red'>{</font>
+<a name='L655'>                        ctx-&gt;cnt_summed.accumobjs += tcnt.accumobjs;
+<a name='L656'>                        ctx-&gt;cnt_summed.accumbytes += tcnt.accumbytes;
+<a name='L657'>                <font color='red'>}</font>
+<a name='L658'>        <font color='red'>}</font>
+<a name='L659'>
+<a name='L660'>        <b>if</b> (ctx-&gt;cnt_summed.curobjs != 0)
+<a name='L661'>                (*leak_nctx)++;
+<a name='L662'>
+<a name='L663'>        <i><font color='green'>/* Add to cnt_all. */</font></i>
+<a name='L664'>        cnt_all-&gt;curobjs += ctx-&gt;cnt_summed.curobjs;
+<a name='L665'>        cnt_all-&gt;curbytes += ctx-&gt;cnt_summed.curbytes;
+<a name='L666'>        <b>if</b> (<a href='../S/138.html#L247' title='Defined at 247 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_accum</a>) <font color='red'>{</font>
+<a name='L667'>                cnt_all-&gt;accumobjs += ctx-&gt;cnt_summed.accumobjs;
+<a name='L668'>                cnt_all-&gt;accumbytes += ctx-&gt;cnt_summed.accumbytes;
+<a name='L669'>        <font color='red'>}</font>
+<a name='L670'>
+<a name='L671'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(ctx-&gt;lock);
+<a name='L672'><font color='red'>}</font>
+<a name='L673'>
+<a name='L674'><b>static</b> <b>void</b>
+<a name='L675'><a href='../R/3196.html' title='Multiple refered from 3 places.'>prof_ctx_destroy</a>(<a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> *ctx)
+<a name='L676'><font color='red'>{</font>
+<a name='L677'>        <a href='../S/141.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_tdata_t</a> *prof_tdata;
+<a name='L678'>
+<a name='L679'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L680'>
+<a name='L681'>        <i><font color='green'>/*</font></i>
+<a name='L682'><i><font color='green'>         * Check that ctx is still unused by any thread cache before destroying</font></i>
+<a name='L683'><i><font color='green'>         * it.  prof_lookup() increments ctx-&gt;nlimbo in order to avoid a race</font></i>
+<a name='L684'><i><font color='green'>         * condition with this function, as does prof_ctx_merge() in order to</font></i>
+<a name='L685'><i><font color='green'>         * avoid a race between the main body of prof_ctx_merge() and entry</font></i>
+<a name='L686'><i><font color='green'>         * into this function.</font></i>
+<a name='L687'><i><font color='green'>         */</font></i>
+<a name='L688'>        prof_tdata = *<a href='../S/138.html#L293' title='Defined at 293 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_tdata_tsd_get</a>();
+<a name='L689'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)prof_tdata &gt; (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/141.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_TDATA_STATE_MAX</a>);
+<a name='L690'>        <a href='../S/209.html#L146' title='Defined at 146 in deps/jemalloc/src/prof.c.'>prof_enter</a>(prof_tdata);
+<a name='L691'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(ctx-&gt;lock);
+<a name='L692'>        <b>if</b> (<a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(&amp;ctx-&gt;cnts_ql) == NULL &amp;&amp; ctx-&gt;cnt_merged.curobjs == 0 &amp;&amp;
+<a name='L693'>            ctx-&gt;nlimbo == 1) <font color='red'>{</font>
+<a name='L694'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ctx-&gt;cnt_merged.curbytes == 0);
+<a name='L695'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ctx-&gt;cnt_merged.accumobjs == 0);
+<a name='L696'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ctx-&gt;cnt_merged.accumbytes == 0);
+<a name='L697'>                <i><font color='green'>/* Remove ctx from bt2ctx. */</font></i>
+<a name='L698'>                <b>if</b> (<a href='../D/1882.html' title='Multiple defined in 2 places.'>ckh_remove</a>(&amp;bt2ctx, ctx-&gt;bt, NULL, NULL))
+<a name='L699'>                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L700'>                <a href='../S/209.html#L158' title='Defined at 158 in deps/jemalloc/src/prof.c.'>prof_leave</a>(prof_tdata);
+<a name='L701'>                <i><font color='green'>/* Destroy ctx. */</font></i>
+<a name='L702'>                <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(ctx-&gt;lock);
+<a name='L703'>                <a href='../S/209.html#L111' title='Defined at 111 in deps/jemalloc/src/prof.c.'>bt_destroy</a>(ctx-&gt;bt);
+<a name='L704'>                <a href='../S/138.html#L196' title='Defined at 196 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>idalloc</a>(ctx);
+<a name='L705'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L706'>                <i><font color='green'>/*</font></i>
+<a name='L707'><i><font color='green'>                 * Compensate for increment in prof_ctx_merge() or</font></i>
+<a name='L708'><i><font color='green'>                 * prof_lookup().</font></i>
+<a name='L709'><i><font color='green'>                 */</font></i>
+<a name='L710'>                ctx-&gt;nlimbo--;
+<a name='L711'>                <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(ctx-&gt;lock);
+<a name='L712'>                <a href='../S/209.html#L158' title='Defined at 158 in deps/jemalloc/src/prof.c.'>prof_leave</a>(prof_tdata);
+<a name='L713'>        <font color='red'>}</font>
+<a name='L714'><font color='red'>}</font>
+<a name='L715'>
+<a name='L716'><b>static</b> <b>void</b>
+<a name='L717'><a href='../R/3198.html' title='Multiple refered from 2 places.'>prof_ctx_merge</a>(<a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> *ctx, <a href='../S/141.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_thr_cnt_t</a> *cnt)
+<a name='L718'><font color='red'>{</font>
+<a name='L719'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> destroy;
+<a name='L720'>
+<a name='L721'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L722'>
+<a name='L723'>        <i><font color='green'>/* Merge cnt stats and detach from ctx. */</font></i>
+<a name='L724'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(ctx-&gt;lock);
+<a name='L725'>        ctx-&gt;cnt_merged.curobjs += cnt-&gt;cnts.curobjs;
+<a name='L726'>        ctx-&gt;cnt_merged.curbytes += cnt-&gt;cnts.curbytes;
+<a name='L727'>        ctx-&gt;cnt_merged.accumobjs += cnt-&gt;cnts.accumobjs;
+<a name='L728'>        ctx-&gt;cnt_merged.accumbytes += cnt-&gt;cnts.accumbytes;
+<a name='L729'>        <a href='../S/136.html#L58' title='Defined at 58 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_remove</a>(&amp;ctx-&gt;cnts_ql, cnt, cnts_link);
+<a name='L730'>        <b>if</b> (<a href='../S/138.html#L247' title='Defined at 247 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_accum</a> == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a> &amp;&amp; <a href='../S/136.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_first</a>(&amp;ctx-&gt;cnts_ql) == NULL &amp;&amp;
+<a name='L731'>            ctx-&gt;cnt_merged.curobjs == 0 &amp;&amp; ctx-&gt;nlimbo == 0) <font color='red'>{</font>
+<a name='L732'>                <i><font color='green'>/*</font></i>
+<a name='L733'><i><font color='green'>                 * Increment ctx-&gt;nlimbo in order to keep another thread from</font></i>
+<a name='L734'><i><font color='green'>                 * winning the race to destroy ctx while this one has ctx-&gt;lock</font></i>
+<a name='L735'><i><font color='green'>                 * dropped.  Without this, it would be possible for another</font></i>
+<a name='L736'><i><font color='green'>                 * thread to:</font></i>
+<a name='L737'><i><font color='green'>                 *</font></i>
+<a name='L738'><i><font color='green'>                 * 1) Sample an allocation associated with ctx.</font></i>
+<a name='L739'><i><font color='green'>                 * 2) Deallocate the sampled object.</font></i>
+<a name='L740'><i><font color='green'>                 * 3) Successfully prof_ctx_destroy(ctx).</font></i>
+<a name='L741'><i><font color='green'>                 *</font></i>
+<a name='L742'><i><font color='green'>                 * The result would be that ctx no longer exists by the time</font></i>
+<a name='L743'><i><font color='green'>                 * this thread accesses it in prof_ctx_destroy().</font></i>
+<a name='L744'><i><font color='green'>                 */</font></i>
+<a name='L745'>                ctx-&gt;nlimbo++;
+<a name='L746'>                destroy = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L747'>        <font color='red'>}</font> <b>else</b>
+<a name='L748'>                destroy = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L749'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(ctx-&gt;lock);
+<a name='L750'>        <b>if</b> (destroy)
+<a name='L751'>                <a href='../S/209.html#L675' title='Defined at 675 in deps/jemalloc/src/prof.c.'>prof_ctx_destroy</a>(ctx);
+<a name='L752'><font color='red'>}</font>
+<a name='L753'>
+<a name='L754'><b>static</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L755'><a href='../S/209.html#L891' title='Refered from 891 in deps/jemalloc/src/prof.c.'>prof_dump_ctx</a>(bool propagate_err, <a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> *ctx, <a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *bt)
+<a name='L756'><font color='red'>{</font>
+<a name='L757'>        <b>unsigned</b> i;
+<a name='L758'>
+<a name='L759'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L760'>
+<a name='L761'>        <i><font color='green'>/*</font></i>
+<a name='L762'><i><font color='green'>         * Current statistics can sum to 0 as a result of unmerged per thread</font></i>
+<a name='L763'><i><font color='green'>         * statistics.  Additionally, interval- and growth-triggered dumps can</font></i>
+<a name='L764'><i><font color='green'>         * occur between the time a ctx is created and when its statistics are</font></i>
+<a name='L765'><i><font color='green'>         * filled in.  Avoid dumping any ctx that is an artifact of either</font></i>
+<a name='L766'><i><font color='green'>         * implementation detail.</font></i>
+<a name='L767'><i><font color='green'>         */</font></i>
+<a name='L768'>        <b>if</b> ((<a href='../S/138.html#L247' title='Defined at 247 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_accum</a> == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a> &amp;&amp; ctx-&gt;cnt_summed.curobjs == 0) ||
+<a name='L769'>            (<a href='../S/138.html#L247' title='Defined at 247 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_accum</a> &amp;&amp; ctx-&gt;cnt_summed.accumobjs == 0)) <font color='red'>{</font>
+<a name='L770'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ctx-&gt;cnt_summed.curobjs == 0);
+<a name='L771'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ctx-&gt;cnt_summed.curbytes == 0);
+<a name='L772'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ctx-&gt;cnt_summed.accumobjs == 0);
+<a name='L773'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ctx-&gt;cnt_summed.accumbytes == 0);
+<a name='L774'>                <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L775'>        <font color='red'>}</font>
+<a name='L776'>
+<a name='L777'>        <b>if</b> (<a href='../S/209.html#L80' title='Defined at 80 in deps/jemalloc/src/prof.c.'>prof_printf</a>(propagate_err, "%"<a href='../S/158.html#L86' title='Defined at 86 in deps/jemalloc/include/msvc_compat/inttypes.h.'>PRId64</a>": %"<a href='../S/158.html#L86' title='Defined at 86 in deps/jemalloc/include/msvc_compat/inttypes.h.'>PRId64</a>
+<a name='L778'>            " [%"<a href='../S/158.html#L140' title='Defined at 140 in deps/jemalloc/include/msvc_compat/inttypes.h.'>PRIu64</a>": %"<a href='../S/158.html#L140' title='Defined at 140 in deps/jemalloc/include/msvc_compat/inttypes.h.'>PRIu64</a>"] @",
+<a name='L779'>            ctx-&gt;cnt_summed.curobjs, ctx-&gt;cnt_summed.curbytes,
+<a name='L780'>            ctx-&gt;cnt_summed.accumobjs, ctx-&gt;cnt_summed.accumbytes))
+<a name='L781'>                <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L782'>
+<a name='L783'>        <b>for</b> (i = 0; i &lt; bt-&gt;len; i++) <font color='red'>{</font>
+<a name='L784'>                <b>if</b> (<a href='../S/209.html#L80' title='Defined at 80 in deps/jemalloc/src/prof.c.'>prof_printf</a>(propagate_err, " %#"<a href='../S/158.html#L159' title='Defined at 159 in deps/jemalloc/include/msvc_compat/inttypes.h.'>PRIxPTR</a>,
+<a name='L785'>                    (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)bt-&gt;vec[i]))
+<a name='L786'>                        <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L787'>        <font color='red'>}</font>
+<a name='L788'>
+<a name='L789'>        <b>if</b> (<a href='../S/209.html#L579' title='Defined at 579 in deps/jemalloc/src/prof.c.'>prof_write</a>(propagate_err, "\n"))
+<a name='L790'>                <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L791'>
+<a name='L792'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L793'><font color='red'>}</font>
+<a name='L794'>
+<a name='L795'><b>static</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L796'><a href='../S/209.html#L896' title='Refered from 896 in deps/jemalloc/src/prof.c.'>prof_dump_maps</a>(bool propagate_err)
+<a name='L797'><font color='red'>{</font>
+<a name='L798'>        <b>int</b> mfd;
+<a name='L799'>        <b>char</b> filename[PATH_MAX + 1];
+<a name='L800'>
+<a name='L801'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L802'>
+<a name='L803'>        <a href='../D/3282.html' title='Multiple defined in 2 places.'>malloc_snprintf</a>(filename, <b>sizeof</b>(filename), "/proc/%d/maps",
+<a name='L804'>            (<b>int</b>)getpid());
+<a name='L805'>        mfd = open(filename, O_RDONLY);
+<a name='L806'>        <b>if</b> (mfd != -1) <font color='red'>{</font>
+<a name='L807'>                ssize_t nread;
+<a name='L808'>
+<a name='L809'>                <b>if</b> (<a href='../S/209.html#L579' title='Defined at 579 in deps/jemalloc/src/prof.c.'>prof_write</a>(propagate_err, "\nMAPPED_LIBRARIES:\n") &amp;&amp;
+<a name='L810'>                    propagate_err)
+<a name='L811'>                        <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L812'>                nread = 0;
+<a name='L813'>                <b>do</b> <font color='red'>{</font>
+<a name='L814'>                        prof_dump_buf_end += nread;
+<a name='L815'>                        <b>if</b> (prof_dump_buf_end == <a href='../S/141.html#L29' title='Defined at 29 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_DUMP_BUFSIZE</a>) <font color='red'>{</font>
+<a name='L816'>                                <i><font color='green'>/* Make space in prof_dump_buf before read(). */</font></i>
+<a name='L817'>                                <b>if</b> (<a href='../S/209.html#L556' title='Defined at 556 in deps/jemalloc/src/prof.c.'>prof_flush</a>(propagate_err) &amp;&amp; propagate_err)
+<a name='L818'>                                        <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L819'>                        <font color='red'>}</font>
+<a name='L820'>                        nread = read(mfd, &amp;prof_dump_buf[prof_dump_buf_end],
+<a name='L821'>                            <a href='../S/141.html#L29' title='Defined at 29 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_DUMP_BUFSIZE</a> - prof_dump_buf_end);
+<a name='L822'>                <font color='red'>}</font> <b>while</b> (nread &gt; 0);
+<a name='L823'>                close(mfd);
+<a name='L824'>        <font color='red'>}</font> <b>else</b>
+<a name='L825'>                <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L826'>
+<a name='L827'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L828'><font color='red'>}</font>
+<a name='L829'>
+<a name='L830'><b>static</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L831'><a href='../R/3204.html' title='Multiple refered from 5 places.'>prof_dump</a>(bool propagate_err, <b>const</b> <b>char</b> *filename, bool leakcheck)
+<a name='L832'><font color='red'>{</font>
+<a name='L833'>        <a href='../S/141.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_tdata_t</a> *prof_tdata;
+<a name='L834'>        <a href='../S/141.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_cnt_t</a> cnt_all;
+<a name='L835'>        size_t tabind;
+<a name='L836'>        <b>union</b> <font color='red'>{</font>
+<a name='L837'>                <a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a>       *p;
+<a name='L838'>                <b>void</b>            *v;
+<a name='L839'>        <font color='red'>}</font> bt;
+<a name='L840'>        <b>union</b> <font color='red'>{</font>
+<a name='L841'>                <a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a>      *p;
+<a name='L842'>                <b>void</b>            *v;
+<a name='L843'>        <font color='red'>}</font> ctx;
+<a name='L844'>        size_t leak_nctx;
+<a name='L845'>
+<a name='L846'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L847'>
+<a name='L848'>        prof_tdata = <a href='../S/138.html#L286' title='Defined at 286 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_tdata_get</a>();
+<a name='L849'>        <b>if</b> ((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)prof_tdata &lt;= (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/141.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_TDATA_STATE_MAX</a>)
+<a name='L850'>                <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L851'>        <a href='../S/209.html#L146' title='Defined at 146 in deps/jemalloc/src/prof.c.'>prof_enter</a>(prof_tdata);
+<a name='L852'>        prof_dump_fd = creat(filename, 0644);
+<a name='L853'>        <b>if</b> (prof_dump_fd == -1) <font color='red'>{</font>
+<a name='L854'>                <b>if</b> (propagate_err == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>) <font color='red'>{</font>
+<a name='L855'>                        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>(
+<a name='L856'>                            "&lt;jemalloc&gt;: creat(\"%s\"), 0644) failed\n",
+<a name='L857'>                            filename);
+<a name='L858'>                        <b>if</b> (<a href='../S/138.html#L238' title='Defined at 238 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_abort</a>)
+<a name='L859'>                                abort();
+<a name='L860'>                <font color='red'>}</font>
+<a name='L861'>                <b>goto</b> label_error;
+<a name='L862'>        <font color='red'>}</font>
+<a name='L863'>
+<a name='L864'>        <i><font color='green'>/* Merge per thread profile stats, and sum them in cnt_all. */</font></i>
+<a name='L865'>        memset(&amp;cnt_all, 0, <b>sizeof</b>(<a href='../S/141.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_cnt_t</a>));
+<a name='L866'>        leak_nctx = 0;
+<a name='L867'>        <b>for</b> (tabind = 0; <a href='../D/1876.html' title='Multiple defined in 2 places.'>ckh_iter</a>(&amp;bt2ctx, &amp;tabind, NULL, &amp;ctx.v) == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;)
+<a name='L868'>                <a href='../S/209.html#L625' title='Defined at 625 in deps/jemalloc/src/prof.c.'>prof_ctx_sum</a>(ctx.p, &amp;cnt_all, &amp;leak_nctx);
+<a name='L869'>
+<a name='L870'>        <i><font color='green'>/* Dump profile header. */</font></i>
+<a name='L871'>        <b>if</b> (<a href='../S/138.html#L243' title='Defined at 243 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_lg_prof_sample</a> == 0) <font color='red'>{</font>
+<a name='L872'>                <b>if</b> (<a href='../S/209.html#L80' title='Defined at 80 in deps/jemalloc/src/prof.c.'>prof_printf</a>(propagate_err,
+<a name='L873'>                    "heap profile: %"<a href='../S/158.html#L86' title='Defined at 86 in deps/jemalloc/include/msvc_compat/inttypes.h.'>PRId64</a>": %"<a href='../S/158.html#L86' title='Defined at 86 in deps/jemalloc/include/msvc_compat/inttypes.h.'>PRId64</a>
+<a name='L874'>                    " [%"<a href='../S/158.html#L140' title='Defined at 140 in deps/jemalloc/include/msvc_compat/inttypes.h.'>PRIu64</a>": %"<a href='../S/158.html#L140' title='Defined at 140 in deps/jemalloc/include/msvc_compat/inttypes.h.'>PRIu64</a>"] @ heapprofile\n",
+<a name='L875'>                    cnt_all.curobjs, cnt_all.curbytes,
+<a name='L876'>                    cnt_all.accumobjs, cnt_all.accumbytes))
+<a name='L877'>                        <b>goto</b> label_error;
+<a name='L878'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L879'>                <b>if</b> (<a href='../S/209.html#L80' title='Defined at 80 in deps/jemalloc/src/prof.c.'>prof_printf</a>(propagate_err,
+<a name='L880'>                    "heap profile: %"<a href='../S/158.html#L86' title='Defined at 86 in deps/jemalloc/include/msvc_compat/inttypes.h.'>PRId64</a>": %"<a href='../S/158.html#L86' title='Defined at 86 in deps/jemalloc/include/msvc_compat/inttypes.h.'>PRId64</a>
+<a name='L881'>                    " [%"<a href='../S/158.html#L140' title='Defined at 140 in deps/jemalloc/include/msvc_compat/inttypes.h.'>PRIu64</a>": %"<a href='../S/158.html#L140' title='Defined at 140 in deps/jemalloc/include/msvc_compat/inttypes.h.'>PRIu64</a>"] @ heap_v2/%"<a href='../S/158.html#L140' title='Defined at 140 in deps/jemalloc/include/msvc_compat/inttypes.h.'>PRIu64</a>"\n",
+<a name='L882'>                    cnt_all.curobjs, cnt_all.curbytes,
+<a name='L883'>                    cnt_all.accumobjs, cnt_all.accumbytes,
+<a name='L884'>                    ((<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)1U &lt;&lt; <a href='../S/138.html#L243' title='Defined at 243 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_lg_prof_sample</a>)))
+<a name='L885'>                        <b>goto</b> label_error;
+<a name='L886'>        <font color='red'>}</font>
+<a name='L887'>
+<a name='L888'>        <i><font color='green'>/* Dump  per ctx profile stats. */</font></i>
+<a name='L889'>        <b>for</b> (tabind = 0; <a href='../D/1876.html' title='Multiple defined in 2 places.'>ckh_iter</a>(&amp;bt2ctx, &amp;tabind, &amp;bt.v, &amp;ctx.v)
+<a name='L890'>            == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;) <font color='red'>{</font>
+<a name='L891'>                <b>if</b> (<a href='../S/209.html#L755' title='Defined at 755 in deps/jemalloc/src/prof.c.'>prof_dump_ctx</a>(propagate_err, ctx.p, bt.p))
+<a name='L892'>                        <b>goto</b> label_error;
+<a name='L893'>        <font color='red'>}</font>
+<a name='L894'>
+<a name='L895'>        <i><font color='green'>/* Dump /proc/&lt;pid&gt;/maps if possible. */</font></i>
+<a name='L896'>        <b>if</b> (<a href='../S/209.html#L796' title='Defined at 796 in deps/jemalloc/src/prof.c.'>prof_dump_maps</a>(propagate_err))
+<a name='L897'>                <b>goto</b> label_error;
+<a name='L898'>
+<a name='L899'>        <b>if</b> (<a href='../S/209.html#L556' title='Defined at 556 in deps/jemalloc/src/prof.c.'>prof_flush</a>(propagate_err))
+<a name='L900'>                <b>goto</b> label_error;
+<a name='L901'>        close(prof_dump_fd);
+<a name='L902'>        <a href='../S/209.html#L158' title='Defined at 158 in deps/jemalloc/src/prof.c.'>prof_leave</a>(prof_tdata);
+<a name='L903'>
+<a name='L904'>        <b>if</b> (leakcheck &amp;&amp; cnt_all.curbytes != 0) <font color='red'>{</font>
+<a name='L905'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("&lt;jemalloc&gt;: Leak summary: %"<a href='../S/158.html#L86' title='Defined at 86 in deps/jemalloc/include/msvc_compat/inttypes.h.'>PRId64</a>" byte%s, %"
+<a name='L906'>                    <a href='../S/158.html#L86' title='Defined at 86 in deps/jemalloc/include/msvc_compat/inttypes.h.'>PRId64</a>" object%s, %zu context%s\n",
+<a name='L907'>                    cnt_all.curbytes, (cnt_all.curbytes != 1) ? "s" : "",
+<a name='L908'>                    cnt_all.curobjs, (cnt_all.curobjs != 1) ? "s" : "",
+<a name='L909'>                    leak_nctx, (leak_nctx != 1) ? "s" : "");
+<a name='L910'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>(
+<a name='L911'>                    "&lt;jemalloc&gt;: Run pprof on \"%s\" for leak detail\n",
+<a name='L912'>                    filename);
+<a name='L913'>        <font color='red'>}</font>
+<a name='L914'>
+<a name='L915'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L916'>label_error:
+<a name='L917'>        <a href='../S/209.html#L158' title='Defined at 158 in deps/jemalloc/src/prof.c.'>prof_leave</a>(prof_tdata);
+<a name='L918'>        <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L919'><font color='red'>}</font>
+<a name='L920'>
+<a name='L921'><font color='darkred'>#define</font> <a href='../R/126.html' title='Multiple refered from 5 places.'>DUMP_FILENAME_BUFSIZE</a>   (PATH_MAX + 1)
+<a name='L922'><b>static</b> <b>void</b>
+<a name='L923'><a href='../R/3206.html' title='Multiple refered from 4 places.'>prof_dump_filename</a>(<b>char</b> *filename, <b>char</b> v, <a href='../S/160.html#L89' title='Defined at 89 in deps/jemalloc/include/msvc_compat/stdint.h.'>int64_t</a> vseq)
+<a name='L924'><font color='red'>{</font>
+<a name='L925'>
+<a name='L926'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L927'>
+<a name='L928'>        <b>if</b> (vseq != <a href='../S/160.html#L238' title='Defined at 238 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT64_C</a>(0xffffffffffffffff)) <font color='red'>{</font>
+<a name='L929'>                <i><font color='green'>/* "&lt;prefix&gt;.&lt;pid&gt;.&lt;seq&gt;.v&lt;vseq&gt;.heap" */</font></i>
+<a name='L930'>                <a href='../D/3282.html' title='Multiple defined in 2 places.'>malloc_snprintf</a>(filename, <a href='../S/209.html#L921' title='Defined at 921 in deps/jemalloc/src/prof.c.'>DUMP_FILENAME_BUFSIZE</a>,
+<a name='L931'>                    "%s.%d.%"<a href='../S/158.html#L140' title='Defined at 140 in deps/jemalloc/include/msvc_compat/inttypes.h.'>PRIu64</a>".%c%"<a href='../S/158.html#L86' title='Defined at 86 in deps/jemalloc/include/msvc_compat/inttypes.h.'>PRId64</a>".heap",
+<a name='L932'>                    <a href='../S/138.html#L252' title='Defined at 252 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_prefix</a>, (<b>int</b>)getpid(), prof_dump_seq, v, vseq);
+<a name='L933'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L934'>                <i><font color='green'>/* "&lt;prefix&gt;.&lt;pid&gt;.&lt;seq&gt;.&lt;v&gt;.heap" */</font></i>
+<a name='L935'>                <a href='../D/3282.html' title='Multiple defined in 2 places.'>malloc_snprintf</a>(filename, <a href='../S/209.html#L921' title='Defined at 921 in deps/jemalloc/src/prof.c.'>DUMP_FILENAME_BUFSIZE</a>,
+<a name='L936'>                    "%s.%d.%"<a href='../S/158.html#L140' title='Defined at 140 in deps/jemalloc/include/msvc_compat/inttypes.h.'>PRIu64</a>".%c.heap",
+<a name='L937'>                    <a href='../S/138.html#L252' title='Defined at 252 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_prefix</a>, (<b>int</b>)getpid(), prof_dump_seq, v);
+<a name='L938'>        <font color='red'>}</font>
+<a name='L939'>        prof_dump_seq++;
+<a name='L940'><font color='red'>}</font>
+<a name='L941'>
+<a name='L942'><b>static</b> <b>void</b>
+<a name='L943'><a href='../S/209.html#L1244' title='Refered from 1244 in deps/jemalloc/src/prof.c.'>prof_fdump</a>(<b>void</b>)
+<a name='L944'><font color='red'>{</font>
+<a name='L945'>        <b>char</b> filename[<a href='../S/209.html#L921' title='Defined at 921 in deps/jemalloc/src/prof.c.'>DUMP_FILENAME_BUFSIZE</a>];
+<a name='L946'>
+<a name='L947'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L948'>
+<a name='L949'>        <b>if</b> (prof_booted == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)
+<a name='L950'>                <b>return</b>;
+<a name='L951'>
+<a name='L952'>        <b>if</b> (<a href='../S/138.html#L249' title='Defined at 249 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_final</a> &amp;&amp; <a href='../S/138.html#L252' title='Defined at 252 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_prefix</a>[0] != '\0') <font color='red'>{</font>
+<a name='L953'>                <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;prof_dump_seq_mtx);
+<a name='L954'>                <a href='../S/209.html#L923' title='Defined at 923 in deps/jemalloc/src/prof.c.'>prof_dump_filename</a>(filename, 'f', <a href='../S/160.html#L238' title='Defined at 238 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT64_C</a>(0xffffffffffffffff));
+<a name='L955'>                <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;prof_dump_seq_mtx);
+<a name='L956'>                <a href='../S/209.html#L831' title='Defined at 831 in deps/jemalloc/src/prof.c.'>prof_dump</a>(<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>, filename, <a href='../S/138.html#L251' title='Defined at 251 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_leak</a>);
+<a name='L957'>        <font color='red'>}</font>
+<a name='L958'><font color='red'>}</font>
+<a name='L959'>
+<a name='L960'><b>void</b>
+<a name='L961'><a href='../R/3213.html' title='Multiple refered from 4 places.'>prof_idump</a>(<b>void</b>)
+<a name='L962'><font color='red'>{</font>
+<a name='L963'>        <a href='../S/141.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_tdata_t</a> *prof_tdata;
+<a name='L964'>        <b>char</b> filename[PATH_MAX + 1];
+<a name='L965'>
+<a name='L966'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L967'>
+<a name='L968'>        <b>if</b> (prof_booted == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)
+<a name='L969'>                <b>return</b>;
+<a name='L970'>        <i><font color='green'>/*</font></i>
+<a name='L971'><i><font color='green'>         * Don't call prof_tdata_get() here, because it could cause recursive</font></i>
+<a name='L972'><i><font color='green'>         * allocation.</font></i>
+<a name='L973'><i><font color='green'>         */</font></i>
+<a name='L974'>        prof_tdata = *<a href='../S/138.html#L293' title='Defined at 293 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_tdata_tsd_get</a>();
+<a name='L975'>        <b>if</b> ((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)prof_tdata &lt;= (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/141.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_TDATA_STATE_MAX</a>)
+<a name='L976'>                <b>return</b>;
+<a name='L977'>        <b>if</b> (prof_tdata-&gt;enq) <font color='red'>{</font>
+<a name='L978'>                prof_tdata-&gt;enq_idump = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L979'>                <b>return</b>;
+<a name='L980'>        <font color='red'>}</font>
+<a name='L981'>
+<a name='L982'>        <b>if</b> (<a href='../S/138.html#L252' title='Defined at 252 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_prefix</a>[0] != '\0') <font color='red'>{</font>
+<a name='L983'>                <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;prof_dump_seq_mtx);
+<a name='L984'>                <a href='../S/209.html#L923' title='Defined at 923 in deps/jemalloc/src/prof.c.'>prof_dump_filename</a>(filename, 'i', prof_dump_iseq);
+<a name='L985'>                prof_dump_iseq++;
+<a name='L986'>                <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;prof_dump_seq_mtx);
+<a name='L987'>                <a href='../S/209.html#L831' title='Defined at 831 in deps/jemalloc/src/prof.c.'>prof_dump</a>(<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>, filename, <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L988'>        <font color='red'>}</font>
+<a name='L989'><font color='red'>}</font>
+<a name='L990'>
+<a name='L991'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L992'><a href='../R/3218.html' title='Multiple refered from 3 places.'>prof_mdump</a>(<b>const</b> <b>char</b> *filename)
+<a name='L993'><font color='red'>{</font>
+<a name='L994'>        <b>char</b> filename_buf[<a href='../S/209.html#L921' title='Defined at 921 in deps/jemalloc/src/prof.c.'>DUMP_FILENAME_BUFSIZE</a>];
+<a name='L995'>
+<a name='L996'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L997'>
+<a name='L998'>        <b>if</b> (<a href='../S/138.html#L246' title='Defined at 246 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof</a> == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a> || prof_booted == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)
+<a name='L999'>                <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L1000'>
+<a name='L1001'>        <b>if</b> (filename == NULL) <font color='red'>{</font>
+<a name='L1002'>                <i><font color='green'>/* No filename specified, so automatically generate one. */</font></i>
+<a name='L1003'>                <b>if</b> (<a href='../S/138.html#L252' title='Defined at 252 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_prefix</a>[0] == '\0')
+<a name='L1004'>                        <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L1005'>                <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;prof_dump_seq_mtx);
+<a name='L1006'>                <a href='../S/209.html#L923' title='Defined at 923 in deps/jemalloc/src/prof.c.'>prof_dump_filename</a>(filename_buf, 'm', prof_dump_mseq);
+<a name='L1007'>                prof_dump_mseq++;
+<a name='L1008'>                <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;prof_dump_seq_mtx);
+<a name='L1009'>                filename = filename_buf;
+<a name='L1010'>        <font color='red'>}</font>
+<a name='L1011'>        <b>return</b> (<a href='../S/209.html#L831' title='Defined at 831 in deps/jemalloc/src/prof.c.'>prof_dump</a>(<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>, filename, <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>));
+<a name='L1012'><font color='red'>}</font>
+<a name='L1013'>
+<a name='L1014'><b>void</b>
+<a name='L1015'><a href='../R/3212.html' title='Multiple refered from 5 places.'>prof_gdump</a>(<b>void</b>)
+<a name='L1016'><font color='red'>{</font>
+<a name='L1017'>        <a href='../S/141.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_tdata_t</a> *prof_tdata;
+<a name='L1018'>        <b>char</b> filename[<a href='../S/209.html#L921' title='Defined at 921 in deps/jemalloc/src/prof.c.'>DUMP_FILENAME_BUFSIZE</a>];
+<a name='L1019'>
+<a name='L1020'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L1021'>
+<a name='L1022'>        <b>if</b> (prof_booted == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>)
+<a name='L1023'>                <b>return</b>;
+<a name='L1024'>        <i><font color='green'>/*</font></i>
+<a name='L1025'><i><font color='green'>         * Don't call prof_tdata_get() here, because it could cause recursive</font></i>
+<a name='L1026'><i><font color='green'>         * allocation.</font></i>
+<a name='L1027'><i><font color='green'>         */</font></i>
+<a name='L1028'>        prof_tdata = *<a href='../S/138.html#L293' title='Defined at 293 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_tdata_tsd_get</a>();
+<a name='L1029'>        <b>if</b> ((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)prof_tdata &lt;= (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/141.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_TDATA_STATE_MAX</a>)
+<a name='L1030'>                <b>return</b>;
+<a name='L1031'>        <b>if</b> (prof_tdata-&gt;enq) <font color='red'>{</font>
+<a name='L1032'>                prof_tdata-&gt;enq_gdump = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L1033'>                <b>return</b>;
+<a name='L1034'>        <font color='red'>}</font>
+<a name='L1035'>
+<a name='L1036'>        <b>if</b> (<a href='../S/138.html#L252' title='Defined at 252 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_prefix</a>[0] != '\0') <font color='red'>{</font>
+<a name='L1037'>                <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;prof_dump_seq_mtx);
+<a name='L1038'>                <a href='../S/209.html#L923' title='Defined at 923 in deps/jemalloc/src/prof.c.'>prof_dump_filename</a>(filename, 'u', prof_dump_useq);
+<a name='L1039'>                prof_dump_useq++;
+<a name='L1040'>                <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;prof_dump_seq_mtx);
+<a name='L1041'>                <a href='../S/209.html#L831' title='Defined at 831 in deps/jemalloc/src/prof.c.'>prof_dump</a>(<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>, filename, <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L1042'>        <font color='red'>}</font>
+<a name='L1043'><font color='red'>}</font>
+<a name='L1044'>
+<a name='L1045'><b>static</b> <b>void</b>
+<a name='L1046'><a href='../R/3190.html' title='Multiple refered from 2 places.'>prof_bt_hash</a>(<b>const</b> <b>void</b> *key, <b>unsigned</b> minbits, size_t *hash1, size_t *hash2)
+<a name='L1047'><font color='red'>{</font>
+<a name='L1048'>        size_t ret1, ret2;
+<a name='L1049'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> h;
+<a name='L1050'>        <a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *bt = (<a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *)key;
+<a name='L1051'>
+<a name='L1052'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L1053'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(minbits &lt;= 32 || (SIZEOF_PTR == 8 &amp;&amp; minbits &lt;= 64));
+<a name='L1054'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(hash1 != NULL);
+<a name='L1055'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(hash2 != NULL);
+<a name='L1056'>
+<a name='L1057'>        h = <a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a>(bt-&gt;vec, bt-&gt;len * <b>sizeof</b>(<b>void</b> *),
+<a name='L1058'>            <a href='../S/160.html#L238' title='Defined at 238 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT64_C</a>(0x94122f335b332aea));
+<a name='L1059'>        <b>if</b> (minbits &lt;= 32) <font color='red'>{</font>
+<a name='L1060'>                <i><font color='green'>/*</font></i>
+<a name='L1061'><i><font color='green'>                 * Avoid doing multiple hashes, since a single hash provides</font></i>
+<a name='L1062'><i><font color='green'>                 * enough bits.</font></i>
+<a name='L1063'><i><font color='green'>                 */</font></i>
+<a name='L1064'>                ret1 = h &amp; ZU(0xffffffffU);
+<a name='L1065'>                ret2 = h &gt;&gt; 32;
+<a name='L1066'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1067'>                ret1 = h;
+<a name='L1068'>                ret2 = <a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a>(bt-&gt;vec, bt-&gt;len * <b>sizeof</b>(<b>void</b> *),
+<a name='L1069'>                    <a href='../S/160.html#L238' title='Defined at 238 in deps/jemalloc/include/msvc_compat/stdint.h.'>UINT64_C</a>(0x8432a476666bbc13));
+<a name='L1070'>        <font color='red'>}</font>
+<a name='L1071'>
+<a name='L1072'>        *hash1 = ret1;
+<a name='L1073'>        *hash2 = ret2;
+<a name='L1074'><font color='red'>}</font>
+<a name='L1075'>
+<a name='L1076'><b>static</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L1077'><a href='../R/3191.html' title='Multiple refered from 2 places.'>prof_bt_keycomp</a>(<b>const</b> <b>void</b> *k1, <b>const</b> <b>void</b> *k2)
+<a name='L1078'><font color='red'>{</font>
+<a name='L1079'>        <b>const</b> <a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *bt1 = (<a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *)k1;
+<a name='L1080'>        <b>const</b> <a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *bt2 = (<a href='../S/141.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_bt_t</a> *)k2;
+<a name='L1081'>
+<a name='L1082'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L1083'>
+<a name='L1084'>        <b>if</b> (bt1-&gt;len != bt2-&gt;len)
+<a name='L1085'>                <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L1086'>        <b>return</b> (memcmp(bt1-&gt;vec, bt2-&gt;vec, bt1-&gt;len * <b>sizeof</b>(<b>void</b> *)) == 0);
+<a name='L1087'><font color='red'>}</font>
+<a name='L1088'>
+<a name='L1089'><b>static</b> <a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a> *
+<a name='L1090'><a href='../S/209.html#L476' title='Refered from 476 in deps/jemalloc/src/prof.c.'>prof_ctx_mutex_choose</a>(<b>void</b>)
+<a name='L1091'><font color='red'>{</font>
+<a name='L1092'>        <b>unsigned</b> nctxs = <a href='../D/1689.html' title='Multiple defined in 2 places.'>atomic_add_u</a>(&amp;cum_ctxs, 1);
+<a name='L1093'>
+<a name='L1094'>        <b>return</b> (&amp;ctx_locks[(nctxs - 1) % <a href='../S/141.html#L38' title='Defined at 38 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_NCTX_LOCKS</a>]);
+<a name='L1095'><font color='red'>}</font>
+<a name='L1096'>
+<a name='L1097'><a href='../S/141.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_tdata_t</a> *
+<a name='L1098'><a href='../R/3230.html' title='Multiple refered from 3 places.'>prof_tdata_init</a>(<b>void</b>)
+<a name='L1099'><font color='red'>{</font>
+<a name='L1100'>        <a href='../S/141.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_tdata_t</a> *prof_tdata;
+<a name='L1101'>
+<a name='L1102'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L1103'>
+<a name='L1104'>        <i><font color='green'>/* Initialize an empty cache for this thread. */</font></i>
+<a name='L1105'>        prof_tdata = (<a href='../S/141.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_tdata_t</a> *)<a href='../S/138.html#L198' title='Defined at 198 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>imalloc</a>(<b>sizeof</b>(<a href='../S/141.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_tdata_t</a>));
+<a name='L1106'>        <b>if</b> (prof_tdata == NULL)
+<a name='L1107'>                <b>return</b> (NULL);
+<a name='L1108'>
+<a name='L1109'>        <b>if</b> (<a href='../D/1878.html' title='Multiple defined in 2 places.'>ckh_new</a>(&amp;prof_tdata-&gt;bt2cnt, <a href='../S/141.html#L26' title='Defined at 26 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_CKH_MINITEMS</a>,
+<a name='L1110'>            <a href='../S/209.html#L1046' title='Defined at 1046 in deps/jemalloc/src/prof.c.'>prof_bt_hash</a>, <a href='../S/209.html#L1077' title='Defined at 1077 in deps/jemalloc/src/prof.c.'>prof_bt_keycomp</a>)) <font color='red'>{</font>
+<a name='L1111'>                <a href='../S/138.html#L196' title='Defined at 196 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>idalloc</a>(prof_tdata);
+<a name='L1112'>                <b>return</b> (NULL);
+<a name='L1113'>        <font color='red'>}</font>
+<a name='L1114'>        <a href='../S/136.html#L14' title='Defined at 14 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_new</a>(&amp;prof_tdata-&gt;lru_ql);
+<a name='L1115'>
+<a name='L1116'>        prof_tdata-&gt;vec = <a href='../S/138.html#L198' title='Defined at 198 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>imalloc</a>(<b>sizeof</b>(<b>void</b> *) * <a href='../S/141.html#L20' title='Defined at 20 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_BT_MAX</a>);
+<a name='L1117'>        <b>if</b> (prof_tdata-&gt;vec == NULL) <font color='red'>{</font>
+<a name='L1118'>                <a href='../D/1870.html' title='Multiple defined in 2 places.'>ckh_delete</a>(&amp;prof_tdata-&gt;bt2cnt);
+<a name='L1119'>                <a href='../S/138.html#L196' title='Defined at 196 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>idalloc</a>(prof_tdata);
+<a name='L1120'>                <b>return</b> (NULL);
+<a name='L1121'>        <font color='red'>}</font>
+<a name='L1122'>
+<a name='L1123'>        prof_tdata-&gt;prng_state = 0;
+<a name='L1124'>        prof_tdata-&gt;threshold = 0;
+<a name='L1125'>        prof_tdata-&gt;accum = 0;
+<a name='L1126'>
+<a name='L1127'>        prof_tdata-&gt;enq = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L1128'>        prof_tdata-&gt;enq_idump = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L1129'>        prof_tdata-&gt;enq_gdump = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L1130'>
+<a name='L1131'>        <a href='../S/138.html#L294' title='Defined at 294 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_tdata_tsd_set</a>(&amp;prof_tdata);
+<a name='L1132'>
+<a name='L1133'>        <b>return</b> (prof_tdata);
+<a name='L1134'><font color='red'>}</font>
+<a name='L1135'>
+<a name='L1136'><b>void</b>
+<a name='L1137'><a href='../R/3228.html' title='Multiple refered from 2 places.'>prof_tdata_cleanup</a>(<b>void</b> *arg)
+<a name='L1138'><font color='red'>{</font>
+<a name='L1139'>        <a href='../S/141.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_thr_cnt_t</a> *cnt;
+<a name='L1140'>        <a href='../S/141.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_tdata_t</a> *prof_tdata = *(<a href='../S/141.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_tdata_t</a> **)arg;
+<a name='L1141'>
+<a name='L1142'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L1143'>
+<a name='L1144'>        <b>if</b> (prof_tdata == <a href='../S/141.html#L44' title='Defined at 44 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_TDATA_STATE_REINCARNATED</a>) <font color='red'>{</font>
+<a name='L1145'>                <i><font color='green'>/*</font></i>
+<a name='L1146'><i><font color='green'>                 * Another destructor deallocated memory after this destructor</font></i>
+<a name='L1147'><i><font color='green'>                 * was called.  Reset prof_tdata to PROF_TDATA_STATE_PURGATORY</font></i>
+<a name='L1148'><i><font color='green'>                 * in order to receive another callback.</font></i>
+<a name='L1149'><i><font color='green'>                 */</font></i>
+<a name='L1150'>                prof_tdata = <a href='../S/141.html#L45' title='Defined at 45 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_TDATA_STATE_PURGATORY</a>;
+<a name='L1151'>                <a href='../S/138.html#L294' title='Defined at 294 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_tdata_tsd_set</a>(&amp;prof_tdata);
+<a name='L1152'>        <font color='red'>}</font> <b>else</b> <b>if</b> (prof_tdata == <a href='../S/141.html#L45' title='Defined at 45 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_TDATA_STATE_PURGATORY</a>) <font color='red'>{</font>
+<a name='L1153'>                <i><font color='green'>/*</font></i>
+<a name='L1154'><i><font color='green'>                 * The previous time this destructor was called, we set the key</font></i>
+<a name='L1155'><i><font color='green'>                 * to PROF_TDATA_STATE_PURGATORY so that other destructors</font></i>
+<a name='L1156'><i><font color='green'>                 * wouldn't cause re-creation of the prof_tdata.  This time, do</font></i>
+<a name='L1157'><i><font color='green'>                 * nothing, so that the destructor will not be called again.</font></i>
+<a name='L1158'><i><font color='green'>                 */</font></i>
+<a name='L1159'>        <font color='red'>}</font> <b>else</b> <b>if</b> (prof_tdata != NULL) <font color='red'>{</font>
+<a name='L1160'>                <i><font color='green'>/*</font></i>
+<a name='L1161'><i><font color='green'>                 * Delete the hash table.  All of its contents can still be</font></i>
+<a name='L1162'><i><font color='green'>                 * iterated over via the LRU.</font></i>
+<a name='L1163'><i><font color='green'>                 */</font></i>
+<a name='L1164'>                <a href='../D/1870.html' title='Multiple defined in 2 places.'>ckh_delete</a>(&amp;prof_tdata-&gt;bt2cnt);
+<a name='L1165'>                <i><font color='green'>/*</font></i>
+<a name='L1166'><i><font color='green'>                 * Iteratively merge cnt's into the global stats and delete</font></i>
+<a name='L1167'><i><font color='green'>                 * them.</font></i>
+<a name='L1168'><i><font color='green'>                 */</font></i>
+<a name='L1169'>                <b>while</b> ((cnt = <a href='../S/136.html#L22' title='Defined at 22 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_last</a>(&amp;prof_tdata-&gt;lru_ql, lru_link)) != NULL) <font color='red'>{</font>
+<a name='L1170'>                        <a href='../S/136.html#L58' title='Defined at 58 in deps/jemalloc/include/jemalloc/internal/ql.h.'>ql_remove</a>(&amp;prof_tdata-&gt;lru_ql, cnt, lru_link);
+<a name='L1171'>                        <a href='../S/209.html#L717' title='Defined at 717 in deps/jemalloc/src/prof.c.'>prof_ctx_merge</a>(cnt-&gt;ctx, cnt);
+<a name='L1172'>                        <a href='../S/138.html#L196' title='Defined at 196 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>idalloc</a>(cnt);
+<a name='L1173'>                <font color='red'>}</font>
+<a name='L1174'>                <a href='../S/138.html#L196' title='Defined at 196 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>idalloc</a>(prof_tdata-&gt;vec);
+<a name='L1175'>                <a href='../S/138.html#L196' title='Defined at 196 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>idalloc</a>(prof_tdata);
+<a name='L1176'>                prof_tdata = <a href='../S/141.html#L45' title='Defined at 45 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_TDATA_STATE_PURGATORY</a>;
+<a name='L1177'>                <a href='../S/138.html#L294' title='Defined at 294 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_tdata_tsd_set</a>(&amp;prof_tdata);
+<a name='L1178'>        <font color='red'>}</font>
+<a name='L1179'><font color='red'>}</font>
+<a name='L1180'>
+<a name='L1181'><b>void</b>
+<a name='L1182'><a href='../R/3187.html' title='Multiple refered from 3 places.'>prof_boot0</a>(<b>void</b>)
+<a name='L1183'><font color='red'>{</font>
+<a name='L1184'>
+<a name='L1185'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L1186'>
+<a name='L1187'>        memcpy(<a href='../S/138.html#L252' title='Defined at 252 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_prefix</a>, <a href='../S/141.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_PREFIX_DEFAULT</a>,
+<a name='L1188'>            <b>sizeof</b>(<a href='../S/141.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_PREFIX_DEFAULT</a>));
+<a name='L1189'><font color='red'>}</font>
+<a name='L1190'>
+<a name='L1191'><b>void</b>
+<a name='L1192'><a href='../R/3188.html' title='Multiple refered from 3 places.'>prof_boot1</a>(<b>void</b>)
+<a name='L1193'><font color='red'>{</font>
+<a name='L1194'>
+<a name='L1195'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L1196'>
+<a name='L1197'>        <i><font color='green'>/*</font></i>
+<a name='L1198'><i><font color='green'>         * opt_prof and prof_promote must be in their final state before any</font></i>
+<a name='L1199'><i><font color='green'>         * arenas are initialized, so this function must be executed early.</font></i>
+<a name='L1200'><i><font color='green'>         */</font></i>
+<a name='L1201'>
+<a name='L1202'>        <b>if</b> (<a href='../S/138.html#L251' title='Defined at 251 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_leak</a> &amp;&amp; <a href='../S/138.html#L246' title='Defined at 246 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof</a> == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>) <font color='red'>{</font>
+<a name='L1203'>                <i><font color='green'>/*</font></i>
+<a name='L1204'><i><font color='green'>                 * Enable opt_prof, but in such a way that profiles are never</font></i>
+<a name='L1205'><i><font color='green'>                 * automatically dumped.</font></i>
+<a name='L1206'><i><font color='green'>                 */</font></i>
+<a name='L1207'>                <a href='../S/138.html#L246' title='Defined at 246 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof</a> = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L1208'>                <a href='../S/138.html#L250' title='Defined at 250 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_gdump</a> = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L1209'>                <a href='../S/138.html#L273' title='Defined at 273 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_interval</a> = 0;
+<a name='L1210'>        <font color='red'>}</font> <b>else</b> <b>if</b> (<a href='../S/138.html#L246' title='Defined at 246 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof</a>) <font color='red'>{</font>
+<a name='L1211'>                <b>if</b> (<a href='../S/138.html#L242' title='Defined at 242 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_lg_prof_interval</a> &gt;= 0) <font color='red'>{</font>
+<a name='L1212'>                        <a href='../S/138.html#L273' title='Defined at 273 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_interval</a> = (((<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)1U) &lt;&lt;
+<a name='L1213'>                            <a href='../S/138.html#L242' title='Defined at 242 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_lg_prof_interval</a>);
+<a name='L1214'>                <font color='red'>}</font> <b>else</b>
+<a name='L1215'>                        <a href='../S/138.html#L273' title='Defined at 273 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_interval</a> = 0;
+<a name='L1216'>        <font color='red'>}</font>
+<a name='L1217'>
+<a name='L1218'>        <a href='../S/138.html#L280' title='Defined at 280 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_promote</a> = (<a href='../S/138.html#L246' title='Defined at 246 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof</a> &amp;&amp; <a href='../S/138.html#L243' title='Defined at 243 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_lg_prof_sample</a> &gt; LG_PAGE);
+<a name='L1219'><font color='red'>}</font>
+<a name='L1220'>
+<a name='L1221'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L1222'><a href='../R/3189.html' title='Multiple refered from 3 places.'>prof_boot2</a>(<b>void</b>)
+<a name='L1223'><font color='red'>{</font>
+<a name='L1224'>
+<a name='L1225'>        <a href='../S/149.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/util.h.'>cassert</a>(config_prof);
+<a name='L1226'>
+<a name='L1227'>        <b>if</b> (<a href='../S/138.html#L246' title='Defined at 246 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof</a>) <font color='red'>{</font>
+<a name='L1228'>                <b>unsigned</b> i;
+<a name='L1229'>
+<a name='L1230'>                <b>if</b> (<a href='../D/1878.html' title='Multiple defined in 2 places.'>ckh_new</a>(&amp;bt2ctx, <a href='../S/141.html#L26' title='Defined at 26 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_CKH_MINITEMS</a>, <a href='../S/209.html#L1046' title='Defined at 1046 in deps/jemalloc/src/prof.c.'>prof_bt_hash</a>,
+<a name='L1231'>                    <a href='../S/209.html#L1077' title='Defined at 1077 in deps/jemalloc/src/prof.c.'>prof_bt_keycomp</a>))
+<a name='L1232'>                        <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L1233'>                <b>if</b> (<a href='../D/3272.html' title='Multiple defined in 2 places.'>malloc_mutex_init</a>(&amp;bt2ctx_mtx))
+<a name='L1234'>                        <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L1235'>                <b>if</b> (<a href='../S/138.html#L291' title='Defined at 291 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>prof_tdata_tsd_boot</a>()) <font color='red'>{</font>
+<a name='L1236'>                        <a href='../D/3296.html' title='Multiple defined in 2 places.'>malloc_write</a>(
+<a name='L1237'>                            "&lt;jemalloc&gt;: Error in pthread_key_create()\n");
+<a name='L1238'>                        abort();
+<a name='L1239'>                <font color='red'>}</font>
+<a name='L1240'>
+<a name='L1241'>                <b>if</b> (<a href='../D/3272.html' title='Multiple defined in 2 places.'>malloc_mutex_init</a>(&amp;prof_dump_seq_mtx))
+<a name='L1242'>                        <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L1243'>
+<a name='L1244'>                <b>if</b> (atexit(<a href='../S/209.html#L943' title='Defined at 943 in deps/jemalloc/src/prof.c.'>prof_fdump</a>) != 0) <font color='red'>{</font>
+<a name='L1245'>                        <a href='../D/3296.html' title='Multiple defined in 2 places.'>malloc_write</a>("&lt;jemalloc&gt;: Error in atexit()\n");
+<a name='L1246'>                        <b>if</b> (<a href='../S/138.html#L238' title='Defined at 238 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_abort</a>)
+<a name='L1247'>                                abort();
+<a name='L1248'>                <font color='red'>}</font>
+<a name='L1249'>
+<a name='L1250'>                ctx_locks = (<a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a> *)<a href='../D/1715.html' title='Multiple defined in 2 places.'>base_alloc</a>(<a href='../S/141.html#L38' title='Defined at 38 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_NCTX_LOCKS</a> *
+<a name='L1251'>                    <b>sizeof</b>(<a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a>));
+<a name='L1252'>                <b>if</b> (ctx_locks == NULL)
+<a name='L1253'>                        <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L1254'>                <b>for</b> (i = 0; i &lt; <a href='../S/141.html#L38' title='Defined at 38 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_NCTX_LOCKS</a>; i++) <font color='red'>{</font>
+<a name='L1255'>                        <b>if</b> (<a href='../D/3272.html' title='Multiple defined in 2 places.'>malloc_mutex_init</a>(&amp;ctx_locks[i]))
+<a name='L1256'>                                <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L1257'>                <font color='red'>}</font>
+<a name='L1258'>        <font color='red'>}</font>
+<a name='L1259'>
+<a name='L1260'><font color='darkred'>#ifdef</font> JEMALLOC_PROF_LIBGCC
+<a name='L1261'>        <i><font color='green'>/*</font></i>
+<a name='L1262'><i><font color='green'>         * Cause the backtracing machinery to allocate its internal state</font></i>
+<a name='L1263'><i><font color='green'>         * before enabling profiling.</font></i>
+<a name='L1264'><i><font color='green'>         */</font></i>
+<a name='L1265'>        _Unwind_Backtrace(<a href='../S/209.html#L216' title='Defined at 216 in deps/jemalloc/src/prof.c.'>prof_unwind_init_callback</a>, NULL);
+<a name='L1266'><font color='darkred'>#endif</font>
+<a name='L1267'>
+<a name='L1268'>        prof_booted = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L1269'>
+<a name='L1270'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L1271'><font color='red'>}</font>
+<a name='L1272'>
+<a name='L1273'><b>void</b>
+<a name='L1274'><a href='../R/3221.html' title='Multiple refered from 3 places.'>prof_prefork</a>(<b>void</b>)
+<a name='L1275'><font color='red'>{</font>
+<a name='L1276'>
+<a name='L1277'>        <b>if</b> (<a href='../S/138.html#L246' title='Defined at 246 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof</a>) <font color='red'>{</font>
+<a name='L1278'>                <b>unsigned</b> i;
+<a name='L1279'>
+<a name='L1280'>                <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;bt2ctx_mtx);
+<a name='L1281'>                <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;prof_dump_seq_mtx);
+<a name='L1282'>                <b>for</b> (i = 0; i &lt; <a href='../S/141.html#L38' title='Defined at 38 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_NCTX_LOCKS</a>; i++)
+<a name='L1283'>                        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;ctx_locks[i]);
+<a name='L1284'>        <font color='red'>}</font>
+<a name='L1285'><font color='red'>}</font>
+<a name='L1286'>
+<a name='L1287'><b>void</b>
+<a name='L1288'><a href='../R/3220.html' title='Multiple refered from 3 places.'>prof_postfork_parent</a>(<b>void</b>)
+<a name='L1289'><font color='red'>{</font>
+<a name='L1290'>
+<a name='L1291'>        <b>if</b> (<a href='../S/138.html#L246' title='Defined at 246 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof</a>) <font color='red'>{</font>
+<a name='L1292'>                <b>unsigned</b> i;
+<a name='L1293'>
+<a name='L1294'>                <b>for</b> (i = 0; i &lt; <a href='../S/141.html#L38' title='Defined at 38 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_NCTX_LOCKS</a>; i++)
+<a name='L1295'>                        <a href='../D/3275.html' title='Multiple defined in 2 places.'>malloc_mutex_postfork_parent</a>(&amp;ctx_locks[i]);
+<a name='L1296'>                <a href='../D/3275.html' title='Multiple defined in 2 places.'>malloc_mutex_postfork_parent</a>(&amp;prof_dump_seq_mtx);
+<a name='L1297'>                <a href='../D/3275.html' title='Multiple defined in 2 places.'>malloc_mutex_postfork_parent</a>(&amp;bt2ctx_mtx);
+<a name='L1298'>        <font color='red'>}</font>
+<a name='L1299'><font color='red'>}</font>
+<a name='L1300'>
+<a name='L1301'><b>void</b>
+<a name='L1302'><a href='../R/3219.html' title='Multiple refered from 3 places.'>prof_postfork_child</a>(<b>void</b>)
+<a name='L1303'><font color='red'>{</font>
+<a name='L1304'>
+<a name='L1305'>        <b>if</b> (<a href='../S/138.html#L246' title='Defined at 246 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof</a>) <font color='red'>{</font>
+<a name='L1306'>                <b>unsigned</b> i;
+<a name='L1307'>
+<a name='L1308'>                <b>for</b> (i = 0; i &lt; <a href='../S/141.html#L38' title='Defined at 38 in deps/jemalloc/include/jemalloc/internal/prof.h.'>PROF_NCTX_LOCKS</a>; i++)
+<a name='L1309'>                        <a href='../D/3274.html' title='Multiple defined in 2 places.'>malloc_mutex_postfork_child</a>(&amp;ctx_locks[i]);
+<a name='L1310'>                <a href='../D/3274.html' title='Multiple defined in 2 places.'>malloc_mutex_postfork_child</a>(&amp;prof_dump_seq_mtx);
+<a name='L1311'>                <a href='../D/3274.html' title='Multiple defined in 2 places.'>malloc_mutex_postfork_child</a>(&amp;bt2ctx_mtx);
+<a name='L1312'>        <font color='red'>}</font>
+<a name='L1313'><font color='red'>}</font>
+<a name='L1314'>
+<a name='L1315'><i><font color='green'>/******************************************************************************/</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L80'>[^]</a><a href='#L1302'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

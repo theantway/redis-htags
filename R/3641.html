@@ -1,0 +1,245 @@
+<html>
+<head>
+<title>sdslen</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/104.html#L65'>sdslen</a>             65 deps/hiredis/async.c     return dictGenHashFunction((unsigned char*)key,sdslen((char*)key));
+<a href='../S/104.html#L79'>sdslen</a>             79 deps/hiredis/async.c     l1 = sdslen((sds)key1);
+<a href='../S/104.html#L80'>sdslen</a>             80 deps/hiredis/async.c     l2 = sdslen((sds)key2);
+<a href='../S/104.html#L371'>sdslen</a>            371 deps/hiredis/async.c             if (c-&gt;flags &amp; REDIS_DISCONNECTING &amp;&amp; sdslen(c-&gt;obuf) == 0) {
+<a href='../S/120.html#L611'>sdslen</a>            611 deps/hiredis/hiredis.c         r-&gt;len = sdslen(r-&gt;buf);
+<a href='../S/120.html#L655'>sdslen</a>            655 deps/hiredis/hiredis.c         r-&gt;len = sdslen(r-&gt;buf);
+<a href='../S/120.html#L714'>sdslen</a>            714 deps/hiredis/hiredis.c                     totlen += bulklen(sdslen(curarg));
+<a href='../S/120.html#L866'>sdslen</a>            866 deps/hiredis/hiredis.c         totlen += bulklen(sdslen(curarg));
+<a href='../S/120.html#L883'>sdslen</a>            883 deps/hiredis/hiredis.c         pos += sprintf(cmd+pos,"$%zu\r\n",sdslen(curargv[j]));
+<a href='../S/120.html#L884'>sdslen</a>            884 deps/hiredis/hiredis.c         memcpy(cmd+pos,curargv[j],sdslen(curargv[j]));
+<a href='../S/120.html#L885'>sdslen</a>            885 deps/hiredis/hiredis.c         pos += sdslen(curargv[j]);
+<a href='../S/120.html#L1114'>sdslen</a>           1114 deps/hiredis/hiredis.c     if (sdslen(c-&gt;obuf) &gt; 0) {
+<a href='../S/120.html#L1115'>sdslen</a>           1115 deps/hiredis/hiredis.c         nwritten = write(c-&gt;fd,c-&gt;obuf,sdslen(c-&gt;obuf));
+<a href='../S/120.html#L1124'>sdslen</a>           1124 deps/hiredis/hiredis.c             if (nwritten == (signed)sdslen(c-&gt;obuf)) {
+<a href='../S/120.html#L1132'>sdslen</a>           1132 deps/hiredis/hiredis.c     if (done != NULL) *done = (sdslen(c-&gt;obuf) == 0);
+<a href='../S/117.html#L73'>sdslen</a>             73 deps/hiredis/sds.c     return sdsnewlen(s, sdslen(s));
+<a href='../S/117.html#L94'>sdslen</a>             94 deps/hiredis/sds.c     len = sdslen(s);
+<a href='../S/117.html#L129'>sdslen</a>            129 deps/hiredis/sds.c     size_t curlen = sdslen(s);
+<a href='../S/117.html#L208'>sdslen</a>            208 deps/hiredis/sds.c     ep = end = s+sdslen(s)-1;
+<a href='../S/117.html#L221'>sdslen</a>            221 deps/hiredis/sds.c     size_t newlen, len = sdslen(s);
+<a href='../S/117.html#L251'>sdslen</a>            251 deps/hiredis/sds.c     int len = sdslen(s), j;
+<a href='../S/117.html#L257'>sdslen</a>            257 deps/hiredis/sds.c     int len = sdslen(s), j;
+<a href='../S/117.html#L266'>sdslen</a>            266 deps/hiredis/sds.c     l1 = sdslen(s1);
+<a href='../S/117.html#L267'>sdslen</a>            267 deps/hiredis/sds.c     l2 = sdslen(s2);
+<a href='../S/117.html#L526'>sdslen</a>            526 deps/hiredis/sds.c             sdslen(x) == 3 &amp;&amp; memcmp(x,"foo\0",4) == 0)
+<a href='../S/117.html#L531'>sdslen</a>            531 deps/hiredis/sds.c             sdslen(x) == 2 &amp;&amp; memcmp(x,"fo\0",3) == 0)
+<a href='../S/117.html#L535'>sdslen</a>            535 deps/hiredis/sds.c             sdslen(x) == 5 &amp;&amp; memcmp(x,"fobar\0",6) == 0);
+<a href='../S/117.html#L539'>sdslen</a>            539 deps/hiredis/sds.c             sdslen(x) == 1 &amp;&amp; memcmp(x,"a\0",2) == 0)
+<a href='../S/117.html#L543'>sdslen</a>            543 deps/hiredis/sds.c             sdslen(x) == 33 &amp;&amp;
+<a href='../S/117.html#L549'>sdslen</a>            549 deps/hiredis/sds.c             sdslen(x) == 3 &amp;&amp; memcmp(x,"123\0",4) ==0)
+<a href='../S/117.html#L554'>sdslen</a>            554 deps/hiredis/sds.c             sdslen(x) == 4 &amp;&amp; memcmp(x,"ciao\0",5) == 0)
+<a href='../S/117.html#L558'>sdslen</a>            558 deps/hiredis/sds.c             sdslen(y) == 1 &amp;&amp; memcmp(y,"i\0",2) == 0)
+<a href='../S/117.html#L563'>sdslen</a>            563 deps/hiredis/sds.c             sdslen(y) == 3 &amp;&amp; memcmp(y,"iao\0",4) == 0)
+<a href='../S/117.html#L568'>sdslen</a>            568 deps/hiredis/sds.c             sdslen(y) == 2 &amp;&amp; memcmp(y,"ao\0",3) == 0)
+<a href='../S/117.html#L573'>sdslen</a>            573 deps/hiredis/sds.c             sdslen(y) == 0 &amp;&amp; memcmp(y,"\0",1) == 0)
+<a href='../S/117.html#L578'>sdslen</a>            578 deps/hiredis/sds.c             sdslen(y) == 3 &amp;&amp; memcmp(y,"iao\0",4) == 0)
+<a href='../S/117.html#L583'>sdslen</a>            583 deps/hiredis/sds.c             sdslen(y) == 0 &amp;&amp; memcmp(y,"\0",1) == 0)
+<a href='../S/112.html#L58'>sdslen</a>             58 deps/hiredis/sds.h size_t sdslen(const sds s);
+<a href='../S/62.html#L233'>sdslen</a>            233 src/aof.c          if (sdslen(server.aof_buf) == 0) return;
+<a href='../S/62.html#L268'>sdslen</a>            268 src/aof.c          nwritten = write(server.aof_fd,server.aof_buf,sdslen(server.aof_buf));
+<a href='../S/62.html#L269'>sdslen</a>            269 src/aof.c          if (nwritten != (signed)sdslen(server.aof_buf)) {
+<a href='../S/62.html#L281'>sdslen</a>            281 src/aof.c                                         (long)sdslen(server.aof_buf));
+<a href='../S/62.html#L296'>sdslen</a>            296 src/aof.c          if ((sdslen(server.aof_buf)+sdsavail(server.aof_buf)) &lt; 4000) {
+<a href='../S/62.html#L336'>sdslen</a>            336 src/aof.c              len = 1+ll2string(buf+1,sizeof(buf)-1,sdslen(o-&gt;ptr));
+<a href='../S/62.html#L340'>sdslen</a>            340 src/aof.c              dst = sdscatlen(dst,o-&gt;ptr,sdslen(o-&gt;ptr));
+<a href='../S/62.html#L422'>sdslen</a>            422 src/aof.c              server.aof_buf = sdscatlen(server.aof_buf,buf,sdslen(buf));
+<a href='../S/62.html#L429'>sdslen</a>            429 src/aof.c              aofRewriteBufferAppend((unsigned char*)buf,sdslen(buf));
+<a href='../S/62.html#L594'>sdslen</a>            594 src/aof.c              return rioWriteBulkString(r,obj-&gt;ptr,sdslen(obj-&gt;ptr));
+<a href='../S/17.html#L136'>sdslen</a>            136 src/bitops.c               o = createStringObject(decoded-&gt;ptr, sdslen(decoded-&gt;ptr));
+<a href='../S/17.html#L180'>sdslen</a>            180 src/bitops.c           if (byte &lt; sdslen(o-&gt;ptr))
+<a href='../S/17.html#L246'>sdslen</a>            246 src/bitops.c           len[j] = sdslen(objects[j]-&gt;ptr);
+<a href='../S/17.html#L375'>sdslen</a>            375 src/bitops.c           strlen = sdslen(o-&gt;ptr);
+<a href='../S/96.html#L338'>sdslen</a>            338 src/config.c               if (sdslen(argv[2]) != 0) {
+<a href='../S/96.html#L462'>sdslen</a>            462 src/config.c           if (sdslen(o-&gt;ptr) &gt; REDIS_AUTHPASS_MAX_LEN) goto badfmt;
+<a href='../S/96.html#L538'>sdslen</a>            538 src/config.c           sds *v = sdssplitlen(o-&gt;ptr,sdslen(o-&gt;ptr)," ",1,&amp;vlen);
+<a href='../S/96.html#L629'>sdslen</a>            629 src/config.c           sds *v = sdssplitlen(o-&gt;ptr,sdslen(o-&gt;ptr)," ",1,&amp;vlen);
+<a href='../S/31.html#L146'>sdslen</a>            146 src/db.c               keyobj = createStringObject(key,sdslen(key));
+<a href='../S/31.html#L287'>sdslen</a>            287 src/db.c           int plen = sdslen(pattern), allkeys;
+<a href='../S/31.html#L297'>sdslen</a>            297 src/db.c               if (allkeys || stringmatchlen(pattern,plen,key,sdslen(key),0)) {
+<a href='../S/31.html#L298'>sdslen</a>            298 src/db.c                   keyobj = createStringObject(key,sdslen(key));
+<a href='../S/69.html#L65'>sdslen</a>             65 src/debug.c        xorDigest(digest,o-&gt;ptr,sdslen(o-&gt;ptr));
+<a href='../S/69.html#L95'>sdslen</a>             95 src/debug.c        mixDigest(digest,o-&gt;ptr,sdslen(o-&gt;ptr));
+<a href='../S/69.html#L134'>sdslen</a>            134 src/debug.c                keyobj = createStringObject(key,sdslen(key));
+<a href='../S/69.html#L136'>sdslen</a>            136 src/debug.c                mixDigest(digest,key,sdslen(key));
+<a href='../S/69.html#L385'>sdslen</a>            385 src/debug.c            redisLog(REDIS_WARNING,"Object raw string len: %d", sdslen(o-&gt;ptr));
+<a href='../S/69.html#L386'>sdslen</a>            386 src/debug.c            if (sdslen(o-&gt;ptr) &lt; 4096)
+<a href='../S/18.html#L34'>sdslen</a>             34 src/migrate.c                  sdslen(payload-&gt;io.buffer.ptr));
+<a href='../S/18.html#L107'>sdslen</a>            107 src/migrate.c      if (verifyDumpPayload(c-&gt;argv[3]-&gt;ptr,sdslen(c-&gt;argv[3]-&gt;ptr)) == REDIS_ERR) {
+<a href='../S/18.html#L180'>sdslen</a>            180 src/migrate.c      redisAssertWithInfo(c,NULL,rioWriteBulkString(&amp;cmd,c-&gt;argv[3]-&gt;ptr,sdslen(c-&gt;argv[3]-&gt;ptr)));
+<a href='../S/18.html#L187'>sdslen</a>            187 src/migrate.c                                  sdslen(payload.io.buffer.ptr)));
+<a href='../S/18.html#L196'>sdslen</a>            196 src/migrate.c          while ((towrite = sdslen(buf)-pos) &gt; 0) {
+<a href='../S/86.html#L184'>sdslen</a>            184 src/networking.c             sdslen(tail-&gt;ptr)+sdslen(o-&gt;ptr) &lt;= REDIS_REPLY_CHUNK_BYTES)
+<a href='../S/86.html#L188'>sdslen</a>            188 src/networking.c             tail-&gt;ptr = sdscatlen(tail-&gt;ptr,o-&gt;ptr,sdslen(o-&gt;ptr));
+<a href='../S/86.html#L217'>sdslen</a>            217 src/networking.c             sdslen(tail-&gt;ptr)+sdslen(s) &lt;= REDIS_REPLY_CHUNK_BYTES)
+<a href='../S/86.html#L221'>sdslen</a>            221 src/networking.c             tail-&gt;ptr = sdscatlen(tail-&gt;ptr,s,sdslen(s));
+<a href='../S/86.html#L247'>sdslen</a>            247 src/networking.c             sdslen(tail-&gt;ptr)+len &lt;= REDIS_REPLY_CHUNK_BYTES)
+<a href='../S/86.html#L279'>sdslen</a>            279 src/networking.c         if (_addReplyToBuffer(c,obj-&gt;ptr,sdslen(obj-&gt;ptr)) != REDIS_OK)
+<a href='../S/86.html#L296'>sdslen</a>            296 src/networking.c         if (_addReplyToBuffer(c,obj-&gt;ptr,sdslen(obj-&gt;ptr)) != REDIS_OK)
+<a href='../S/86.html#L310'>sdslen</a>            310 src/networking.c     if (_addReplyToBuffer(c,s,sdslen(s)) == REDIS_OK) {
+<a href='../S/86.html#L342'>sdslen</a>            342 src/networking.c     l = sdslen(s);
+<a href='../S/86.html#L346'>sdslen</a>            346 src/networking.c     addReplyErrorLength(c,s,sdslen(s));
+<a href='../S/86.html#L365'>sdslen</a>            365 src/networking.c     addReplyStatusLength(c,s,sdslen(s));
+<a href='../S/86.html#L398'>sdslen</a>            398 src/networking.c             len-&gt;ptr = sdscatlen(len-&gt;ptr,next-&gt;ptr,sdslen(next-&gt;ptr));
+<a href='../S/86.html#L457'>sdslen</a>            457 src/networking.c         len = sdslen(obj-&gt;ptr);
+<a href='../S/86.html#L723'>sdslen</a>            723 src/networking.c             objlen = sdslen(o-&gt;ptr);
+<a href='../S/86.html#L798'>sdslen</a>            798 src/networking.c         if (sdslen(c-&gt;querybuf) &gt; REDIS_INLINE_MAX_SIZE) {
+<a href='../S/86.html#L818'>sdslen</a>            818 src/networking.c         if (sdslen(argv[j])) {
+<a href='../S/86.html#L854'>sdslen</a>            854 src/networking.c             if (sdslen(c-&gt;querybuf) &gt; REDIS_INLINE_MAX_SIZE) {
+<a href='../S/86.html#L862'>sdslen</a>            862 src/networking.c         if (newline-(c-&gt;querybuf) &gt; ((signed)sdslen(c-&gt;querybuf)-2))
+<a href='../S/86.html#L894'>sdslen</a>            894 src/networking.c                 if (sdslen(c-&gt;querybuf) &gt; REDIS_INLINE_MAX_SIZE) {
+<a href='../S/86.html#L902'>sdslen</a>            902 src/networking.c             if (newline-(c-&gt;querybuf) &gt; ((signed)sdslen(c-&gt;querybuf)-2))
+<a href='../S/86.html#L936'>sdslen</a>            936 src/networking.c         if (sdslen(c-&gt;querybuf)-pos &lt; (unsigned)(c-&gt;bulklen+2)) {
+<a href='../S/86.html#L945'>sdslen</a>            945 src/networking.c                 (signed) sdslen(c-&gt;querybuf) == c-&gt;bulklen+2)
+<a href='../S/86.html#L976'>sdslen</a>            976 src/networking.c     while(sdslen(c-&gt;querybuf)) {
+<a href='../S/86.html#L1031'>sdslen</a>           1031 src/networking.c         int remaining = (unsigned)(c-&gt;bulklen+2)-sdslen(c-&gt;querybuf);
+<a href='../S/86.html#L1036'>sdslen</a>           1036 src/networking.c     qblen = sdslen(c-&gt;querybuf);
+<a href='../S/86.html#L1060'>sdslen</a>           1060 src/networking.c     if (sdslen(c-&gt;querybuf) &gt; server.client_max_querybuf_len) {
+<a href='../S/86.html#L1086'>sdslen</a>           1086 src/networking.c         if (sdslen(c-&gt;querybuf) &gt; bib) bib = sdslen(c-&gt;querybuf);
+<a href='../S/86.html#L1134'>sdslen</a>           1134 src/networking.c         (unsigned long) sdslen(client-&gt;querybuf),
+<a href='../S/86.html#L1169'>sdslen</a>           1169 src/networking.c         addReplyBulkCBuffer(c,o,sdslen(o));
+<a href='../S/71.html#L94'>sdslen</a>             94 src/object.c       return createStringObject(o-&gt;ptr,sdslen(o-&gt;ptr));
+<a href='../S/71.html#L268'>sdslen</a>            268 src/object.c           return string2ll(o-&gt;ptr,sdslen(o-&gt;ptr),llval) ? REDIS_OK : REDIS_ERR;
+<a href='../S/71.html#L289'>sdslen</a>            289 src/object.c       if (!string2l(s,sdslen(s),&amp;value)) return o;
+<a href='../S/71.html#L376'>sdslen</a>            376 src/object.c           return sdslen(o-&gt;ptr);
+<a href='../S/46.html#L235'>sdslen</a>            235 src/pubsub.c                                   sdslen(pat-&gt;pattern-&gt;ptr),
+<a href='../S/46.html#L237'>sdslen</a>            237 src/pubsub.c                                   sdslen(channel-&gt;ptr),0)) {
+<a href='../S/87.html#L329'>sdslen</a>            329 src/rdb.c              return rdbSaveRawString(rdb,obj-&gt;ptr,sdslen(obj-&gt;ptr));
+<a href='../S/87.html#L799'>sdslen</a>            799 src/rdb.c                      sdslen(ele-&gt;ptr) &gt; server.list_max_ziplist_value)
+<a href='../S/87.html#L804'>sdslen</a>            804 src/rdb.c                      o-&gt;ptr = ziplistPush(o-&gt;ptr,dec-&gt;ptr,sdslen(dec-&gt;ptr),REDIS_TAIL);
+<a href='../S/87.html#L873'>sdslen</a>            873 src/rdb.c                      sdslen(ele-&gt;ptr) &gt; maxelelen)
+<a href='../S/87.html#L874'>sdslen</a>            874 src/rdb.c                          maxelelen = sdslen(ele-&gt;ptr);
+<a href='../S/87.html#L912'>sdslen</a>            912 src/rdb.c                  o-&gt;ptr = ziplistPush(o-&gt;ptr, field-&gt;ptr, sdslen(field-&gt;ptr), ZIPLIST_TAIL);
+<a href='../S/87.html#L913'>sdslen</a>            913 src/rdb.c                  o-&gt;ptr = ziplistPush(o-&gt;ptr, value-&gt;ptr, sdslen(value-&gt;ptr), ZIPLIST_TAIL);
+<a href='../S/87.html#L915'>sdslen</a>            915 src/rdb.c                  if (sdslen(field-&gt;ptr) &gt; server.hash_max_ziplist_value ||
+<a href='../S/87.html#L916'>sdslen</a>            916 src/rdb.c                      sdslen(value-&gt;ptr) &gt; server.hash_max_ziplist_value)
+<a href='../S/87.html#L959'>sdslen</a>            959 src/rdb.c              o-&gt;ptr = zmalloc(sdslen(aux-&gt;ptr));
+<a href='../S/87.html#L960'>sdslen</a>            960 src/rdb.c              memcpy(o-&gt;ptr,aux-&gt;ptr,sdslen(aux-&gt;ptr));
+<a href='../S/94.html#L235'>sdslen</a>            235 src/redis-benchmark.c     if (sdslen(c-&gt;obuf) &gt; c-&gt;written) {
+<a href='../S/94.html#L237'>sdslen</a>            237 src/redis-benchmark.c         int nwritten = write(c-&gt;context-&gt;fd,ptr,sdslen(c-&gt;obuf)-c-&gt;written);
+<a href='../S/94.html#L245'>sdslen</a>            245 src/redis-benchmark.c         if (sdslen(c-&gt;obuf) == c-&gt;written) {
+<a href='../S/94.html#L300'>sdslen</a>            300 src/redis-benchmark.c         createClient(c-&gt;obuf,sdslen(c-&gt;obuf)/config.pipeline);
+<a href='../S/27.html#L400'>sdslen</a>            400 src/redis-cli.c                 out = sdscatlen(out,tmp,sdslen(tmp));
+<a href='../S/27.html#L436'>sdslen</a>            436 src/redis-cli.c             out = sdscatlen(out,tmp,sdslen(tmp));
+<a href='../S/27.html#L471'>sdslen</a>            471 src/redis-cli.c             out = sdscatlen(out,tmp,sdslen(tmp));
+<a href='../S/27.html#L549'>sdslen</a>            549 src/redis-cli.c         fwrite(out,sdslen(out),1,stdout);
+<a href='../S/27.html#L588'>sdslen</a>            588 src/redis-cli.c         argvlen[j] = sdslen(argv[j]);
+<a href='../S/35.html#L388'>sdslen</a>            388 src/redis.c        l1 = sdslen((sds)key1);
+<a href='../S/35.html#L389'>sdslen</a>            389 src/redis.c        l2 = sdslen((sds)key2);
+<a href='../S/35.html#L428'>sdslen</a>            428 src/redis.c        return dictGenHashFunction(o-&gt;ptr, sdslen((sds)o-&gt;ptr));
+<a href='../S/35.html#L432'>sdslen</a>            432 src/redis.c        return dictGenHashFunction((unsigned char*)key, sdslen((char*)key));
+<a href='../S/35.html#L436'>sdslen</a>            436 src/redis.c        return dictGenCaseHashFunction((unsigned char*)key, sdslen((char*)key));
+<a href='../S/35.html#L461'>sdslen</a>            461 src/redis.c            return dictGenHashFunction(o-&gt;ptr, sdslen((sds)o-&gt;ptr));
+<a href='../S/35.html#L473'>sdslen</a>            473 src/redis.c                hash = dictGenHashFunction(o-&gt;ptr, sdslen((sds)o-&gt;ptr));
+<a href='../S/35.html#L665'>sdslen</a>            665 src/redis.c                        robj *keyobj = createStringObject(key,sdslen(key));
+<a href='../S/35.html#L999'>sdslen</a>            999 src/redis.c            if (c-&gt;querybuf &amp;&amp; sdslen(c-&gt;querybuf) &gt; 0) {
+<a href='../S/35.html#L1991'>sdslen</a>           1991 src/redis.c                    sdslen(server.aof_buf),
+<a href='../S/35.html#L2196'>sdslen</a>           2196 src/redis.c            (unsigned long)sdslen(info)));
+<a href='../S/35.html#L2250'>sdslen</a>           2250 src/redis.c            mem_used -= sdslen(server.aof_buf);
+<a href='../S/35.html#L2339'>sdslen</a>           2339 src/redis.c                    robj *keyobj = createStringObject(bestkey,sdslen(bestkey));
+<a href='../S/35.html#L2581'>sdslen</a>           2581 src/redis.c                    if (sdslen(options)) options = sdscat(options,"\n");
+<a href='../S/14.html#L101'>sdslen</a>            101 src/replication.c                         sdslen(argv[j]-&gt;ptr));
+<a href='../S/14.html#L238'>sdslen</a>            238 src/replication.c         if (write(fd,bulkcount,sdslen(bulkcount)) != (signed)sdslen(bulkcount))
+<a href='../S/14.html#L489'>sdslen</a>            489 src/replication.c         if (sdslen(cmd) != 0) cmd = sdscatlen(cmd," ",1);
+<a href='../S/14.html#L495'>sdslen</a>            495 src/replication.c     if (syncWrite(fd,cmd,sdslen(cmd),server.repl_syncio_timeout*1000) == -1) {
+<a href='../S/76.html#L65'>sdslen</a>             65 src/rio.c          if (sdslen(r-&gt;io.buffer.ptr)-r-&gt;io.buffer.pos &lt; len)
+<a href='../S/75.html#L305'>sdslen</a>            305 src/scripting.c         reply = sdscatlen(reply,o-&gt;ptr,sdslen(o-&gt;ptr));
+<a href='../S/75.html#L517'>sdslen</a>            517 src/scripting.c     luaL_loadbuffer(lua,code,sdslen(code),"@enable_strict_lua");
+<a href='../S/75.html#L735'>sdslen</a>            735 src/scripting.c         lua_pushlstring(lua,(char*)elev[j]-&gt;ptr,sdslen(elev[j]-&gt;ptr));
+<a href='../S/75.html#L756'>sdslen</a>            756 src/scripting.c     funcdef = sdscatlen(funcdef,body-&gt;ptr,sdslen(body-&gt;ptr));
+<a href='../S/75.html#L759'>sdslen</a>            759 src/scripting.c     if (luaL_loadbuffer(lua,funcdef,sdslen(funcdef),"@user_script")) {
+<a href='../S/75.html#L821'>sdslen</a>            821 src/scripting.c         sha1hex(funcname+2,c-&gt;argv[1]-&gt;ptr,sdslen(c-&gt;argv[1]-&gt;ptr));
+<a href='../S/75.html#L921'>sdslen</a>            921 src/scripting.c     if (sdslen(c-&gt;argv[1]-&gt;ptr) != 40) {
+<a href='../S/75.html#L996'>sdslen</a>            996 src/scripting.c         sha1hex(funcname+2,c-&gt;argv[2]-&gt;ptr,sdslen(c-&gt;argv[2]-&gt;ptr));
+<a href='../S/63.html#L66'>sdslen</a>             66 src/sds.c          return sdsnewlen(s, sdslen(s));
+<a href='../S/63.html#L100'>sdslen</a>            100 src/sds.c          len = sdslen(s);
+<a href='../S/63.html#L184'>sdslen</a>            184 src/sds.c          size_t curlen = sdslen(s);
+<a href='../S/63.html#L201'>sdslen</a>            201 src/sds.c          return sdscatlen(s, t, sdslen(t));
+<a href='../S/63.html#L263'>sdslen</a>            263 src/sds.c          ep = end = s+sdslen(s)-1;
+<a href='../S/63.html#L276'>sdslen</a>            276 src/sds.c          size_t newlen, len = sdslen(s);
+<a href='../S/63.html#L306'>sdslen</a>            306 src/sds.c          int len = sdslen(s), j;
+<a href='../S/63.html#L312'>sdslen</a>            312 src/sds.c          int len = sdslen(s), j;
+<a href='../S/63.html#L321'>sdslen</a>            321 src/sds.c          l1 = sdslen(s1);
+<a href='../S/63.html#L322'>sdslen</a>            322 src/sds.c          l2 = sdslen(s2);
+<a href='../S/63.html#L608'>sdslen</a>            608 src/sds.c          size_t j, i, l = sdslen(s);
+<a href='../S/63.html#L631'>sdslen</a>            631 src/sds.c                  sdslen(x) == 3 &amp;&amp; memcmp(x,"foo\0",4) == 0)
+<a href='../S/63.html#L636'>sdslen</a>            636 src/sds.c                  sdslen(x) == 2 &amp;&amp; memcmp(x,"fo\0",3) == 0)
+<a href='../S/63.html#L640'>sdslen</a>            640 src/sds.c                  sdslen(x) == 5 &amp;&amp; memcmp(x,"fobar\0",6) == 0);
+<a href='../S/63.html#L644'>sdslen</a>            644 src/sds.c                  sdslen(x) == 1 &amp;&amp; memcmp(x,"a\0",2) == 0)
+<a href='../S/63.html#L648'>sdslen</a>            648 src/sds.c                  sdslen(x) == 33 &amp;&amp;
+<a href='../S/63.html#L654'>sdslen</a>            654 src/sds.c                  sdslen(x) == 3 &amp;&amp; memcmp(x,"123\0",4) ==0)
+<a href='../S/63.html#L659'>sdslen</a>            659 src/sds.c                  sdslen(x) == 4 &amp;&amp; memcmp(x,"ciao\0",5) == 0)
+<a href='../S/63.html#L663'>sdslen</a>            663 src/sds.c                  sdslen(y) == 1 &amp;&amp; memcmp(y,"i\0",2) == 0)
+<a href='../S/63.html#L668'>sdslen</a>            668 src/sds.c                  sdslen(y) == 3 &amp;&amp; memcmp(y,"iao\0",4) == 0)
+<a href='../S/63.html#L673'>sdslen</a>            673 src/sds.c                  sdslen(y) == 2 &amp;&amp; memcmp(y,"ao\0",3) == 0)
+<a href='../S/63.html#L678'>sdslen</a>            678 src/sds.c                  sdslen(y) == 0 &amp;&amp; memcmp(y,"\0",1) == 0)
+<a href='../S/63.html#L683'>sdslen</a>            683 src/sds.c                  sdslen(y) == 3 &amp;&amp; memcmp(y,"iao\0",4) == 0)
+<a href='../S/63.html#L688'>sdslen</a>            688 src/sds.c                  sdslen(y) == 0 &amp;&amp; memcmp(y,"\0",1) == 0)
+<a href='../S/41.html#L60'>sdslen</a>             60 src/sds.h      size_t sdslen(const sds s);
+<a href='../S/82.html#L1371'>sdslen</a>           1371 src/sentinel.c         if (sdslen(l) &gt;= 47 &amp;&amp; !memcmp(l,"run_id:",7)) {
+<a href='../S/82.html#L1387'>sdslen</a>           1387 src/sentinel.c             sdslen(l) &gt;= 7 &amp;&amp;
+<a href='../S/82.html#L1412'>sdslen</a>           1412 src/sentinel.c         if (sdslen(l) &gt;= 32 &amp;&amp;
+<a href='../S/82.html#L1424'>sdslen</a>           1424 src/sentinel.c             if (sdslen(l) &gt;= 12 &amp;&amp; !memcmp(l,"master_host:",12)) {
+<a href='../S/82.html#L1430'>sdslen</a>           1430 src/sentinel.c             if (sdslen(l) &gt;= 12 &amp;&amp; !memcmp(l,"master_port:",12))
+<a href='../S/82.html#L1434'>sdslen</a>           1434 src/sentinel.c             if (sdslen(l) &gt;= 19 &amp;&amp; !memcmp(l,"master_link_status:",19)) {
+<a href='../S/82.html#L1442'>sdslen</a>           1442 src/sentinel.c             if (sdslen(l) &gt;= 15 &amp;&amp; !memcmp(l,"slave_priority:",15))
+<a href='../S/82.html#L1839'>sdslen</a>           1839 src/sentinel.c     if (sdslen(flags) != 0) flags = sdsrange(flags,0,-2); /* remove last "," */
+<a href='../S/82.html#L2092'>sdslen</a>           2092 src/sentinel.c         info = sdscatlen(info,serversection,sdslen(serversection));
+<a href='../S/82.html#L2132'>sdslen</a>           2132 src/sentinel.c         (unsigned long)sdslen(info)));
+<a href='../S/70.html#L67'>sdslen</a>             67 src/slowlog.c                  sdslen(argv[j]-&gt;ptr) &gt; SLOWLOG_ENTRY_MAX_STRING)
+<a href='../S/70.html#L73'>sdslen</a>             73 src/slowlog.c                      sdslen(argv[j]-&gt;ptr) - SLOWLOG_ENTRY_MAX_STRING);
+<a href='../S/57.html#L91'>sdslen</a>             91 src/sort.c             fieldlen = sdslen(spat)-(f-spat)-2;
+<a href='../S/57.html#L99'>sdslen</a>             99 src/sort.c         sublen = sdslen(ssub);
+<a href='../S/57.html#L100'>sdslen</a>            100 src/sort.c         postfixlen = sdslen(spat)-(prefixlen+1)-(fieldlen ? fieldlen+2 : 0);
+<a href='../S/97.html#L47'>sdslen</a>             47 src/t_hash.c               sdslen(argv[i]-&gt;ptr) &gt; server.hash_max_ziplist_value)
+<a href='../S/97.html#L80'>sdslen</a>             80 src/t_hash.c           fptr = ziplistFind(fptr, field-&gt;ptr, sdslen(field-&gt;ptr), 1);
+<a href='../S/97.html#L182'>sdslen</a>            182 src/t_hash.c               fptr = ziplistFind(fptr, field-&gt;ptr, sdslen(field-&gt;ptr), 1);
+<a href='../S/97.html#L193'>sdslen</a>            193 src/t_hash.c                   zl = ziplistInsert(zl, vptr, value-&gt;ptr, sdslen(value-&gt;ptr));
+<a href='../S/97.html#L199'>sdslen</a>            199 src/t_hash.c               zl = ziplistPush(zl, field-&gt;ptr, sdslen(field-&gt;ptr), ZIPLIST_TAIL);
+<a href='../S/97.html#L200'>sdslen</a>            200 src/t_hash.c               zl = ziplistPush(zl, value-&gt;ptr, sdslen(value-&gt;ptr), ZIPLIST_TAIL);
+<a href='../S/97.html#L235'>sdslen</a>            235 src/t_hash.c               fptr = ziplistFind(fptr, field-&gt;ptr, sdslen(field-&gt;ptr), 1);
+<a href='../S/60.html#L44'>sdslen</a>             44 src/t_list.c           sdslen(value-&gt;ptr) &gt; server.list_max_ziplist_value)
+<a href='../S/60.html#L63'>sdslen</a>             63 src/t_list.c           subject-&gt;ptr = ziplistPush(subject-&gt;ptr,value-&gt;ptr,sdslen(value-&gt;ptr),pos);
+<a href='../S/60.html#L213'>sdslen</a>            213 src/t_list.c                   subject-&gt;ptr = ziplistPush(subject-&gt;ptr,value-&gt;ptr,sdslen(value-&gt;ptr),REDIS_TAIL);
+<a href='../S/60.html#L215'>sdslen</a>            215 src/t_list.c                   subject-&gt;ptr = ziplistInsert(subject-&gt;ptr,next,value-&gt;ptr,sdslen(value-&gt;ptr));
+<a href='../S/60.html#L218'>sdslen</a>            218 src/t_list.c               subject-&gt;ptr = ziplistInsert(subject-&gt;ptr,entry-&gt;zi,value-&gt;ptr,sdslen(value-&gt;ptr));
+<a href='../S/60.html#L238'>sdslen</a>            238 src/t_list.c           return ziplistCompare(entry-&gt;zi,o-&gt;ptr,sdslen(o-&gt;ptr));
+<a href='../S/60.html#L468'>sdslen</a>            468 src/t_list.c               o-&gt;ptr = ziplistInsert(o-&gt;ptr,p,value-&gt;ptr,sdslen(value-&gt;ptr));
+<a href='../S/79.html#L130'>sdslen</a>            130 src/t_string.c         if (sdslen(value) == 0) {
+<a href='../S/79.html#L136'>sdslen</a>            136 src/t_string.c         if (checkStringLength(c,offset+sdslen(value)) != REDIS_OK)
+<a href='../S/79.html#L150'>sdslen</a>            150 src/t_string.c         if (sdslen(value) == 0) {
+<a href='../S/79.html#L156'>sdslen</a>            156 src/t_string.c         if (checkStringLength(c,offset+sdslen(value)) != REDIS_OK)
+<a href='../S/79.html#L162'>sdslen</a>            162 src/t_string.c             o = createStringObject(decoded-&gt;ptr, sdslen(decoded-&gt;ptr));
+<a href='../S/79.html#L168'>sdslen</a>            168 src/t_string.c     if (sdslen(value) &gt; 0) {
+<a href='../S/79.html#L169'>sdslen</a>            169 src/t_string.c         o-&gt;ptr = sdsgrowzero(o-&gt;ptr,offset+sdslen(value));
+<a href='../S/79.html#L170'>sdslen</a>            170 src/t_string.c         memcpy((char*)o-&gt;ptr+offset,value,sdslen(value));
+<a href='../S/79.html#L174'>sdslen</a>            174 src/t_string.c     addReplyLongLong(c,sdslen(o-&gt;ptr));
+<a href='../S/79.html#L195'>sdslen</a>            195 src/t_string.c         strlen = sdslen(str);
+<a href='../S/79.html#L369'>sdslen</a>            369 src/t_string.c         totlen = stringObjectLen(o)+sdslen(append-&gt;ptr);
+<a href='../S/79.html#L376'>sdslen</a>            376 src/t_string.c             o = createStringObject(decoded-&gt;ptr, sdslen(decoded-&gt;ptr));
+<a href='../S/79.html#L382'>sdslen</a>            382 src/t_string.c         o-&gt;ptr = sdscatlen(o-&gt;ptr,append-&gt;ptr,sdslen(append-&gt;ptr));
+<a href='../S/79.html#L383'>sdslen</a>            383 src/t_string.c         totlen = sdslen(o-&gt;ptr);
+<a href='../S/59.html#L617'>sdslen</a>            617 src/t_zset.c           if (ziplistCompare(eptr,ele-&gt;ptr,sdslen(ele-&gt;ptr))) {
+<a href='../S/59.html#L652'>sdslen</a>            652 src/t_zset.c           zl = ziplistPush(zl,ele-&gt;ptr,sdslen(ele-&gt;ptr),ZIPLIST_TAIL);
+<a href='../S/59.html#L657'>sdslen</a>            657 src/t_zset.c           zl = ziplistInsert(zl,eptr,ele-&gt;ptr,sdslen(ele-&gt;ptr));
+<a href='../S/59.html#L688'>sdslen</a>            688 src/t_zset.c               if (zzlCompareElements(eptr,ele-&gt;ptr,sdslen(ele-&gt;ptr)) &gt; 0) {
+<a href='../S/59.html#L873'>sdslen</a>            873 src/t_zset.c               server.zset_max_ziplist_value &lt; sdslen(c-&gt;argv[3]-&gt;ptr))
+<a href='../S/59.html#L922'>sdslen</a>            922 src/t_zset.c                   if (sdslen(ele-&gt;ptr) &gt; server.zset_max_ziplist_value)
+<a href='../S/59.html#L1348'>sdslen</a>           1348 src/t_zset.c                   if (string2ll(val-&gt;ele-&gt;ptr,sdslen(val-&gt;ele-&gt;ptr),&amp;val-&gt;ell))
+<a href='../S/59.html#L1383'>sdslen</a>           1383 src/t_zset.c                   val-&gt;elen = sdslen(val-&gt;ele-&gt;ptr);
+<a href='../S/59.html#L1609'>sdslen</a>           1609 src/t_zset.c                           if (sdslen(tmp-&gt;ptr) &gt; maxelelen)
+<a href='../S/59.html#L1610'>sdslen</a>           1610 src/t_zset.c                               maxelelen = sdslen(tmp-&gt;ptr);
+<a href='../S/59.html#L1651'>sdslen</a>           1651 src/t_zset.c                       if (sdslen(tmp-&gt;ptr) &gt; maxelelen)
+<a href='../S/59.html#L1652'>sdslen</a>           1652 src/t_zset.c                           maxelelen = sdslen(tmp-&gt;ptr);
+<a href='../S/59.html#L2137'>sdslen</a>           2137 src/t_zset.c               if (ziplistCompare(eptr,ele-&gt;ptr,sdslen(ele-&gt;ptr)))
+</pre>
+</body>
+</html>

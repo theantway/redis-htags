@@ -1,0 +1,107 @@
+<html>
+<head>
+<title>deps/jemalloc/include/jemalloc/internal/ckh.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/391.html'>include</a>/<a href='../files/392.html'>jemalloc</a>/<a href='../files/393.html'>internal</a>/ckh.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L2'><font color='darkred'>#ifdef</font> JEMALLOC_H_TYPES
+<a name='L3'>
+<a name='L4'><b>typedef</b> <b>struct</b> <a href='../S/134.html#L32' title='Defined at 32 in deps/jemalloc/include/jemalloc/internal/ckh.h.'>ckh_s</a> <a href='../R/1613.html' title='Multiple refered from 27 places.'>ckh_t</a>;
+<a name='L5'><b>typedef</b> <b>struct</b> <a href='../S/134.html#L27' title='Defined at 27 in deps/jemalloc/include/jemalloc/internal/ckh.h.'>ckhc_s</a> <a href='../R/1617.html' title='Multiple refered from 13 places.'>ckhc_t</a>;
+<a name='L6'>
+<a name='L7'><i><font color='green'>/* Typedefs to allow easy function pointer passing. */</font></i>
+<a name='L8'><b>typedef</b> <b>void</b> <a href='../R/1598.html' title='Multiple refered from 3 places.'>ckh_hash_t</a> (<b>const</b> <b>void</b> *, <b>unsigned</b>, size_t *, size_t *);
+<a name='L9'><b>typedef</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> <a href='../R/1602.html' title='Multiple refered from 3 places.'>ckh_keycomp_t</a> (<b>const</b> <b>void</b> *, <b>const</b> <b>void</b> *);
+<a name='L10'>
+<a name='L11'><i><font color='green'>/* Maintain counters used to get an idea of performance. */</font></i>
+<a name='L12'><i><font color='green'>/* #define      CKH_COUNT */</font></i>
+<a name='L13'><i><font color='green'>/* Print counter values in ckh_delete() (requires CKH_COUNT). */</font></i>
+<a name='L14'><i><font color='green'>/* #define      CKH_VERBOSE */</font></i>
+<a name='L15'>
+<a name='L16'><i><font color='green'>/*</font></i>
+<a name='L17'><i><font color='green'> * There are 2^LG_CKH_BUCKET_CELLS cells in each hash table bucket.  Try to fit</font></i>
+<a name='L18'><i><font color='green'> * one bucket per L1 cache line.</font></i>
+<a name='L19'><i><font color='green'> */</font></i>
+<a name='L20'><font color='darkred'>#define</font> <a href='../R/245.html' title='Multiple refered from 19 places.'>LG_CKH_BUCKET_CELLS</a> (LG_CACHELINE - LG_SIZEOF_PTR - 1)
+<a name='L21'>
+<a name='L22'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_TYPES */</font></i>
+<a name='L23'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L24'><font color='darkred'>#ifdef</font> JEMALLOC_H_STRUCTS
+<a name='L25'>
+<a name='L26'><i><font color='green'>/* Hash table cell. */</font></i>
+<a name='L27'><b>struct</b> <a href='../S/134.html#L5' title='Refered from 5 in deps/jemalloc/include/jemalloc/internal/ckh.h.'>ckhc_s</a> <font color='red'>{</font>
+<a name='L28'>        <b>const</b> <b>void</b>      *key;
+<a name='L29'>        <b>const</b> <b>void</b>      *data;
+<a name='L30'><font color='red'>}</font>;
+<a name='L31'>
+<a name='L32'><b>struct</b> <a href='../S/134.html#L4' title='Refered from 4 in deps/jemalloc/include/jemalloc/internal/ckh.h.'>ckh_s</a> <font color='red'>{</font>
+<a name='L33'><font color='darkred'>#ifdef</font> CKH_COUNT
+<a name='L34'>        <i><font color='green'>/* Counters used to get an idea of performance. */</font></i>
+<a name='L35'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        ngrows;
+<a name='L36'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        nshrinks;
+<a name='L37'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        nshrinkfails;
+<a name='L38'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        ninserts;
+<a name='L39'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        nrelocs;
+<a name='L40'><font color='darkred'>#endif</font>
+<a name='L41'>
+<a name='L42'>        <i><font color='green'>/* Used for pseudo-random number generation. */</font></i>
+<a name='L43'><font color='darkred'>#define</font> <a href='../R/75.html' title='Multiple refered from 2 places.'>CKH_A</a>           1103515241
+<a name='L44'><font color='darkred'>#define</font> <a href='../R/76.html' title='Multiple refered from 2 places.'>CKH_C</a>           12347
+<a name='L45'>        <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a>        prng_state;
+<a name='L46'>
+<a name='L47'>        <i><font color='green'>/* Total number of items. */</font></i>
+<a name='L48'>        size_t          count;
+<a name='L49'>
+<a name='L50'>        <i><font color='green'>/*</font></i>
+<a name='L51'><i><font color='green'>         * Minimum and current number of hash table buckets.  There are</font></i>
+<a name='L52'><i><font color='green'>         * 2^LG_CKH_BUCKET_CELLS cells per bucket.</font></i>
+<a name='L53'><i><font color='green'>         */</font></i>
+<a name='L54'>        <b>unsigned</b>        lg_minbuckets;
+<a name='L55'>        <b>unsigned</b>        lg_curbuckets;
+<a name='L56'>
+<a name='L57'>        <i><font color='green'>/* Hash and comparison functions. */</font></i>
+<a name='L58'>        <a href='../S/134.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/ckh.h.'>ckh_hash_t</a>      *<a href='../D/2394.html' title='Multiple defined in 2 places.'>hash</a>;
+<a name='L59'>        <a href='../S/134.html#L9' title='Defined at 9 in deps/jemalloc/include/jemalloc/internal/ckh.h.'>ckh_keycomp_t</a>   *keycomp;
+<a name='L60'>
+<a name='L61'>        <i><font color='green'>/* Hash table with 2^lg_curbuckets buckets. */</font></i>
+<a name='L62'>        <a href='../S/134.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/ckh.h.'>ckhc_t</a>          *tab;
+<a name='L63'><font color='red'>}</font>;
+<a name='L64'>
+<a name='L65'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_STRUCTS */</font></i>
+<a name='L66'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L67'><font color='darkred'>#ifdef</font> JEMALLOC_H_EXTERNS
+<a name='L68'>
+<a name='L69'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>    <a href='../D/1878.html' title='Multiple defined in 2 places.'>ckh_new</a>(<a href='../S/134.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/ckh.h.'>ckh_t</a> *ckh, size_t minitems, <a href='../S/134.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/ckh.h.'>ckh_hash_t</a> *hash,
+<a name='L70'>    <a href='../S/134.html#L9' title='Defined at 9 in deps/jemalloc/include/jemalloc/internal/ckh.h.'>ckh_keycomp_t</a> *keycomp);
+<a name='L71'><b>void</b>    <a href='../D/1870.html' title='Multiple defined in 2 places.'>ckh_delete</a>(<a href='../S/134.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/ckh.h.'>ckh_t</a> *ckh);
+<a name='L72'>size_t  <a href='../D/1869.html' title='Multiple defined in 2 places.'>ckh_count</a>(<a href='../S/134.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/ckh.h.'>ckh_t</a> *ckh);
+<a name='L73'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>    <a href='../D/1876.html' title='Multiple defined in 2 places.'>ckh_iter</a>(<a href='../S/134.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/ckh.h.'>ckh_t</a> *ckh, size_t *tabind, <b>void</b> **key, <b>void</b> **data);
+<a name='L74'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>    <a href='../D/1874.html' title='Multiple defined in 2 places.'>ckh_insert</a>(<a href='../S/134.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/ckh.h.'>ckh_t</a> *ckh, <b>const</b> <b>void</b> *key, <b>const</b> <b>void</b> *data);
+<a name='L75'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>    <a href='../D/1882.html' title='Multiple defined in 2 places.'>ckh_remove</a>(<a href='../S/134.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/ckh.h.'>ckh_t</a> *ckh, <b>const</b> <b>void</b> *searchkey, <b>void</b> **key,
+<a name='L76'>    <b>void</b> **data);
+<a name='L77'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>    <a href='../D/1884.html' title='Multiple defined in 2 places.'>ckh_search</a>(<a href='../S/134.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/ckh.h.'>ckh_t</a> *ckh, <b>const</b> <b>void</b> *seachkey, <b>void</b> **key, <b>void</b> **data);
+<a name='L78'><b>void</b>    <a href='../D/1886.html' title='Multiple defined in 2 places.'>ckh_string_hash</a>(<b>const</b> <b>void</b> *key, <b>unsigned</b> minbits, size_t *hash1,
+<a name='L79'>    size_t *hash2);
+<a name='L80'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>    <a href='../D/1887.html' title='Multiple defined in 2 places.'>ckh_string_keycomp</a>(<b>const</b> <b>void</b> *k1, <b>const</b> <b>void</b> *k2);
+<a name='L81'><b>void</b>    <a href='../D/1879.html' title='Multiple defined in 2 places.'>ckh_pointer_hash</a>(<b>const</b> <b>void</b> *key, <b>unsigned</b> minbits, size_t *hash1,
+<a name='L82'>    size_t *hash2);
+<a name='L83'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>    <a href='../D/1880.html' title='Multiple defined in 2 places.'>ckh_pointer_keycomp</a>(<b>const</b> <b>void</b> *k1, <b>const</b> <b>void</b> *k2);
+<a name='L84'>
+<a name='L85'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_EXTERNS */</font></i>
+<a name='L86'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L87'><font color='darkred'>#ifdef</font> JEMALLOC_H_INLINES
+<a name='L88'>
+<a name='L89'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_INLINES */</font></i>
+<a name='L90'><i><font color='green'>/******************************************************************************/</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

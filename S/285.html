@@ -1,0 +1,1358 @@
+<html>
+<head>
+<title>deps/lua/src/lua_cjson.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/lua_cjson.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L178'>[^]</a><a href='#L1265'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L178' title='Defined at 178.'>json_fetch_config</a>
+<li><a href='#L193' title='Defined at 193.'>json_verify_arg_count</a>
+<li><a href='#L203' title='Defined at 203.'>json_cfg_encode_sparse_array</a>
+<li><a href='#L234' title='Defined at 234.'>json_cfg_encode_max_depth</a>
+<li><a href='#L253' title='Defined at 253.'>json_set_number_precision</a>
+<li><a href='#L260' title='Defined at 260.'>json_cfg_encode_number_precision</a>
+<li><a href='#L281' title='Defined at 281.'>json_cfg_encode_keep_buffer</a>
+<li><a href='#L301' title='Defined at 301.'>json_enum_option</a>
+<li><a href='#L326' title='Defined at 326.'>json_cfg_refuse_invalid_numbers</a>
+<li><a href='#L342' title='Defined at 342.'>json_destroy_config</a>
+<li><a href='#L354' title='Defined at 354.'>json_create_config</a>
+<li><a href='#L452' title='Defined at 452.'>json_encode_exception</a>
+<li><a href='#L467' title='Defined at 467.'>json_append_string</a>
+<li><a href='#L497' title='Defined at 497.'>lua_array_length</a>
+<li><a href='#L540' title='Defined at 540.'>json_encode_descend</a>
+<li><a href='#L558' title='Defined at 558.'>json_append_array</a>
+<li><a href='#L584' title='Defined at 584.'>json_append_number</a>
+<li><a href='#L600' title='Defined at 600.'>json_append_object</a>
+<li><a href='#L646' title='Defined at 646.'>json_append_data</a>
+<li><a href='#L686' title='Defined at 686.'>json_encode</a>
+<li><a href='#L722' title='Defined at 722.'>hexdigit2int</a>
+<li><a href='#L735' title='Defined at 735.'>decode_hex4</a>
+<li><a href='#L758' title='Defined at 758.'>codepoint_to_utf8</a>
+<li><a href='#L802' title='Defined at 802.'>json_append_unicode_escape</a>
+<li><a href='#L860' title='Defined at 860.'>json_set_token_error</a>
+<li><a href='#L868' title='Defined at 868.'>json_next_string_token</a>
+<li><a href='#L940' title='Defined at 940.'>json_is_invalid_number</a>
+<li><a href='#L977' title='Defined at 977.'>json_next_number_token</a>
+<li><a href='#L997' title='Defined at 997.'>json_next_token</a>
+<li><a href='#L1077' title='Defined at 1077.'>json_throw_parse_error</a>
+<li><a href='#L1094' title='Defined at 1094.'>json_decode_checkstack</a>
+<li><a href='#L1103' title='Defined at 1103.'>json_parse_object_context</a>
+<li><a href='#L1151' title='Defined at 1151.'>json_parse_array_context</a>
+<li><a href='#L1185' title='Defined at 1185.'>json_process_value</a>
+<li><a href='#L1215' title='Defined at 1215.'>lua_json_decode</a>
+<li><a href='#L1241' title='Defined at 1241.'>json_decode</a>
+<li><a href='#L1265' title='Defined at 1265.'>luaopen_cjson</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> <a href='../S/285.html#L1291' title='Refered from 1291 in deps/lua/src/lua_cjson.c.'>VERSION</a> "1.0.3"
+<a name='L2'>
+<a name='L3'><i><font color='green'>/* CJSON - JSON support for Lua</font></i>
+<a name='L4'><i><font color='green'> *</font></i>
+<a name='L5'><i><font color='green'> * Copyright (c) 2010-2011  Mark Pulford &lt;mark@kyne.com.au&gt;</font></i>
+<a name='L6'><i><font color='green'> *</font></i>
+<a name='L7'><i><font color='green'> * Permission is hereby granted, free of charge, to any person obtaining</font></i>
+<a name='L8'><i><font color='green'> * a copy of this software and associated documentation files (the</font></i>
+<a name='L9'><i><font color='green'> * "Software"), to deal in the Software without restriction, including</font></i>
+<a name='L10'><i><font color='green'> * without limitation the rights to use, copy, modify, merge, publish,</font></i>
+<a name='L11'><i><font color='green'> * distribute, sublicense, and/or sell copies of the Software, and to</font></i>
+<a name='L12'><i><font color='green'> * permit persons to whom the Software is furnished to do so, subject to</font></i>
+<a name='L13'><i><font color='green'> * the following conditions:</font></i>
+<a name='L14'><i><font color='green'> *</font></i>
+<a name='L15'><i><font color='green'> * The above copyright notice and this permission notice shall be</font></i>
+<a name='L16'><i><font color='green'> * included in all copies or substantial portions of the Software.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,</font></i>
+<a name='L19'><i><font color='green'> * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF</font></i>
+<a name='L20'><i><font color='green'> * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.</font></i>
+<a name='L21'><i><font color='green'> * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY</font></i>
+<a name='L22'><i><font color='green'> * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,</font></i>
+<a name='L23'><i><font color='green'> * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE</font></i>
+<a name='L24'><i><font color='green'> * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</font></i>
+<a name='L25'><i><font color='green'> */</font></i>
+<a name='L26'>
+<a name='L27'><i><font color='green'>/* Caveats:</font></i>
+<a name='L28'><i><font color='green'> * - JSON "null" values are represented as lightuserdata since Lua</font></i>
+<a name='L29'><i><font color='green'> *   tables cannot contain "nil". Compare with cjson.null.</font></i>
+<a name='L30'><i><font color='green'> * - Invalid UTF-8 characters are not detected and will be passed</font></i>
+<a name='L31'><i><font color='green'> *   untouched. If required, UTF-8 error checking should be done</font></i>
+<a name='L32'><i><font color='green'> *   outside this library.</font></i>
+<a name='L33'><i><font color='green'> * - Javascript comments are not part of the JSON spec, and are not</font></i>
+<a name='L34'><i><font color='green'> *   currently supported.</font></i>
+<a name='L35'><i><font color='green'> *</font></i>
+<a name='L36'><i><font color='green'> * Note: Decoding is slower than encoding. Lua spends significant</font></i>
+<a name='L37'><i><font color='green'> *       time (30%) managing tables when parsing JSON since it is</font></i>
+<a name='L38'><i><font color='green'> *       difficult to know object/array sizes ahead of time.</font></i>
+<a name='L39'><i><font color='green'> */</font></i>
+<a name='L40'>
+<a name='L41'><font color='darkred'>#include</font> &lt;assert.h&gt;
+<a name='L42'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L43'><font color='darkred'>#include</font> &lt;math.h&gt;
+<a name='L44'><font color='darkred'>#include</font> "<a href='266.html'>lua.h</a>"
+<a name='L45'><font color='darkred'>#include</font> "<a href='265.html'>lauxlib.h</a>"
+<a name='L46'>
+<a name='L47'><font color='darkred'>#include</font> "<a href='301.html'>strbuf.h</a>"
+<a name='L48'>
+<a name='L49'><font color='darkred'>#ifdef</font> MISSING_ISINF
+<a name='L50'><font color='darkred'>#define</font> <a href='../R/2276.html' title='Multiple refered from 3 places.'>isinf</a>(x) (!<a href='../D/2570.html' title='Multiple defined in 2 places.'>isnan</a>(x) &amp;&amp; <a href='../D/2570.html' title='Multiple defined in 2 places.'>isnan</a>((x) - (x)))
+<a name='L51'><font color='darkred'>#endif</font>
+<a name='L52'>
+<a name='L53'><font color='darkred'>#define</font> <a href='../S/285.html#L369' title='Refered from 369 in deps/lua/src/lua_cjson.c.'>DEFAULT_SPARSE_CONVERT</a> 0
+<a name='L54'><font color='darkred'>#define</font> <a href='../S/285.html#L370' title='Refered from 370 in deps/lua/src/lua_cjson.c.'>DEFAULT_SPARSE_RATIO</a> 2
+<a name='L55'><font color='darkred'>#define</font> <a href='../S/285.html#L371' title='Refered from 371 in deps/lua/src/lua_cjson.c.'>DEFAULT_SPARSE_SAFE</a> 10
+<a name='L56'><font color='darkred'>#define</font> <a href='../S/285.html#L372' title='Refered from 372 in deps/lua/src/lua_cjson.c.'>DEFAULT_MAX_DEPTH</a> 20
+<a name='L57'><font color='darkred'>#define</font> <a href='../S/285.html#L373' title='Refered from 373 in deps/lua/src/lua_cjson.c.'>DEFAULT_ENCODE_REFUSE_BADNUM</a> 1
+<a name='L58'><font color='darkred'>#define</font> <a href='../S/285.html#L374' title='Refered from 374 in deps/lua/src/lua_cjson.c.'>DEFAULT_DECODE_REFUSE_BADNUM</a> 0
+<a name='L59'><font color='darkred'>#define</font> <a href='../S/285.html#L375' title='Refered from 375 in deps/lua/src/lua_cjson.c.'>DEFAULT_ENCODE_KEEP_BUFFER</a> 1
+<a name='L60'>
+<a name='L61'><b>typedef</b> <b>enum</b> <font color='red'>{</font>
+<a name='L62'>    <a href='../R/997.html' title='Multiple refered from 2 places.'>T_OBJ_BEGIN</a>,
+<a name='L63'>    <a href='../R/998.html' title='Multiple refered from 3 places.'>T_OBJ_END</a>,
+<a name='L64'>    <a href='../R/988.html' title='Multiple refered from 2 places.'>T_ARR_BEGIN</a>,
+<a name='L65'>    <a href='../R/989.html' title='Multiple refered from 3 places.'>T_ARR_END</a>,
+<a name='L66'>    <a href='../R/999.html' title='Multiple refered from 3 places.'>T_STRING</a>,
+<a name='L67'>    <a href='../R/996.html' title='Multiple refered from 2 places.'>T_NUMBER</a>,
+<a name='L68'>    <a href='../R/990.html' title='Multiple refered from 3 places.'>T_BOOLEAN</a>,
+<a name='L69'>    <a href='../R/995.html' title='Multiple refered from 2 places.'>T_NULL</a>,
+<a name='L70'>    <a href='../R/991.html' title='Multiple refered from 2 places.'>T_COLON</a>,
+<a name='L71'>    <a href='../R/992.html' title='Multiple refered from 3 places.'>T_COMMA</a>,
+<a name='L72'>    <a href='../R/993.html' title='Multiple refered from 3 places.'>T_END</a>,
+<a name='L73'>    <a href='../R/1001.html' title='Multiple refered from 5 places.'>T_WHITESPACE</a>,
+<a name='L74'>    <a href='../R/994.html' title='Multiple refered from 4 places.'>T_ERROR</a>,
+<a name='L75'>    <a href='../R/1000.html' title='Multiple refered from 11 places.'>T_UNKNOWN</a>
+<a name='L76'><font color='red'>}</font> <a href='../R/2334.html' title='Multiple refered from 3 places.'>json_token_type_t</a>;
+<a name='L77'>
+<a name='L78'><b>static</b> <b>const</b> <b>char</b> *json_token_type_name[] = <font color='red'>{</font>
+<a name='L79'>    "T_OBJ_BEGIN",
+<a name='L80'>    "T_OBJ_END",
+<a name='L81'>    "T_ARR_BEGIN",
+<a name='L82'>    "T_ARR_END",
+<a name='L83'>    "T_STRING",
+<a name='L84'>    "T_NUMBER",
+<a name='L85'>    "T_BOOLEAN",
+<a name='L86'>    "T_NULL",
+<a name='L87'>    "T_COLON",
+<a name='L88'>    "T_COMMA",
+<a name='L89'>    "T_END",
+<a name='L90'>    "T_WHITESPACE",
+<a name='L91'>    "T_ERROR",
+<a name='L92'>    "T_UNKNOWN",
+<a name='L93'>    NULL
+<a name='L94'><font color='red'>}</font>;
+<a name='L95'>
+<a name='L96'><b>typedef</b> <b>struct</b> <font color='red'>{</font>
+<a name='L97'>    <a href='../S/285.html#L76' title='Defined at 76 in deps/lua/src/lua_cjson.c.'>json_token_type_t</a> ch2token[256];
+<a name='L98'>    <b>char</b> escape2char[256];  <i><font color='green'>/* Decoding */</font></i>
+<a name='L99'><font color='darkred'>#if</font> 0
+<a name='L100'>    <b>char</b> escapes[35][8];    <i><font color='green'>/* Pre-generated escape string buffer */</font></i>
+<a name='L101'>    <b>char</b> *char2escape[256]; <i><font color='green'>/* Encoding */</font></i>
+<a name='L102'><font color='darkred'>#endif</font>
+<a name='L103'>    <a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> encode_buf;
+<a name='L104'>    <b>char</b> number_fmt[8];     <i><font color='green'>/* "%.XXg\0" */</font></i>
+<a name='L105'>    <b>int</b> current_depth;
+<a name='L106'>
+<a name='L107'>    <b>int</b> encode_sparse_convert;
+<a name='L108'>    <b>int</b> encode_sparse_ratio;
+<a name='L109'>    <b>int</b> encode_sparse_safe;
+<a name='L110'>    <b>int</b> encode_max_depth;
+<a name='L111'>    <b>int</b> encode_refuse_badnum;
+<a name='L112'>    <b>int</b> decode_refuse_badnum;
+<a name='L113'>    <b>int</b> encode_keep_buffer;
+<a name='L114'>    <b>int</b> encode_number_precision;
+<a name='L115'><font color='red'>}</font> <a href='../R/2312.html' title='Multiple refered from 20 places.'>json_config_t</a>;
+<a name='L116'>
+<a name='L117'><b>typedef</b> <b>struct</b> <font color='red'>{</font>
+<a name='L118'>    <b>const</b> <b>char</b> *data;
+<a name='L119'>    <b>int</b> index;
+<a name='L120'>    <a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *tmp;    <i><font color='green'>/* Temporary storage for strings */</font></i>
+<a name='L121'>    <a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *cfg;
+<a name='L122'><font color='red'>}</font> <a href='../R/2328.html' title='Multiple refered from 13 places.'>json_parse_t</a>;
+<a name='L123'>
+<a name='L124'><b>typedef</b> <b>struct</b> <font color='red'>{</font>
+<a name='L125'>    <a href='../S/285.html#L76' title='Defined at 76 in deps/lua/src/lua_cjson.c.'>json_token_type_t</a> type;
+<a name='L126'>    <b>int</b> index;
+<a name='L127'>    <b>union</b> <font color='red'>{</font>
+<a name='L128'>        <b>const</b> <b>char</b> *string;
+<a name='L129'>        <b>double</b> number;
+<a name='L130'>        <b>int</b> boolean;
+<a name='L131'>    <font color='red'>}</font> value;
+<a name='L132'>    <b>int</b> string_len;
+<a name='L133'><font color='red'>}</font> <a href='../R/2333.html' title='Multiple refered from 10 places.'>json_token_t</a>;
+<a name='L134'>
+<a name='L135'><b>static</b> <b>const</b> <b>char</b> *char2escape[256] = <font color='red'>{</font>
+<a name='L136'>    "\\u0000", "\\u0001", "\\u0002", "\\u0003",
+<a name='L137'>    "\\u0004", "\\u0005", "\\u0006", "\\u0007",
+<a name='L138'>    "\\b", "\\t", "\\n", "\\u000b",
+<a name='L139'>    "\\f", "\\r", "\\u000e", "\\u000f",
+<a name='L140'>    "\\u0010", "\\u0011", "\\u0012", "\\u0013",
+<a name='L141'>    "\\u0014", "\\u0015", "\\u0016", "\\u0017",
+<a name='L142'>    "\\u0018", "\\u0019", "\\u001a", "\\u001b",
+<a name='L143'>    "\\u001c", "\\u001d", "\\u001e", "\\u001f",
+<a name='L144'>    NULL, NULL, "\\\"", NULL, NULL, NULL, NULL, NULL,
+<a name='L145'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, "\\/",
+<a name='L146'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L147'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L148'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L149'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L150'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L151'>    NULL, NULL, NULL, NULL, "\\\\", NULL, NULL, NULL,
+<a name='L152'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L153'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L154'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L155'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, "\\u007f",
+<a name='L156'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L157'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L158'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L159'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L160'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L161'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L162'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L163'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L164'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L165'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L166'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L167'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L168'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L169'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L170'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L171'>    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+<a name='L172'><font color='red'>}</font>;
+<a name='L173'>
+<a name='L174'><b>static</b> <b>int</b> json_config_key;
+<a name='L175'>
+<a name='L176'><i><font color='green'>/* ===== CONFIGURATION ===== */</font></i>
+<a name='L177'>
+<a name='L178'><b>static</b> <a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *<a href='../R/2321.html' title='Multiple refered from 7 places.'>json_fetch_config</a>(lua_State *l)
+<a name='L179'><font color='red'>{</font>
+<a name='L180'>    <a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *cfg;
+<a name='L181'>
+<a name='L182'>    <a href='../S/272.html#L511' title='Defined at 511 in deps/lua/src/lapi.c.'>lua_pushlightuserdata</a>(l, &amp;json_config_key);
+<a name='L183'>    <a href='../S/272.html#L534' title='Defined at 534 in deps/lua/src/lapi.c.'>lua_gettable</a>(l, <a href='../S/266.html#L36' title='Defined at 36 in deps/lua/src/lua.h.'>LUA_REGISTRYINDEX</a>);
+<a name='L184'>    cfg = <a href='../S/272.html#L385' title='Defined at 385 in deps/lua/src/lapi.c.'>lua_touserdata</a>(l, -1);
+<a name='L185'>    <b>if</b> (!cfg)
+<a name='L186'>        <a href='../S/260.html#L86' title='Defined at 86 in deps/lua/src/lauxlib.c.'>luaL_error</a>(l, "BUG: Unable to fetch CJSON configuration");
+<a name='L187'>
+<a name='L188'>    <a href='../S/266.html#L254' title='Defined at 254 in deps/lua/src/lua.h.'>lua_pop</a>(l, 1);
+<a name='L189'>
+<a name='L190'>    <b>return</b> cfg;
+<a name='L191'><font color='red'>}</font>
+<a name='L192'>
+<a name='L193'><b>static</b> <b>void</b> <a href='../R/2335.html' title='Multiple refered from 6 places.'>json_verify_arg_count</a>(lua_State *l, <b>int</b> args)
+<a name='L194'><font color='red'>{</font>
+<a name='L195'>    <a href='../S/265.html#L100' title='Defined at 100 in deps/lua/src/lauxlib.h.'>luaL_argcheck</a>(l, <a href='../S/272.html#L159' title='Defined at 159 in deps/lua/src/lapi.c.'>lua_gettop</a>(l) &lt;= args, args + 1,
+<a name='L196'>                  "found too many arguments");
+<a name='L197'><font color='red'>}</font>
+<a name='L198'>
+<a name='L199'><i><font color='green'>/* Configures handling of extremely sparse arrays:</font></i>
+<a name='L200'><i><font color='green'> * convert: Convert extremely sparse arrays into objects? Otherwise error.</font></i>
+<a name='L201'><i><font color='green'> * ratio: 0: always allow sparse; 1: never allow sparse; &gt;1: use ratio</font></i>
+<a name='L202'><i><font color='green'> * safe: Always use an array when the max index &lt;= safe */</font></i>
+<a name='L203'><b>static</b> <b>int</b> <a href='../S/285.html#L1270' title='Refered from 1270 in deps/lua/src/lua_cjson.c.'>json_cfg_encode_sparse_array</a>(lua_State *l)
+<a name='L204'><font color='red'>{</font>
+<a name='L205'>    <a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *cfg;
+<a name='L206'>    <b>int</b> val;
+<a name='L207'>
+<a name='L208'>    <a href='../S/285.html#L193' title='Defined at 193 in deps/lua/src/lua_cjson.c.'>json_verify_arg_count</a>(l, 3);
+<a name='L209'>    cfg = <a href='../S/285.html#L178' title='Defined at 178 in deps/lua/src/lua_cjson.c.'>json_fetch_config</a>(l);
+<a name='L210'>
+<a name='L211'>    <b>switch</b> (<a href='../S/272.html#L159' title='Defined at 159 in deps/lua/src/lapi.c.'>lua_gettop</a>(l)) <font color='red'>{</font>
+<a name='L212'>    <b>case</b> 3:
+<a name='L213'>        val = <a href='../S/260.html#L189' title='Defined at 189 in deps/lua/src/lauxlib.c.'>luaL_checkinteger</a>(l, 3);
+<a name='L214'>        <a href='../S/265.html#L100' title='Defined at 100 in deps/lua/src/lauxlib.h.'>luaL_argcheck</a>(l, val &gt;= 0, 3, "expected integer &gt;= 0");
+<a name='L215'>        cfg-&gt;encode_sparse_safe = val;
+<a name='L216'>    <b>case</b> 2:
+<a name='L217'>        val = <a href='../S/260.html#L189' title='Defined at 189 in deps/lua/src/lauxlib.c.'>luaL_checkinteger</a>(l, 2);
+<a name='L218'>        <a href='../S/265.html#L100' title='Defined at 100 in deps/lua/src/lauxlib.h.'>luaL_argcheck</a>(l, val &gt;= 0, 2, "expected integer &gt;= 0");
+<a name='L219'>        cfg-&gt;encode_sparse_ratio = val;
+<a name='L220'>    <b>case</b> 1:
+<a name='L221'>        <a href='../S/265.html#L100' title='Defined at 100 in deps/lua/src/lauxlib.h.'>luaL_argcheck</a>(l, <a href='../S/266.html#L268' title='Defined at 268 in deps/lua/src/lua.h.'>lua_isboolean</a>(l, 1), 1, "expected boolean");
+<a name='L222'>        cfg-&gt;encode_sparse_convert = <a href='../S/272.html#L337' title='Defined at 337 in deps/lua/src/lapi.c.'>lua_toboolean</a>(l, 1);
+<a name='L223'>    <font color='red'>}</font>
+<a name='L224'>
+<a name='L225'>    <a href='../S/272.html#L503' title='Defined at 503 in deps/lua/src/lapi.c.'>lua_pushboolean</a>(l, cfg-&gt;encode_sparse_convert);
+<a name='L226'>    <a href='../S/272.html#L437' title='Defined at 437 in deps/lua/src/lapi.c.'>lua_pushinteger</a>(l, cfg-&gt;encode_sparse_ratio);
+<a name='L227'>    <a href='../S/272.html#L437' title='Defined at 437 in deps/lua/src/lapi.c.'>lua_pushinteger</a>(l, cfg-&gt;encode_sparse_safe);
+<a name='L228'>
+<a name='L229'>    <b>return</b> 3;
+<a name='L230'><font color='red'>}</font>
+<a name='L231'>
+<a name='L232'><i><font color='green'>/* Configures the maximum number of nested arrays/objects allowed when</font></i>
+<a name='L233'><i><font color='green'> * encoding */</font></i>
+<a name='L234'><b>static</b> <b>int</b> <a href='../S/285.html#L1271' title='Refered from 1271 in deps/lua/src/lua_cjson.c.'>json_cfg_encode_max_depth</a>(lua_State *l)
+<a name='L235'><font color='red'>{</font>
+<a name='L236'>    <a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *cfg;
+<a name='L237'>    <b>int</b> depth;
+<a name='L238'>
+<a name='L239'>    <a href='../S/285.html#L193' title='Defined at 193 in deps/lua/src/lua_cjson.c.'>json_verify_arg_count</a>(l, 1);
+<a name='L240'>    cfg = <a href='../S/285.html#L178' title='Defined at 178 in deps/lua/src/lua_cjson.c.'>json_fetch_config</a>(l);
+<a name='L241'>
+<a name='L242'>    <b>if</b> (<a href='../S/272.html#L159' title='Defined at 159 in deps/lua/src/lapi.c.'>lua_gettop</a>(l)) <font color='red'>{</font>
+<a name='L243'>        depth = <a href='../S/260.html#L189' title='Defined at 189 in deps/lua/src/lauxlib.c.'>luaL_checkinteger</a>(l, 1);
+<a name='L244'>        <a href='../S/265.html#L100' title='Defined at 100 in deps/lua/src/lauxlib.h.'>luaL_argcheck</a>(l, depth &gt; 0, 1, "expected positive integer");
+<a name='L245'>        cfg-&gt;encode_max_depth = depth;
+<a name='L246'>    <font color='red'>}</font>
+<a name='L247'>
+<a name='L248'>    <a href='../S/272.html#L437' title='Defined at 437 in deps/lua/src/lapi.c.'>lua_pushinteger</a>(l, cfg-&gt;encode_max_depth);
+<a name='L249'>
+<a name='L250'>    <b>return</b> 1;
+<a name='L251'><font color='red'>}</font>
+<a name='L252'>
+<a name='L253'><b>static</b> <b>void</b> <a href='../R/2330.html' title='Multiple refered from 2 places.'>json_set_number_precision</a>(<a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *cfg, <b>int</b> prec)
+<a name='L254'><font color='red'>{</font>
+<a name='L255'>    cfg-&gt;encode_number_precision = prec;
+<a name='L256'>    sprintf(cfg-&gt;number_fmt, "%%.%dg", prec);
+<a name='L257'><font color='red'>}</font>
+<a name='L258'>
+<a name='L259'><i><font color='green'>/* Configures number precision when converting doubles to text */</font></i>
+<a name='L260'><b>static</b> <b>int</b> <a href='../S/285.html#L1272' title='Refered from 1272 in deps/lua/src/lua_cjson.c.'>json_cfg_encode_number_precision</a>(lua_State *l)
+<a name='L261'><font color='red'>{</font>
+<a name='L262'>    <a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *cfg;
+<a name='L263'>    <b>int</b> precision;
+<a name='L264'>
+<a name='L265'>    <a href='../S/285.html#L193' title='Defined at 193 in deps/lua/src/lua_cjson.c.'>json_verify_arg_count</a>(l, 1);
+<a name='L266'>    cfg = <a href='../S/285.html#L178' title='Defined at 178 in deps/lua/src/lua_cjson.c.'>json_fetch_config</a>(l);
+<a name='L267'>
+<a name='L268'>    <b>if</b> (<a href='../S/272.html#L159' title='Defined at 159 in deps/lua/src/lapi.c.'>lua_gettop</a>(l)) <font color='red'>{</font>
+<a name='L269'>        precision = <a href='../S/260.html#L189' title='Defined at 189 in deps/lua/src/lauxlib.c.'>luaL_checkinteger</a>(l, 1);
+<a name='L270'>        <a href='../S/265.html#L100' title='Defined at 100 in deps/lua/src/lauxlib.h.'>luaL_argcheck</a>(l, 1 &lt;= precision &amp;&amp; precision &lt;= 14, 1,
+<a name='L271'>                      "expected integer between 1 and 14");
+<a name='L272'>        <a href='../S/285.html#L253' title='Defined at 253 in deps/lua/src/lua_cjson.c.'>json_set_number_precision</a>(cfg, precision);
+<a name='L273'>    <font color='red'>}</font>
+<a name='L274'>
+<a name='L275'>    <a href='../S/272.html#L437' title='Defined at 437 in deps/lua/src/lapi.c.'>lua_pushinteger</a>(l, cfg-&gt;encode_number_precision);
+<a name='L276'>
+<a name='L277'>    <b>return</b> 1;
+<a name='L278'><font color='red'>}</font>
+<a name='L279'>
+<a name='L280'><i><font color='green'>/* Configures JSON encoding buffer persistence */</font></i>
+<a name='L281'><b>static</b> <b>int</b> <a href='../S/285.html#L1273' title='Refered from 1273 in deps/lua/src/lua_cjson.c.'>json_cfg_encode_keep_buffer</a>(lua_State *l)
+<a name='L282'><font color='red'>{</font>
+<a name='L283'>    <a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *cfg;
+<a name='L284'>
+<a name='L285'>    <a href='../S/285.html#L193' title='Defined at 193 in deps/lua/src/lua_cjson.c.'>json_verify_arg_count</a>(l, 1);
+<a name='L286'>    cfg = <a href='../S/285.html#L178' title='Defined at 178 in deps/lua/src/lua_cjson.c.'>json_fetch_config</a>(l);
+<a name='L287'>
+<a name='L288'>    <b>if</b> (<a href='../S/272.html#L159' title='Defined at 159 in deps/lua/src/lapi.c.'>lua_gettop</a>(l)) <font color='red'>{</font>
+<a name='L289'>        <a href='../S/260.html#L146' title='Defined at 146 in deps/lua/src/lauxlib.c.'>luaL_checktype</a>(l, 1, <a href='../S/266.html#L75' title='Defined at 75 in deps/lua/src/lua.h.'>LUA_TBOOLEAN</a>);
+<a name='L290'>        cfg-&gt;encode_keep_buffer = <a href='../S/272.html#L337' title='Defined at 337 in deps/lua/src/lapi.c.'>lua_toboolean</a>(l, 1);
+<a name='L291'>    <font color='red'>}</font>
+<a name='L292'>
+<a name='L293'>    <a href='../S/272.html#L503' title='Defined at 503 in deps/lua/src/lapi.c.'>lua_pushboolean</a>(l, cfg-&gt;encode_keep_buffer);
+<a name='L294'>
+<a name='L295'>    <b>return</b> 1;
+<a name='L296'><font color='red'>}</font>
+<a name='L297'>
+<a name='L298'><i><font color='green'>/* On argument: decode enum and set config variables</font></i>
+<a name='L299'><i><font color='green'> * **options must point to a NULL terminated array of 4 enums</font></i>
+<a name='L300'><i><font color='green'> * Returns: current enum value */</font></i>
+<a name='L301'><b>static</b> <b>void</b> <a href='../S/285.html#L335' title='Refered from 335 in deps/lua/src/lua_cjson.c.'>json_enum_option</a>(lua_State *l, <b>const</b> <b>char</b> **options,
+<a name='L302'>                             <b>int</b> *opt1, <b>int</b> *opt2)
+<a name='L303'><font color='red'>{</font>
+<a name='L304'>    <b>int</b> setting;
+<a name='L305'>
+<a name='L306'>    <b>if</b> (<a href='../S/272.html#L159' title='Defined at 159 in deps/lua/src/lapi.c.'>lua_gettop</a>(l)) <font color='red'>{</font>
+<a name='L307'>        <b>if</b> (<a href='../S/266.html#L268' title='Defined at 268 in deps/lua/src/lua.h.'>lua_isboolean</a>(l, 1))
+<a name='L308'>            setting = <a href='../S/272.html#L337' title='Defined at 337 in deps/lua/src/lapi.c.'>lua_toboolean</a>(l, 1) * 3;
+<a name='L309'>        <b>else</b>
+<a name='L310'>            setting = <a href='../S/260.html#L99' title='Defined at 99 in deps/lua/src/lauxlib.c.'>luaL_checkoption</a>(l, 1, NULL, options);
+<a name='L311'>
+<a name='L312'>        *opt1 = setting &amp; 1 ? 1 : 0;
+<a name='L313'>        *opt2 = setting &amp; 2 ? 1 : 0;
+<a name='L314'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L315'>        setting = *opt1 | (*opt2 &lt;&lt; 1);
+<a name='L316'>    <font color='red'>}</font>
+<a name='L317'>
+<a name='L318'>    <b>if</b> (setting)
+<a name='L319'>        <a href='../S/272.html#L454' title='Defined at 454 in deps/lua/src/lapi.c.'>lua_pushstring</a>(l, options[setting]);
+<a name='L320'>    <b>else</b>
+<a name='L321'>        <a href='../S/272.html#L503' title='Defined at 503 in deps/lua/src/lapi.c.'>lua_pushboolean</a>(l, 0);
+<a name='L322'><font color='red'>}</font>
+<a name='L323'>
+<a name='L324'>
+<a name='L325'><i><font color='green'>/* When enabled, rejects: NaN, Infinity, hexidecimal numbers */</font></i>
+<a name='L326'><b>static</b> <b>int</b> <a href='../S/285.html#L1274' title='Refered from 1274 in deps/lua/src/lua_cjson.c.'>json_cfg_refuse_invalid_numbers</a>(lua_State *l)
+<a name='L327'><font color='red'>{</font>
+<a name='L328'>    <b>static</b> <b>const</b> <b>char</b> *options_enc_dec[] = <font color='red'>{</font> "none", "encode", "decode",
+<a name='L329'>                                             "both", NULL <font color='red'>}</font>;
+<a name='L330'>    <a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *cfg;
+<a name='L331'>
+<a name='L332'>    <a href='../S/285.html#L193' title='Defined at 193 in deps/lua/src/lua_cjson.c.'>json_verify_arg_count</a>(l, 1);
+<a name='L333'>    cfg = <a href='../S/285.html#L178' title='Defined at 178 in deps/lua/src/lua_cjson.c.'>json_fetch_config</a>(l);
+<a name='L334'>
+<a name='L335'>    <a href='../S/285.html#L301' title='Defined at 301 in deps/lua/src/lua_cjson.c.'>json_enum_option</a>(l, options_enc_dec,
+<a name='L336'>                     &amp;cfg-&gt;encode_refuse_badnum,
+<a name='L337'>                     &amp;cfg-&gt;decode_refuse_badnum);
+<a name='L338'>
+<a name='L339'>    <b>return</b> 1;
+<a name='L340'><font color='red'>}</font>
+<a name='L341'>
+<a name='L342'><b>static</b> <b>int</b> <a href='../S/285.html#L363' title='Refered from 363 in deps/lua/src/lua_cjson.c.'>json_destroy_config</a>(lua_State *l)
+<a name='L343'><font color='red'>{</font>
+<a name='L344'>    <a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *cfg;
+<a name='L345'>
+<a name='L346'>    cfg = <a href='../S/272.html#L385' title='Defined at 385 in deps/lua/src/lapi.c.'>lua_touserdata</a>(l, 1);
+<a name='L347'>    <b>if</b> (cfg)
+<a name='L348'>        <a href='../S/274.html#L104' title='Defined at 104 in deps/lua/src/strbuf.c.'>strbuf_free</a>(&amp;cfg-&gt;encode_buf);
+<a name='L349'>    cfg = NULL;
+<a name='L350'>
+<a name='L351'>    <b>return</b> 0;
+<a name='L352'><font color='red'>}</font>
+<a name='L353'>
+<a name='L354'><b>static</b> <b>void</b> <a href='../S/285.html#L1281' title='Refered from 1281 in deps/lua/src/lua_cjson.c.'>json_create_config</a>(lua_State *l)
+<a name='L355'><font color='red'>{</font>
+<a name='L356'>    <a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *cfg;
+<a name='L357'>    <b>int</b> i;
+<a name='L358'>
+<a name='L359'>    cfg = <a href='../S/272.html#L1025' title='Defined at 1025 in deps/lua/src/lapi.c.'>lua_newuserdata</a>(l, <b>sizeof</b>(*cfg));
+<a name='L360'>
+<a name='L361'>    <i><font color='green'>/* Create GC method to clean up strbuf */</font></i>
+<a name='L362'>    <a href='../S/266.html#L256' title='Defined at 256 in deps/lua/src/lua.h.'>lua_newtable</a>(l);
+<a name='L363'>    <a href='../S/266.html#L260' title='Defined at 260 in deps/lua/src/lua.h.'>lua_pushcfunction</a>(l, <a href='../S/285.html#L342' title='Defined at 342 in deps/lua/src/lua_cjson.c.'>json_destroy_config</a>);
+<a name='L364'>    <a href='../S/272.html#L657' title='Defined at 657 in deps/lua/src/lapi.c.'>lua_setfield</a>(l, -2, "__gc");
+<a name='L365'>    <a href='../S/272.html#L697' title='Defined at 697 in deps/lua/src/lapi.c.'>lua_setmetatable</a>(l, -2);
+<a name='L366'>
+<a name='L367'>    <a href='../S/274.html#L44' title='Defined at 44 in deps/lua/src/strbuf.c.'>strbuf_init</a>(&amp;cfg-&gt;encode_buf, 0);
+<a name='L368'>
+<a name='L369'>    cfg-&gt;encode_sparse_convert = <a href='../S/285.html#L53' title='Defined at 53 in deps/lua/src/lua_cjson.c.'>DEFAULT_SPARSE_CONVERT</a>;
+<a name='L370'>    cfg-&gt;encode_sparse_ratio = <a href='../S/285.html#L54' title='Defined at 54 in deps/lua/src/lua_cjson.c.'>DEFAULT_SPARSE_RATIO</a>;
+<a name='L371'>    cfg-&gt;encode_sparse_safe = <a href='../S/285.html#L55' title='Defined at 55 in deps/lua/src/lua_cjson.c.'>DEFAULT_SPARSE_SAFE</a>;
+<a name='L372'>    cfg-&gt;encode_max_depth = <a href='../S/285.html#L56' title='Defined at 56 in deps/lua/src/lua_cjson.c.'>DEFAULT_MAX_DEPTH</a>;
+<a name='L373'>    cfg-&gt;encode_refuse_badnum = <a href='../S/285.html#L57' title='Defined at 57 in deps/lua/src/lua_cjson.c.'>DEFAULT_ENCODE_REFUSE_BADNUM</a>;
+<a name='L374'>    cfg-&gt;decode_refuse_badnum = <a href='../S/285.html#L58' title='Defined at 58 in deps/lua/src/lua_cjson.c.'>DEFAULT_DECODE_REFUSE_BADNUM</a>;
+<a name='L375'>    cfg-&gt;encode_keep_buffer = <a href='../S/285.html#L59' title='Defined at 59 in deps/lua/src/lua_cjson.c.'>DEFAULT_ENCODE_KEEP_BUFFER</a>;
+<a name='L376'>    <a href='../S/285.html#L253' title='Defined at 253 in deps/lua/src/lua_cjson.c.'>json_set_number_precision</a>(cfg, 14);
+<a name='L377'>
+<a name='L378'>    <i><font color='green'>/* Decoding init */</font></i>
+<a name='L379'>
+<a name='L380'>    <i><font color='green'>/* Tag all characters as an error */</font></i>
+<a name='L381'>    <b>for</b> (i = 0; i &lt; 256; i++)
+<a name='L382'>        cfg-&gt;ch2token[i] = <a href='../S/285.html#L74' title='Defined at 74 in deps/lua/src/lua_cjson.c.'>T_ERROR</a>;
+<a name='L383'>
+<a name='L384'>    <i><font color='green'>/* Set tokens that require no further processing */</font></i>
+<a name='L385'>    cfg-&gt;ch2token['{'] = <a href='../S/285.html#L62' title='Defined at 62 in deps/lua/src/lua_cjson.c.'>T_OBJ_BEGIN</a>;
+<a name='L386'>    cfg-&gt;ch2token['}'] = <a href='../S/285.html#L63' title='Defined at 63 in deps/lua/src/lua_cjson.c.'>T_OBJ_END</a>;
+<a name='L387'>    cfg-&gt;ch2token['['] = <a href='../S/285.html#L64' title='Defined at 64 in deps/lua/src/lua_cjson.c.'>T_ARR_BEGIN</a>;
+<a name='L388'>    cfg-&gt;ch2token[']'] = <a href='../S/285.html#L65' title='Defined at 65 in deps/lua/src/lua_cjson.c.'>T_ARR_END</a>;
+<a name='L389'>    cfg-&gt;ch2token[','] = <a href='../S/285.html#L71' title='Defined at 71 in deps/lua/src/lua_cjson.c.'>T_COMMA</a>;
+<a name='L390'>    cfg-&gt;ch2token[':'] = <a href='../S/285.html#L70' title='Defined at 70 in deps/lua/src/lua_cjson.c.'>T_COLON</a>;
+<a name='L391'>    cfg-&gt;ch2token['\0'] = <a href='../S/285.html#L72' title='Defined at 72 in deps/lua/src/lua_cjson.c.'>T_END</a>;
+<a name='L392'>    cfg-&gt;ch2token[' '] = <a href='../S/285.html#L73' title='Defined at 73 in deps/lua/src/lua_cjson.c.'>T_WHITESPACE</a>;
+<a name='L393'>    cfg-&gt;ch2token['\t'] = <a href='../S/285.html#L73' title='Defined at 73 in deps/lua/src/lua_cjson.c.'>T_WHITESPACE</a>;
+<a name='L394'>    cfg-&gt;ch2token['\n'] = <a href='../S/285.html#L73' title='Defined at 73 in deps/lua/src/lua_cjson.c.'>T_WHITESPACE</a>;
+<a name='L395'>    cfg-&gt;ch2token['\r'] = <a href='../S/285.html#L73' title='Defined at 73 in deps/lua/src/lua_cjson.c.'>T_WHITESPACE</a>;
+<a name='L396'>
+<a name='L397'>    <i><font color='green'>/* Update characters that require further processing */</font></i>
+<a name='L398'>    cfg-&gt;ch2token['f'] = <a href='../S/285.html#L75' title='Defined at 75 in deps/lua/src/lua_cjson.c.'>T_UNKNOWN</a>;     <i><font color='green'>/* false? */</font></i>
+<a name='L399'>    cfg-&gt;ch2token['i'] = <a href='../S/285.html#L75' title='Defined at 75 in deps/lua/src/lua_cjson.c.'>T_UNKNOWN</a>;     <i><font color='green'>/* inf, ininity? */</font></i>
+<a name='L400'>    cfg-&gt;ch2token['I'] = <a href='../S/285.html#L75' title='Defined at 75 in deps/lua/src/lua_cjson.c.'>T_UNKNOWN</a>;
+<a name='L401'>    cfg-&gt;ch2token['n'] = <a href='../S/285.html#L75' title='Defined at 75 in deps/lua/src/lua_cjson.c.'>T_UNKNOWN</a>;     <i><font color='green'>/* null, nan? */</font></i>
+<a name='L402'>    cfg-&gt;ch2token['N'] = <a href='../S/285.html#L75' title='Defined at 75 in deps/lua/src/lua_cjson.c.'>T_UNKNOWN</a>;
+<a name='L403'>    cfg-&gt;ch2token['t'] = <a href='../S/285.html#L75' title='Defined at 75 in deps/lua/src/lua_cjson.c.'>T_UNKNOWN</a>;     <i><font color='green'>/* true? */</font></i>
+<a name='L404'>    cfg-&gt;ch2token['"'] = <a href='../S/285.html#L75' title='Defined at 75 in deps/lua/src/lua_cjson.c.'>T_UNKNOWN</a>;     <i><font color='green'>/* string? */</font></i>
+<a name='L405'>    cfg-&gt;ch2token['+'] = <a href='../S/285.html#L75' title='Defined at 75 in deps/lua/src/lua_cjson.c.'>T_UNKNOWN</a>;     <i><font color='green'>/* number? */</font></i>
+<a name='L406'>    cfg-&gt;ch2token['-'] = <a href='../S/285.html#L75' title='Defined at 75 in deps/lua/src/lua_cjson.c.'>T_UNKNOWN</a>;
+<a name='L407'>    <b>for</b> (i = 0; i &lt; 10; i++)
+<a name='L408'>        cfg-&gt;ch2token['0' + i] = <a href='../S/285.html#L75' title='Defined at 75 in deps/lua/src/lua_cjson.c.'>T_UNKNOWN</a>;
+<a name='L409'>
+<a name='L410'>    <i><font color='green'>/* Lookup table for parsing escape characters */</font></i>
+<a name='L411'>    <b>for</b> (i = 0; i &lt; 256; i++)
+<a name='L412'>        cfg-&gt;escape2char[i] = 0;          <i><font color='green'>/* String error */</font></i>
+<a name='L413'>    cfg-&gt;escape2char['"'] = '"';
+<a name='L414'>    cfg-&gt;escape2char['\\'] = '\\';
+<a name='L415'>    cfg-&gt;escape2char['/'] = '/';
+<a name='L416'>    cfg-&gt;escape2char['b'] = '\b';
+<a name='L417'>    cfg-&gt;escape2char['t'] = '\t';
+<a name='L418'>    cfg-&gt;escape2char['n'] = '\n';
+<a name='L419'>    cfg-&gt;escape2char['f'] = '\f';
+<a name='L420'>    cfg-&gt;escape2char['r'] = '\r';
+<a name='L421'>    cfg-&gt;escape2char['u'] = 'u';          <i><font color='green'>/* Unicode parsing required */</font></i>
+<a name='L422'>
+<a name='L423'>
+<a name='L424'><font color='darkred'>#if</font> 0
+<a name='L425'>    <i><font color='green'>/* Initialise separate storage for pre-generated escape codes.</font></i>
+<a name='L426'><i><font color='green'>     * Escapes 0-31 map directly, 34, 92, 127 follow afterwards to</font></i>
+<a name='L427'><i><font color='green'>     * save memory. */</font></i>
+<a name='L428'>    <b>for</b> (i = 0 ; i &lt; 32; i++)
+<a name='L429'>        sprintf(cfg-&gt;escapes[i], "\\u%04x", i);
+<a name='L430'>    strcpy(cfg-&gt;escapes[8], "\b");              <i><font color='green'>/* Override simpler escapes */</font></i>
+<a name='L431'>    strcpy(cfg-&gt;escapes[9], "\t");
+<a name='L432'>    strcpy(cfg-&gt;escapes[10], "\n");
+<a name='L433'>    strcpy(cfg-&gt;escapes[12], "\f");
+<a name='L434'>    strcpy(cfg-&gt;escapes[13], "\r");
+<a name='L435'>    strcpy(cfg-&gt;escapes[32], "\\\"");           <i><font color='green'>/* chr(34) */</font></i>
+<a name='L436'>    strcpy(cfg-&gt;escapes[33], "\\\\");           <i><font color='green'>/* chr(92) */</font></i>
+<a name='L437'>    sprintf(cfg-&gt;escapes[34], "\\u%04x", 127);  <i><font color='green'>/* char(127) */</font></i>
+<a name='L438'>
+<a name='L439'>    <i><font color='green'>/* Initialise encoding escape lookup table */</font></i>
+<a name='L440'>    <b>for</b> (i = 0; i &lt; 32; i++)
+<a name='L441'>        cfg-&gt;char2escape[i] = cfg-&gt;escapes[i];
+<a name='L442'>    <b>for</b> (i = 32; i &lt; 256; i++)
+<a name='L443'>        cfg-&gt;char2escape[i] = NULL;
+<a name='L444'>    cfg-&gt;char2escape[34] = cfg-&gt;escapes[32];
+<a name='L445'>    cfg-&gt;char2escape[92] = cfg-&gt;escapes[33];
+<a name='L446'>    cfg-&gt;char2escape[127] = cfg-&gt;escapes[34];
+<a name='L447'><font color='darkred'>#endif</font>
+<a name='L448'><font color='red'>}</font>
+<a name='L449'>
+<a name='L450'><i><font color='green'>/* ===== ENCODING ===== */</font></i>
+<a name='L451'>
+<a name='L452'><b>static</b> <b>void</b> <a href='../R/2319.html' title='Multiple refered from 4 places.'>json_encode_exception</a>(lua_State *l, <a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *cfg, <b>int</b> lindex,
+<a name='L453'>                                  <b>const</b> <b>char</b> *reason)
+<a name='L454'><font color='red'>{</font>
+<a name='L455'>    <b>if</b> (!cfg-&gt;encode_keep_buffer)
+<a name='L456'>        <a href='../S/274.html#L104' title='Defined at 104 in deps/lua/src/strbuf.c.'>strbuf_free</a>(&amp;cfg-&gt;encode_buf);
+<a name='L457'>    <a href='../S/260.html#L86' title='Defined at 86 in deps/lua/src/lauxlib.c.'>luaL_error</a>(l, "Cannot serialise %s: %s",
+<a name='L458'>                  <a href='../S/272.html#L248' title='Defined at 248 in deps/lua/src/lapi.c.'>lua_typename</a>(l, <a href='../S/272.html#L242' title='Defined at 242 in deps/lua/src/lapi.c.'>lua_type</a>(l, lindex)), reason);
+<a name='L459'><font color='red'>}</font>
+<a name='L460'>
+<a name='L461'><i><font color='green'>/* json_append_string args:</font></i>
+<a name='L462'><i><font color='green'> * - lua_State</font></i>
+<a name='L463'><i><font color='green'> * - JSON strbuf</font></i>
+<a name='L464'><i><font color='green'> * - String (Lua stack index)</font></i>
+<a name='L465'><i><font color='green'> *</font></i>
+<a name='L466'><i><font color='green'> * Returns nothing. Doesn't remove string from Lua stack */</font></i>
+<a name='L467'><b>static</b> <b>void</b> <a href='../R/2305.html' title='Multiple refered from 2 places.'>json_append_string</a>(lua_State *l, <a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *json, <b>int</b> lindex)
+<a name='L468'><font color='red'>{</font>
+<a name='L469'>    <b>const</b> <b>char</b> *escstr;
+<a name='L470'>    <b>int</b> i;
+<a name='L471'>    <b>const</b> <b>char</b> *str;
+<a name='L472'>    size_t len;
+<a name='L473'>
+<a name='L474'>    str = <a href='../S/272.html#L343' title='Defined at 343 in deps/lua/src/lapi.c.'>lua_tolstring</a>(l, lindex, &amp;len);
+<a name='L475'>
+<a name='L476'>    <i><font color='green'>/* Worst case is len * 6 (all unicode escapes).</font></i>
+<a name='L477'><i><font color='green'>     * This buffer is reused constantly for small strings</font></i>
+<a name='L478'><i><font color='green'>     * If there are any excess pages, they won't be hit anyway.</font></i>
+<a name='L479'><i><font color='green'>     * This gains ~5% speedup. */</font></i>
+<a name='L480'>    <a href='../S/301.html#L93' title='Defined at 93 in deps/lua/src/strbuf.h.'>strbuf_ensure_empty_length</a>(json, len * 6 + 2);
+<a name='L481'>
+<a name='L482'>    <a href='../S/301.html#L110' title='Defined at 110 in deps/lua/src/strbuf.h.'>strbuf_append_char_unsafe</a>(json, '\"');
+<a name='L483'>    <b>for</b> (i = 0; i &lt; len; i++) <font color='red'>{</font>
+<a name='L484'>        escstr = char2escape[(<b>unsigned</b> <b>char</b>)str[i]];
+<a name='L485'>        <b>if</b> (escstr)
+<a name='L486'>            <a href='../S/274.html#L182' title='Defined at 182 in deps/lua/src/strbuf.c.'>strbuf_append_string</a>(json, escstr);
+<a name='L487'>        <b>else</b>
+<a name='L488'>            <a href='../S/301.html#L110' title='Defined at 110 in deps/lua/src/strbuf.h.'>strbuf_append_char_unsafe</a>(json, str[i]);
+<a name='L489'>    <font color='red'>}</font>
+<a name='L490'>    <a href='../S/301.html#L110' title='Defined at 110 in deps/lua/src/strbuf.h.'>strbuf_append_char_unsafe</a>(json, '\"');
+<a name='L491'><font color='red'>}</font>
+<a name='L492'>
+<a name='L493'><i><font color='green'>/* Find the size of the array on the top of the Lua stack</font></i>
+<a name='L494'><i><font color='green'> * -1   object (not a pure array)</font></i>
+<a name='L495'><i><font color='green'> * &gt;=0  elements in array</font></i>
+<a name='L496'><i><font color='green'> */</font></i>
+<a name='L497'><b>static</b> <b>int</b> <a href='../S/285.html#L664' title='Refered from 664 in deps/lua/src/lua_cjson.c.'>lua_array_length</a>(lua_State *l, <a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *cfg)
+<a name='L498'><font color='red'>{</font>
+<a name='L499'>    <b>double</b> k;
+<a name='L500'>    <b>int</b> max;
+<a name='L501'>    <b>int</b> items;
+<a name='L502'>
+<a name='L503'>    max = 0;
+<a name='L504'>    items = 0;
+<a name='L505'>
+<a name='L506'>    <a href='../S/272.html#L421' title='Defined at 421 in deps/lua/src/lapi.c.'>lua_pushnil</a>(l);
+<a name='L507'>    <i><font color='green'>/* table, startkey */</font></i>
+<a name='L508'>    <b>while</b> (<a href='../S/272.html#L973' title='Defined at 973 in deps/lua/src/lapi.c.'>lua_next</a>(l, -2) != 0) <font color='red'>{</font>
+<a name='L509'>        <i><font color='green'>/* table, key, value */</font></i>
+<a name='L510'>        <b>if</b> (<a href='../S/272.html#L242' title='Defined at 242 in deps/lua/src/lapi.c.'>lua_type</a>(l, -2) == <a href='../S/266.html#L77' title='Defined at 77 in deps/lua/src/lua.h.'>LUA_TNUMBER</a> &amp;&amp;
+<a name='L511'>            (k = <a href='../S/272.html#L313' title='Defined at 313 in deps/lua/src/lapi.c.'>lua_tonumber</a>(l, -2))) <font color='red'>{</font>
+<a name='L512'>            <i><font color='green'>/* Integer &gt;= 1 ? */</font></i>
+<a name='L513'>            <b>if</b> (floor(k) == k &amp;&amp; k &gt;= 1) <font color='red'>{</font>
+<a name='L514'>                <b>if</b> (k &gt; max)
+<a name='L515'>                    max = k;
+<a name='L516'>                items++;
+<a name='L517'>                <a href='../S/266.html#L254' title='Defined at 254 in deps/lua/src/lua.h.'>lua_pop</a>(l, 1);
+<a name='L518'>                <b>continue</b>;
+<a name='L519'>            <font color='red'>}</font>
+<a name='L520'>        <font color='red'>}</font>
+<a name='L521'>
+<a name='L522'>        <i><font color='green'>/* Must not be an array (non integer key) */</font></i>
+<a name='L523'>        <a href='../S/266.html#L254' title='Defined at 254 in deps/lua/src/lua.h.'>lua_pop</a>(l, 2);
+<a name='L524'>        <b>return</b> -1;
+<a name='L525'>    <font color='red'>}</font>
+<a name='L526'>
+<a name='L527'>    <i><font color='green'>/* Encode excessively sparse arrays as objects (if enabled) */</font></i>
+<a name='L528'>    <b>if</b> (cfg-&gt;encode_sparse_ratio &gt; 0 &amp;&amp;
+<a name='L529'>        max &gt; items * cfg-&gt;encode_sparse_ratio &amp;&amp;
+<a name='L530'>        max &gt; cfg-&gt;encode_sparse_safe) <font color='red'>{</font>
+<a name='L531'>        <b>if</b> (!cfg-&gt;encode_sparse_convert)
+<a name='L532'>            <a href='../S/285.html#L452' title='Defined at 452 in deps/lua/src/lua_cjson.c.'>json_encode_exception</a>(l, cfg, -1, "excessively sparse array");
+<a name='L533'>
+<a name='L534'>        <b>return</b> -1;
+<a name='L535'>    <font color='red'>}</font>
+<a name='L536'>
+<a name='L537'>    <b>return</b> max;
+<a name='L538'><font color='red'>}</font>
+<a name='L539'>
+<a name='L540'><b>static</b> <b>void</b> <a href='../R/2318.html' title='Multiple refered from 2 places.'>json_encode_descend</a>(lua_State *l, <a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *cfg)
+<a name='L541'><font color='red'>{</font>
+<a name='L542'>    cfg-&gt;current_depth++;
+<a name='L543'>
+<a name='L544'>    <b>if</b> (cfg-&gt;current_depth &gt; cfg-&gt;encode_max_depth) <font color='red'>{</font>
+<a name='L545'>        <b>if</b> (!cfg-&gt;encode_keep_buffer)
+<a name='L546'>            <a href='../S/274.html#L104' title='Defined at 104 in deps/lua/src/strbuf.c.'>strbuf_free</a>(&amp;cfg-&gt;encode_buf);
+<a name='L547'>        <a href='../S/260.html#L86' title='Defined at 86 in deps/lua/src/lauxlib.c.'>luaL_error</a>(l, "Cannot serialise, excessive nesting (%d)",
+<a name='L548'>                   cfg-&gt;current_depth);
+<a name='L549'>    <font color='red'>}</font>
+<a name='L550'><font color='red'>}</font>
+<a name='L551'>
+<a name='L552'><b>static</b> <b>void</b> <a href='../S/285.html#L646' title='Defined at 646 in deps/lua/src/lua_cjson.c.'>json_append_data</a>(lua_State *l, <a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *cfg, <a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *json);
+<a name='L553'>
+<a name='L554'><i><font color='green'>/* json_append_array args:</font></i>
+<a name='L555'><i><font color='green'> * - lua_State</font></i>
+<a name='L556'><i><font color='green'> * - JSON strbuf</font></i>
+<a name='L557'><i><font color='green'> * - Size of passwd Lua array (top of stack) */</font></i>
+<a name='L558'><b>static</b> <b>void</b> <a href='../S/285.html#L666' title='Refered from 666 in deps/lua/src/lua_cjson.c.'>json_append_array</a>(lua_State *l, <a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *cfg, <a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *json,
+<a name='L559'>                              <b>int</b> array_length)
+<a name='L560'><font color='red'>{</font>
+<a name='L561'>    <b>int</b> comma, i;
+<a name='L562'>
+<a name='L563'>    <a href='../S/285.html#L540' title='Defined at 540 in deps/lua/src/lua_cjson.c.'>json_encode_descend</a>(l, cfg);
+<a name='L564'>
+<a name='L565'>    <a href='../S/301.html#L104' title='Defined at 104 in deps/lua/src/strbuf.h.'>strbuf_append_char</a>(json, '[');
+<a name='L566'>
+<a name='L567'>    comma = 0;
+<a name='L568'>    <b>for</b> (i = 1; i &lt;= array_length; i++) <font color='red'>{</font>
+<a name='L569'>        <b>if</b> (comma)
+<a name='L570'>            <a href='../S/301.html#L104' title='Defined at 104 in deps/lua/src/strbuf.h.'>strbuf_append_char</a>(json, ',');
+<a name='L571'>        <b>else</b>
+<a name='L572'>            comma = 1;
+<a name='L573'>
+<a name='L574'>        <a href='../S/272.html#L567' title='Defined at 567 in deps/lua/src/lapi.c.'>lua_rawgeti</a>(l, -1, i);
+<a name='L575'>        <a href='../S/285.html#L646' title='Defined at 646 in deps/lua/src/lua_cjson.c.'>json_append_data</a>(l, cfg, json);
+<a name='L576'>        <a href='../S/266.html#L254' title='Defined at 254 in deps/lua/src/lua.h.'>lua_pop</a>(l, 1);
+<a name='L577'>    <font color='red'>}</font>
+<a name='L578'>
+<a name='L579'>    <a href='../S/301.html#L104' title='Defined at 104 in deps/lua/src/strbuf.h.'>strbuf_append_char</a>(json, ']');
+<a name='L580'>
+<a name='L581'>    cfg-&gt;current_depth--;
+<a name='L582'><font color='red'>}</font>
+<a name='L583'>
+<a name='L584'><b>static</b> <b>void</b> <a href='../R/2303.html' title='Multiple refered from 2 places.'>json_append_number</a>(lua_State *l, <a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *json, <b>int</b> index,
+<a name='L585'>                               <a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *cfg)
+<a name='L586'><font color='red'>{</font>
+<a name='L587'>    <b>double</b> num = <a href='../S/272.html#L313' title='Defined at 313 in deps/lua/src/lapi.c.'>lua_tonumber</a>(l, index);
+<a name='L588'>
+<a name='L589'>    <b>if</b> (cfg-&gt;encode_refuse_badnum &amp;&amp; (<a href='../D/2568.html' title='Multiple defined in 3 places.'>isinf</a>(num) || <a href='../D/2570.html' title='Multiple defined in 2 places.'>isnan</a>(num)))
+<a name='L590'>        <a href='../S/285.html#L452' title='Defined at 452 in deps/lua/src/lua_cjson.c.'>json_encode_exception</a>(l, cfg, index, "must not be NaN or Inf");
+<a name='L591'>
+<a name='L592'>    <i><font color='green'>/* Lowest double printed with %.14g is 21 characters long:</font></i>
+<a name='L593'><i><font color='green'>     * -1.7976931348623e+308</font></i>
+<a name='L594'><i><font color='green'>     *</font></i>
+<a name='L595'><i><font color='green'>     * Use 32 to include the \0, and a few extra just in case..</font></i>
+<a name='L596'><i><font color='green'>     */</font></i>
+<a name='L597'>    <a href='../S/274.html#L202' title='Defined at 202 in deps/lua/src/strbuf.c.'>strbuf_append_fmt</a>(json, 32, cfg-&gt;number_fmt, num);
+<a name='L598'><font color='red'>}</font>
+<a name='L599'>
+<a name='L600'><b>static</b> <b>void</b> <a href='../S/285.html#L668' title='Refered from 668 in deps/lua/src/lua_cjson.c.'>json_append_object</a>(lua_State *l, <a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *cfg,
+<a name='L601'>                               <a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *json)
+<a name='L602'><font color='red'>{</font>
+<a name='L603'>    <b>int</b> comma, keytype;
+<a name='L604'>
+<a name='L605'>    <a href='../S/285.html#L540' title='Defined at 540 in deps/lua/src/lua_cjson.c.'>json_encode_descend</a>(l, cfg);
+<a name='L606'>
+<a name='L607'>    <i><font color='green'>/* Object */</font></i>
+<a name='L608'>    <a href='../S/301.html#L104' title='Defined at 104 in deps/lua/src/strbuf.h.'>strbuf_append_char</a>(json, '{');
+<a name='L609'>
+<a name='L610'>    <a href='../S/272.html#L421' title='Defined at 421 in deps/lua/src/lapi.c.'>lua_pushnil</a>(l);
+<a name='L611'>    <i><font color='green'>/* table, startkey */</font></i>
+<a name='L612'>    comma = 0;
+<a name='L613'>    <b>while</b> (<a href='../S/272.html#L973' title='Defined at 973 in deps/lua/src/lapi.c.'>lua_next</a>(l, -2) != 0) <font color='red'>{</font>
+<a name='L614'>        <b>if</b> (comma)
+<a name='L615'>            <a href='../S/301.html#L104' title='Defined at 104 in deps/lua/src/strbuf.h.'>strbuf_append_char</a>(json, ',');
+<a name='L616'>        <b>else</b>
+<a name='L617'>            comma = 1;
+<a name='L618'>
+<a name='L619'>        <i><font color='green'>/* table, key, value */</font></i>
+<a name='L620'>        keytype = <a href='../S/272.html#L242' title='Defined at 242 in deps/lua/src/lapi.c.'>lua_type</a>(l, -2);
+<a name='L621'>        <b>if</b> (keytype == <a href='../S/266.html#L77' title='Defined at 77 in deps/lua/src/lua.h.'>LUA_TNUMBER</a>) <font color='red'>{</font>
+<a name='L622'>            <a href='../S/301.html#L104' title='Defined at 104 in deps/lua/src/strbuf.h.'>strbuf_append_char</a>(json, '"');
+<a name='L623'>            <a href='../S/285.html#L584' title='Defined at 584 in deps/lua/src/lua_cjson.c.'>json_append_number</a>(l, json, -2, cfg);
+<a name='L624'>            <a href='../S/301.html#L115' title='Defined at 115 in deps/lua/src/strbuf.h.'>strbuf_append_mem</a>(json, "\":", 2);
+<a name='L625'>        <font color='red'>}</font> <b>else</b> <b>if</b> (keytype == <a href='../S/266.html#L78' title='Defined at 78 in deps/lua/src/lua.h.'>LUA_TSTRING</a>) <font color='red'>{</font>
+<a name='L626'>            <a href='../S/285.html#L467' title='Defined at 467 in deps/lua/src/lua_cjson.c.'>json_append_string</a>(l, json, -2);
+<a name='L627'>            <a href='../S/301.html#L104' title='Defined at 104 in deps/lua/src/strbuf.h.'>strbuf_append_char</a>(json, ':');
+<a name='L628'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L629'>            <a href='../S/285.html#L452' title='Defined at 452 in deps/lua/src/lua_cjson.c.'>json_encode_exception</a>(l, cfg, -2,
+<a name='L630'>                                  "table key must be a number or string");
+<a name='L631'>            <i><font color='green'>/* never returns */</font></i>
+<a name='L632'>        <font color='red'>}</font>
+<a name='L633'>
+<a name='L634'>        <i><font color='green'>/* table, key, value */</font></i>
+<a name='L635'>        <a href='../S/285.html#L646' title='Defined at 646 in deps/lua/src/lua_cjson.c.'>json_append_data</a>(l, cfg, json);
+<a name='L636'>        <a href='../S/266.html#L254' title='Defined at 254 in deps/lua/src/lua.h.'>lua_pop</a>(l, 1);
+<a name='L637'>        <i><font color='green'>/* table, key */</font></i>
+<a name='L638'>    <font color='red'>}</font>
+<a name='L639'>
+<a name='L640'>    <a href='../S/301.html#L104' title='Defined at 104 in deps/lua/src/strbuf.h.'>strbuf_append_char</a>(json, '}');
+<a name='L641'>
+<a name='L642'>    cfg-&gt;current_depth--;
+<a name='L643'><font color='red'>}</font>
+<a name='L644'>
+<a name='L645'><i><font color='green'>/* Serialise Lua data into JSON string. */</font></i>
+<a name='L646'><b>static</b> <b>void</b> <a href='../R/2302.html' title='Multiple refered from 4 places.'>json_append_data</a>(lua_State *l, <a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *cfg, <a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *json)
+<a name='L647'><font color='red'>{</font>
+<a name='L648'>    <b>int</b> len;
+<a name='L649'>
+<a name='L650'>    <b>switch</b> (<a href='../S/272.html#L242' title='Defined at 242 in deps/lua/src/lapi.c.'>lua_type</a>(l, -1)) <font color='red'>{</font>
+<a name='L651'>    <b>case</b> <a href='../S/266.html#L78' title='Defined at 78 in deps/lua/src/lua.h.'>LUA_TSTRING</a>:
+<a name='L652'>        <a href='../S/285.html#L467' title='Defined at 467 in deps/lua/src/lua_cjson.c.'>json_append_string</a>(l, json, -1);
+<a name='L653'>        <b>break</b>;
+<a name='L654'>    <b>case</b> <a href='../S/266.html#L77' title='Defined at 77 in deps/lua/src/lua.h.'>LUA_TNUMBER</a>:
+<a name='L655'>        <a href='../S/285.html#L584' title='Defined at 584 in deps/lua/src/lua_cjson.c.'>json_append_number</a>(l, json, -1, cfg);
+<a name='L656'>        <b>break</b>;
+<a name='L657'>    <b>case</b> <a href='../S/266.html#L75' title='Defined at 75 in deps/lua/src/lua.h.'>LUA_TBOOLEAN</a>:
+<a name='L658'>        <b>if</b> (<a href='../S/272.html#L337' title='Defined at 337 in deps/lua/src/lapi.c.'>lua_toboolean</a>(l, -1))
+<a name='L659'>            <a href='../S/301.html#L115' title='Defined at 115 in deps/lua/src/strbuf.h.'>strbuf_append_mem</a>(json, "true", 4);
+<a name='L660'>        <b>else</b>
+<a name='L661'>            <a href='../S/301.html#L115' title='Defined at 115 in deps/lua/src/strbuf.h.'>strbuf_append_mem</a>(json, "false", 5);
+<a name='L662'>        <b>break</b>;
+<a name='L663'>    <b>case</b> <a href='../S/266.html#L79' title='Defined at 79 in deps/lua/src/lua.h.'>LUA_TTABLE</a>:
+<a name='L664'>        len = <a href='../S/285.html#L497' title='Defined at 497 in deps/lua/src/lua_cjson.c.'>lua_array_length</a>(l, cfg);
+<a name='L665'>        <b>if</b> (len &gt; 0)
+<a name='L666'>            <a href='../S/285.html#L558' title='Defined at 558 in deps/lua/src/lua_cjson.c.'>json_append_array</a>(l, cfg, json, len);
+<a name='L667'>        <b>else</b>
+<a name='L668'>            <a href='../S/285.html#L600' title='Defined at 600 in deps/lua/src/lua_cjson.c.'>json_append_object</a>(l, cfg, json);
+<a name='L669'>        <b>break</b>;
+<a name='L670'>    <b>case</b> <a href='../S/266.html#L74' title='Defined at 74 in deps/lua/src/lua.h.'>LUA_TNIL</a>:
+<a name='L671'>        <a href='../S/301.html#L115' title='Defined at 115 in deps/lua/src/strbuf.h.'>strbuf_append_mem</a>(json, "null", 4);
+<a name='L672'>        <b>break</b>;
+<a name='L673'>    <b>case</b> <a href='../S/266.html#L76' title='Defined at 76 in deps/lua/src/lua.h.'>LUA_TLIGHTUSERDATA</a>:
+<a name='L674'>        <b>if</b> (<a href='../S/272.html#L385' title='Defined at 385 in deps/lua/src/lapi.c.'>lua_touserdata</a>(l, -1) == NULL) <font color='red'>{</font>
+<a name='L675'>            <a href='../S/301.html#L115' title='Defined at 115 in deps/lua/src/strbuf.h.'>strbuf_append_mem</a>(json, "null", 4);
+<a name='L676'>            <b>break</b>;
+<a name='L677'>        <font color='red'>}</font>
+<a name='L678'>    <b>default</b>:
+<a name='L679'>        <i><font color='green'>/* Remaining types (LUA_TFUNCTION, LUA_TUSERDATA, LUA_TTHREAD,</font></i>
+<a name='L680'><i><font color='green'>         * and LUA_TLIGHTUSERDATA) cannot be serialised */</font></i>
+<a name='L681'>        <a href='../S/285.html#L452' title='Defined at 452 in deps/lua/src/lua_cjson.c.'>json_encode_exception</a>(l, cfg, -1, "type not supported");
+<a name='L682'>        <i><font color='green'>/* never returns */</font></i>
+<a name='L683'>    <font color='red'>}</font>
+<a name='L684'><font color='red'>}</font>
+<a name='L685'>
+<a name='L686'><b>static</b> <b>int</b> <a href='../S/285.html#L1268' title='Refered from 1268 in deps/lua/src/lua_cjson.c.'>json_encode</a>(lua_State *l)
+<a name='L687'><font color='red'>{</font>
+<a name='L688'>    <a href='../S/285.html#L115' title='Defined at 115 in deps/lua/src/lua_cjson.c.'>json_config_t</a> *cfg;
+<a name='L689'>    <b>char</b> *json;
+<a name='L690'>    <b>int</b> len;
+<a name='L691'>
+<a name='L692'>    <i><font color='green'>/* Can't use json_verify_arg_count() since we need to ensure</font></i>
+<a name='L693'><i><font color='green'>     * there is only 1 argument */</font></i>
+<a name='L694'>    <a href='../S/265.html#L100' title='Defined at 100 in deps/lua/src/lauxlib.h.'>luaL_argcheck</a>(l, <a href='../S/272.html#L159' title='Defined at 159 in deps/lua/src/lapi.c.'>lua_gettop</a>(l) == 1, 1, "expected 1 argument");
+<a name='L695'>
+<a name='L696'>    cfg = <a href='../S/285.html#L178' title='Defined at 178 in deps/lua/src/lua_cjson.c.'>json_fetch_config</a>(l);
+<a name='L697'>    cfg-&gt;current_depth = 0;
+<a name='L698'>
+<a name='L699'>    <i><font color='green'>/* Reset the persistent buffer if it exists.</font></i>
+<a name='L700'><i><font color='green'>     * Otherwise allocate a new buffer. */</font></i>
+<a name='L701'>    <b>if</b> (<a href='../S/301.html#L81' title='Defined at 81 in deps/lua/src/strbuf.h.'>strbuf_allocated</a>(&amp;cfg-&gt;encode_buf))
+<a name='L702'>        <a href='../S/301.html#L76' title='Defined at 76 in deps/lua/src/strbuf.h.'>strbuf_reset</a>(&amp;cfg-&gt;encode_buf);
+<a name='L703'>    <b>else</b>
+<a name='L704'>        <a href='../S/274.html#L44' title='Defined at 44 in deps/lua/src/strbuf.c.'>strbuf_init</a>(&amp;cfg-&gt;encode_buf, 0);
+<a name='L705'>
+<a name='L706'>    <a href='../S/285.html#L646' title='Defined at 646 in deps/lua/src/lua_cjson.c.'>json_append_data</a>(l, cfg, &amp;cfg-&gt;encode_buf);
+<a name='L707'>    json = <a href='../S/301.html#L133' title='Defined at 133 in deps/lua/src/strbuf.h.'>strbuf_string</a>(&amp;cfg-&gt;encode_buf, &amp;len);
+<a name='L708'>
+<a name='L709'>    <a href='../S/272.html#L445' title='Defined at 445 in deps/lua/src/lapi.c.'>lua_pushlstring</a>(l, json, len);
+<a name='L710'>
+<a name='L711'>    <b>if</b> (!cfg-&gt;encode_keep_buffer)
+<a name='L712'>        <a href='../S/274.html#L104' title='Defined at 104 in deps/lua/src/strbuf.c.'>strbuf_free</a>(&amp;cfg-&gt;encode_buf);
+<a name='L713'>
+<a name='L714'>    <b>return</b> 1;
+<a name='L715'><font color='red'>}</font>
+<a name='L716'>
+<a name='L717'><i><font color='green'>/* ===== DECODING ===== */</font></i>
+<a name='L718'>
+<a name='L719'><b>static</b> <b>void</b> <a href='../S/285.html#L1185' title='Defined at 1185 in deps/lua/src/lua_cjson.c.'>json_process_value</a>(lua_State *l, <a href='../S/285.html#L122' title='Defined at 122 in deps/lua/src/lua_cjson.c.'>json_parse_t</a> *json,
+<a name='L720'>                               <a href='../S/285.html#L133' title='Defined at 133 in deps/lua/src/lua_cjson.c.'>json_token_t</a> *token);
+<a name='L721'>
+<a name='L722'><b>static</b> <b>int</b> <a href='../S/285.html#L744' title='Refered from 744 in deps/lua/src/lua_cjson.c.'>hexdigit2int</a>(<b>char</b> hex)
+<a name='L723'><font color='red'>{</font>
+<a name='L724'>    <b>if</b> ('0' &lt;= hex  &amp;&amp; hex &lt;= '9')
+<a name='L725'>        <b>return</b> hex - '0';
+<a name='L726'>
+<a name='L727'>    <i><font color='green'>/* Force lowercase */</font></i>
+<a name='L728'>    hex |= 0x20;
+<a name='L729'>    <b>if</b> ('a' &lt;= hex &amp;&amp; hex &lt;= 'f')
+<a name='L730'>        <b>return</b> 10 + hex - 'a';
+<a name='L731'>
+<a name='L732'>    <b>return</b> -1;
+<a name='L733'><font color='red'>}</font>
+<a name='L734'>
+<a name='L735'><b>static</b> <b>int</b> <a href='../R/1779.html' title='Multiple refered from 2 places.'>decode_hex4</a>(<b>const</b> <b>char</b> *hex)
+<a name='L736'><font color='red'>{</font>
+<a name='L737'>    <b>int</b> digit[4];
+<a name='L738'>    <b>int</b> i;
+<a name='L739'>
+<a name='L740'>    <i><font color='green'>/* Convert ASCII hex digit to numeric digit</font></i>
+<a name='L741'><i><font color='green'>     * Note: this returns an error for invalid hex digits, including</font></i>
+<a name='L742'><i><font color='green'>     *       NULL */</font></i>
+<a name='L743'>    <b>for</b> (i = 0; i &lt; 4; i++) <font color='red'>{</font>
+<a name='L744'>        digit[i] = <a href='../S/285.html#L722' title='Defined at 722 in deps/lua/src/lua_cjson.c.'>hexdigit2int</a>(hex[i]);
+<a name='L745'>        <b>if</b> (digit[i] &lt; 0) <font color='red'>{</font>
+<a name='L746'>            <b>return</b> -1;
+<a name='L747'>        <font color='red'>}</font>
+<a name='L748'>    <font color='red'>}</font>
+<a name='L749'>
+<a name='L750'>    <b>return</b> (digit[0] &lt;&lt; 12) +
+<a name='L751'>           (digit[1] &lt;&lt; 8) +
+<a name='L752'>           (digit[2] &lt;&lt; 4) +
+<a name='L753'>            digit[3];
+<a name='L754'><font color='red'>}</font>
+<a name='L755'>
+<a name='L756'><i><font color='green'>/* Converts a Unicode codepoint to UTF-8.</font></i>
+<a name='L757'><i><font color='green'> * Returns UTF-8 string length, and up to 4 bytes in *utf8 */</font></i>
+<a name='L758'><b>static</b> <b>int</b> <a href='../S/285.html#L849' title='Refered from 849 in deps/lua/src/lua_cjson.c.'>codepoint_to_utf8</a>(<b>char</b> *utf8, <b>int</b> codepoint)
+<a name='L759'><font color='red'>{</font>
+<a name='L760'>    <i><font color='green'>/* 0xxxxxxx */</font></i>
+<a name='L761'>    <b>if</b> (codepoint &lt;= 0x7F) <font color='red'>{</font>
+<a name='L762'>        utf8[0] = codepoint;
+<a name='L763'>        <b>return</b> 1;
+<a name='L764'>    <font color='red'>}</font>
+<a name='L765'>
+<a name='L766'>    <i><font color='green'>/* 110xxxxx 10xxxxxx */</font></i>
+<a name='L767'>    <b>if</b> (codepoint &lt;= 0x7FF) <font color='red'>{</font>
+<a name='L768'>        utf8[0] = (codepoint &gt;&gt; 6) | 0xC0;
+<a name='L769'>        utf8[1] = (codepoint &amp; 0x3F) | 0x80;
+<a name='L770'>        <b>return</b> 2;
+<a name='L771'>    <font color='red'>}</font>
+<a name='L772'>
+<a name='L773'>    <i><font color='green'>/* 1110xxxx 10xxxxxx 10xxxxxx */</font></i>
+<a name='L774'>    <b>if</b> (codepoint &lt;= 0xFFFF) <font color='red'>{</font>
+<a name='L775'>        utf8[0] = (codepoint &gt;&gt; 12) | 0xE0;
+<a name='L776'>        utf8[1] = ((codepoint &gt;&gt; 6) &amp; 0x3F) | 0x80;
+<a name='L777'>        utf8[2] = (codepoint &amp; 0x3F) | 0x80;
+<a name='L778'>        <b>return</b> 3;
+<a name='L779'>    <font color='red'>}</font>
+<a name='L780'>
+<a name='L781'>    <i><font color='green'>/* 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx */</font></i>
+<a name='L782'>    <b>if</b> (codepoint &lt;= 0x1FFFFF) <font color='red'>{</font>
+<a name='L783'>        utf8[0] = (codepoint &gt;&gt; 18) | 0xF0;
+<a name='L784'>        utf8[1] = ((codepoint &gt;&gt; 12) &amp; 0x3F) | 0x80;
+<a name='L785'>        utf8[2] = ((codepoint &gt;&gt; 6) &amp; 0x3F) | 0x80;
+<a name='L786'>        utf8[3] = (codepoint &amp; 0x3F) | 0x80;
+<a name='L787'>        <b>return</b> 4;
+<a name='L788'>    <font color='red'>}</font>
+<a name='L789'>
+<a name='L790'>    <b>return</b> 0;
+<a name='L791'><font color='red'>}</font>
+<a name='L792'>
+<a name='L793'>
+<a name='L794'><i><font color='green'>/* Called when index pointing to beginning of UTF-16 code escape: \uXXXX</font></i>
+<a name='L795'><i><font color='green'> * \u is guaranteed to exist, but the remaining hex characters may be</font></i>
+<a name='L796'><i><font color='green'> * missing.</font></i>
+<a name='L797'><i><font color='green'> * Translate to UTF-8 and append to temporary token string.</font></i>
+<a name='L798'><i><font color='green'> * Must advance index to the next character to be processed.</font></i>
+<a name='L799'><i><font color='green'> * Returns: 0   success</font></i>
+<a name='L800'><i><font color='green'> *          -1  error</font></i>
+<a name='L801'><i><font color='green'> */</font></i>
+<a name='L802'><b>static</b> <b>int</b> <a href='../S/285.html#L897' title='Refered from 897 in deps/lua/src/lua_cjson.c.'>json_append_unicode_escape</a>(<a href='../S/285.html#L122' title='Defined at 122 in deps/lua/src/lua_cjson.c.'>json_parse_t</a> *json)
+<a name='L803'><font color='red'>{</font>
+<a name='L804'>    <b>char</b> utf8[4];       <i><font color='green'>/* Surrogate pairs require 4 UTF-8 bytes */</font></i>
+<a name='L805'>    <b>int</b> codepoint;
+<a name='L806'>    <b>int</b> surrogate_low;
+<a name='L807'>    <b>int</b> len;
+<a name='L808'>    <b>int</b> escape_len = 6;
+<a name='L809'>
+<a name='L810'>    <i><font color='green'>/* Fetch UTF-16 code unit */</font></i>
+<a name='L811'>    codepoint = <a href='../S/285.html#L735' title='Defined at 735 in deps/lua/src/lua_cjson.c.'>decode_hex4</a>(&amp;json-&gt;data[json-&gt;index + 2]);
+<a name='L812'>    <b>if</b> (codepoint &lt; 0)
+<a name='L813'>        <b>return</b> -1;
+<a name='L814'>
+<a name='L815'>    <i><font color='green'>/* UTF-16 surrogate pairs take the following 2 byte form:</font></i>
+<a name='L816'><i><font color='green'>     *      11011 x yyyyyyyyyy</font></i>
+<a name='L817'><i><font color='green'>     * When x = 0: y is the high 10 bits of the codepoint</font></i>
+<a name='L818'><i><font color='green'>     *      x = 1: y is the low 10 bits of the codepoint</font></i>
+<a name='L819'><i><font color='green'>     *</font></i>
+<a name='L820'><i><font color='green'>     * Check for a surrogate pair (high or low) */</font></i>
+<a name='L821'>    <b>if</b> ((codepoint &amp; 0xF800) == 0xD800) <font color='red'>{</font>
+<a name='L822'>        <i><font color='green'>/* Error if the 1st surrogate is not high */</font></i>
+<a name='L823'>        <b>if</b> (codepoint &amp; 0x400)
+<a name='L824'>            <b>return</b> -1;
+<a name='L825'>
+<a name='L826'>        <i><font color='green'>/* Ensure the next code is a unicode escape */</font></i>
+<a name='L827'>        <b>if</b> (json-&gt;data[json-&gt;index + escape_len] != '\\' ||
+<a name='L828'>            json-&gt;data[json-&gt;index + escape_len + 1] != 'u') <font color='red'>{</font>
+<a name='L829'>            <b>return</b> -1;
+<a name='L830'>        <font color='red'>}</font>
+<a name='L831'>
+<a name='L832'>        <i><font color='green'>/* Fetch the next codepoint */</font></i>
+<a name='L833'>        surrogate_low = <a href='../S/285.html#L735' title='Defined at 735 in deps/lua/src/lua_cjson.c.'>decode_hex4</a>(&amp;json-&gt;data[json-&gt;index + 2 + escape_len]);
+<a name='L834'>        <b>if</b> (surrogate_low &lt; 0)
+<a name='L835'>            <b>return</b> -1;
+<a name='L836'>
+<a name='L837'>        <i><font color='green'>/* Error if the 2nd code is not a low surrogate */</font></i>
+<a name='L838'>        <b>if</b> ((surrogate_low &amp; 0xFC00) != 0xDC00)
+<a name='L839'>            <b>return</b> -1;
+<a name='L840'>
+<a name='L841'>        <i><font color='green'>/* Calculate Unicode codepoint */</font></i>
+<a name='L842'>        codepoint = (codepoint &amp; 0x3FF) &lt;&lt; 10;
+<a name='L843'>        surrogate_low &amp;= 0x3FF;
+<a name='L844'>        codepoint = (codepoint | surrogate_low) + 0x10000;
+<a name='L845'>        escape_len = 12;
+<a name='L846'>    <font color='red'>}</font>
+<a name='L847'>
+<a name='L848'>    <i><font color='green'>/* Convert codepoint to UTF-8 */</font></i>
+<a name='L849'>    len = <a href='../S/285.html#L758' title='Defined at 758 in deps/lua/src/lua_cjson.c.'>codepoint_to_utf8</a>(utf8, codepoint);
+<a name='L850'>    <b>if</b> (!len)
+<a name='L851'>        <b>return</b> -1;
+<a name='L852'>
+<a name='L853'>    <i><font color='green'>/* Append bytes and advance parse index */</font></i>
+<a name='L854'>    <a href='../S/301.html#L122' title='Defined at 122 in deps/lua/src/strbuf.h.'>strbuf_append_mem_unsafe</a>(json-&gt;tmp, utf8, len);
+<a name='L855'>    json-&gt;index += escape_len;
+<a name='L856'>
+<a name='L857'>    <b>return</b> 0;
+<a name='L858'><font color='red'>}</font>
+<a name='L859'>
+<a name='L860'><b>static</b> <b>void</b> <a href='../R/2331.html' title='Multiple refered from 7 places.'>json_set_token_error</a>(<a href='../S/285.html#L133' title='Defined at 133 in deps/lua/src/lua_cjson.c.'>json_token_t</a> *token, <a href='../S/285.html#L122' title='Defined at 122 in deps/lua/src/lua_cjson.c.'>json_parse_t</a> *json,
+<a name='L861'>                                 <b>const</b> <b>char</b> *errtype)
+<a name='L862'><font color='red'>{</font>
+<a name='L863'>    token-&gt;type = <a href='../S/285.html#L74' title='Defined at 74 in deps/lua/src/lua_cjson.c.'>T_ERROR</a>;
+<a name='L864'>    token-&gt;index = json-&gt;index;
+<a name='L865'>    token-&gt;value.string = errtype;
+<a name='L866'><font color='red'>}</font>
+<a name='L867'>
+<a name='L868'><b>static</b> <b>void</b> <a href='../S/285.html#L1033' title='Refered from 1033 in deps/lua/src/lua_cjson.c.'>json_next_string_token</a>(<a href='../S/285.html#L122' title='Defined at 122 in deps/lua/src/lua_cjson.c.'>json_parse_t</a> *json, <a href='../S/285.html#L133' title='Defined at 133 in deps/lua/src/lua_cjson.c.'>json_token_t</a> *token)
+<a name='L869'><font color='red'>{</font>
+<a name='L870'>    <b>char</b> *escape2char = json-&gt;cfg-&gt;escape2char;
+<a name='L871'>    <b>char</b> ch;
+<a name='L872'>
+<a name='L873'>    <i><font color='green'>/* Caller must ensure a string is next */</font></i>
+<a name='L874'>    <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(json-&gt;data[json-&gt;index] == '"');
+<a name='L875'>
+<a name='L876'>    <i><font color='green'>/* Skip " */</font></i>
+<a name='L877'>    json-&gt;index++;
+<a name='L878'>
+<a name='L879'>    <i><font color='green'>/* json-&gt;tmp is the temporary strbuf used to accumulate the</font></i>
+<a name='L880'><i><font color='green'>     * decoded string value. */</font></i>
+<a name='L881'>    <a href='../S/301.html#L76' title='Defined at 76 in deps/lua/src/strbuf.h.'>strbuf_reset</a>(json-&gt;tmp);
+<a name='L882'>    <b>while</b> ((ch = json-&gt;data[json-&gt;index]) != '"') <font color='red'>{</font>
+<a name='L883'>        <b>if</b> (!ch) <font color='red'>{</font>
+<a name='L884'>            <i><font color='green'>/* Premature end of the string */</font></i>
+<a name='L885'>            <a href='../S/285.html#L860' title='Defined at 860 in deps/lua/src/lua_cjson.c.'>json_set_token_error</a>(token, json, "unexpected end of string");
+<a name='L886'>            <b>return</b>;
+<a name='L887'>        <font color='red'>}</font>
+<a name='L888'>
+<a name='L889'>        <i><font color='green'>/* Handle escapes */</font></i>
+<a name='L890'>        <b>if</b> (ch == '\\') <font color='red'>{</font>
+<a name='L891'>            <i><font color='green'>/* Fetch escape character */</font></i>
+<a name='L892'>            ch = json-&gt;data[json-&gt;index + 1];
+<a name='L893'>
+<a name='L894'>            <i><font color='green'>/* Translate escape code and append to tmp string */</font></i>
+<a name='L895'>            ch = escape2char[(<b>unsigned</b> <b>char</b>)ch];
+<a name='L896'>            <b>if</b> (ch == 'u') <font color='red'>{</font>
+<a name='L897'>                <b>if</b> (<a href='../S/285.html#L802' title='Defined at 802 in deps/lua/src/lua_cjson.c.'>json_append_unicode_escape</a>(json) == 0)
+<a name='L898'>                    <b>continue</b>;
+<a name='L899'>
+<a name='L900'>                <a href='../S/285.html#L860' title='Defined at 860 in deps/lua/src/lua_cjson.c.'>json_set_token_error</a>(token, json,
+<a name='L901'>                                     "invalid unicode escape code");
+<a name='L902'>                <b>return</b>;
+<a name='L903'>            <font color='red'>}</font>
+<a name='L904'>            <b>if</b> (!ch) <font color='red'>{</font>
+<a name='L905'>                <a href='../S/285.html#L860' title='Defined at 860 in deps/lua/src/lua_cjson.c.'>json_set_token_error</a>(token, json, "invalid escape code");
+<a name='L906'>                <b>return</b>;
+<a name='L907'>            <font color='red'>}</font>
+<a name='L908'>
+<a name='L909'>            <i><font color='green'>/* Skip '\' */</font></i>
+<a name='L910'>            json-&gt;index++;
+<a name='L911'>        <font color='red'>}</font>
+<a name='L912'>        <i><font color='green'>/* Append normal character or translated single character</font></i>
+<a name='L913'><i><font color='green'>         * Unicode escapes are handled above */</font></i>
+<a name='L914'>        <a href='../S/301.html#L110' title='Defined at 110 in deps/lua/src/strbuf.h.'>strbuf_append_char_unsafe</a>(json-&gt;tmp, ch);
+<a name='L915'>        json-&gt;index++;
+<a name='L916'>    <font color='red'>}</font>
+<a name='L917'>    json-&gt;index++;  <i><font color='green'>/* Eat final quote (") */</font></i>
+<a name='L918'>
+<a name='L919'>    <a href='../S/301.html#L128' title='Defined at 128 in deps/lua/src/strbuf.h.'>strbuf_ensure_null</a>(json-&gt;tmp);
+<a name='L920'>
+<a name='L921'>    token-&gt;type = <a href='../S/285.html#L66' title='Defined at 66 in deps/lua/src/lua_cjson.c.'>T_STRING</a>;
+<a name='L922'>    token-&gt;value.string = <a href='../S/301.html#L133' title='Defined at 133 in deps/lua/src/strbuf.h.'>strbuf_string</a>(json-&gt;tmp, &amp;token-&gt;string_len);
+<a name='L923'><font color='red'>}</font>
+<a name='L924'>
+<a name='L925'><i><font color='green'>/* JSON numbers should take the following form:</font></i>
+<a name='L926'><i><font color='green'> *      -?(0|[1-9]|[1-9][0-9]+)(.[0-9]+)?([eE][-+]?[0-9]+)?</font></i>
+<a name='L927'><i><font color='green'> *</font></i>
+<a name='L928'><i><font color='green'> * json_next_number_token() uses strtod() which allows other forms:</font></i>
+<a name='L929'><i><font color='green'> * - numbers starting with '+'</font></i>
+<a name='L930'><i><font color='green'> * - NaN, -NaN, infinity, -infinity</font></i>
+<a name='L931'><i><font color='green'> * - hexidecimal numbers</font></i>
+<a name='L932'><i><font color='green'> * - numbers with leading zeros</font></i>
+<a name='L933'><i><font color='green'> *</font></i>
+<a name='L934'><i><font color='green'> * json_is_invalid_number() detects "numbers" which may pass strtod()'s</font></i>
+<a name='L935'><i><font color='green'> * error checking, but should not be allowed with strict JSON.</font></i>
+<a name='L936'><i><font color='green'> *</font></i>
+<a name='L937'><i><font color='green'> * json_is_invalid_number() may pass numbers which cause strtod()</font></i>
+<a name='L938'><i><font color='green'> * to generate an error.</font></i>
+<a name='L939'><i><font color='green'> */</font></i>
+<a name='L940'><b>static</b> <b>int</b> <a href='../R/2322.html' title='Multiple refered from 2 places.'>json_is_invalid_number</a>(<a href='../S/285.html#L122' title='Defined at 122 in deps/lua/src/lua_cjson.c.'>json_parse_t</a> *json)
+<a name='L941'><font color='red'>{</font>
+<a name='L942'>    <b>int</b> i = json-&gt;index;
+<a name='L943'>
+<a name='L944'>    <i><font color='green'>/* Reject numbers starting with + */</font></i>
+<a name='L945'>    <b>if</b> (json-&gt;data[i] == '+')
+<a name='L946'>        <b>return</b> 1;
+<a name='L947'>
+<a name='L948'>    <i><font color='green'>/* Skip minus sign if it exists */</font></i>
+<a name='L949'>    <b>if</b> (json-&gt;data[i] == '-')
+<a name='L950'>        i++;
+<a name='L951'>
+<a name='L952'>    <i><font color='green'>/* Reject numbers starting with 0x, or leading zeros */</font></i>
+<a name='L953'>    <b>if</b> (json-&gt;data[i] == '0') <font color='red'>{</font>
+<a name='L954'>        <b>int</b> ch2 = json-&gt;data[i + 1];
+<a name='L955'>
+<a name='L956'>        <b>if</b> ((ch2 | 0x20) == 'x' ||          <i><font color='green'>/* Hex */</font></i>
+<a name='L957'>            ('0' &lt;= ch2 &amp;&amp; ch2 &lt;= '9'))     <i><font color='green'>/* Leading zero */</font></i>
+<a name='L958'>            <b>return</b> 1;
+<a name='L959'>
+<a name='L960'>        <b>return</b> 0;
+<a name='L961'>    <font color='red'>}</font> <b>else</b> <b>if</b> (json-&gt;data[i] &lt;= '9') <font color='red'>{</font>
+<a name='L962'>        <b>return</b> 0;                           <i><font color='green'>/* Ordinary number */</font></i>
+<a name='L963'>    <font color='red'>}</font>
+<a name='L964'>
+<a name='L965'>
+<a name='L966'>    <i><font color='green'>/* Reject inf/nan */</font></i>
+<a name='L967'>    <b>if</b> (!strncasecmp(&amp;json-&gt;data[i], "inf", 3))
+<a name='L968'>        <b>return</b> 1;
+<a name='L969'>    <b>if</b> (!strncasecmp(&amp;json-&gt;data[i], "nan", 3))
+<a name='L970'>        <b>return</b> 1;
+<a name='L971'>
+<a name='L972'>    <i><font color='green'>/* Pass all other numbers which may still be invalid, but</font></i>
+<a name='L973'><i><font color='green'>     * strtod() will catch them. */</font></i>
+<a name='L974'>    <b>return</b> 0;
+<a name='L975'><font color='red'>}</font>
+<a name='L976'>
+<a name='L977'><b>static</b> <b>void</b> <a href='../R/2323.html' title='Multiple refered from 2 places.'>json_next_number_token</a>(<a href='../S/285.html#L122' title='Defined at 122 in deps/lua/src/lua_cjson.c.'>json_parse_t</a> *json, <a href='../S/285.html#L133' title='Defined at 133 in deps/lua/src/lua_cjson.c.'>json_token_t</a> *token)
+<a name='L978'><font color='red'>{</font>
+<a name='L979'>    <b>const</b> <b>char</b> *startptr;
+<a name='L980'>    <b>char</b> *endptr;
+<a name='L981'>
+<a name='L982'>    token-&gt;type = <a href='../S/285.html#L67' title='Defined at 67 in deps/lua/src/lua_cjson.c.'>T_NUMBER</a>;
+<a name='L983'>    startptr = &amp;json-&gt;data[json-&gt;index];
+<a name='L984'>    token-&gt;value.number = strtod(&amp;json-&gt;data[json-&gt;index], &amp;endptr);
+<a name='L985'>    <b>if</b> (startptr == endptr)
+<a name='L986'>        <a href='../S/285.html#L860' title='Defined at 860 in deps/lua/src/lua_cjson.c.'>json_set_token_error</a>(token, json, "invalid number");
+<a name='L987'>    <b>else</b>
+<a name='L988'>        json-&gt;index += endptr - startptr;   <i><font color='green'>/* Skip the processed number */</font></i>
+<a name='L989'>
+<a name='L990'>    <b>return</b>;
+<a name='L991'><font color='red'>}</font>
+<a name='L992'>
+<a name='L993'><i><font color='green'>/* Fills in the token struct.</font></i>
+<a name='L994'><i><font color='green'> * T_STRING will return a pointer to the json_parse_t temporary string</font></i>
+<a name='L995'><i><font color='green'> * T_ERROR will leave the json-&gt;index pointer at the error.</font></i>
+<a name='L996'><i><font color='green'> */</font></i>
+<a name='L997'><b>static</b> <b>void</b> <a href='../R/2325.html' title='Multiple refered from 10 places.'>json_next_token</a>(<a href='../S/285.html#L122' title='Defined at 122 in deps/lua/src/lua_cjson.c.'>json_parse_t</a> *json, <a href='../S/285.html#L133' title='Defined at 133 in deps/lua/src/lua_cjson.c.'>json_token_t</a> *token)
+<a name='L998'><font color='red'>{</font>
+<a name='L999'>    <a href='../S/285.html#L76' title='Defined at 76 in deps/lua/src/lua_cjson.c.'>json_token_type_t</a> *ch2token = json-&gt;cfg-&gt;ch2token;
+<a name='L1000'>    <b>int</b> ch;
+<a name='L1001'>
+<a name='L1002'>    <i><font color='green'>/* Eat whitespace. FIXME: UGLY */</font></i>
+<a name='L1003'>    token-&gt;type = ch2token[(<b>unsigned</b> <b>char</b>)json-&gt;data[json-&gt;index]];
+<a name='L1004'>    <b>while</b> (token-&gt;type == <a href='../S/285.html#L73' title='Defined at 73 in deps/lua/src/lua_cjson.c.'>T_WHITESPACE</a>)
+<a name='L1005'>        token-&gt;type = ch2token[(<b>unsigned</b> <b>char</b>)json-&gt;data[++json-&gt;index]];
+<a name='L1006'>
+<a name='L1007'>    token-&gt;index = json-&gt;index;
+<a name='L1008'>
+<a name='L1009'>    <i><font color='green'>/* Don't advance the pointer for an error or the end */</font></i>
+<a name='L1010'>    <b>if</b> (token-&gt;type == <a href='../S/285.html#L74' title='Defined at 74 in deps/lua/src/lua_cjson.c.'>T_ERROR</a>) <font color='red'>{</font>
+<a name='L1011'>        <a href='../S/285.html#L860' title='Defined at 860 in deps/lua/src/lua_cjson.c.'>json_set_token_error</a>(token, json, "invalid token");
+<a name='L1012'>        <b>return</b>;
+<a name='L1013'>    <font color='red'>}</font>
+<a name='L1014'>
+<a name='L1015'>    <b>if</b> (token-&gt;type == <a href='../S/285.html#L72' title='Defined at 72 in deps/lua/src/lua_cjson.c.'>T_END</a>) <font color='red'>{</font>
+<a name='L1016'>        <b>return</b>;
+<a name='L1017'>    <font color='red'>}</font>
+<a name='L1018'>
+<a name='L1019'>    <i><font color='green'>/* Found a known single character token, advance index and return */</font></i>
+<a name='L1020'>    <b>if</b> (token-&gt;type != <a href='../S/285.html#L75' title='Defined at 75 in deps/lua/src/lua_cjson.c.'>T_UNKNOWN</a>) <font color='red'>{</font>
+<a name='L1021'>        json-&gt;index++;
+<a name='L1022'>        <b>return</b>;
+<a name='L1023'>    <font color='red'>}</font>
+<a name='L1024'>
+<a name='L1025'>    <i><font color='green'>/* Process characters which triggered T_UNKNOWN */</font></i>
+<a name='L1026'>    ch = json-&gt;data[json-&gt;index];
+<a name='L1027'>
+<a name='L1028'>    <i><font color='green'>/* Must use strncmp() to match the front of the JSON string.</font></i>
+<a name='L1029'><i><font color='green'>     * JSON identifier must be lowercase.</font></i>
+<a name='L1030'><i><font color='green'>     * When strict_numbers if disabled, either case is allowed for</font></i>
+<a name='L1031'><i><font color='green'>     * Infinity/NaN (since we are no longer following the spec..) */</font></i>
+<a name='L1032'>    <b>if</b> (ch == '"') <font color='red'>{</font>
+<a name='L1033'>        <a href='../S/285.html#L868' title='Defined at 868 in deps/lua/src/lua_cjson.c.'>json_next_string_token</a>(json, token);
+<a name='L1034'>        <b>return</b>;
+<a name='L1035'>    <font color='red'>}</font> <b>else</b> <b>if</b> (ch == '-' || ('0' &lt;= ch &amp;&amp; ch &lt;= '9')) <font color='red'>{</font>
+<a name='L1036'>        <b>if</b> (json-&gt;cfg-&gt;decode_refuse_badnum &amp;&amp; <a href='../S/285.html#L940' title='Defined at 940 in deps/lua/src/lua_cjson.c.'>json_is_invalid_number</a>(json)) <font color='red'>{</font>
+<a name='L1037'>            <a href='../S/285.html#L860' title='Defined at 860 in deps/lua/src/lua_cjson.c.'>json_set_token_error</a>(token, json, "invalid number");
+<a name='L1038'>            <b>return</b>;
+<a name='L1039'>        <font color='red'>}</font>
+<a name='L1040'>        <a href='../S/285.html#L977' title='Defined at 977 in deps/lua/src/lua_cjson.c.'>json_next_number_token</a>(json, token);
+<a name='L1041'>        <b>return</b>;
+<a name='L1042'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strncmp(&amp;json-&gt;data[json-&gt;index], "true", 4)) <font color='red'>{</font>
+<a name='L1043'>        token-&gt;type = <a href='../S/285.html#L68' title='Defined at 68 in deps/lua/src/lua_cjson.c.'>T_BOOLEAN</a>;
+<a name='L1044'>        token-&gt;value.boolean = 1;
+<a name='L1045'>        json-&gt;index += 4;
+<a name='L1046'>        <b>return</b>;
+<a name='L1047'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strncmp(&amp;json-&gt;data[json-&gt;index], "false", 5)) <font color='red'>{</font>
+<a name='L1048'>        token-&gt;type = <a href='../S/285.html#L68' title='Defined at 68 in deps/lua/src/lua_cjson.c.'>T_BOOLEAN</a>;
+<a name='L1049'>        token-&gt;value.boolean = 0;
+<a name='L1050'>        json-&gt;index += 5;
+<a name='L1051'>        <b>return</b>;
+<a name='L1052'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strncmp(&amp;json-&gt;data[json-&gt;index], "null", 4)) <font color='red'>{</font>
+<a name='L1053'>        token-&gt;type = <a href='../S/285.html#L69' title='Defined at 69 in deps/lua/src/lua_cjson.c.'>T_NULL</a>;
+<a name='L1054'>        json-&gt;index += 4;
+<a name='L1055'>        <b>return</b>;
+<a name='L1056'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!json-&gt;cfg-&gt;decode_refuse_badnum &amp;&amp;
+<a name='L1057'>               <a href='../S/285.html#L940' title='Defined at 940 in deps/lua/src/lua_cjson.c.'>json_is_invalid_number</a>(json)) <font color='red'>{</font>
+<a name='L1058'>        <i><font color='green'>/* When refuse_badnum is disabled, only attempt to process</font></i>
+<a name='L1059'><i><font color='green'>         * numbers we know are invalid JSON (Inf, NaN, hex)</font></i>
+<a name='L1060'><i><font color='green'>         * This is required to generate an appropriate token error,</font></i>
+<a name='L1061'><i><font color='green'>         * otherwise all bad tokens will register as "invalid number"</font></i>
+<a name='L1062'><i><font color='green'>         */</font></i>
+<a name='L1063'>        <a href='../S/285.html#L977' title='Defined at 977 in deps/lua/src/lua_cjson.c.'>json_next_number_token</a>(json, token);
+<a name='L1064'>        <b>return</b>;
+<a name='L1065'>    <font color='red'>}</font>
+<a name='L1066'>
+<a name='L1067'>    <i><font color='green'>/* Token starts with t/f/n but isn't recognised above. */</font></i>
+<a name='L1068'>    <a href='../S/285.html#L860' title='Defined at 860 in deps/lua/src/lua_cjson.c.'>json_set_token_error</a>(token, json, "invalid token");
+<a name='L1069'><font color='red'>}</font>
+<a name='L1070'>
+<a name='L1071'><i><font color='green'>/* This function does not return.</font></i>
+<a name='L1072'><i><font color='green'> * DO NOT CALL WITH DYNAMIC MEMORY ALLOCATED.</font></i>
+<a name='L1073'><i><font color='green'> * The only supported exception is the temporary parser string</font></i>
+<a name='L1074'><i><font color='green'> * json-&gt;tmp struct.</font></i>
+<a name='L1075'><i><font color='green'> * json and token should exist on the stack somewhere.</font></i>
+<a name='L1076'><i><font color='green'> * luaL_error() will long_jmp and release the stack */</font></i>
+<a name='L1077'><b>static</b> <b>void</b> <a href='../R/2332.html' title='Multiple refered from 6 places.'>json_throw_parse_error</a>(lua_State *l, <a href='../S/285.html#L122' title='Defined at 122 in deps/lua/src/lua_cjson.c.'>json_parse_t</a> *json,
+<a name='L1078'>                                   <b>const</b> <b>char</b> *exp, <a href='../S/285.html#L133' title='Defined at 133 in deps/lua/src/lua_cjson.c.'>json_token_t</a> *token)
+<a name='L1079'><font color='red'>{</font>
+<a name='L1080'>    <b>const</b> <b>char</b> *found;
+<a name='L1081'>
+<a name='L1082'>    <a href='../S/274.html#L104' title='Defined at 104 in deps/lua/src/strbuf.c.'>strbuf_free</a>(json-&gt;tmp);
+<a name='L1083'>
+<a name='L1084'>    <b>if</b> (token-&gt;type == <a href='../S/285.html#L74' title='Defined at 74 in deps/lua/src/lua_cjson.c.'>T_ERROR</a>)
+<a name='L1085'>        found = token-&gt;value.string;
+<a name='L1086'>    <b>else</b>
+<a name='L1087'>        found = json_token_type_name[token-&gt;type];
+<a name='L1088'>
+<a name='L1089'>    <i><font color='green'>/* Note: token-&gt;index is 0 based, display starting from 1 */</font></i>
+<a name='L1090'>    <a href='../S/260.html#L86' title='Defined at 86 in deps/lua/src/lauxlib.c.'>luaL_error</a>(l, "Expected %s but found %s at character %d",
+<a name='L1091'>               exp, found, token-&gt;index + 1);
+<a name='L1092'><font color='red'>}</font>
+<a name='L1093'>
+<a name='L1094'><b>static</b> <b>void</b> <a href='../R/2315.html' title='Multiple refered from 2 places.'>json_decode_checkstack</a>(lua_State *l, <a href='../S/285.html#L122' title='Defined at 122 in deps/lua/src/lua_cjson.c.'>json_parse_t</a> *json, <b>int</b> n)
+<a name='L1095'><font color='red'>{</font>
+<a name='L1096'>    <b>if</b> (<a href='../S/272.html#L95' title='Defined at 95 in deps/lua/src/lapi.c.'>lua_checkstack</a>(l, n))
+<a name='L1097'>        <b>return</b>;
+<a name='L1098'>
+<a name='L1099'>    <a href='../S/274.html#L104' title='Defined at 104 in deps/lua/src/strbuf.c.'>strbuf_free</a>(json-&gt;tmp);
+<a name='L1100'>    <a href='../S/260.html#L86' title='Defined at 86 in deps/lua/src/lauxlib.c.'>luaL_error</a>(l, "Too many nested data structures");
+<a name='L1101'><font color='red'>}</font>
+<a name='L1102'>
+<a name='L1103'><b>static</b> <b>void</b> <a href='../S/285.html#L1199' title='Refered from 1199 in deps/lua/src/lua_cjson.c.'>json_parse_object_context</a>(lua_State *l, <a href='../S/285.html#L122' title='Defined at 122 in deps/lua/src/lua_cjson.c.'>json_parse_t</a> *json)
+<a name='L1104'><font color='red'>{</font>
+<a name='L1105'>    <a href='../S/285.html#L133' title='Defined at 133 in deps/lua/src/lua_cjson.c.'>json_token_t</a> token;
+<a name='L1106'>
+<a name='L1107'>    <i><font color='green'>/* 3 slots required:</font></i>
+<a name='L1108'><i><font color='green'>     * .., table, key, value */</font></i>
+<a name='L1109'>    <a href='../S/285.html#L1094' title='Defined at 1094 in deps/lua/src/lua_cjson.c.'>json_decode_checkstack</a>(l, json, 3);
+<a name='L1110'>
+<a name='L1111'>    <a href='../S/266.html#L256' title='Defined at 256 in deps/lua/src/lua.h.'>lua_newtable</a>(l);
+<a name='L1112'>
+<a name='L1113'>    <a href='../S/285.html#L997' title='Defined at 997 in deps/lua/src/lua_cjson.c.'>json_next_token</a>(json, &amp;token);
+<a name='L1114'>
+<a name='L1115'>    <i><font color='green'>/* Handle empty objects */</font></i>
+<a name='L1116'>    <b>if</b> (token.type == <a href='../S/285.html#L63' title='Defined at 63 in deps/lua/src/lua_cjson.c.'>T_OBJ_END</a>) <font color='red'>{</font>
+<a name='L1117'>        <b>return</b>;
+<a name='L1118'>    <font color='red'>}</font>
+<a name='L1119'>
+<a name='L1120'>    <b>while</b> (1) <font color='red'>{</font>
+<a name='L1121'>        <b>if</b> (token.type != <a href='../S/285.html#L66' title='Defined at 66 in deps/lua/src/lua_cjson.c.'>T_STRING</a>)
+<a name='L1122'>            <a href='../S/285.html#L1077' title='Defined at 1077 in deps/lua/src/lua_cjson.c.'>json_throw_parse_error</a>(l, json, "object key string", &amp;token);
+<a name='L1123'>
+<a name='L1124'>        <i><font color='green'>/* Push key */</font></i>
+<a name='L1125'>        <a href='../S/272.html#L445' title='Defined at 445 in deps/lua/src/lapi.c.'>lua_pushlstring</a>(l, token.value.string, token.string_len);
+<a name='L1126'>
+<a name='L1127'>        <a href='../S/285.html#L997' title='Defined at 997 in deps/lua/src/lua_cjson.c.'>json_next_token</a>(json, &amp;token);
+<a name='L1128'>        <b>if</b> (token.type != <a href='../S/285.html#L70' title='Defined at 70 in deps/lua/src/lua_cjson.c.'>T_COLON</a>)
+<a name='L1129'>            <a href='../S/285.html#L1077' title='Defined at 1077 in deps/lua/src/lua_cjson.c.'>json_throw_parse_error</a>(l, json, "colon", &amp;token);
+<a name='L1130'>
+<a name='L1131'>        <i><font color='green'>/* Fetch value */</font></i>
+<a name='L1132'>        <a href='../S/285.html#L997' title='Defined at 997 in deps/lua/src/lua_cjson.c.'>json_next_token</a>(json, &amp;token);
+<a name='L1133'>        <a href='../S/285.html#L1185' title='Defined at 1185 in deps/lua/src/lua_cjson.c.'>json_process_value</a>(l, json, &amp;token);
+<a name='L1134'>
+<a name='L1135'>        <i><font color='green'>/* Set key = value */</font></i>
+<a name='L1136'>        <a href='../S/272.html#L671' title='Defined at 671 in deps/lua/src/lapi.c.'>lua_rawset</a>(l, -3);
+<a name='L1137'>
+<a name='L1138'>        <a href='../S/285.html#L997' title='Defined at 997 in deps/lua/src/lua_cjson.c.'>json_next_token</a>(json, &amp;token);
+<a name='L1139'>
+<a name='L1140'>        <b>if</b> (token.type == <a href='../S/285.html#L63' title='Defined at 63 in deps/lua/src/lua_cjson.c.'>T_OBJ_END</a>)
+<a name='L1141'>            <b>return</b>;
+<a name='L1142'>
+<a name='L1143'>        <b>if</b> (token.type != <a href='../S/285.html#L71' title='Defined at 71 in deps/lua/src/lua_cjson.c.'>T_COMMA</a>)
+<a name='L1144'>            <a href='../S/285.html#L1077' title='Defined at 1077 in deps/lua/src/lua_cjson.c.'>json_throw_parse_error</a>(l, json, "comma or object end", &amp;token);
+<a name='L1145'>
+<a name='L1146'>        <a href='../S/285.html#L997' title='Defined at 997 in deps/lua/src/lua_cjson.c.'>json_next_token</a>(json, &amp;token);
+<a name='L1147'>    <font color='red'>}</font>
+<a name='L1148'><font color='red'>}</font>
+<a name='L1149'>
+<a name='L1150'><i><font color='green'>/* Handle the array context */</font></i>
+<a name='L1151'><b>static</b> <b>void</b> <a href='../S/285.html#L1202' title='Refered from 1202 in deps/lua/src/lua_cjson.c.'>json_parse_array_context</a>(lua_State *l, <a href='../S/285.html#L122' title='Defined at 122 in deps/lua/src/lua_cjson.c.'>json_parse_t</a> *json)
+<a name='L1152'><font color='red'>{</font>
+<a name='L1153'>    <a href='../S/285.html#L133' title='Defined at 133 in deps/lua/src/lua_cjson.c.'>json_token_t</a> token;
+<a name='L1154'>    <b>int</b> i;
+<a name='L1155'>
+<a name='L1156'>    <i><font color='green'>/* 2 slots required:</font></i>
+<a name='L1157'><i><font color='green'>     * .., table, value */</font></i>
+<a name='L1158'>    <a href='../S/285.html#L1094' title='Defined at 1094 in deps/lua/src/lua_cjson.c.'>json_decode_checkstack</a>(l, json, 2);
+<a name='L1159'>
+<a name='L1160'>    <a href='../S/266.html#L256' title='Defined at 256 in deps/lua/src/lua.h.'>lua_newtable</a>(l);
+<a name='L1161'>
+<a name='L1162'>    <a href='../S/285.html#L997' title='Defined at 997 in deps/lua/src/lua_cjson.c.'>json_next_token</a>(json, &amp;token);
+<a name='L1163'>
+<a name='L1164'>    <i><font color='green'>/* Handle empty arrays */</font></i>
+<a name='L1165'>    <b>if</b> (token.type == <a href='../S/285.html#L65' title='Defined at 65 in deps/lua/src/lua_cjson.c.'>T_ARR_END</a>)
+<a name='L1166'>        <b>return</b>;
+<a name='L1167'>
+<a name='L1168'>    <b>for</b> (i = 1; ; i++) <font color='red'>{</font>
+<a name='L1169'>        <a href='../S/285.html#L1185' title='Defined at 1185 in deps/lua/src/lua_cjson.c.'>json_process_value</a>(l, json, &amp;token);
+<a name='L1170'>        <a href='../S/272.html#L684' title='Defined at 684 in deps/lua/src/lapi.c.'>lua_rawseti</a>(l, -2, i);            <i><font color='green'>/* arr[i] = value */</font></i>
+<a name='L1171'>
+<a name='L1172'>        <a href='../S/285.html#L997' title='Defined at 997 in deps/lua/src/lua_cjson.c.'>json_next_token</a>(json, &amp;token);
+<a name='L1173'>
+<a name='L1174'>        <b>if</b> (token.type == <a href='../S/285.html#L65' title='Defined at 65 in deps/lua/src/lua_cjson.c.'>T_ARR_END</a>)
+<a name='L1175'>            <b>return</b>;
+<a name='L1176'>
+<a name='L1177'>        <b>if</b> (token.type != <a href='../S/285.html#L71' title='Defined at 71 in deps/lua/src/lua_cjson.c.'>T_COMMA</a>)
+<a name='L1178'>            <a href='../S/285.html#L1077' title='Defined at 1077 in deps/lua/src/lua_cjson.c.'>json_throw_parse_error</a>(l, json, "comma or array end", &amp;token);
+<a name='L1179'>
+<a name='L1180'>        <a href='../S/285.html#L997' title='Defined at 997 in deps/lua/src/lua_cjson.c.'>json_next_token</a>(json, &amp;token);
+<a name='L1181'>    <font color='red'>}</font>
+<a name='L1182'><font color='red'>}</font>
+<a name='L1183'>
+<a name='L1184'><i><font color='green'>/* Handle the "value" context */</font></i>
+<a name='L1185'><b>static</b> <b>void</b> <a href='../R/2329.html' title='Multiple refered from 4 places.'>json_process_value</a>(lua_State *l, <a href='../S/285.html#L122' title='Defined at 122 in deps/lua/src/lua_cjson.c.'>json_parse_t</a> *json,
+<a name='L1186'>                               <a href='../S/285.html#L133' title='Defined at 133 in deps/lua/src/lua_cjson.c.'>json_token_t</a> *token)
+<a name='L1187'><font color='red'>{</font>
+<a name='L1188'>    <b>switch</b> (token-&gt;type) <font color='red'>{</font>
+<a name='L1189'>    <b>case</b> <a href='../S/285.html#L66' title='Defined at 66 in deps/lua/src/lua_cjson.c.'>T_STRING</a>:
+<a name='L1190'>        <a href='../S/272.html#L445' title='Defined at 445 in deps/lua/src/lapi.c.'>lua_pushlstring</a>(l, token-&gt;value.string, token-&gt;string_len);
+<a name='L1191'>        <b>break</b>;;
+<a name='L1192'>    <b>case</b> <a href='../S/285.html#L67' title='Defined at 67 in deps/lua/src/lua_cjson.c.'>T_NUMBER</a>:
+<a name='L1193'>        <a href='../S/272.html#L429' title='Defined at 429 in deps/lua/src/lapi.c.'>lua_pushnumber</a>(l, token-&gt;value.number);
+<a name='L1194'>        <b>break</b>;;
+<a name='L1195'>    <b>case</b> <a href='../S/285.html#L68' title='Defined at 68 in deps/lua/src/lua_cjson.c.'>T_BOOLEAN</a>:
+<a name='L1196'>        <a href='../S/272.html#L503' title='Defined at 503 in deps/lua/src/lapi.c.'>lua_pushboolean</a>(l, token-&gt;value.boolean);
+<a name='L1197'>        <b>break</b>;;
+<a name='L1198'>    <b>case</b> <a href='../S/285.html#L62' title='Defined at 62 in deps/lua/src/lua_cjson.c.'>T_OBJ_BEGIN</a>:
+<a name='L1199'>        <a href='../S/285.html#L1103' title='Defined at 1103 in deps/lua/src/lua_cjson.c.'>json_parse_object_context</a>(l, json);
+<a name='L1200'>        <b>break</b>;;
+<a name='L1201'>    <b>case</b> <a href='../S/285.html#L64' title='Defined at 64 in deps/lua/src/lua_cjson.c.'>T_ARR_BEGIN</a>:
+<a name='L1202'>        <a href='../S/285.html#L1151' title='Defined at 1151 in deps/lua/src/lua_cjson.c.'>json_parse_array_context</a>(l, json);
+<a name='L1203'>        <b>break</b>;;
+<a name='L1204'>    <b>case</b> <a href='../S/285.html#L69' title='Defined at 69 in deps/lua/src/lua_cjson.c.'>T_NULL</a>:
+<a name='L1205'>        <i><font color='green'>/* In Lua, setting "t[k] = nil" will delete k from the table.</font></i>
+<a name='L1206'><i><font color='green'>         * Hence a NULL pointer lightuserdata object is used instead */</font></i>
+<a name='L1207'>        <a href='../S/272.html#L511' title='Defined at 511 in deps/lua/src/lapi.c.'>lua_pushlightuserdata</a>(l, NULL);
+<a name='L1208'>        <b>break</b>;;
+<a name='L1209'>    <b>default</b>:
+<a name='L1210'>        <a href='../S/285.html#L1077' title='Defined at 1077 in deps/lua/src/lua_cjson.c.'>json_throw_parse_error</a>(l, json, "value", token);
+<a name='L1211'>    <font color='red'>}</font>
+<a name='L1212'><font color='red'>}</font>
+<a name='L1213'>
+<a name='L1214'><i><font color='green'>/* json_text must be null terminated string */</font></i>
+<a name='L1215'><b>static</b> <b>void</b> <a href='../S/285.html#L1258' title='Refered from 1258 in deps/lua/src/lua_cjson.c.'>lua_json_decode</a>(lua_State *l, <b>const</b> <b>char</b> *json_text, <b>int</b> json_len)
+<a name='L1216'><font color='red'>{</font>
+<a name='L1217'>    <a href='../S/285.html#L122' title='Defined at 122 in deps/lua/src/lua_cjson.c.'>json_parse_t</a> json;
+<a name='L1218'>    <a href='../S/285.html#L133' title='Defined at 133 in deps/lua/src/lua_cjson.c.'>json_token_t</a> token;
+<a name='L1219'>
+<a name='L1220'>    json.cfg = <a href='../S/285.html#L178' title='Defined at 178 in deps/lua/src/lua_cjson.c.'>json_fetch_config</a>(l);
+<a name='L1221'>    json.data = json_text;
+<a name='L1222'>    json.index = 0;
+<a name='L1223'>
+<a name='L1224'>    <i><font color='green'>/* Ensure the temporary buffer can hold the entire string.</font></i>
+<a name='L1225'><i><font color='green'>     * This means we no longer need to do length checks since the decoded</font></i>
+<a name='L1226'><i><font color='green'>     * string must be smaller than the entire json string */</font></i>
+<a name='L1227'>    json.tmp = <a href='../S/274.html#L68' title='Defined at 68 in deps/lua/src/strbuf.c.'>strbuf_new</a>(json_len);
+<a name='L1228'>
+<a name='L1229'>    <a href='../S/285.html#L997' title='Defined at 997 in deps/lua/src/lua_cjson.c.'>json_next_token</a>(&amp;json, &amp;token);
+<a name='L1230'>    <a href='../S/285.html#L1185' title='Defined at 1185 in deps/lua/src/lua_cjson.c.'>json_process_value</a>(l, &amp;json, &amp;token);
+<a name='L1231'>
+<a name='L1232'>    <i><font color='green'>/* Ensure there is no more input left */</font></i>
+<a name='L1233'>    <a href='../S/285.html#L997' title='Defined at 997 in deps/lua/src/lua_cjson.c.'>json_next_token</a>(&amp;json, &amp;token);
+<a name='L1234'>
+<a name='L1235'>    <b>if</b> (token.type != <a href='../S/285.html#L72' title='Defined at 72 in deps/lua/src/lua_cjson.c.'>T_END</a>)
+<a name='L1236'>        <a href='../S/285.html#L1077' title='Defined at 1077 in deps/lua/src/lua_cjson.c.'>json_throw_parse_error</a>(l, &amp;json, "the end", &amp;token);
+<a name='L1237'>
+<a name='L1238'>    <a href='../S/274.html#L104' title='Defined at 104 in deps/lua/src/strbuf.c.'>strbuf_free</a>(json.tmp);
+<a name='L1239'><font color='red'>}</font>
+<a name='L1240'>
+<a name='L1241'><b>static</b> <b>int</b> <a href='../S/285.html#L1269' title='Refered from 1269 in deps/lua/src/lua_cjson.c.'>json_decode</a>(lua_State *l)
+<a name='L1242'><font color='red'>{</font>
+<a name='L1243'>    <b>const</b> <b>char</b> *json;
+<a name='L1244'>    size_t len;
+<a name='L1245'>
+<a name='L1246'>    <a href='../S/285.html#L193' title='Defined at 193 in deps/lua/src/lua_cjson.c.'>json_verify_arg_count</a>(l, 1);
+<a name='L1247'>
+<a name='L1248'>    json = <a href='../S/260.html#L158' title='Defined at 158 in deps/lua/src/lauxlib.c.'>luaL_checklstring</a>(l, 1, &amp;len);
+<a name='L1249'>
+<a name='L1250'>    <i><font color='green'>/* Detect Unicode other than UTF-8 (see RFC 4627, Sec 3)</font></i>
+<a name='L1251'><i><font color='green'>     *</font></i>
+<a name='L1252'><i><font color='green'>     * CJSON can support any simple data type, hence only the first</font></i>
+<a name='L1253'><i><font color='green'>     * character is guaranteed to be ASCII (at worst: '"'). This is</font></i>
+<a name='L1254'><i><font color='green'>     * still enough to detect whether the wrong encoding is in use. */</font></i>
+<a name='L1255'>    <b>if</b> (len &gt;= 2 &amp;&amp; (!json[0] || !json[1]))
+<a name='L1256'>        <a href='../S/260.html#L86' title='Defined at 86 in deps/lua/src/lauxlib.c.'>luaL_error</a>(l, "JSON parser does not support UTF-16 or UTF-32");
+<a name='L1257'>
+<a name='L1258'>    <a href='../S/285.html#L1215' title='Defined at 1215 in deps/lua/src/lua_cjson.c.'>lua_json_decode</a>(l, json, len);
+<a name='L1259'>
+<a name='L1260'>    <b>return</b> 1;
+<a name='L1261'><font color='red'>}</font>
+<a name='L1262'>
+<a name='L1263'><i><font color='green'>/* ===== INITIALISATION ===== */</font></i>
+<a name='L1264'>
+<a name='L1265'><b>int</b> <a href='../R/2897.html' title='Multiple refered from 2 places.'>luaopen_cjson</a>(lua_State *l)
+<a name='L1266'><font color='red'>{</font>
+<a name='L1267'>    <a href='../D/2952.html' title='Multiple defined in 2 places.'>luaL_Reg</a> reg[] = <font color='red'>{</font>
+<a name='L1268'>        <font color='red'>{</font> "encode", <a href='../S/285.html#L686' title='Defined at 686 in deps/lua/src/lua_cjson.c.'>json_encode</a> <font color='red'>}</font>,
+<a name='L1269'>        <font color='red'>{</font> "decode", <a href='../S/285.html#L1241' title='Defined at 1241 in deps/lua/src/lua_cjson.c.'>json_decode</a> <font color='red'>}</font>,
+<a name='L1270'>        <font color='red'>{</font> "encode_sparse_array", <a href='../S/285.html#L203' title='Defined at 203 in deps/lua/src/lua_cjson.c.'>json_cfg_encode_sparse_array</a> <font color='red'>}</font>,
+<a name='L1271'>        <font color='red'>{</font> "encode_max_depth", <a href='../S/285.html#L234' title='Defined at 234 in deps/lua/src/lua_cjson.c.'>json_cfg_encode_max_depth</a> <font color='red'>}</font>,
+<a name='L1272'>        <font color='red'>{</font> "encode_number_precision", <a href='../S/285.html#L260' title='Defined at 260 in deps/lua/src/lua_cjson.c.'>json_cfg_encode_number_precision</a> <font color='red'>}</font>,
+<a name='L1273'>        <font color='red'>{</font> "encode_keep_buffer", <a href='../S/285.html#L281' title='Defined at 281 in deps/lua/src/lua_cjson.c.'>json_cfg_encode_keep_buffer</a> <font color='red'>}</font>,
+<a name='L1274'>        <font color='red'>{</font> "refuse_invalid_numbers", <a href='../S/285.html#L326' title='Defined at 326 in deps/lua/src/lua_cjson.c.'>json_cfg_refuse_invalid_numbers</a> <font color='red'>}</font>,
+<a name='L1275'>        <font color='red'>{</font> NULL, NULL <font color='red'>}</font>
+<a name='L1276'>    <font color='red'>}</font>;
+<a name='L1277'>
+<a name='L1278'>    <i><font color='green'>/* Use json_fetch_config as a pointer.</font></i>
+<a name='L1279'><i><font color='green'>     * It's faster than using a config string, and more unique */</font></i>
+<a name='L1280'>    <a href='../S/272.html#L511' title='Defined at 511 in deps/lua/src/lapi.c.'>lua_pushlightuserdata</a>(l, &amp;json_config_key);
+<a name='L1281'>    <a href='../S/285.html#L354' title='Defined at 354 in deps/lua/src/lua_cjson.c.'>json_create_config</a>(l);
+<a name='L1282'>    <a href='../S/272.html#L645' title='Defined at 645 in deps/lua/src/lapi.c.'>lua_settable</a>(l, <a href='../S/266.html#L36' title='Defined at 36 in deps/lua/src/lua.h.'>LUA_REGISTRYINDEX</a>);
+<a name='L1283'>
+<a name='L1284'>    luaL_register(l, "cjson", reg);
+<a name='L1285'>
+<a name='L1286'>    <i><font color='green'>/* Set cjson.null */</font></i>
+<a name='L1287'>    <a href='../S/272.html#L511' title='Defined at 511 in deps/lua/src/lapi.c.'>lua_pushlightuserdata</a>(l, NULL);
+<a name='L1288'>    <a href='../S/272.html#L657' title='Defined at 657 in deps/lua/src/lapi.c.'>lua_setfield</a>(l, -2, "null");
+<a name='L1289'>
+<a name='L1290'>    <i><font color='green'>/* Set cjson.version */</font></i>
+<a name='L1291'>    <a href='../S/266.html#L273' title='Defined at 273 in deps/lua/src/lua.h.'>lua_pushliteral</a>(l, <a href='../S/285.html#L1' title='Defined at 1 in deps/lua/src/lua_cjson.c.'>VERSION</a>);
+<a name='L1292'>    <a href='../S/272.html#L657' title='Defined at 657 in deps/lua/src/lapi.c.'>lua_setfield</a>(l, -2, "version");
+<a name='L1293'>
+<a name='L1294'>    <i><font color='green'>/* Return cjson table */</font></i>
+<a name='L1295'>    <b>return</b> 1;
+<a name='L1296'><font color='red'>}</font>
+<a name='L1297'>
+<a name='L1298'><i><font color='green'>/* vi:ai et sw=4 ts=4:</font></i>
+<a name='L1299'><i><font color='green'> */</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L178'>[^]</a><a href='#L1265'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

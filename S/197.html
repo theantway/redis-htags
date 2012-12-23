@@ -1,0 +1,63 @@
+<html>
+<head>
+<title>deps/jemalloc/src/extent.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/395.html'>src</a>/extent.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L7'>[^]</a><a href='#L25'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L7' title='Defined at 7.'>extent_szad_comp</a>
+<li><a href='#L25' title='Defined at 25.'>rb_gen</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> JEMALLOC_EXTENT_C_
+<a name='L2'><font color='darkred'>#include</font> "jemalloc/internal/jemalloc_internal.h"
+<a name='L3'>
+<a name='L4'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L5'>
+<a name='L6'><b>static</b> <b>inline</b> <b>int</b>
+<a name='L7'>extent_szad_comp(<a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a> *a, <a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a> *b)
+<a name='L8'><font color='red'>{</font>
+<a name='L9'>        <b>int</b> ret;
+<a name='L10'>        size_t a_size = a-&gt;size;
+<a name='L11'>        size_t b_size = b-&gt;size;
+<a name='L12'>
+<a name='L13'>        ret = (a_size &gt; b_size) - (a_size &lt; b_size);
+<a name='L14'>        <b>if</b> (ret == 0) <font color='red'>{</font>
+<a name='L15'>                <a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a> a_addr = (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)a-&gt;addr;
+<a name='L16'>                <a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a> b_addr = (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)b-&gt;addr;
+<a name='L17'>
+<a name='L18'>                ret = (a_addr &gt; b_addr) - (a_addr &lt; b_addr);
+<a name='L19'>        <font color='red'>}</font>
+<a name='L20'>
+<a name='L21'>        <b>return</b> (ret);
+<a name='L22'><font color='red'>}</font>
+<a name='L23'>
+<a name='L24'><i><font color='green'>/* Generate red-black tree functions. */</font></i>
+<a name='L25'><a href='../S/197.html#L38' title='Refered from 38 in deps/jemalloc/src/extent.c.'>rb_gen</a>(, extent_tree_szad_, <a href='../S/147.html#L30' title='Defined at 30 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_tree_t</a>, <a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a>, link_szad,
+<a name='L26'>    extent_szad_comp)
+<a name='L27'>
+<a name='L28'><b>static</b> <b>inline</b> <b>int</b>
+<a name='L29'>extent_ad_comp(<a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a> *a, <a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a> *b)
+<a name='L30'><font color='red'>{</font>
+<a name='L31'>        <a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a> a_addr = (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)a-&gt;addr;
+<a name='L32'>        <a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a> b_addr = (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)b-&gt;addr;
+<a name='L33'>
+<a name='L34'>        <b>return</b> ((a_addr &gt; b_addr) - (a_addr &lt; b_addr));
+<a name='L35'><font color='red'>}</font>
+<a name='L36'>
+<a name='L37'><i><font color='green'>/* Generate red-black tree functions. */</font></i>
+<a name='L38'><a href='../D/3678.html' title='Multiple defined in 5 places.'>rb_gen</a>(, extent_tree_ad_, <a href='../S/147.html#L30' title='Defined at 30 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_tree_t</a>, <a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a>, link_ad,
+<a name='L39'>    extent_ad_comp)
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L7'>[^]</a><a href='#L25'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

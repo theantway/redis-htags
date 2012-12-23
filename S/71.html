@@ -1,0 +1,636 @@
+<html>
+<head>
+<title>src/object.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/object.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L35'>[^]</a><a href='#L556'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L35' title='Defined at 35.'>createObject</a>
+<li><a href='#L47' title='Defined at 47.'>createStringObject</a>
+<li><a href='#L51' title='Defined at 51.'>createStringObjectFromLongLong</a>
+<li><a href='#L70' title='Defined at 70.'>createStringObjectFromLongDouble</a>
+<li><a href='#L92' title='Defined at 92.'>dupStringObject</a>
+<li><a href='#L97' title='Defined at 97.'>createListObject</a>
+<li><a href='#L105' title='Defined at 105.'>createZiplistObject</a>
+<li><a href='#L112' title='Defined at 112.'>createSetObject</a>
+<li><a href='#L119' title='Defined at 119.'>createIntsetObject</a>
+<li><a href='#L126' title='Defined at 126.'>createHashObject</a>
+<li><a href='#L133' title='Defined at 133.'>createZsetObject</a>
+<li><a href='#L144' title='Defined at 144.'>createZsetZiplistObject</a>
+<li><a href='#L151' title='Defined at 151.'>freeStringObject</a>
+<li><a href='#L157' title='Defined at 157.'>freeListObject</a>
+<li><a href='#L170' title='Defined at 170.'>freeSetObject</a>
+<li><a href='#L183' title='Defined at 183.'>freeZsetObject</a>
+<li><a href='#L200' title='Defined at 200.'>freeHashObject</a>
+<li><a href='#L214' title='Defined at 214.'>incrRefCount</a>
+<li><a href='#L218' title='Defined at 218.'>decrRefCount</a>
+<li><a href='#L249' title='Defined at 249.'>resetRefCount</a>
+<li><a href='#L254' title='Defined at 254.'>checkType</a>
+<li><a href='#L262' title='Defined at 262.'>isObjectRepresentableAsLongLong</a>
+<li><a href='#L273' title='Defined at 273.'>tryObjectEncoding</a>
+<li><a href='#L312' title='Defined at 312.'>getDecodedObject</a>
+<li><a href='#L338' title='Defined at 338.'>compareStringObjects</a>
+<li><a href='#L365' title='Defined at 365.'>equalStringObjects</a>
+<li><a href='#L373' title='Defined at 373.'>stringObjectLen</a>
+<li><a href='#L384' title='Defined at 384.'>getDoubleFromObject</a>
+<li><a href='#L408' title='Defined at 408.'>getDoubleFromObjectOrReply</a>
+<li><a href='#L422' title='Defined at 422.'>getLongDoubleFromObject</a>
+<li><a href='#L446' title='Defined at 446.'>getLongDoubleFromObjectOrReply</a>
+<li><a href='#L460' title='Defined at 460.'>getLongLongFromObject</a>
+<li><a href='#L484' title='Defined at 484.'>getLongLongFromObjectOrReply</a>
+<li><a href='#L498' title='Defined at 498.'>getLongFromObjectOrReply</a>
+<li><a href='#L514' title='Defined at 514.'>strEncoding</a>
+<li><a href='#L529' title='Defined at 529.'>estimateObjectIdleTime</a>
+<li><a href='#L540' title='Defined at 540.'>objectCommandLookup</a>
+<li><a href='#L547' title='Defined at 547.'>objectCommandLookupOrReply</a>
+<li><a href='#L556' title='Defined at 556.'>objectCommand</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* Redis Object implementation.</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'><font color='darkred'>#include</font> "<a href='32.html'>redis.h</a>"
+<a name='L32'><font color='darkred'>#include</font> &lt;math.h&gt;
+<a name='L33'><font color='darkred'>#include</font> &lt;ctype.h&gt;
+<a name='L34'>
+<a name='L35'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/1702.html' title='Multiple refered from 61 places.'>createObject</a>(<b>int</b> type, <b>void</b> *ptr) <font color='red'>{</font>
+<a name='L36'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(*o));
+<a name='L37'>    o-&gt;type = type;
+<a name='L38'>    o-&gt;encoding = <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>;
+<a name='L39'>    o-&gt;ptr = ptr;
+<a name='L40'>    o-&gt;refcount = 1;
+<a name='L41'>
+<a name='L42'>    <i><font color='green'>/* Set the LRU to the current lruclock (minutes resolution). */</font></i>
+<a name='L43'>    o-&gt;lru = server.lruclock;
+<a name='L44'>    <b>return</b> o;
+<a name='L45'><font color='red'>}</font>
+<a name='L46'>
+<a name='L47'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/1711.html' title='Multiple refered from 51 places.'>createStringObject</a>(<b>char</b> *ptr, size_t len) <font color='red'>{</font>
+<a name='L48'>    <b>return</b> <a href='../S/71.html#L35' title='Defined at 35 in src/object.c.'>createObject</a>(<a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>,<a href='../D/4014.html' title='Multiple defined in 2 places.'>sdsnewlen</a>(ptr,len));
+<a name='L49'><font color='red'>}</font>
+<a name='L50'>
+<a name='L51'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/1713.html' title='Multiple refered from 21 places.'>createStringObjectFromLongLong</a>(<b>long</b> <b>long</b> value) <font color='red'>{</font>
+<a name='L52'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L53'>    <b>if</b> (value &gt;= 0 &amp;&amp; value &lt; <a href='../S/32.html#L79' title='Defined at 79 in src/redis.h.'>REDIS_SHARED_INTEGERS</a>) <font color='red'>{</font>
+<a name='L54'>        <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(shared.integers[value]);
+<a name='L55'>        o = shared.integers[value];
+<a name='L56'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L57'>        <b>if</b> (value &gt;= LONG_MIN &amp;&amp; value &lt;= LONG_MAX) <font color='red'>{</font>
+<a name='L58'>            o = <a href='../S/71.html#L35' title='Defined at 35 in src/object.c.'>createObject</a>(<a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>, NULL);
+<a name='L59'>            o-&gt;encoding = <a href='../D/786.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_INT</a>;
+<a name='L60'>            o-&gt;ptr = (<b>void</b>*)((<b>long</b>)value);
+<a name='L61'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L62'>            o = <a href='../S/71.html#L35' title='Defined at 35 in src/object.c.'>createObject</a>(<a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>,<a href='../D/4008.html' title='Multiple defined in 2 places.'>sdsfromlonglong</a>(value));
+<a name='L63'>        <font color='red'>}</font>
+<a name='L64'>    <font color='red'>}</font>
+<a name='L65'>    <b>return</b> o;
+<a name='L66'><font color='red'>}</font>
+<a name='L67'>
+<a name='L68'><i><font color='green'>/* Note: this function is defined into object.c since here it is where it</font></i>
+<a name='L69'><i><font color='green'> * belongs but it is actually designed to be used just for INCRBYFLOAT */</font></i>
+<a name='L70'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/1712.html' title='Multiple refered from 3 places.'>createStringObjectFromLongDouble</a>(<b>long</b> <b>double</b> value) <font color='red'>{</font>
+<a name='L71'>    <b>char</b> buf[256];
+<a name='L72'>    <b>int</b> len;
+<a name='L73'>
+<a name='L74'>    <i><font color='green'>/* We use 17 digits precision since with 128 bit floats that precision</font></i>
+<a name='L75'><i><font color='green'>     * after rouding is able to represent most small decimal numbers in a way</font></i>
+<a name='L76'><i><font color='green'>     * that is "non surprising" for the user (that is, most small decimal</font></i>
+<a name='L77'><i><font color='green'>     * numbers will be represented in a way that when converted back into</font></i>
+<a name='L78'><i><font color='green'>     * a string are exactly the same as what the user typed.) */</font></i>
+<a name='L79'>    len = snprintf(buf,<b>sizeof</b>(buf),"%.17Lf", value);
+<a name='L80'>    <i><font color='green'>/* Now remove trailing zeroes after the '.' */</font></i>
+<a name='L81'>    <b>if</b> (strchr(buf,'.') != NULL) <font color='red'>{</font>
+<a name='L82'>        <b>char</b> *p = buf+len-1;
+<a name='L83'>        <b>while</b>(*p == '0') <font color='red'>{</font>
+<a name='L84'>            p--;
+<a name='L85'>            len--;
+<a name='L86'>        <font color='red'>}</font>
+<a name='L87'>        <b>if</b> (*p == '.') len--;
+<a name='L88'>    <font color='red'>}</font>
+<a name='L89'>    <b>return</b> <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>(buf,len);
+<a name='L90'><font color='red'>}</font>
+<a name='L91'>
+<a name='L92'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/1880.html' title='Multiple refered from 4 places.'>dupStringObject</a>(robj *o) <font color='red'>{</font>
+<a name='L93'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(NULL,o,o-&gt;encoding == <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>);
+<a name='L94'>    <b>return</b> <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>(o-&gt;ptr,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(o-&gt;ptr));
+<a name='L95'><font color='red'>}</font>
+<a name='L96'>
+<a name='L97'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/1699.html' title='Multiple refered from 3 places.'>createListObject</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L98'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *l = <a href='../S/54.html#L41' title='Defined at 41 in src/adlist.c.'>listCreate</a>();
+<a name='L99'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o = <a href='../S/71.html#L35' title='Defined at 35 in src/object.c.'>createObject</a>(<a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>,l);
+<a name='L100'>    <a href='../S/58.html#L65' title='Defined at 65 in src/adlist.h.'>listSetFreeMethod</a>(l,<a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>);
+<a name='L101'>    o-&gt;encoding = <a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>;
+<a name='L102'>    <b>return</b> o;
+<a name='L103'><font color='red'>}</font>
+<a name='L104'>
+<a name='L105'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/1714.html' title='Multiple refered from 5 places.'>createZiplistObject</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L106'>    <b>unsigned</b> <b>char</b> *zl = <a href='../S/89.html#L418' title='Defined at 418 in src/ziplist.c.'>ziplistNew</a>();
+<a name='L107'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o = <a href='../S/71.html#L35' title='Defined at 35 in src/object.c.'>createObject</a>(<a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>,zl);
+<a name='L108'>    o-&gt;encoding = <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>;
+<a name='L109'>    <b>return</b> o;
+<a name='L110'><font color='red'>}</font>
+<a name='L111'>
+<a name='L112'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/1708.html' title='Multiple refered from 3 places.'>createSetObject</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L113'>    <a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a> *d = <a href='../D/2065.html' title='Multiple defined in 2 places.'>dictCreate</a>(&amp;setDictType,NULL);
+<a name='L114'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o = <a href='../S/71.html#L35' title='Defined at 35 in src/object.c.'>createObject</a>(<a href='../D/908.html' title='Multiple defined in 2 places.'>REDIS_SET</a>,d);
+<a name='L115'>    o-&gt;encoding = <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>;
+<a name='L116'>    <b>return</b> o;
+<a name='L117'><font color='red'>}</font>
+<a name='L118'>
+<a name='L119'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/1697.html' title='Multiple refered from 5 places.'>createIntsetObject</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L120'>    <a href='../D/2513.html' title='Multiple defined in 2 places.'>intset</a> *is = <a href='../S/44.html#L97' title='Defined at 97 in src/intset.c.'>intsetNew</a>();
+<a name='L121'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o = <a href='../S/71.html#L35' title='Defined at 35 in src/object.c.'>createObject</a>(<a href='../D/908.html' title='Multiple defined in 2 places.'>REDIS_SET</a>,is);
+<a name='L122'>    o-&gt;encoding = <a href='../S/32.html#L136' title='Defined at 136 in src/redis.h.'>REDIS_ENCODING_INTSET</a>;
+<a name='L123'>    <b>return</b> o;
+<a name='L124'><font color='red'>}</font>
+<a name='L125'>
+<a name='L126'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/1694.html' title='Multiple refered from 3 places.'>createHashObject</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L127'>    <b>unsigned</b> <b>char</b> *zl = <a href='../S/89.html#L418' title='Defined at 418 in src/ziplist.c.'>ziplistNew</a>();
+<a name='L128'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o = <a href='../S/71.html#L35' title='Defined at 35 in src/object.c.'>createObject</a>(<a href='../D/807.html' title='Multiple defined in 2 places.'>REDIS_HASH</a>, zl);
+<a name='L129'>    o-&gt;encoding = <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>;
+<a name='L130'>    <b>return</b> o;
+<a name='L131'><font color='red'>}</font>
+<a name='L132'>
+<a name='L133'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/1715.html' title='Multiple refered from 4 places.'>createZsetObject</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L134'>    <a href='../D/4576.html' title='Multiple defined in 2 places.'>zset</a> *zs = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(*zs));
+<a name='L135'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L136'>
+<a name='L137'>    zs-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a> = <a href='../D/2065.html' title='Multiple defined in 2 places.'>dictCreate</a>(&amp;zsetDictType,NULL);
+<a name='L138'>    zs-&gt;zsl = <a href='../S/59.html#L62' title='Defined at 62 in src/t_zset.c.'>zslCreate</a>();
+<a name='L139'>    o = <a href='../S/71.html#L35' title='Defined at 35 in src/object.c.'>createObject</a>(<a href='../D/933.html' title='Multiple defined in 2 places.'>REDIS_ZSET</a>,zs);
+<a name='L140'>    o-&gt;encoding = <a href='../S/32.html#L137' title='Defined at 137 in src/redis.h.'>REDIS_ENCODING_SKIPLIST</a>;
+<a name='L141'>    <b>return</b> o;
+<a name='L142'><font color='red'>}</font>
+<a name='L143'>
+<a name='L144'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/1716.html' title='Multiple refered from 2 places.'>createZsetZiplistObject</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L145'>    <b>unsigned</b> <b>char</b> *zl = <a href='../S/89.html#L418' title='Defined at 418 in src/ziplist.c.'>ziplistNew</a>();
+<a name='L146'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o = <a href='../S/71.html#L35' title='Defined at 35 in src/object.c.'>createObject</a>(<a href='../D/933.html' title='Multiple defined in 2 places.'>REDIS_ZSET</a>,zl);
+<a name='L147'>    o-&gt;encoding = <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>;
+<a name='L148'>    <b>return</b> o;
+<a name='L149'><font color='red'>}</font>
+<a name='L150'>
+<a name='L151'><b>void</b> <a href='../R/2007.html' title='Multiple refered from 2 places.'>freeStringObject</a>(robj *o) <font color='red'>{</font>
+<a name='L152'>    <b>if</b> (o-&gt;encoding == <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>) <font color='red'>{</font>
+<a name='L153'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(o-&gt;ptr);
+<a name='L154'>    <font color='red'>}</font>
+<a name='L155'><font color='red'>}</font>
+<a name='L156'>
+<a name='L157'><b>void</b> <a href='../R/2002.html' title='Multiple refered from 2 places.'>freeListObject</a>(robj *o) <font color='red'>{</font>
+<a name='L158'>    <b>switch</b> (o-&gt;encoding) <font color='red'>{</font>
+<a name='L159'>    <b>case</b> <a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>:
+<a name='L160'>        <a href='../S/54.html#L58' title='Defined at 58 in src/adlist.c.'>listRelease</a>((<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>*) o-&gt;ptr);
+<a name='L161'>        <b>break</b>;
+<a name='L162'>    <b>case</b> <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>:
+<a name='L163'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(o-&gt;ptr);
+<a name='L164'>        <b>break</b>;
+<a name='L165'>    <b>default</b>:
+<a name='L166'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown list encoding type");
+<a name='L167'>    <font color='red'>}</font>
+<a name='L168'><font color='red'>}</font>
+<a name='L169'>
+<a name='L170'><b>void</b> <a href='../R/2006.html' title='Multiple refered from 2 places.'>freeSetObject</a>(robj *o) <font color='red'>{</font>
+<a name='L171'>    <b>switch</b> (o-&gt;encoding) <font color='red'>{</font>
+<a name='L172'>    <b>case</b> <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>:
+<a name='L173'>        <a href='../D/2108.html' title='Multiple defined in 2 places.'>dictRelease</a>((<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>*) o-&gt;ptr);
+<a name='L174'>        <b>break</b>;
+<a name='L175'>    <b>case</b> <a href='../S/32.html#L136' title='Defined at 136 in src/redis.h.'>REDIS_ENCODING_INTSET</a>:
+<a name='L176'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(o-&gt;ptr);
+<a name='L177'>        <b>break</b>;
+<a name='L178'>    <b>default</b>:
+<a name='L179'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown set encoding type");
+<a name='L180'>    <font color='red'>}</font>
+<a name='L181'><font color='red'>}</font>
+<a name='L182'>
+<a name='L183'><b>void</b> <a href='../R/2008.html' title='Multiple refered from 2 places.'>freeZsetObject</a>(robj *o) <font color='red'>{</font>
+<a name='L184'>    <a href='../D/4576.html' title='Multiple defined in 2 places.'>zset</a> *zs;
+<a name='L185'>    <b>switch</b> (o-&gt;encoding) <font color='red'>{</font>
+<a name='L186'>    <b>case</b> <a href='../S/32.html#L137' title='Defined at 137 in src/redis.h.'>REDIS_ENCODING_SKIPLIST</a>:
+<a name='L187'>        zs = o-&gt;ptr;
+<a name='L188'>        <a href='../D/2108.html' title='Multiple defined in 2 places.'>dictRelease</a>(zs-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>);
+<a name='L189'>        <a href='../S/59.html#L84' title='Defined at 84 in src/t_zset.c.'>zslFree</a>(zs-&gt;zsl);
+<a name='L190'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(zs);
+<a name='L191'>        <b>break</b>;
+<a name='L192'>    <b>case</b> <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>:
+<a name='L193'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(o-&gt;ptr);
+<a name='L194'>        <b>break</b>;
+<a name='L195'>    <b>default</b>:
+<a name='L196'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown sorted set encoding");
+<a name='L197'>    <font color='red'>}</font>
+<a name='L198'><font color='red'>}</font>
+<a name='L199'>
+<a name='L200'><b>void</b> <a href='../R/2000.html' title='Multiple refered from 2 places.'>freeHashObject</a>(robj *o) <font color='red'>{</font>
+<a name='L201'>    <b>switch</b> (o-&gt;encoding) <font color='red'>{</font>
+<a name='L202'>    <b>case</b> <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>:
+<a name='L203'>        <a href='../D/2108.html' title='Multiple defined in 2 places.'>dictRelease</a>((<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>*) o-&gt;ptr);
+<a name='L204'>        <b>break</b>;
+<a name='L205'>    <b>case</b> <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>:
+<a name='L206'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(o-&gt;ptr);
+<a name='L207'>        <b>break</b>;
+<a name='L208'>    <b>default</b>:
+<a name='L209'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown hash encoding type");
+<a name='L210'>        <b>break</b>;
+<a name='L211'>    <font color='red'>}</font>
+<a name='L212'><font color='red'>}</font>
+<a name='L213'>
+<a name='L214'><b>void</b> <a href='../R/2194.html' title='Multiple refered from 58 places.'>incrRefCount</a>(robj *o) <font color='red'>{</font>
+<a name='L215'>    o-&gt;refcount++;
+<a name='L216'><font color='red'>}</font>
+<a name='L217'>
+<a name='L218'><b>void</b> <a href='../R/1781.html' title='Multiple refered from 135 places.'>decrRefCount</a>(<b>void</b> *obj) <font color='red'>{</font>
+<a name='L219'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o = obj;
+<a name='L220'>
+<a name='L221'>    <b>if</b> (o-&gt;refcount &lt;= 0) <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("decrRefCount against refcount &lt;= 0");
+<a name='L222'>    <b>if</b> (o-&gt;refcount == 1) <font color='red'>{</font>
+<a name='L223'>        <b>switch</b>(o-&gt;type) <font color='red'>{</font>
+<a name='L224'>        <b>case</b> <a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>: <a href='../S/71.html#L151' title='Defined at 151 in src/object.c.'>freeStringObject</a>(o); <b>break</b>;
+<a name='L225'>        <b>case</b> <a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>: <a href='../S/71.html#L157' title='Defined at 157 in src/object.c.'>freeListObject</a>(o); <b>break</b>;
+<a name='L226'>        <b>case</b> <a href='../D/908.html' title='Multiple defined in 2 places.'>REDIS_SET</a>: <a href='../S/71.html#L170' title='Defined at 170 in src/object.c.'>freeSetObject</a>(o); <b>break</b>;
+<a name='L227'>        <b>case</b> <a href='../D/933.html' title='Multiple defined in 2 places.'>REDIS_ZSET</a>: <a href='../S/71.html#L183' title='Defined at 183 in src/object.c.'>freeZsetObject</a>(o); <b>break</b>;
+<a name='L228'>        <b>case</b> <a href='../D/807.html' title='Multiple defined in 2 places.'>REDIS_HASH</a>: <a href='../S/71.html#L200' title='Defined at 200 in src/object.c.'>freeHashObject</a>(o); <b>break</b>;
+<a name='L229'>        <b>default</b>: <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown object type"); <b>break</b>;
+<a name='L230'>        <font color='red'>}</font>
+<a name='L231'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(o);
+<a name='L232'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L233'>        o-&gt;refcount--;
+<a name='L234'>    <font color='red'>}</font>
+<a name='L235'><font color='red'>}</font>
+<a name='L236'>
+<a name='L237'><i><font color='green'>/* This function set the ref count to zero without freeing the object.</font></i>
+<a name='L238'><i><font color='green'> * It is useful in order to pass a new object to functions incrementing</font></i>
+<a name='L239'><i><font color='green'> * the ref count of the received object. Example:</font></i>
+<a name='L240'><i><font color='green'> *</font></i>
+<a name='L241'><i><font color='green'> *    functionThatWillIncrementRefCount(resetRefCount(CreateObject(...)));</font></i>
+<a name='L242'><i><font color='green'> *</font></i>
+<a name='L243'><i><font color='green'> * Otherwise you need to resort to the less elegant pattern:</font></i>
+<a name='L244'><i><font color='green'> *</font></i>
+<a name='L245'><i><font color='green'> *    *obj = createObject(...);</font></i>
+<a name='L246'><i><font color='green'> *    functionThatWillIncrementRefCount(obj);</font></i>
+<a name='L247'><i><font color='green'> *    decrRefCount(obj);</font></i>
+<a name='L248'><i><font color='green'> */</font></i>
+<a name='L249'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/3538.html' title='Multiple refered from 2 places.'>resetRefCount</a>(robj *obj) <font color='red'>{</font>
+<a name='L250'>    obj-&gt;refcount = 0;
+<a name='L251'>    <b>return</b> obj;
+<a name='L252'><font color='red'>}</font>
+<a name='L253'>
+<a name='L254'><b>int</b> <a href='../R/1544.html' title='Multiple refered from 48 places.'>checkType</a>(redisClient *c, robj *o, <b>int</b> type) <font color='red'>{</font>
+<a name='L255'>    <b>if</b> (o-&gt;type != type) <font color='red'>{</font>
+<a name='L256'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.wrongtypeerr);
+<a name='L257'>        <b>return</b> 1;
+<a name='L258'>    <font color='red'>}</font>
+<a name='L259'>    <b>return</b> 0;
+<a name='L260'><font color='red'>}</font>
+<a name='L261'>
+<a name='L262'><b>int</b> <a href='../R/2262.html' title='Multiple refered from 6 places.'>isObjectRepresentableAsLongLong</a>(robj *o, <b>long</b> <b>long</b> *llval) <font color='red'>{</font>
+<a name='L263'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(NULL,o,o-&gt;type == <a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>);
+<a name='L264'>    <b>if</b> (o-&gt;encoding == <a href='../D/786.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_INT</a>) <font color='red'>{</font>
+<a name='L265'>        <b>if</b> (llval) *llval = (<b>long</b>) o-&gt;ptr;
+<a name='L266'>        <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L267'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L268'>        <b>return</b> <a href='../S/74.html#L244' title='Defined at 244 in src/util.c.'>string2ll</a>(o-&gt;ptr,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(o-&gt;ptr),llval) ? <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a> : <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L269'>    <font color='red'>}</font>
+<a name='L270'><font color='red'>}</font>
+<a name='L271'>
+<a name='L272'><i><font color='green'>/* Try to encode a string object in order to save space */</font></i>
+<a name='L273'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/4022.html' title='Multiple refered from 31 places.'>tryObjectEncoding</a>(robj *o) <font color='red'>{</font>
+<a name='L274'>    <b>long</b> value;
+<a name='L275'>    <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> s = o-&gt;ptr;
+<a name='L276'>
+<a name='L277'>    <b>if</b> (o-&gt;encoding != <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>)
+<a name='L278'>        <b>return</b> o; <i><font color='green'>/* Already encoded */</font></i>
+<a name='L279'>
+<a name='L280'>    <i><font color='green'>/* It's not safe to encode shared objects: shared objects can be shared</font></i>
+<a name='L281'><i><font color='green'>     * everywhere in the "object space" of Redis. Encoded objects can only</font></i>
+<a name='L282'><i><font color='green'>     * appear as "values" (and not, for instance, as keys) */</font></i>
+<a name='L283'>     <b>if</b> (o-&gt;refcount &gt; 1) <b>return</b> o;
+<a name='L284'>
+<a name='L285'>    <i><font color='green'>/* Currently we try to encode only strings */</font></i>
+<a name='L286'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(NULL,o,o-&gt;type == <a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>);
+<a name='L287'>
+<a name='L288'>    <i><font color='green'>/* Check if we can represent this string as a long integer */</font></i>
+<a name='L289'>    <b>if</b> (!<a href='../S/74.html#L310' title='Defined at 310 in src/util.c.'>string2l</a>(s,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(s),&amp;value)) <b>return</b> o;
+<a name='L290'>
+<a name='L291'>    <i><font color='green'>/* Ok, this object can be encoded...</font></i>
+<a name='L292'><i><font color='green'>     *</font></i>
+<a name='L293'><i><font color='green'>     * Can I use a shared object? Only if the object is inside a given range</font></i>
+<a name='L294'><i><font color='green'>     *</font></i>
+<a name='L295'><i><font color='green'>     * Note that we also avoid using shared integers when maxmemory is used</font></i>
+<a name='L296'><i><font color='green'>     * because every object needs to have a private LRU field for the LRU</font></i>
+<a name='L297'><i><font color='green'>     * algorithm to work well. */</font></i>
+<a name='L298'>    <b>if</b> (server.maxmemory == 0 &amp;&amp; value &gt;= 0 &amp;&amp; value &lt; <a href='../S/32.html#L79' title='Defined at 79 in src/redis.h.'>REDIS_SHARED_INTEGERS</a>) <font color='red'>{</font>
+<a name='L299'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(o);
+<a name='L300'>        <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(shared.integers[value]);
+<a name='L301'>        <b>return</b> shared.integers[value];
+<a name='L302'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L303'>        o-&gt;encoding = <a href='../D/786.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_INT</a>;
+<a name='L304'>        <a href='../D/4006.html' title='Multiple defined in 2 places.'>sdsfree</a>(o-&gt;ptr);
+<a name='L305'>        o-&gt;ptr = (<b>void</b>*) value;
+<a name='L306'>        <b>return</b> o;
+<a name='L307'>    <font color='red'>}</font>
+<a name='L308'><font color='red'>}</font>
+<a name='L309'>
+<a name='L310'><i><font color='green'>/* Get a decoded version of an encoded object (returned as a new object).</font></i>
+<a name='L311'><i><font color='green'> * If the object is already raw-encoded just increment the ref count. */</font></i>
+<a name='L312'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/2047.html' title='Multiple refered from 31 places.'>getDecodedObject</a>(robj *o) <font color='red'>{</font>
+<a name='L313'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *dec;
+<a name='L314'>
+<a name='L315'>    <b>if</b> (o-&gt;encoding == <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>) <font color='red'>{</font>
+<a name='L316'>        <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(o);
+<a name='L317'>        <b>return</b> o;
+<a name='L318'>    <font color='red'>}</font>
+<a name='L319'>    <b>if</b> (o-&gt;type == <a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a> &amp;&amp; o-&gt;encoding == <a href='../D/786.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_INT</a>) <font color='red'>{</font>
+<a name='L320'>        <b>char</b> buf[32];
+<a name='L321'>
+<a name='L322'>        <a href='../S/74.html#L220' title='Defined at 220 in src/util.c.'>ll2string</a>(buf,32,(<b>long</b>)o-&gt;ptr);
+<a name='L323'>        dec = <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>(buf,strlen(buf));
+<a name='L324'>        <b>return</b> dec;
+<a name='L325'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L326'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown encoding type");
+<a name='L327'>    <font color='red'>}</font>
+<a name='L328'><font color='red'>}</font>
+<a name='L329'>
+<a name='L330'><i><font color='green'>/* Compare two string objects via strcmp() or alike.</font></i>
+<a name='L331'><i><font color='green'> * Note that the objects may be integer-encoded. In such a case we</font></i>
+<a name='L332'><i><font color='green'> * use ll2string() to get a string representation of the numbers on the stack</font></i>
+<a name='L333'><i><font color='green'> * and compare the strings, it's much faster than calling getDecodedObject().</font></i>
+<a name='L334'><i><font color='green'> *</font></i>
+<a name='L335'><i><font color='green'> * Important note: if objects are not integer encoded, but binary-safe strings,</font></i>
+<a name='L336'><i><font color='green'> * sdscmp() from sds.c will apply memcmp() so this function ca be considered</font></i>
+<a name='L337'><i><font color='green'> * binary safe. */</font></i>
+<a name='L338'><b>int</b> <a href='../R/1660.html' title='Multiple refered from 7 places.'>compareStringObjects</a>(robj *a, robj *b) <font color='red'>{</font>
+<a name='L339'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(NULL,a,a-&gt;type == <a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a> &amp;&amp; b-&gt;type == <a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>);
+<a name='L340'>    <b>char</b> bufa[128], bufb[128], *astr, *bstr;
+<a name='L341'>    <b>int</b> bothsds = 1;
+<a name='L342'>
+<a name='L343'>    <b>if</b> (a == b) <b>return</b> 0;
+<a name='L344'>    <b>if</b> (a-&gt;encoding != <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>) <font color='red'>{</font>
+<a name='L345'>        <a href='../S/74.html#L220' title='Defined at 220 in src/util.c.'>ll2string</a>(bufa,<b>sizeof</b>(bufa),(<b>long</b>) a-&gt;ptr);
+<a name='L346'>        astr = bufa;
+<a name='L347'>        bothsds = 0;
+<a name='L348'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L349'>        astr = a-&gt;ptr;
+<a name='L350'>    <font color='red'>}</font>
+<a name='L351'>    <b>if</b> (b-&gt;encoding != <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>) <font color='red'>{</font>
+<a name='L352'>        <a href='../S/74.html#L220' title='Defined at 220 in src/util.c.'>ll2string</a>(bufb,<b>sizeof</b>(bufb),(<b>long</b>) b-&gt;ptr);
+<a name='L353'>        bstr = bufb;
+<a name='L354'>        bothsds = 0;
+<a name='L355'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L356'>        bstr = b-&gt;ptr;
+<a name='L357'>    <font color='red'>}</font>
+<a name='L358'>    <b>return</b> bothsds ? <a href='../D/4001.html' title='Multiple defined in 2 places.'>sdscmp</a>(astr,bstr) : strcmp(astr,bstr);
+<a name='L359'><font color='red'>}</font>
+<a name='L360'>
+<a name='L361'><i><font color='green'>/* Equal string objects return 1 if the two objects are the same from the</font></i>
+<a name='L362'><i><font color='green'> * point of view of a string comparison, otherwise 0 is returned. Note that</font></i>
+<a name='L363'><i><font color='green'> * this function is faster then checking for (compareStringObject(a,b) == 0)</font></i>
+<a name='L364'><i><font color='green'> * because it can perform some more optimization. */</font></i>
+<a name='L365'><b>int</b> <a href='../R/1890.html' title='Multiple refered from 7 places.'>equalStringObjects</a>(robj *a, robj *b) <font color='red'>{</font>
+<a name='L366'>    <b>if</b> (a-&gt;encoding != <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a> &amp;&amp; b-&gt;encoding != <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>)<font color='red'>{</font>
+<a name='L367'>        <b>return</b> a-&gt;ptr == b-&gt;ptr;
+<a name='L368'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L369'>        <b>return</b> <a href='../S/71.html#L338' title='Defined at 338 in src/object.c.'>compareStringObjects</a>(a,b) == 0;
+<a name='L370'>    <font color='red'>}</font>
+<a name='L371'><font color='red'>}</font>
+<a name='L372'>
+<a name='L373'>size_t <a href='../R/3888.html' title='Multiple refered from 5 places.'>stringObjectLen</a>(robj *o) <font color='red'>{</font>
+<a name='L374'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(NULL,o,o-&gt;type == <a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>);
+<a name='L375'>    <b>if</b> (o-&gt;encoding == <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>) <font color='red'>{</font>
+<a name='L376'>        <b>return</b> <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(o-&gt;ptr);
+<a name='L377'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L378'>        <b>char</b> buf[32];
+<a name='L379'>
+<a name='L380'>        <b>return</b> <a href='../S/74.html#L220' title='Defined at 220 in src/util.c.'>ll2string</a>(buf,32,(<b>long</b>)o-&gt;ptr);
+<a name='L381'>    <font color='red'>}</font>
+<a name='L382'><font color='red'>}</font>
+<a name='L383'>
+<a name='L384'><b>int</b> <a href='../S/71.html#L410' title='Refered from 410 in src/object.c.'>getDoubleFromObject</a>(robj *o, <b>double</b> *target) <font color='red'>{</font>
+<a name='L385'>    <b>double</b> value;
+<a name='L386'>    <b>char</b> *eptr;
+<a name='L387'>
+<a name='L388'>    <b>if</b> (o == NULL) <font color='red'>{</font>
+<a name='L389'>        value = 0;
+<a name='L390'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L391'>        <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(NULL,o,o-&gt;type == <a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>);
+<a name='L392'>        <b>if</b> (o-&gt;encoding == <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>) <font color='red'>{</font>
+<a name='L393'>            errno = 0;
+<a name='L394'>            value = strtod(o-&gt;ptr, &amp;eptr);
+<a name='L395'>            <b>if</b> (isspace(((<b>char</b>*)o-&gt;ptr)[0]) || eptr[0] != '\0' ||
+<a name='L396'>                errno == ERANGE || <a href='../D/2570.html' title='Multiple defined in 2 places.'>isnan</a>(value))
+<a name='L397'>                <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L398'>        <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;encoding == <a href='../D/786.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_INT</a>) <font color='red'>{</font>
+<a name='L399'>            value = (<b>long</b>)o-&gt;ptr;
+<a name='L400'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L401'>            <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown string encoding");
+<a name='L402'>        <font color='red'>}</font>
+<a name='L403'>    <font color='red'>}</font>
+<a name='L404'>    *target = value;
+<a name='L405'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L406'><font color='red'>}</font>
+<a name='L407'>
+<a name='L408'><b>int</b> <a href='../R/2049.html' title='Multiple refered from 3 places.'>getDoubleFromObjectOrReply</a>(redisClient *c, robj *o, <b>double</b> *target, <b>const</b> <b>char</b> *msg) <font color='red'>{</font>
+<a name='L409'>    <b>double</b> value;
+<a name='L410'>    <b>if</b> (<a href='../S/71.html#L384' title='Defined at 384 in src/object.c.'>getDoubleFromObject</a>(o, &amp;value) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L411'>        <b>if</b> (msg != NULL) <font color='red'>{</font>
+<a name='L412'>            <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,(<b>char</b>*)msg);
+<a name='L413'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L414'>            <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"value is not a valid float");
+<a name='L415'>        <font color='red'>}</font>
+<a name='L416'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L417'>    <font color='red'>}</font>
+<a name='L418'>    *target = value;
+<a name='L419'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L420'><font color='red'>}</font>
+<a name='L421'>
+<a name='L422'><b>int</b> <a href='../R/2056.html' title='Multiple refered from 2 places.'>getLongDoubleFromObject</a>(robj *o, <b>long</b> <b>double</b> *target) <font color='red'>{</font>
+<a name='L423'>    <b>long</b> <b>double</b> value;
+<a name='L424'>    <b>char</b> *eptr;
+<a name='L425'>
+<a name='L426'>    <b>if</b> (o == NULL) <font color='red'>{</font>
+<a name='L427'>        value = 0;
+<a name='L428'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L429'>        <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(NULL,o,o-&gt;type == <a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>);
+<a name='L430'>        <b>if</b> (o-&gt;encoding == <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>) <font color='red'>{</font>
+<a name='L431'>            errno = 0;
+<a name='L432'>            value = strtold(o-&gt;ptr, &amp;eptr);
+<a name='L433'>            <b>if</b> (isspace(((<b>char</b>*)o-&gt;ptr)[0]) || eptr[0] != '\0' ||
+<a name='L434'>                errno == ERANGE || <a href='../D/2570.html' title='Multiple defined in 2 places.'>isnan</a>(value))
+<a name='L435'>                <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L436'>        <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;encoding == <a href='../D/786.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_INT</a>) <font color='red'>{</font>
+<a name='L437'>            value = (<b>long</b>)o-&gt;ptr;
+<a name='L438'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L439'>            <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown string encoding");
+<a name='L440'>        <font color='red'>}</font>
+<a name='L441'>    <font color='red'>}</font>
+<a name='L442'>    *target = value;
+<a name='L443'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L444'><font color='red'>}</font>
+<a name='L445'>
+<a name='L446'><b>int</b> <a href='../R/2057.html' title='Multiple refered from 5 places.'>getLongDoubleFromObjectOrReply</a>(redisClient *c, robj *o, <b>long</b> <b>double</b> *target, <b>const</b> <b>char</b> *msg) <font color='red'>{</font>
+<a name='L447'>    <b>long</b> <b>double</b> value;
+<a name='L448'>    <b>if</b> (<a href='../S/71.html#L422' title='Defined at 422 in src/object.c.'>getLongDoubleFromObject</a>(o, &amp;value) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L449'>        <b>if</b> (msg != NULL) <font color='red'>{</font>
+<a name='L450'>            <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,(<b>char</b>*)msg);
+<a name='L451'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L452'>            <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"value is not a valid float");
+<a name='L453'>        <font color='red'>}</font>
+<a name='L454'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L455'>    <font color='red'>}</font>
+<a name='L456'>    *target = value;
+<a name='L457'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L458'><font color='red'>}</font>
+<a name='L459'>
+<a name='L460'><b>int</b> <a href='../R/2059.html' title='Multiple refered from 21 places.'>getLongLongFromObject</a>(robj *o, <b>long</b> <b>long</b> *target) <font color='red'>{</font>
+<a name='L461'>    <b>long</b> <b>long</b> value;
+<a name='L462'>    <b>char</b> *eptr;
+<a name='L463'>
+<a name='L464'>    <b>if</b> (o == NULL) <font color='red'>{</font>
+<a name='L465'>        value = 0;
+<a name='L466'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L467'>        <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(NULL,o,o-&gt;type == <a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>);
+<a name='L468'>        <b>if</b> (o-&gt;encoding == <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>) <font color='red'>{</font>
+<a name='L469'>            errno = 0;
+<a name='L470'>            value = strtoll(o-&gt;ptr, &amp;eptr, 10);
+<a name='L471'>            <b>if</b> (isspace(((<b>char</b>*)o-&gt;ptr)[0]) || eptr[0] != '\0' ||
+<a name='L472'>                errno == ERANGE)
+<a name='L473'>                <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L474'>        <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;encoding == <a href='../D/786.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_INT</a>) <font color='red'>{</font>
+<a name='L475'>            value = (<b>long</b>)o-&gt;ptr;
+<a name='L476'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L477'>            <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown string encoding");
+<a name='L478'>        <font color='red'>}</font>
+<a name='L479'>    <font color='red'>}</font>
+<a name='L480'>    <b>if</b> (target) *target = value;
+<a name='L481'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L482'><font color='red'>}</font>
+<a name='L483'>
+<a name='L484'><b>int</b> <a href='../R/2060.html' title='Multiple refered from 11 places.'>getLongLongFromObjectOrReply</a>(redisClient *c, robj *o, <b>long</b> <b>long</b> *target, <b>const</b> <b>char</b> *msg) <font color='red'>{</font>
+<a name='L485'>    <b>long</b> <b>long</b> value;
+<a name='L486'>    <b>if</b> (<a href='../S/71.html#L460' title='Defined at 460 in src/object.c.'>getLongLongFromObject</a>(o, &amp;value) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <font color='red'>{</font>
+<a name='L487'>        <b>if</b> (msg != NULL) <font color='red'>{</font>
+<a name='L488'>            <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,(<b>char</b>*)msg);
+<a name='L489'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L490'>            <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"value is not an integer or out of range");
+<a name='L491'>        <font color='red'>}</font>
+<a name='L492'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L493'>    <font color='red'>}</font>
+<a name='L494'>    *target = value;
+<a name='L495'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L496'><font color='red'>}</font>
+<a name='L497'>
+<a name='L498'><b>int</b> <a href='../R/2058.html' title='Multiple refered from 34 places.'>getLongFromObjectOrReply</a>(redisClient *c, robj *o, <b>long</b> *target, <b>const</b> <b>char</b> *msg) <font color='red'>{</font>
+<a name='L499'>    <b>long</b> <b>long</b> value;
+<a name='L500'>
+<a name='L501'>    <b>if</b> (<a href='../S/71.html#L484' title='Defined at 484 in src/object.c.'>getLongLongFromObjectOrReply</a>(c, o, &amp;value, msg) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L502'>    <b>if</b> (value &lt; LONG_MIN || value &gt; LONG_MAX) <font color='red'>{</font>
+<a name='L503'>        <b>if</b> (msg != NULL) <font color='red'>{</font>
+<a name='L504'>            <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,(<b>char</b>*)msg);
+<a name='L505'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L506'>            <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"value is out of range");
+<a name='L507'>        <font color='red'>}</font>
+<a name='L508'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L509'>    <font color='red'>}</font>
+<a name='L510'>    *target = value;
+<a name='L511'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L512'><font color='red'>}</font>
+<a name='L513'>
+<a name='L514'><b>char</b> *<a href='../R/3848.html' title='Multiple refered from 3 places.'>strEncoding</a>(<b>int</b> encoding) <font color='red'>{</font>
+<a name='L515'>    <b>switch</b>(encoding) <font color='red'>{</font>
+<a name='L516'>    <b>case</b> <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>: <b>return</b> "raw";
+<a name='L517'>    <b>case</b> <a href='../D/786.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_INT</a>: <b>return</b> "int";
+<a name='L518'>    <b>case</b> <a href='../D/785.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_HT</a>: <b>return</b> "hashtable";
+<a name='L519'>    <b>case</b> <a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>: <b>return</b> "linkedlist";
+<a name='L520'>    <b>case</b> <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>: <b>return</b> "ziplist";
+<a name='L521'>    <b>case</b> <a href='../S/32.html#L136' title='Defined at 136 in src/redis.h.'>REDIS_ENCODING_INTSET</a>: <b>return</b> "intset";
+<a name='L522'>    <b>case</b> <a href='../S/32.html#L137' title='Defined at 137 in src/redis.h.'>REDIS_ENCODING_SKIPLIST</a>: <b>return</b> "skiplist";
+<a name='L523'>    <b>default</b>: <b>return</b> "unknown";
+<a name='L524'>    <font color='red'>}</font>
+<a name='L525'><font color='red'>}</font>
+<a name='L526'>
+<a name='L527'><i><font color='green'>/* Given an object returns the min number of seconds the object was never</font></i>
+<a name='L528'><i><font color='green'> * requested, using an approximated LRU algorithm. */</font></i>
+<a name='L529'><b>unsigned</b> <b>long</b> <a href='../R/1898.html' title='Multiple refered from 4 places.'>estimateObjectIdleTime</a>(robj *o) <font color='red'>{</font>
+<a name='L530'>    <b>if</b> (server.lruclock &gt;= o-&gt;lru) <font color='red'>{</font>
+<a name='L531'>        <b>return</b> (server.lruclock - o-&gt;lru) * <a href='../S/32.html#L310' title='Defined at 310 in src/redis.h.'>REDIS_LRU_CLOCK_RESOLUTION</a>;
+<a name='L532'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L533'>        <b>return</b> ((<a href='../S/32.html#L309' title='Defined at 309 in src/redis.h.'>REDIS_LRU_CLOCK_MAX</a> - o-&gt;lru) + server.lruclock) *
+<a name='L534'>                    <a href='../S/32.html#L310' title='Defined at 310 in src/redis.h.'>REDIS_LRU_CLOCK_RESOLUTION</a>;
+<a name='L535'>    <font color='red'>}</font>
+<a name='L536'><font color='red'>}</font>
+<a name='L537'>
+<a name='L538'><i><font color='green'>/* This is an helper function for the DEBUG command. We need to lookup keys</font></i>
+<a name='L539'><i><font color='green'> * without any modification of LRU or other parameters. */</font></i>
+<a name='L540'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../S/71.html#L548' title='Refered from 548 in src/object.c.'>objectCommandLookup</a>(redisClient *c, robj *key) <font color='red'>{</font>
+<a name='L541'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *de;
+<a name='L542'>
+<a name='L543'>    <b>if</b> ((de = <a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(c-&gt;db-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>,key-&gt;ptr)) == NULL) <b>return</b> NULL;
+<a name='L544'>    <b>return</b> (<a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a>*) <a href='../S/88.html#L132' title='Defined at 132 in src/dict.h.'>dictGetVal</a>(de);
+<a name='L545'><font color='red'>}</font>
+<a name='L546'>
+<a name='L547'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/3090.html' title='Multiple refered from 3 places.'>objectCommandLookupOrReply</a>(redisClient *c, robj *key, robj *reply) <font color='red'>{</font>
+<a name='L548'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o = <a href='../S/71.html#L540' title='Defined at 540 in src/object.c.'>objectCommandLookup</a>(c,key);
+<a name='L549'>
+<a name='L550'>    <b>if</b> (!o) <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c, reply);
+<a name='L551'>    <b>return</b> o;
+<a name='L552'><font color='red'>}</font>
+<a name='L553'>
+<a name='L554'><i><font color='green'>/* Object command allows to inspect the internals of an Redis Object.</font></i>
+<a name='L555'><i><font color='green'> * Usage: OBJECT &lt;verb&gt; ... arguments ... */</font></i>
+<a name='L556'><b>void</b> <a href='../R/3088.html' title='Multiple refered from 2 places.'>objectCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L557'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L558'>
+<a name='L559'>    <b>if</b> (!strcasecmp(c-&gt;argv[1]-&gt;ptr,"refcount") &amp;&amp; c-&gt;argc == 3) <font color='red'>{</font>
+<a name='L560'>        <b>if</b> ((o = <a href='../S/71.html#L547' title='Defined at 547 in src/object.c.'>objectCommandLookupOrReply</a>(c,c-&gt;argv[2],shared.nullbulk))
+<a name='L561'>                == NULL) <b>return</b>;
+<a name='L562'>        <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,o-&gt;refcount);
+<a name='L563'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[1]-&gt;ptr,"encoding") &amp;&amp; c-&gt;argc == 3) <font color='red'>{</font>
+<a name='L564'>        <b>if</b> ((o = <a href='../S/71.html#L547' title='Defined at 547 in src/object.c.'>objectCommandLookupOrReply</a>(c,c-&gt;argv[2],shared.nullbulk))
+<a name='L565'>                == NULL) <b>return</b>;
+<a name='L566'>        <a href='../S/86.html#L489' title='Defined at 489 in src/networking.c.'>addReplyBulkCString</a>(c,<a href='../S/71.html#L514' title='Defined at 514 in src/object.c.'>strEncoding</a>(o-&gt;encoding));
+<a name='L567'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[1]-&gt;ptr,"idletime") &amp;&amp; c-&gt;argc == 3) <font color='red'>{</font>
+<a name='L568'>        <b>if</b> ((o = <a href='../S/71.html#L547' title='Defined at 547 in src/object.c.'>objectCommandLookupOrReply</a>(c,c-&gt;argv[2],shared.nullbulk))
+<a name='L569'>                == NULL) <b>return</b>;
+<a name='L570'>        <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,<a href='../S/71.html#L529' title='Defined at 529 in src/object.c.'>estimateObjectIdleTime</a>(o));
+<a name='L571'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L572'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"Syntax error. Try OBJECT (refcount|encoding|idletime)");
+<a name='L573'>    <font color='red'>}</font>
+<a name='L574'><font color='red'>}</font>
+<a name='L575'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L35'>[^]</a><a href='#L556'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

@@ -1,0 +1,1178 @@
+<html>
+<head>
+<title>src/t_list.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/t_list.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L41'>[^]</a><a href='#L1089'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L41' title='Defined at 41.'>listTypeTryConversion</a>
+<li><a href='#L53' title='Defined at 53.'>listTypePush</a>
+<li><a href='#L77' title='Defined at 77.'>listTypePop</a>
+<li><a href='#L114' title='Defined at 114.'>listTypeLength</a>
+<li><a href='#L125' title='Defined at 125.'>listTypeInitIterator</a>
+<li><a href='#L141' title='Defined at 141.'>listTypeReleaseIterator</a>
+<li><a href='#L148' title='Defined at 148.'>listTypeNext</a>
+<li><a href='#L178' title='Defined at 178.'>listTypeGet</a>
+<li><a href='#L203' title='Defined at 203.'>listTypeInsert</a>
+<li><a href='#L234' title='Defined at 234.'>listTypeEqual</a>
+<li><a href='#L247' title='Defined at 247.'>listTypeDelete</a>
+<li><a href='#L271' title='Defined at 271.'>listTypeConvert</a>
+<li><a href='#L297' title='Defined at 297.'>pushGenericCommand</a>
+<li><a href='#L323' title='Defined at 323.'>lpushCommand</a>
+<li><a href='#L327' title='Defined at 327.'>rpushCommand</a>
+<li><a href='#L331' title='Defined at 331.'>pushxGenericCommand</a>
+<li><a href='#L384' title='Defined at 384.'>lpushxCommand</a>
+<li><a href='#L389' title='Defined at 389.'>rpushxCommand</a>
+<li><a href='#L394' title='Defined at 394.'>linsertCommand</a>
+<li><a href='#L405' title='Defined at 405.'>llenCommand</a>
+<li><a href='#L411' title='Defined at 411.'>lindexCommand</a>
+<li><a href='#L450' title='Defined at 450.'>lsetCommand</a>
+<li><a href='#L491' title='Defined at 491.'>popGenericCommand</a>
+<li><a href='#L507' title='Defined at 507.'>lpopCommand</a>
+<li><a href='#L511' title='Defined at 511.'>rpopCommand</a>
+<li><a href='#L515' title='Defined at 515.'>lrangeCommand</a>
+<li><a href='#L574' title='Defined at 574.'>ltrimCommand</a>
+<li><a href='#L627' title='Defined at 627.'>lremCommand</a>
+<li><a href='#L687' title='Defined at 687.'>rpoplpushHandlePush</a>
+<li><a href='#L700' title='Defined at 700.'>rpoplpushCommand</a>
+<li><a href='#L755' title='Defined at 755.'>blockForKeys</a>
+<li><a href='#L792' title='Defined at 792.'>unblockClientWaitingData</a>
+<li><a href='#L832' title='Defined at 832.'>signalListAsReady</a>
+<li><a href='#L874' title='Defined at 874.'>serveClientBlockedOnList</a>
+<li><a href='#L934' title='Defined at 934.'>handleClientsBlockedOnLists</a>
+<li><a href='#L1013' title='Defined at 1013.'>getTimeoutFromObjectOrReply</a>
+<li><a href='#L1032' title='Defined at 1032.'>blockingPopGenericCommand</a>
+<li><a href='#L1081' title='Defined at 1081.'>blpopCommand</a>
+<li><a href='#L1085' title='Defined at 1085.'>brpopCommand</a>
+<li><a href='#L1089' title='Defined at 1089.'>brpoplpushCommand</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L3'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L4'><i><font color='green'> *</font></i>
+<a name='L5'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L6'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L7'><i><font color='green'> *</font></i>
+<a name='L8'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L9'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L10'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L11'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L12'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L13'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L14'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L15'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L16'><i><font color='green'> *</font></i>
+<a name='L17'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L18'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L19'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L20'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L21'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L22'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L23'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L24'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L25'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L26'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L27'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L28'><i><font color='green'> */</font></i>
+<a name='L29'>
+<a name='L30'><font color='darkred'>#include</font> "<a href='32.html'>redis.h</a>"
+<a name='L31'>
+<a name='L32'><b>void</b> <a href='../S/60.html#L832' title='Defined at 832 in src/t_list.c.'>signalListAsReady</a>(redisClient *c, robj *key);
+<a name='L33'>
+<a name='L34'><i><font color='green'>/*-----------------------------------------------------------------------------</font></i>
+<a name='L35'><i><font color='green'> * List API</font></i>
+<a name='L36'><i><font color='green'> *----------------------------------------------------------------------------*/</font></i>
+<a name='L37'>
+<a name='L38'><i><font color='green'>/* Check the argument length to see if it requires us to convert the ziplist</font></i>
+<a name='L39'><i><font color='green'> * to a real list. Only check raw-encoded objects because integer encoded</font></i>
+<a name='L40'><i><font color='green'> * objects are never too long. */</font></i>
+<a name='L41'><b>void</b> <a href='../R/2419.html' title='Multiple refered from 4 places.'>listTypeTryConversion</a>(robj *subject, robj *value) <font color='red'>{</font>
+<a name='L42'>    <b>if</b> (subject-&gt;encoding != <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <b>return</b>;
+<a name='L43'>    <b>if</b> (value-&gt;encoding == <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a> &amp;&amp;
+<a name='L44'>        <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(value-&gt;ptr) &gt; server.list_max_ziplist_value)
+<a name='L45'>            <a href='../S/60.html#L271' title='Defined at 271 in src/t_list.c.'>listTypeConvert</a>(subject,<a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>);
+<a name='L46'><font color='red'>}</font>
+<a name='L47'>
+<a name='L48'><i><font color='green'>/* The function pushes an elmenet to the specified list object 'subject',</font></i>
+<a name='L49'><i><font color='green'> * at head or tail position as specified by 'where'.</font></i>
+<a name='L50'><i><font color='green'> *</font></i>
+<a name='L51'><i><font color='green'> * There is no need for the caller to incremnet the refcount of 'value' as</font></i>
+<a name='L52'><i><font color='green'> * the function takes care of it if needed. */</font></i>
+<a name='L53'><b>void</b> <a href='../R/2417.html' title='Multiple refered from 7 places.'>listTypePush</a>(robj *subject, robj *value, <b>int</b> where) <font color='red'>{</font>
+<a name='L54'>    <i><font color='green'>/* Check if we need to convert the ziplist */</font></i>
+<a name='L55'>    <a href='../S/60.html#L41' title='Defined at 41 in src/t_list.c.'>listTypeTryConversion</a>(subject,value);
+<a name='L56'>    <b>if</b> (subject-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a> &amp;&amp;
+<a name='L57'>        <a href='../S/89.html#L879' title='Defined at 879 in src/ziplist.c.'>ziplistLen</a>(subject-&gt;ptr) &gt;= server.list_max_ziplist_entries)
+<a name='L58'>            <a href='../S/60.html#L271' title='Defined at 271 in src/t_list.c.'>listTypeConvert</a>(subject,<a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>);
+<a name='L59'>
+<a name='L60'>    <b>if</b> (subject-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L61'>        <b>int</b> <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> = (where == <a href='../S/32.html#L219' title='Defined at 219 in src/redis.h.'>REDIS_HEAD</a>) ? <a href='../S/66.html#L31' title='Defined at 31 in src/ziplist.h.'>ZIPLIST_HEAD</a> : <a href='../S/66.html#L32' title='Defined at 32 in src/ziplist.h.'>ZIPLIST_TAIL</a>;
+<a name='L62'>        value = <a href='../S/71.html#L312' title='Defined at 312 in src/object.c.'>getDecodedObject</a>(value);
+<a name='L63'>        subject-&gt;ptr = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(subject-&gt;ptr,value-&gt;ptr,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(value-&gt;ptr),<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>);
+<a name='L64'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(value);
+<a name='L65'>    <font color='red'>}</font> <b>else</b> <b>if</b> (subject-&gt;encoding == <a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>) <font color='red'>{</font>
+<a name='L66'>        <b>if</b> (where == <a href='../S/32.html#L219' title='Defined at 219 in src/redis.h.'>REDIS_HEAD</a>) <font color='red'>{</font>
+<a name='L67'>            <a href='../S/54.html#L80' title='Defined at 80 in src/adlist.c.'>listAddNodeHead</a>(subject-&gt;ptr,value);
+<a name='L68'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L69'>            <a href='../S/54.html#L106' title='Defined at 106 in src/adlist.c.'>listAddNodeTail</a>(subject-&gt;ptr,value);
+<a name='L70'>        <font color='red'>}</font>
+<a name='L71'>        <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(value);
+<a name='L72'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L73'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown list encoding");
+<a name='L74'>    <font color='red'>}</font>
+<a name='L75'><font color='red'>}</font>
+<a name='L76'>
+<a name='L77'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/2416.html' title='Multiple refered from 5 places.'>listTypePop</a>(robj *subject, <b>int</b> where) <font color='red'>{</font>
+<a name='L78'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *value = NULL;
+<a name='L79'>    <b>if</b> (subject-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L80'>        <b>unsigned</b> <b>char</b> *p;
+<a name='L81'>        <b>unsigned</b> <b>char</b> *vstr;
+<a name='L82'>        <b>unsigned</b> <b>int</b> vlen;
+<a name='L83'>        <b>long</b> <b>long</b> vlong;
+<a name='L84'>        <b>int</b> <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> = (where == <a href='../S/32.html#L219' title='Defined at 219 in src/redis.h.'>REDIS_HEAD</a>) ? 0 : -1;
+<a name='L85'>        p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(subject-&gt;ptr,<a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a>);
+<a name='L86'>        <b>if</b> (<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(p,&amp;vstr,&amp;vlen,&amp;vlong)) <font color='red'>{</font>
+<a name='L87'>            <b>if</b> (vstr) <font color='red'>{</font>
+<a name='L88'>                value = <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>((<b>char</b>*)vstr,vlen);
+<a name='L89'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L90'>                value = <a href='../S/71.html#L51' title='Defined at 51 in src/object.c.'>createStringObjectFromLongLong</a>(vlong);
+<a name='L91'>            <font color='red'>}</font>
+<a name='L92'>            <i><font color='green'>/* We only need to delete an element when it exists */</font></i>
+<a name='L93'>            subject-&gt;ptr = <a href='../S/89.html#L773' title='Defined at 773 in src/ziplist.c.'>ziplistDelete</a>(subject-&gt;ptr,&amp;p);
+<a name='L94'>        <font color='red'>}</font>
+<a name='L95'>    <font color='red'>}</font> <b>else</b> <b>if</b> (subject-&gt;encoding == <a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>) <font color='red'>{</font>
+<a name='L96'>        <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> = subject-&gt;ptr;
+<a name='L97'>        <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln;
+<a name='L98'>        <b>if</b> (where == <a href='../S/32.html#L219' title='Defined at 219 in src/redis.h.'>REDIS_HEAD</a>) <font color='red'>{</font>
+<a name='L99'>            ln = <a href='../S/58.html#L58' title='Defined at 58 in src/adlist.h.'>listFirst</a>(<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>);
+<a name='L100'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L101'>            ln = <a href='../S/58.html#L59' title='Defined at 59 in src/adlist.h.'>listLast</a>(<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>);
+<a name='L102'>        <font color='red'>}</font>
+<a name='L103'>        <b>if</b> (ln != NULL) <font color='red'>{</font>
+<a name='L104'>            value = <a href='../S/58.html#L62' title='Defined at 62 in src/adlist.h.'>listNodeValue</a>(ln);
+<a name='L105'>            <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(value);
+<a name='L106'>            <a href='../S/54.html#L159' title='Defined at 159 in src/adlist.c.'>listDelNode</a>(<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>,ln);
+<a name='L107'>        <font color='red'>}</font>
+<a name='L108'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L109'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown list encoding");
+<a name='L110'>    <font color='red'>}</font>
+<a name='L111'>    <b>return</b> value;
+<a name='L112'><font color='red'>}</font>
+<a name='L113'>
+<a name='L114'><b>unsigned</b> <b>long</b> <a href='../R/2414.html' title='Multiple refered from 18 places.'>listTypeLength</a>(robj *subject) <font color='red'>{</font>
+<a name='L115'>    <b>if</b> (subject-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L116'>        <b>return</b> <a href='../S/89.html#L879' title='Defined at 879 in src/ziplist.c.'>ziplistLen</a>(subject-&gt;ptr);
+<a name='L117'>    <font color='red'>}</font> <b>else</b> <b>if</b> (subject-&gt;encoding == <a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>) <font color='red'>{</font>
+<a name='L118'>        <b>return</b> <a href='../S/58.html#L57' title='Defined at 57 in src/adlist.h.'>listLength</a>((<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>*)subject-&gt;ptr);
+<a name='L119'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L120'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown list encoding");
+<a name='L121'>    <font color='red'>}</font>
+<a name='L122'><font color='red'>}</font>
+<a name='L123'>
+<a name='L124'><i><font color='green'>/* Initialize an iterator at the specified index. */</font></i>
+<a name='L125'><a href='../S/32.html#L714' title='Defined at 714 in src/redis.h.'>listTypeIterator</a> *<a href='../R/2411.html' title='Multiple refered from 7 places.'>listTypeInitIterator</a>(robj *subject, <b>long</b> index, <b>unsigned</b> <b>char</b> direction) <font color='red'>{</font>
+<a name='L126'>    <a href='../S/32.html#L714' title='Defined at 714 in src/redis.h.'>listTypeIterator</a> *li = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<a href='../S/32.html#L714' title='Defined at 714 in src/redis.h.'>listTypeIterator</a>));
+<a name='L127'>    li-&gt;subject = subject;
+<a name='L128'>    li-&gt;encoding = subject-&gt;encoding;
+<a name='L129'>    li-&gt;direction = direction;
+<a name='L130'>    <b>if</b> (li-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L131'>        li-&gt;zi = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(subject-&gt;ptr,index);
+<a name='L132'>    <font color='red'>}</font> <b>else</b> <b>if</b> (li-&gt;encoding == <a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>) <font color='red'>{</font>
+<a name='L133'>        li-&gt;ln = <a href='../S/54.html#L313' title='Defined at 313 in src/adlist.c.'>listIndex</a>(subject-&gt;ptr,index);
+<a name='L134'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L135'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown list encoding");
+<a name='L136'>    <font color='red'>}</font>
+<a name='L137'>    <b>return</b> li;
+<a name='L138'><font color='red'>}</font>
+<a name='L139'>
+<a name='L140'><i><font color='green'>/* Clean up the iterator. */</font></i>
+<a name='L141'><b>void</b> <a href='../R/2418.html' title='Multiple refered from 6 places.'>listTypeReleaseIterator</a>(listTypeIterator *li) <font color='red'>{</font>
+<a name='L142'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(li);
+<a name='L143'><font color='red'>}</font>
+<a name='L144'>
+<a name='L145'><i><font color='green'>/* Stores pointer to current the entry in the provided entry structure</font></i>
+<a name='L146'><i><font color='green'> * and advances the position of the iterator. Returns 1 when the current</font></i>
+<a name='L147'><i><font color='green'> * entry is in fact an entry, 0 otherwise. */</font></i>
+<a name='L148'><b>int</b> <a href='../R/2415.html' title='Multiple refered from 6 places.'>listTypeNext</a>(listTypeIterator *li, listTypeEntry *entry) <font color='red'>{</font>
+<a name='L149'>    <i><font color='green'>/* Protect from converting when iterating */</font></i>
+<a name='L150'>    <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(li-&gt;subject-&gt;encoding == li-&gt;encoding);
+<a name='L151'>
+<a name='L152'>    <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;li = li;
+<a name='L153'>    <b>if</b> (li-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L154'>        <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;zi = li-&gt;zi;
+<a name='L155'>        <b>if</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;zi != NULL) <font color='red'>{</font>
+<a name='L156'>            <b>if</b> (li-&gt;direction == <a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>)
+<a name='L157'>                li-&gt;zi = <a href='../S/89.html#L705' title='Defined at 705 in src/ziplist.c.'>ziplistNext</a>(li-&gt;subject-&gt;ptr,li-&gt;zi);
+<a name='L158'>            <b>else</b>
+<a name='L159'>                li-&gt;zi = <a href='../S/89.html#L724' title='Defined at 724 in src/ziplist.c.'>ziplistPrev</a>(li-&gt;subject-&gt;ptr,li-&gt;zi);
+<a name='L160'>            <b>return</b> 1;
+<a name='L161'>        <font color='red'>}</font>
+<a name='L162'>    <font color='red'>}</font> <b>else</b> <b>if</b> (li-&gt;encoding == <a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>) <font color='red'>{</font>
+<a name='L163'>        <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;ln = li-&gt;ln;
+<a name='L164'>        <b>if</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;ln != NULL) <font color='red'>{</font>
+<a name='L165'>            <b>if</b> (li-&gt;direction == <a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>)
+<a name='L166'>                li-&gt;ln = li-&gt;ln-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L167'>            <b>else</b>
+<a name='L168'>                li-&gt;ln = li-&gt;ln-&gt;prev;
+<a name='L169'>            <b>return</b> 1;
+<a name='L170'>        <font color='red'>}</font>
+<a name='L171'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L172'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown list encoding");
+<a name='L173'>    <font color='red'>}</font>
+<a name='L174'>    <b>return</b> 0;
+<a name='L175'><font color='red'>}</font>
+<a name='L176'>
+<a name='L177'><i><font color='green'>/* Return entry or NULL at the current position of the iterator. */</font></i>
+<a name='L178'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/2410.html' title='Multiple refered from 4 places.'>listTypeGet</a>(listTypeEntry *entry) <font color='red'>{</font>
+<a name='L179'>    <a href='../S/32.html#L714' title='Defined at 714 in src/redis.h.'>listTypeIterator</a> *li = <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;li;
+<a name='L180'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *value = NULL;
+<a name='L181'>    <b>if</b> (li-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L182'>        <b>unsigned</b> <b>char</b> *vstr;
+<a name='L183'>        <b>unsigned</b> <b>int</b> vlen;
+<a name='L184'>        <b>long</b> <b>long</b> vlong;
+<a name='L185'>        <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;zi != NULL);
+<a name='L186'>        <b>if</b> (<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;zi,&amp;vstr,&amp;vlen,&amp;vlong)) <font color='red'>{</font>
+<a name='L187'>            <b>if</b> (vstr) <font color='red'>{</font>
+<a name='L188'>                value = <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>((<b>char</b>*)vstr,vlen);
+<a name='L189'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L190'>                value = <a href='../S/71.html#L51' title='Defined at 51 in src/object.c.'>createStringObjectFromLongLong</a>(vlong);
+<a name='L191'>            <font color='red'>}</font>
+<a name='L192'>        <font color='red'>}</font>
+<a name='L193'>    <font color='red'>}</font> <b>else</b> <b>if</b> (li-&gt;encoding == <a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>) <font color='red'>{</font>
+<a name='L194'>        <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;ln != NULL);
+<a name='L195'>        value = <a href='../S/58.html#L62' title='Defined at 62 in src/adlist.h.'>listNodeValue</a>(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;ln);
+<a name='L196'>        <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(value);
+<a name='L197'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L198'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown list encoding");
+<a name='L199'>    <font color='red'>}</font>
+<a name='L200'>    <b>return</b> value;
+<a name='L201'><font color='red'>}</font>
+<a name='L202'>
+<a name='L203'><b>void</b> <a href='../R/2412.html' title='Multiple refered from 2 places.'>listTypeInsert</a>(listTypeEntry *entry, robj *value, <b>int</b> where) <font color='red'>{</font>
+<a name='L204'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *subject = <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;li-&gt;subject;
+<a name='L205'>    <b>if</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;li-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L206'>        value = <a href='../S/71.html#L312' title='Defined at 312 in src/object.c.'>getDecodedObject</a>(value);
+<a name='L207'>        <b>if</b> (where == <a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>) <font color='red'>{</font>
+<a name='L208'>            <b>unsigned</b> <b>char</b> *<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = <a href='../S/89.html#L705' title='Defined at 705 in src/ziplist.c.'>ziplistNext</a>(subject-&gt;ptr,<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;zi);
+<a name='L209'>
+<a name='L210'>            <i><font color='green'>/* When we insert after the current element, but the current element</font></i>
+<a name='L211'><i><font color='green'>             * is the tail of the list, we need to do a push. */</font></i>
+<a name='L212'>            <b>if</b> (<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> == NULL) <font color='red'>{</font>
+<a name='L213'>                subject-&gt;ptr = <a href='../S/89.html#L668' title='Defined at 668 in src/ziplist.c.'>ziplistPush</a>(subject-&gt;ptr,value-&gt;ptr,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(value-&gt;ptr),<a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>);
+<a name='L214'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L215'>                subject-&gt;ptr = <a href='../S/89.html#L766' title='Defined at 766 in src/ziplist.c.'>ziplistInsert</a>(subject-&gt;ptr,<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>,value-&gt;ptr,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(value-&gt;ptr));
+<a name='L216'>            <font color='red'>}</font>
+<a name='L217'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L218'>            subject-&gt;ptr = <a href='../S/89.html#L766' title='Defined at 766 in src/ziplist.c.'>ziplistInsert</a>(subject-&gt;ptr,<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;zi,value-&gt;ptr,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(value-&gt;ptr));
+<a name='L219'>        <font color='red'>}</font>
+<a name='L220'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(value);
+<a name='L221'>    <font color='red'>}</font> <b>else</b> <b>if</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;li-&gt;encoding == <a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>) <font color='red'>{</font>
+<a name='L222'>        <b>if</b> (where == <a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>) <font color='red'>{</font>
+<a name='L223'>            <a href='../S/54.html#L126' title='Defined at 126 in src/adlist.c.'>listInsertNode</a>(subject-&gt;ptr,<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;ln,value,<a href='../S/58.html#L91' title='Defined at 91 in src/adlist.h.'>AL_START_TAIL</a>);
+<a name='L224'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L225'>            <a href='../S/54.html#L126' title='Defined at 126 in src/adlist.c.'>listInsertNode</a>(subject-&gt;ptr,<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;ln,value,<a href='../S/58.html#L90' title='Defined at 90 in src/adlist.h.'>AL_START_HEAD</a>);
+<a name='L226'>        <font color='red'>}</font>
+<a name='L227'>        <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(value);
+<a name='L228'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L229'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown list encoding");
+<a name='L230'>    <font color='red'>}</font>
+<a name='L231'><font color='red'>}</font>
+<a name='L232'>
+<a name='L233'><i><font color='green'>/* Compare the given object with the entry at the current position. */</font></i>
+<a name='L234'><b>int</b> <a href='../R/2409.html' title='Multiple refered from 3 places.'>listTypeEqual</a>(listTypeEntry *entry, robj *o) <font color='red'>{</font>
+<a name='L235'>    <a href='../S/32.html#L714' title='Defined at 714 in src/redis.h.'>listTypeIterator</a> *li = <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;li;
+<a name='L236'>    <b>if</b> (li-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L237'>        <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(NULL,o,o-&gt;encoding == <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>);
+<a name='L238'>        <b>return</b> <a href='../S/89.html#L792' title='Defined at 792 in src/ziplist.c.'>ziplistCompare</a>(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;zi,o-&gt;ptr,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(o-&gt;ptr));
+<a name='L239'>    <font color='red'>}</font> <b>else</b> <b>if</b> (li-&gt;encoding == <a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>) <font color='red'>{</font>
+<a name='L240'>        <b>return</b> <a href='../S/71.html#L365' title='Defined at 365 in src/object.c.'>equalStringObjects</a>(o,<a href='../S/58.html#L62' title='Defined at 62 in src/adlist.h.'>listNodeValue</a>(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;ln));
+<a name='L241'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L242'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown list encoding");
+<a name='L243'>    <font color='red'>}</font>
+<a name='L244'><font color='red'>}</font>
+<a name='L245'>
+<a name='L246'><i><font color='green'>/* Delete the element pointed to. */</font></i>
+<a name='L247'><b>void</b> <a href='../R/2407.html' title='Multiple refered from 2 places.'>listTypeDelete</a>(listTypeEntry *entry) <font color='red'>{</font>
+<a name='L248'>    <a href='../S/32.html#L714' title='Defined at 714 in src/redis.h.'>listTypeIterator</a> *li = <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;li;
+<a name='L249'>    <b>if</b> (li-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L250'>        <b>unsigned</b> <b>char</b> *p = <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;zi;
+<a name='L251'>        li-&gt;subject-&gt;ptr = <a href='../S/89.html#L773' title='Defined at 773 in src/ziplist.c.'>ziplistDelete</a>(li-&gt;subject-&gt;ptr,&amp;p);
+<a name='L252'>
+<a name='L253'>        <i><font color='green'>/* Update position of the iterator depending on the direction */</font></i>
+<a name='L254'>        <b>if</b> (li-&gt;direction == <a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>)
+<a name='L255'>            li-&gt;zi = p;
+<a name='L256'>        <b>else</b>
+<a name='L257'>            li-&gt;zi = <a href='../S/89.html#L724' title='Defined at 724 in src/ziplist.c.'>ziplistPrev</a>(li-&gt;subject-&gt;ptr,p);
+<a name='L258'>    <font color='red'>}</font> <b>else</b> <b>if</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;li-&gt;encoding == <a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>) <font color='red'>{</font>
+<a name='L259'>        <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L260'>        <b>if</b> (li-&gt;direction == <a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>)
+<a name='L261'>            <a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;ln-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L262'>        <b>else</b>
+<a name='L263'>            <a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;ln-&gt;prev;
+<a name='L264'>        <a href='../S/54.html#L159' title='Defined at 159 in src/adlist.c.'>listDelNode</a>(li-&gt;subject-&gt;ptr,<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>-&gt;ln);
+<a name='L265'>        li-&gt;ln = <a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L266'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L267'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown list encoding");
+<a name='L268'>    <font color='red'>}</font>
+<a name='L269'><font color='red'>}</font>
+<a name='L270'>
+<a name='L271'><b>void</b> <a href='../R/2406.html' title='Multiple refered from 6 places.'>listTypeConvert</a>(robj *subject, <b>int</b> enc) <font color='red'>{</font>
+<a name='L272'>    <a href='../S/32.html#L714' title='Defined at 714 in src/redis.h.'>listTypeIterator</a> *li;
+<a name='L273'>    <a href='../S/32.html#L721' title='Defined at 721 in src/redis.h.'>listTypeEntry</a> <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>;
+<a name='L274'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(NULL,subject,subject-&gt;type == <a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>);
+<a name='L275'>
+<a name='L276'>    <b>if</b> (enc == <a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>) <font color='red'>{</font>
+<a name='L277'>        <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *l = <a href='../S/54.html#L41' title='Defined at 41 in src/adlist.c.'>listCreate</a>();
+<a name='L278'>        <a href='../S/58.html#L65' title='Defined at 65 in src/adlist.h.'>listSetFreeMethod</a>(l,<a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>);
+<a name='L279'>
+<a name='L280'>        <i><font color='green'>/* listTypeGet returns a robj with incremented refcount */</font></i>
+<a name='L281'>        li = <a href='../S/60.html#L125' title='Defined at 125 in src/t_list.c.'>listTypeInitIterator</a>(subject,0,<a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>);
+<a name='L282'>        <b>while</b> (<a href='../S/60.html#L148' title='Defined at 148 in src/t_list.c.'>listTypeNext</a>(li,&amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>)) <a href='../S/54.html#L106' title='Defined at 106 in src/adlist.c.'>listAddNodeTail</a>(l,<a href='../S/60.html#L178' title='Defined at 178 in src/t_list.c.'>listTypeGet</a>(&amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>));
+<a name='L283'>        <a href='../S/60.html#L141' title='Defined at 141 in src/t_list.c.'>listTypeReleaseIterator</a>(li);
+<a name='L284'>
+<a name='L285'>        subject-&gt;encoding = <a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>;
+<a name='L286'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(subject-&gt;ptr);
+<a name='L287'>        subject-&gt;ptr = l;
+<a name='L288'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L289'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unsupported list conversion");
+<a name='L290'>    <font color='red'>}</font>
+<a name='L291'><font color='red'>}</font>
+<a name='L292'>
+<a name='L293'><i><font color='green'>/*-----------------------------------------------------------------------------</font></i>
+<a name='L294'><i><font color='green'> * List Commands</font></i>
+<a name='L295'><i><font color='green'> *----------------------------------------------------------------------------*/</font></i>
+<a name='L296'>
+<a name='L297'><b>void</b> <a href='../R/3265.html' title='Multiple refered from 2 places.'>pushGenericCommand</a>(redisClient *c, <b>int</b> where) <font color='red'>{</font>
+<a name='L298'>    <b>int</b> j, waiting = 0, pushed = 0;
+<a name='L299'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *lobj = <a href='../S/31.html#L70' title='Defined at 70 in src/db.c.'>lookupKeyWrite</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L300'>    <b>int</b> may_have_waiting_clients = (lobj == NULL);
+<a name='L301'>
+<a name='L302'>    <b>if</b> (lobj &amp;&amp; lobj-&gt;type != <a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>) <font color='red'>{</font>
+<a name='L303'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.wrongtypeerr);
+<a name='L304'>        <b>return</b>;
+<a name='L305'>    <font color='red'>}</font>
+<a name='L306'>
+<a name='L307'>    <b>if</b> (may_have_waiting_clients) <a href='../S/60.html#L832' title='Defined at 832 in src/t_list.c.'>signalListAsReady</a>(c,c-&gt;argv[1]);
+<a name='L308'>
+<a name='L309'>    <b>for</b> (j = 2; j &lt; c-&gt;argc; j++) <font color='red'>{</font>
+<a name='L310'>        c-&gt;argv[j] = <a href='../S/71.html#L273' title='Defined at 273 in src/object.c.'>tryObjectEncoding</a>(c-&gt;argv[j]);
+<a name='L311'>        <b>if</b> (!lobj) <font color='red'>{</font>
+<a name='L312'>            lobj = <a href='../S/71.html#L105' title='Defined at 105 in src/object.c.'>createZiplistObject</a>();
+<a name='L313'>            <a href='../S/31.html#L91' title='Defined at 91 in src/db.c.'>dbAdd</a>(c-&gt;db,c-&gt;argv[1],lobj);
+<a name='L314'>        <font color='red'>}</font>
+<a name='L315'>        <a href='../S/60.html#L53' title='Defined at 53 in src/t_list.c.'>listTypePush</a>(lobj,c-&gt;argv[j],where);
+<a name='L316'>        pushed++;
+<a name='L317'>    <font color='red'>}</font>
+<a name='L318'>    <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c, waiting + (lobj ? <a href='../S/60.html#L114' title='Defined at 114 in src/t_list.c.'>listTypeLength</a>(lobj) : 0));
+<a name='L319'>    <b>if</b> (pushed) <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L320'>    server.dirty += pushed;
+<a name='L321'><font color='red'>}</font>
+<a name='L322'>
+<a name='L323'><b>void</b> <a href='../R/2477.html' title='Multiple refered from 5 places.'>lpushCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L324'>    <a href='../S/60.html#L297' title='Defined at 297 in src/t_list.c.'>pushGenericCommand</a>(c,<a href='../S/32.html#L219' title='Defined at 219 in src/redis.h.'>REDIS_HEAD</a>);
+<a name='L325'><font color='red'>}</font>
+<a name='L326'>
+<a name='L327'><b>void</b> <a href='../R/3584.html' title='Multiple refered from 2 places.'>rpushCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L328'>    <a href='../S/60.html#L297' title='Defined at 297 in src/t_list.c.'>pushGenericCommand</a>(c,<a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>);
+<a name='L329'><font color='red'>}</font>
+<a name='L330'>
+<a name='L331'><b>void</b> <a href='../R/3274.html' title='Multiple refered from 4 places.'>pushxGenericCommand</a>(redisClient *c, robj *refval, robj *val, <b>int</b> where) <font color='red'>{</font>
+<a name='L332'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *subject;
+<a name='L333'>    <a href='../S/32.html#L714' title='Defined at 714 in src/redis.h.'>listTypeIterator</a> *iter;
+<a name='L334'>    <a href='../S/32.html#L721' title='Defined at 721 in src/redis.h.'>listTypeEntry</a> <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>;
+<a name='L335'>    <b>int</b> inserted = 0;
+<a name='L336'>
+<a name='L337'>    <b>if</b> ((subject = <a href='../S/31.html#L75' title='Defined at 75 in src/db.c.'>lookupKeyReadOrReply</a>(c,c-&gt;argv[1],shared.czero)) == NULL ||
+<a name='L338'>        <a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(c,subject,<a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>)) <b>return</b>;
+<a name='L339'>
+<a name='L340'>    <b>if</b> (refval != NULL) <font color='red'>{</font>
+<a name='L341'>        <i><font color='green'>/* Note: we expect refval to be string-encoded because it is *not* the</font></i>
+<a name='L342'><i><font color='green'>         * last argument of the multi-bulk LINSERT. */</font></i>
+<a name='L343'>        <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,refval,refval-&gt;encoding == <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>);
+<a name='L344'>
+<a name='L345'>        <i><font color='green'>/* We're not sure if this value can be inserted yet, but we cannot</font></i>
+<a name='L346'><i><font color='green'>         * convert the list inside the iterator. We don't want to loop over</font></i>
+<a name='L347'><i><font color='green'>         * the list twice (once to see if the value can be inserted and once</font></i>
+<a name='L348'><i><font color='green'>         * to do the actual insert), so we assume this value can be inserted</font></i>
+<a name='L349'><i><font color='green'>         * and convert the ziplist to a regular list if necessary. */</font></i>
+<a name='L350'>        <a href='../S/60.html#L41' title='Defined at 41 in src/t_list.c.'>listTypeTryConversion</a>(subject,val);
+<a name='L351'>
+<a name='L352'>        <i><font color='green'>/* Seek refval from head to tail */</font></i>
+<a name='L353'>        iter = <a href='../S/60.html#L125' title='Defined at 125 in src/t_list.c.'>listTypeInitIterator</a>(subject,0,<a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>);
+<a name='L354'>        <b>while</b> (<a href='../S/60.html#L148' title='Defined at 148 in src/t_list.c.'>listTypeNext</a>(iter,&amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>)) <font color='red'>{</font>
+<a name='L355'>            <b>if</b> (<a href='../S/60.html#L234' title='Defined at 234 in src/t_list.c.'>listTypeEqual</a>(&amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>,refval)) <font color='red'>{</font>
+<a name='L356'>                <a href='../S/60.html#L203' title='Defined at 203 in src/t_list.c.'>listTypeInsert</a>(&amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>,val,where);
+<a name='L357'>                inserted = 1;
+<a name='L358'>                <b>break</b>;
+<a name='L359'>            <font color='red'>}</font>
+<a name='L360'>        <font color='red'>}</font>
+<a name='L361'>        <a href='../S/60.html#L141' title='Defined at 141 in src/t_list.c.'>listTypeReleaseIterator</a>(iter);
+<a name='L362'>
+<a name='L363'>        <b>if</b> (inserted) <font color='red'>{</font>
+<a name='L364'>            <i><font color='green'>/* Check if the length exceeds the ziplist length threshold. */</font></i>
+<a name='L365'>            <b>if</b> (subject-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a> &amp;&amp;
+<a name='L366'>                <a href='../S/89.html#L879' title='Defined at 879 in src/ziplist.c.'>ziplistLen</a>(subject-&gt;ptr) &gt; server.list_max_ziplist_entries)
+<a name='L367'>                    <a href='../S/60.html#L271' title='Defined at 271 in src/t_list.c.'>listTypeConvert</a>(subject,<a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>);
+<a name='L368'>            <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L369'>            server.dirty++;
+<a name='L370'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L371'>            <i><font color='green'>/* Notify client of a failed insert */</font></i>
+<a name='L372'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.cnegone);
+<a name='L373'>            <b>return</b>;
+<a name='L374'>        <font color='red'>}</font>
+<a name='L375'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L376'>        <a href='../S/60.html#L53' title='Defined at 53 in src/t_list.c.'>listTypePush</a>(subject,val,where);
+<a name='L377'>        <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L378'>        server.dirty++;
+<a name='L379'>    <font color='red'>}</font>
+<a name='L380'>
+<a name='L381'>    <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,<a href='../S/60.html#L114' title='Defined at 114 in src/t_list.c.'>listTypeLength</a>(subject));
+<a name='L382'><font color='red'>}</font>
+<a name='L383'>
+<a name='L384'><b>void</b> <a href='../R/2478.html' title='Multiple refered from 2 places.'>lpushxCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L385'>    c-&gt;argv[2] = <a href='../S/71.html#L273' title='Defined at 273 in src/object.c.'>tryObjectEncoding</a>(c-&gt;argv[2]);
+<a name='L386'>    <a href='../S/60.html#L331' title='Defined at 331 in src/t_list.c.'>pushxGenericCommand</a>(c,NULL,c-&gt;argv[2],<a href='../S/32.html#L219' title='Defined at 219 in src/redis.h.'>REDIS_HEAD</a>);
+<a name='L387'><font color='red'>}</font>
+<a name='L388'>
+<a name='L389'><b>void</b> <a href='../R/3585.html' title='Multiple refered from 2 places.'>rpushxCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L390'>    c-&gt;argv[2] = <a href='../S/71.html#L273' title='Defined at 273 in src/object.c.'>tryObjectEncoding</a>(c-&gt;argv[2]);
+<a name='L391'>    <a href='../S/60.html#L331' title='Defined at 331 in src/t_list.c.'>pushxGenericCommand</a>(c,NULL,c-&gt;argv[2],<a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>);
+<a name='L392'><font color='red'>}</font>
+<a name='L393'>
+<a name='L394'><b>void</b> <a href='../R/2376.html' title='Multiple refered from 2 places.'>linsertCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L395'>    c-&gt;argv[4] = <a href='../S/71.html#L273' title='Defined at 273 in src/object.c.'>tryObjectEncoding</a>(c-&gt;argv[4]);
+<a name='L396'>    <b>if</b> (strcasecmp(c-&gt;argv[2]-&gt;ptr,"after") == 0) <font color='red'>{</font>
+<a name='L397'>        <a href='../S/60.html#L331' title='Defined at 331 in src/t_list.c.'>pushxGenericCommand</a>(c,c-&gt;argv[3],c-&gt;argv[4],<a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>);
+<a name='L398'>    <font color='red'>}</font> <b>else</b> <b>if</b> (strcasecmp(c-&gt;argv[2]-&gt;ptr,"before") == 0) <font color='red'>{</font>
+<a name='L399'>        <a href='../S/60.html#L331' title='Defined at 331 in src/t_list.c.'>pushxGenericCommand</a>(c,c-&gt;argv[3],c-&gt;argv[4],<a href='../S/32.html#L219' title='Defined at 219 in src/redis.h.'>REDIS_HEAD</a>);
+<a name='L400'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L401'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.syntaxerr);
+<a name='L402'>    <font color='red'>}</font>
+<a name='L403'><font color='red'>}</font>
+<a name='L404'>
+<a name='L405'><b>void</b> <a href='../R/2431.html' title='Multiple refered from 2 places.'>llenCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L406'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o = <a href='../S/31.html#L75' title='Defined at 75 in src/db.c.'>lookupKeyReadOrReply</a>(c,c-&gt;argv[1],shared.czero);
+<a name='L407'>    <b>if</b> (o == NULL || <a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(c,o,<a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>)) <b>return</b>;
+<a name='L408'>    <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,<a href='../S/60.html#L114' title='Defined at 114 in src/t_list.c.'>listTypeLength</a>(o));
+<a name='L409'><font color='red'>}</font>
+<a name='L410'>
+<a name='L411'><b>void</b> <a href='../R/2363.html' title='Multiple refered from 2 places.'>lindexCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L412'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o = <a href='../S/31.html#L75' title='Defined at 75 in src/db.c.'>lookupKeyReadOrReply</a>(c,c-&gt;argv[1],shared.nullbulk);
+<a name='L413'>    <b>if</b> (o == NULL || <a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(c,o,<a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>)) <b>return</b>;
+<a name='L414'>    <b>long</b> index;
+<a name='L415'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *value = NULL;
+<a name='L416'>
+<a name='L417'>    <b>if</b> ((<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c, c-&gt;argv[2], &amp;index, NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>))
+<a name='L418'>        <b>return</b>;
+<a name='L419'>
+<a name='L420'>    <b>if</b> (o-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L421'>        <b>unsigned</b> <b>char</b> *p;
+<a name='L422'>        <b>unsigned</b> <b>char</b> *vstr;
+<a name='L423'>        <b>unsigned</b> <b>int</b> vlen;
+<a name='L424'>        <b>long</b> <b>long</b> vlong;
+<a name='L425'>        p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(o-&gt;ptr,index);
+<a name='L426'>        <b>if</b> (<a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(p,&amp;vstr,&amp;vlen,&amp;vlong)) <font color='red'>{</font>
+<a name='L427'>            <b>if</b> (vstr) <font color='red'>{</font>
+<a name='L428'>                value = <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>((<b>char</b>*)vstr,vlen);
+<a name='L429'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L430'>                value = <a href='../S/71.html#L51' title='Defined at 51 in src/object.c.'>createStringObjectFromLongLong</a>(vlong);
+<a name='L431'>            <font color='red'>}</font>
+<a name='L432'>            <a href='../S/86.html#L475' title='Defined at 475 in src/networking.c.'>addReplyBulk</a>(c,value);
+<a name='L433'>            <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(value);
+<a name='L434'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L435'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.nullbulk);
+<a name='L436'>        <font color='red'>}</font>
+<a name='L437'>    <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;encoding == <a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>) <font color='red'>{</font>
+<a name='L438'>        <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln = <a href='../S/54.html#L313' title='Defined at 313 in src/adlist.c.'>listIndex</a>(o-&gt;ptr,index);
+<a name='L439'>        <b>if</b> (ln != NULL) <font color='red'>{</font>
+<a name='L440'>            value = <a href='../S/58.html#L62' title='Defined at 62 in src/adlist.h.'>listNodeValue</a>(ln);
+<a name='L441'>            <a href='../S/86.html#L475' title='Defined at 475 in src/networking.c.'>addReplyBulk</a>(c,value);
+<a name='L442'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L443'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.nullbulk);
+<a name='L444'>        <font color='red'>}</font>
+<a name='L445'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L446'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown list encoding");
+<a name='L447'>    <font color='red'>}</font>
+<a name='L448'><font color='red'>}</font>
+<a name='L449'>
+<a name='L450'><b>void</b> <a href='../R/2481.html' title='Multiple refered from 2 places.'>lsetCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L451'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o = <a href='../S/31.html#L81' title='Defined at 81 in src/db.c.'>lookupKeyWriteOrReply</a>(c,c-&gt;argv[1],shared.nokeyerr);
+<a name='L452'>    <b>if</b> (o == NULL || <a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(c,o,<a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>)) <b>return</b>;
+<a name='L453'>    <b>long</b> index;
+<a name='L454'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *value = (c-&gt;argv[3] = <a href='../S/71.html#L273' title='Defined at 273 in src/object.c.'>tryObjectEncoding</a>(c-&gt;argv[3]));
+<a name='L455'>
+<a name='L456'>    <b>if</b> ((<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c, c-&gt;argv[2], &amp;index, NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>))
+<a name='L457'>        <b>return</b>;
+<a name='L458'>
+<a name='L459'>    <a href='../S/60.html#L41' title='Defined at 41 in src/t_list.c.'>listTypeTryConversion</a>(o,value);
+<a name='L460'>    <b>if</b> (o-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L461'>        <b>unsigned</b> <b>char</b> *p, *zl = o-&gt;ptr;
+<a name='L462'>        p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(zl,index);
+<a name='L463'>        <b>if</b> (p == NULL) <font color='red'>{</font>
+<a name='L464'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.outofrangeerr);
+<a name='L465'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L466'>            o-&gt;ptr = <a href='../S/89.html#L773' title='Defined at 773 in src/ziplist.c.'>ziplistDelete</a>(o-&gt;ptr,&amp;p);
+<a name='L467'>            value = <a href='../S/71.html#L312' title='Defined at 312 in src/object.c.'>getDecodedObject</a>(value);
+<a name='L468'>            o-&gt;ptr = <a href='../S/89.html#L766' title='Defined at 766 in src/ziplist.c.'>ziplistInsert</a>(o-&gt;ptr,p,value-&gt;ptr,<a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(value-&gt;ptr));
+<a name='L469'>            <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(value);
+<a name='L470'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L471'>            <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L472'>            server.dirty++;
+<a name='L473'>        <font color='red'>}</font>
+<a name='L474'>    <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;encoding == <a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>) <font color='red'>{</font>
+<a name='L475'>        <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln = <a href='../S/54.html#L313' title='Defined at 313 in src/adlist.c.'>listIndex</a>(o-&gt;ptr,index);
+<a name='L476'>        <b>if</b> (ln == NULL) <font color='red'>{</font>
+<a name='L477'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.outofrangeerr);
+<a name='L478'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L479'>            <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>((<a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a>*)<a href='../S/58.html#L62' title='Defined at 62 in src/adlist.h.'>listNodeValue</a>(ln));
+<a name='L480'>            <a href='../S/58.html#L62' title='Defined at 62 in src/adlist.h.'>listNodeValue</a>(ln) = value;
+<a name='L481'>            <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(value);
+<a name='L482'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L483'>            <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L484'>            server.dirty++;
+<a name='L485'>        <font color='red'>}</font>
+<a name='L486'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L487'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown list encoding");
+<a name='L488'>    <font color='red'>}</font>
+<a name='L489'><font color='red'>}</font>
+<a name='L490'>
+<a name='L491'><b>void</b> <a href='../R/3150.html' title='Multiple refered from 3 places.'>popGenericCommand</a>(redisClient *c, <b>int</b> where) <font color='red'>{</font>
+<a name='L492'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o = <a href='../S/31.html#L81' title='Defined at 81 in src/db.c.'>lookupKeyWriteOrReply</a>(c,c-&gt;argv[1],shared.nullbulk);
+<a name='L493'>    <b>if</b> (o == NULL || <a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(c,o,<a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>)) <b>return</b>;
+<a name='L494'>
+<a name='L495'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *value = <a href='../S/60.html#L77' title='Defined at 77 in src/t_list.c.'>listTypePop</a>(o,where);
+<a name='L496'>    <b>if</b> (value == NULL) <font color='red'>{</font>
+<a name='L497'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.nullbulk);
+<a name='L498'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L499'>        <a href='../S/86.html#L475' title='Defined at 475 in src/networking.c.'>addReplyBulk</a>(c,value);
+<a name='L500'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(value);
+<a name='L501'>        <b>if</b> (<a href='../S/60.html#L114' title='Defined at 114 in src/t_list.c.'>listTypeLength</a>(o) == 0) <a href='../S/31.html#L158' title='Defined at 158 in src/db.c.'>dbDelete</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L502'>        <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L503'>        server.dirty++;
+<a name='L504'>    <font color='red'>}</font>
+<a name='L505'><font color='red'>}</font>
+<a name='L506'>
+<a name='L507'><b>void</b> <a href='../R/2476.html' title='Multiple refered from 5 places.'>lpopCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L508'>    <a href='../S/60.html#L491' title='Defined at 491 in src/t_list.c.'>popGenericCommand</a>(c,<a href='../S/32.html#L219' title='Defined at 219 in src/redis.h.'>REDIS_HEAD</a>);
+<a name='L509'><font color='red'>}</font>
+<a name='L510'>
+<a name='L511'><b>void</b> <a href='../R/3581.html' title='Multiple refered from 6 places.'>rpopCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L512'>    <a href='../S/60.html#L491' title='Defined at 491 in src/t_list.c.'>popGenericCommand</a>(c,<a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>);
+<a name='L513'><font color='red'>}</font>
+<a name='L514'>
+<a name='L515'><b>void</b> <a href='../R/2479.html' title='Multiple refered from 2 places.'>lrangeCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L516'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L517'>    <b>long</b> start, end, llen, rangelen;
+<a name='L518'>
+<a name='L519'>    <b>if</b> ((<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c, c-&gt;argv[2], &amp;start, NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) ||
+<a name='L520'>        (<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c, c-&gt;argv[3], &amp;end, NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)) <b>return</b>;
+<a name='L521'>
+<a name='L522'>    <b>if</b> ((o = <a href='../S/31.html#L75' title='Defined at 75 in src/db.c.'>lookupKeyReadOrReply</a>(c,c-&gt;argv[1],shared.emptymultibulk)) == NULL
+<a name='L523'>         || <a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(c,o,<a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>)) <b>return</b>;
+<a name='L524'>    llen = <a href='../S/60.html#L114' title='Defined at 114 in src/t_list.c.'>listTypeLength</a>(o);
+<a name='L525'>
+<a name='L526'>    <i><font color='green'>/* convert negative indexes */</font></i>
+<a name='L527'>    <b>if</b> (start &lt; 0) start = llen+start;
+<a name='L528'>    <b>if</b> (end &lt; 0) end = llen+end;
+<a name='L529'>    <b>if</b> (start &lt; 0) start = 0;
+<a name='L530'>
+<a name='L531'>    <i><font color='green'>/* Invariant: start &gt;= 0, so this test will be true when end &lt; 0.</font></i>
+<a name='L532'><i><font color='green'>     * The range is empty when start &gt; end or start &gt;= length. */</font></i>
+<a name='L533'>    <b>if</b> (start &gt; end || start &gt;= llen) <font color='red'>{</font>
+<a name='L534'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.emptymultibulk);
+<a name='L535'>        <b>return</b>;
+<a name='L536'>    <font color='red'>}</font>
+<a name='L537'>    <b>if</b> (end &gt;= llen) end = llen-1;
+<a name='L538'>    rangelen = (end-start)+1;
+<a name='L539'>
+<a name='L540'>    <i><font color='green'>/* Return the result in form of a multi-bulk reply */</font></i>
+<a name='L541'>    <a href='../S/86.html#L448' title='Defined at 448 in src/networking.c.'>addReplyMultiBulkLen</a>(c,rangelen);
+<a name='L542'>    <b>if</b> (o-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L543'>        <b>unsigned</b> <b>char</b> *p = <a href='../S/89.html#L677' title='Defined at 677 in src/ziplist.c.'>ziplistIndex</a>(o-&gt;ptr,start);
+<a name='L544'>        <b>unsigned</b> <b>char</b> *vstr;
+<a name='L545'>        <b>unsigned</b> <b>int</b> vlen;
+<a name='L546'>        <b>long</b> <b>long</b> vlong;
+<a name='L547'>
+<a name='L548'>        <b>while</b>(rangelen--) <font color='red'>{</font>
+<a name='L549'>            <a href='../S/89.html#L746' title='Defined at 746 in src/ziplist.c.'>ziplistGet</a>(p,&amp;vstr,&amp;vlen,&amp;vlong);
+<a name='L550'>            <b>if</b> (vstr) <font color='red'>{</font>
+<a name='L551'>                <a href='../S/86.html#L482' title='Defined at 482 in src/networking.c.'>addReplyBulkCBuffer</a>(c,vstr,vlen);
+<a name='L552'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L553'>                <a href='../S/86.html#L498' title='Defined at 498 in src/networking.c.'>addReplyBulkLongLong</a>(c,vlong);
+<a name='L554'>            <font color='red'>}</font>
+<a name='L555'>            p = <a href='../S/89.html#L705' title='Defined at 705 in src/ziplist.c.'>ziplistNext</a>(o-&gt;ptr,p);
+<a name='L556'>        <font color='red'>}</font>
+<a name='L557'>    <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;encoding == <a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>) <font color='red'>{</font>
+<a name='L558'>        <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln;
+<a name='L559'>
+<a name='L560'>        <i><font color='green'>/* If we are nearest to the end of the list, reach the element</font></i>
+<a name='L561'><i><font color='green'>         * starting from tail and going backward, as it is faster. */</font></i>
+<a name='L562'>        <b>if</b> (start &gt; llen/2) start -= llen;
+<a name='L563'>        ln = <a href='../S/54.html#L313' title='Defined at 313 in src/adlist.c.'>listIndex</a>(o-&gt;ptr,start);
+<a name='L564'>
+<a name='L565'>        <b>while</b>(rangelen--) <font color='red'>{</font>
+<a name='L566'>            <a href='../S/86.html#L475' title='Defined at 475 in src/networking.c.'>addReplyBulk</a>(c,ln-&gt;value);
+<a name='L567'>            ln = ln-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L568'>        <font color='red'>}</font>
+<a name='L569'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L570'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("List encoding is not LINKEDLIST nor ZIPLIST!");
+<a name='L571'>    <font color='red'>}</font>
+<a name='L572'><font color='red'>}</font>
+<a name='L573'>
+<a name='L574'><b>void</b> <a href='../R/2487.html' title='Multiple refered from 2 places.'>ltrimCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L575'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L576'>    <b>long</b> start, end, llen, j, ltrim, rtrim;
+<a name='L577'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>;
+<a name='L578'>    <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln;
+<a name='L579'>
+<a name='L580'>    <b>if</b> ((<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c, c-&gt;argv[2], &amp;start, NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) ||
+<a name='L581'>        (<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c, c-&gt;argv[3], &amp;end, NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)) <b>return</b>;
+<a name='L582'>
+<a name='L583'>    <b>if</b> ((o = <a href='../S/31.html#L81' title='Defined at 81 in src/db.c.'>lookupKeyWriteOrReply</a>(c,c-&gt;argv[1],shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>)) == NULL ||
+<a name='L584'>        <a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(c,o,<a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>)) <b>return</b>;
+<a name='L585'>    llen = <a href='../S/60.html#L114' title='Defined at 114 in src/t_list.c.'>listTypeLength</a>(o);
+<a name='L586'>
+<a name='L587'>    <i><font color='green'>/* convert negative indexes */</font></i>
+<a name='L588'>    <b>if</b> (start &lt; 0) start = llen+start;
+<a name='L589'>    <b>if</b> (end &lt; 0) end = llen+end;
+<a name='L590'>    <b>if</b> (start &lt; 0) start = 0;
+<a name='L591'>
+<a name='L592'>    <i><font color='green'>/* Invariant: start &gt;= 0, so this test will be true when end &lt; 0.</font></i>
+<a name='L593'><i><font color='green'>     * The range is empty when start &gt; end or start &gt;= length. */</font></i>
+<a name='L594'>    <b>if</b> (start &gt; end || start &gt;= llen) <font color='red'>{</font>
+<a name='L595'>        <i><font color='green'>/* Out of range start or start &gt; end result in empty list */</font></i>
+<a name='L596'>        ltrim = llen;
+<a name='L597'>        rtrim = 0;
+<a name='L598'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L599'>        <b>if</b> (end &gt;= llen) end = llen-1;
+<a name='L600'>        ltrim = start;
+<a name='L601'>        rtrim = llen-end-1;
+<a name='L602'>    <font color='red'>}</font>
+<a name='L603'>
+<a name='L604'>    <i><font color='green'>/* Remove list elements to perform the trim */</font></i>
+<a name='L605'>    <b>if</b> (o-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>) <font color='red'>{</font>
+<a name='L606'>        o-&gt;ptr = <a href='../S/89.html#L786' title='Defined at 786 in src/ziplist.c.'>ziplistDeleteRange</a>(o-&gt;ptr,0,ltrim);
+<a name='L607'>        o-&gt;ptr = <a href='../S/89.html#L786' title='Defined at 786 in src/ziplist.c.'>ziplistDeleteRange</a>(o-&gt;ptr,-rtrim,rtrim);
+<a name='L608'>    <font color='red'>}</font> <b>else</b> <b>if</b> (o-&gt;encoding == <a href='../S/32.html#L134' title='Defined at 134 in src/redis.h.'>REDIS_ENCODING_LINKEDLIST</a>) <font color='red'>{</font>
+<a name='L609'>        <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> = o-&gt;ptr;
+<a name='L610'>        <b>for</b> (j = 0; j &lt; ltrim; j++) <font color='red'>{</font>
+<a name='L611'>            ln = <a href='../S/58.html#L58' title='Defined at 58 in src/adlist.h.'>listFirst</a>(<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>);
+<a name='L612'>            <a href='../S/54.html#L159' title='Defined at 159 in src/adlist.c.'>listDelNode</a>(<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>,ln);
+<a name='L613'>        <font color='red'>}</font>
+<a name='L614'>        <b>for</b> (j = 0; j &lt; rtrim; j++) <font color='red'>{</font>
+<a name='L615'>            ln = <a href='../S/58.html#L59' title='Defined at 59 in src/adlist.h.'>listLast</a>(<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>);
+<a name='L616'>            <a href='../S/54.html#L159' title='Defined at 159 in src/adlist.c.'>listDelNode</a>(<a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a>,ln);
+<a name='L617'>        <font color='red'>}</font>
+<a name='L618'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L619'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown list encoding");
+<a name='L620'>    <font color='red'>}</font>
+<a name='L621'>    <b>if</b> (<a href='../S/60.html#L114' title='Defined at 114 in src/t_list.c.'>listTypeLength</a>(o) == 0) <a href='../S/31.html#L158' title='Defined at 158 in src/db.c.'>dbDelete</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L622'>    <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L623'>    server.dirty++;
+<a name='L624'>    <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.<a href='../S/44.html#L300' title='Defined at 300 in src/intset.c.'>ok</a>);
+<a name='L625'><font color='red'>}</font>
+<a name='L626'>
+<a name='L627'><b>void</b> <a href='../R/2480.html' title='Multiple refered from 2 places.'>lremCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L628'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *subject, *obj;
+<a name='L629'>    obj = c-&gt;argv[3] = <a href='../S/71.html#L273' title='Defined at 273 in src/object.c.'>tryObjectEncoding</a>(c-&gt;argv[3]);
+<a name='L630'>    <b>long</b> toremove;
+<a name='L631'>    <b>long</b> removed = 0;
+<a name='L632'>    <a href='../S/32.html#L721' title='Defined at 721 in src/redis.h.'>listTypeEntry</a> <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>;
+<a name='L633'>
+<a name='L634'>    <b>if</b> ((<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c, c-&gt;argv[2], &amp;toremove, NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>))
+<a name='L635'>        <b>return</b>;
+<a name='L636'>
+<a name='L637'>    subject = <a href='../S/31.html#L81' title='Defined at 81 in src/db.c.'>lookupKeyWriteOrReply</a>(c,c-&gt;argv[1],shared.czero);
+<a name='L638'>    <b>if</b> (subject == NULL || <a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(c,subject,<a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>)) <b>return</b>;
+<a name='L639'>
+<a name='L640'>    <i><font color='green'>/* Make sure obj is raw when we're dealing with a ziplist */</font></i>
+<a name='L641'>    <b>if</b> (subject-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>)
+<a name='L642'>        obj = <a href='../S/71.html#L312' title='Defined at 312 in src/object.c.'>getDecodedObject</a>(obj);
+<a name='L643'>
+<a name='L644'>    <a href='../S/32.html#L714' title='Defined at 714 in src/redis.h.'>listTypeIterator</a> *li;
+<a name='L645'>    <b>if</b> (toremove &lt; 0) <font color='red'>{</font>
+<a name='L646'>        toremove = -toremove;
+<a name='L647'>        li = <a href='../S/60.html#L125' title='Defined at 125 in src/t_list.c.'>listTypeInitIterator</a>(subject,-1,<a href='../S/32.html#L219' title='Defined at 219 in src/redis.h.'>REDIS_HEAD</a>);
+<a name='L648'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L649'>        li = <a href='../S/60.html#L125' title='Defined at 125 in src/t_list.c.'>listTypeInitIterator</a>(subject,0,<a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>);
+<a name='L650'>    <font color='red'>}</font>
+<a name='L651'>
+<a name='L652'>    <b>while</b> (<a href='../S/60.html#L148' title='Defined at 148 in src/t_list.c.'>listTypeNext</a>(li,&amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>)) <font color='red'>{</font>
+<a name='L653'>        <b>if</b> (<a href='../S/60.html#L234' title='Defined at 234 in src/t_list.c.'>listTypeEqual</a>(&amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>,obj)) <font color='red'>{</font>
+<a name='L654'>            <a href='../S/60.html#L247' title='Defined at 247 in src/t_list.c.'>listTypeDelete</a>(&amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>);
+<a name='L655'>            server.dirty++;
+<a name='L656'>            removed++;
+<a name='L657'>            <b>if</b> (toremove &amp;&amp; removed == toremove) <b>break</b>;
+<a name='L658'>        <font color='red'>}</font>
+<a name='L659'>    <font color='red'>}</font>
+<a name='L660'>    <a href='../S/60.html#L141' title='Defined at 141 in src/t_list.c.'>listTypeReleaseIterator</a>(li);
+<a name='L661'>
+<a name='L662'>    <i><font color='green'>/* Clean up raw encoded object */</font></i>
+<a name='L663'>    <b>if</b> (subject-&gt;encoding == <a href='../S/32.html#L135' title='Defined at 135 in src/redis.h.'>REDIS_ENCODING_ZIPLIST</a>)
+<a name='L664'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(obj);
+<a name='L665'>
+<a name='L666'>    <b>if</b> (<a href='../S/60.html#L114' title='Defined at 114 in src/t_list.c.'>listTypeLength</a>(subject) == 0) <a href='../S/31.html#L158' title='Defined at 158 in src/db.c.'>dbDelete</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L667'>    <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,removed);
+<a name='L668'>    <b>if</b> (removed) <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L669'><font color='red'>}</font>
+<a name='L670'>
+<a name='L671'><i><font color='green'>/* This is the semantic of this command:</font></i>
+<a name='L672'><i><font color='green'> *  RPOPLPUSH srclist dstlist:</font></i>
+<a name='L673'><i><font color='green'> *    IF LLEN(srclist) &gt; 0</font></i>
+<a name='L674'><i><font color='green'> *      element = RPOP srclist</font></i>
+<a name='L675'><i><font color='green'> *      LPUSH dstlist element</font></i>
+<a name='L676'><i><font color='green'> *      RETURN element</font></i>
+<a name='L677'><i><font color='green'> *    ELSE</font></i>
+<a name='L678'><i><font color='green'> *      RETURN nil</font></i>
+<a name='L679'><i><font color='green'> *    END</font></i>
+<a name='L680'><i><font color='green'> *  END</font></i>
+<a name='L681'><i><font color='green'> *</font></i>
+<a name='L682'><i><font color='green'> * The idea is to be able to get an element from a list in a reliable way</font></i>
+<a name='L683'><i><font color='green'> * since the element is not just returned but pushed against another list</font></i>
+<a name='L684'><i><font color='green'> * as well. This command was originally proposed by Ezra Zygmuntowicz.</font></i>
+<a name='L685'><i><font color='green'> */</font></i>
+<a name='L686'>
+<a name='L687'><b>void</b> <a href='../R/3583.html' title='Multiple refered from 2 places.'>rpoplpushHandlePush</a>(redisClient *c, robj *dstkey, robj *dstobj, robj *value) <font color='red'>{</font>
+<a name='L688'>    <i><font color='green'>/* Create the list if the key does not exist */</font></i>
+<a name='L689'>    <b>if</b> (!dstobj) <font color='red'>{</font>
+<a name='L690'>        dstobj = <a href='../S/71.html#L105' title='Defined at 105 in src/object.c.'>createZiplistObject</a>();
+<a name='L691'>        <a href='../S/31.html#L91' title='Defined at 91 in src/db.c.'>dbAdd</a>(c-&gt;db,dstkey,dstobj);
+<a name='L692'>        <a href='../S/60.html#L832' title='Defined at 832 in src/t_list.c.'>signalListAsReady</a>(c,dstkey);
+<a name='L693'>    <font color='red'>}</font>
+<a name='L694'>    <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,dstkey);
+<a name='L695'>    <a href='../S/60.html#L53' title='Defined at 53 in src/t_list.c.'>listTypePush</a>(dstobj,value,<a href='../S/32.html#L219' title='Defined at 219 in src/redis.h.'>REDIS_HEAD</a>);
+<a name='L696'>    <i><font color='green'>/* Always send the pushed value to the client. */</font></i>
+<a name='L697'>    <a href='../S/86.html#L475' title='Defined at 475 in src/networking.c.'>addReplyBulk</a>(c,value);
+<a name='L698'><font color='red'>}</font>
+<a name='L699'>
+<a name='L700'><b>void</b> <a href='../R/3582.html' title='Multiple refered from 3 places.'>rpoplpushCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L701'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *sobj, *value;
+<a name='L702'>    <b>if</b> ((sobj = <a href='../S/31.html#L81' title='Defined at 81 in src/db.c.'>lookupKeyWriteOrReply</a>(c,c-&gt;argv[1],shared.nullbulk)) == NULL ||
+<a name='L703'>        <a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(c,sobj,<a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>)) <b>return</b>;
+<a name='L704'>
+<a name='L705'>    <b>if</b> (<a href='../S/60.html#L114' title='Defined at 114 in src/t_list.c.'>listTypeLength</a>(sobj) == 0) <font color='red'>{</font>
+<a name='L706'>        <i><font color='green'>/* This may only happen after loading very old RDB files. Recent</font></i>
+<a name='L707'><i><font color='green'>         * versions of Redis delete keys of empty lists. */</font></i>
+<a name='L708'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.nullbulk);
+<a name='L709'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L710'>        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *dobj = <a href='../S/31.html#L70' title='Defined at 70 in src/db.c.'>lookupKeyWrite</a>(c-&gt;db,c-&gt;argv[2]);
+<a name='L711'>        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *touchedkey = c-&gt;argv[1];
+<a name='L712'>
+<a name='L713'>        <b>if</b> (dobj &amp;&amp; <a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(c,dobj,<a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>)) <b>return</b>;
+<a name='L714'>        value = <a href='../S/60.html#L77' title='Defined at 77 in src/t_list.c.'>listTypePop</a>(sobj,<a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>);
+<a name='L715'>        <i><font color='green'>/* We saved touched key, and protect it, since rpoplpushHandlePush</font></i>
+<a name='L716'><i><font color='green'>         * may change the client command argument vector (it does not</font></i>
+<a name='L717'><i><font color='green'>         * currently). */</font></i>
+<a name='L718'>        <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(touchedkey);
+<a name='L719'>        <a href='../S/60.html#L687' title='Defined at 687 in src/t_list.c.'>rpoplpushHandlePush</a>(c,c-&gt;argv[2],dobj,value);
+<a name='L720'>
+<a name='L721'>        <i><font color='green'>/* listTypePop returns an object with its refcount incremented */</font></i>
+<a name='L722'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(value);
+<a name='L723'>
+<a name='L724'>        <i><font color='green'>/* Delete the source list when it is empty */</font></i>
+<a name='L725'>        <b>if</b> (<a href='../S/60.html#L114' title='Defined at 114 in src/t_list.c.'>listTypeLength</a>(sobj) == 0) <a href='../S/31.html#L158' title='Defined at 158 in src/db.c.'>dbDelete</a>(c-&gt;db,touchedkey);
+<a name='L726'>        <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,touchedkey);
+<a name='L727'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(touchedkey);
+<a name='L728'>        server.dirty++;
+<a name='L729'>    <font color='red'>}</font>
+<a name='L730'><font color='red'>}</font>
+<a name='L731'>
+<a name='L732'><i><font color='green'>/*-----------------------------------------------------------------------------</font></i>
+<a name='L733'><i><font color='green'> * Blocking POP operations</font></i>
+<a name='L734'><i><font color='green'> *----------------------------------------------------------------------------*/</font></i>
+<a name='L735'>
+<a name='L736'><i><font color='green'>/* This is how the current blocking POP works, we use BLPOP as example:</font></i>
+<a name='L737'><i><font color='green'> * - If the user calls BLPOP and the key exists and contains a non empty list</font></i>
+<a name='L738'><i><font color='green'> *   then LPOP is called instead. So BLPOP is semantically the same as LPOP</font></i>
+<a name='L739'><i><font color='green'> *   if blocking is not required.</font></i>
+<a name='L740'><i><font color='green'> * - If instead BLPOP is called and the key does not exists or the list is</font></i>
+<a name='L741'><i><font color='green'> *   empty we need to block. In order to do so we remove the notification for</font></i>
+<a name='L742'><i><font color='green'> *   new data to read in the client socket (so that we'll not serve new</font></i>
+<a name='L743'><i><font color='green'> *   requests if the blocking request is not served). Also we put the client</font></i>
+<a name='L744'><i><font color='green'> *   in a dictionary (db-&gt;blocking_keys) mapping keys to a list of clients</font></i>
+<a name='L745'><i><font color='green'> *   blocking for this keys.</font></i>
+<a name='L746'><i><font color='green'> * - If a PUSH operation against a key with blocked clients waiting is</font></i>
+<a name='L747'><i><font color='green'> *   performed, we mark this key as "ready", and after the current command,</font></i>
+<a name='L748'><i><font color='green'> *   MULTI/EXEC block, or script, is executed, we serve all the clients waiting</font></i>
+<a name='L749'><i><font color='green'> *   for this list, from the one that blocked first, to the last, accordingly</font></i>
+<a name='L750'><i><font color='green'> *   to the number of elements we have in the ready list.</font></i>
+<a name='L751'><i><font color='green'> */</font></i>
+<a name='L752'>
+<a name='L753'><i><font color='green'>/* Set a client in blocking mode for the specified key, with the specified</font></i>
+<a name='L754'><i><font color='green'> * timeout */</font></i>
+<a name='L755'><b>void</b> <a href='../R/1488.html' title='Multiple refered from 2 places.'>blockForKeys</a>(redisClient *c, robj **keys, <b>int</b> numkeys, time_t timeout, robj *target) <font color='red'>{</font>
+<a name='L756'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *de;
+<a name='L757'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *l;
+<a name='L758'>    <b>int</b> j;
+<a name='L759'>
+<a name='L760'>    c-&gt;bpop.timeout = timeout;
+<a name='L761'>    c-&gt;bpop.target = target;
+<a name='L762'>
+<a name='L763'>    <b>if</b> (target != NULL) <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(target);
+<a name='L764'>
+<a name='L765'>    <b>for</b> (j = 0; j &lt; numkeys; j++) <font color='red'>{</font>
+<a name='L766'>        <i><font color='green'>/* If the key already exists in the dict ignore it. */</font></i>
+<a name='L767'>        <b>if</b> (<a href='../D/2061.html' title='Multiple defined in 2 places.'>dictAdd</a>(c-&gt;bpop.keys,keys[j],NULL) != <a href='../D/124.html' title='Multiple defined in 2 places.'>DICT_OK</a>) <b>continue</b>;
+<a name='L768'>        <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(keys[j]);
+<a name='L769'>
+<a name='L770'>        <i><font color='green'>/* And in the other "side", to map keys -&gt; clients */</font></i>
+<a name='L771'>        de = <a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(c-&gt;db-&gt;blocking_keys,keys[j]);
+<a name='L772'>        <b>if</b> (de == NULL) <font color='red'>{</font>
+<a name='L773'>            <b>int</b> retval;
+<a name='L774'>
+<a name='L775'>            <i><font color='green'>/* For every key we take a list of clients blocked for it */</font></i>
+<a name='L776'>            l = <a href='../S/54.html#L41' title='Defined at 41 in src/adlist.c.'>listCreate</a>();
+<a name='L777'>            retval = <a href='../D/2061.html' title='Multiple defined in 2 places.'>dictAdd</a>(c-&gt;db-&gt;blocking_keys,keys[j],l);
+<a name='L778'>            <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(keys[j]);
+<a name='L779'>            <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,keys[j],retval == <a href='../D/124.html' title='Multiple defined in 2 places.'>DICT_OK</a>);
+<a name='L780'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L781'>            l = <a href='../S/88.html#L132' title='Defined at 132 in src/dict.h.'>dictGetVal</a>(de);
+<a name='L782'>        <font color='red'>}</font>
+<a name='L783'>        <a href='../S/54.html#L106' title='Defined at 106 in src/adlist.c.'>listAddNodeTail</a>(l,c);
+<a name='L784'>    <font color='red'>}</font>
+<a name='L785'>
+<a name='L786'>    <i><font color='green'>/* Mark the client as a blocked client */</font></i>
+<a name='L787'>    c-&gt;flags |= <a href='../S/32.html#L176' title='Defined at 176 in src/redis.h.'>REDIS_BLOCKED</a>;
+<a name='L788'>    server.bpop_blocked_clients++;
+<a name='L789'><font color='red'>}</font>
+<a name='L790'>
+<a name='L791'><i><font color='green'>/* Unblock a client that's waiting in a blocking operation such as BLPOP */</font></i>
+<a name='L792'><b>void</b> <a href='../R/4054.html' title='Multiple refered from 4 places.'>unblockClientWaitingData</a>(redisClient *c) <font color='red'>{</font>
+<a name='L793'>    <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *de;
+<a name='L794'>    <a href='../D/2099.html' title='Multiple defined in 4 places.'>dictIterator</a> *di;
+<a name='L795'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *l;
+<a name='L796'>
+<a name='L797'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,NULL,<a href='../D/2125.html' title='Multiple defined in 2 places.'>dictSize</a>(c-&gt;bpop.keys) != 0);
+<a name='L798'>    di = <a href='../D/2087.html' title='Multiple defined in 2 places.'>dictGetIterator</a>(c-&gt;bpop.keys);
+<a name='L799'>    <i><font color='green'>/* The client may wait for multiple keys, so unblock it for every key. */</font></i>
+<a name='L800'>    <b>while</b>((de = <a href='../D/2101.html' title='Multiple defined in 2 places.'>dictNext</a>(di)) != NULL) <font color='red'>{</font>
+<a name='L801'>        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *key = <a href='../S/88.html#L131' title='Defined at 131 in src/dict.h.'>dictGetKey</a>(de);
+<a name='L802'>
+<a name='L803'>        <i><font color='green'>/* Remove this client from the list of clients waiting for this key. */</font></i>
+<a name='L804'>        l = <a href='../S/29.html#L501' title='Defined at 501 in src/dict.c.'>dictFetchValue</a>(c-&gt;db-&gt;blocking_keys,key);
+<a name='L805'>        <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,key,l != NULL);
+<a name='L806'>        <a href='../S/54.html#L159' title='Defined at 159 in src/adlist.c.'>listDelNode</a>(l,<a href='../S/54.html#L285' title='Defined at 285 in src/adlist.c.'>listSearchKey</a>(l,c));
+<a name='L807'>        <i><font color='green'>/* If the list is empty we need to remove it to avoid wasting memory */</font></i>
+<a name='L808'>        <b>if</b> (<a href='../S/58.html#L57' title='Defined at 57 in src/adlist.h.'>listLength</a>(l) == 0)
+<a name='L809'>            <a href='../D/2066.html' title='Multiple defined in 2 places.'>dictDelete</a>(c-&gt;db-&gt;blocking_keys,key);
+<a name='L810'>    <font color='red'>}</font>
+<a name='L811'>    <a href='../D/2109.html' title='Multiple defined in 2 places.'>dictReleaseIterator</a>(di);
+<a name='L812'>
+<a name='L813'>    <i><font color='green'>/* Cleanup the client structure */</font></i>
+<a name='L814'>    <a href='../S/29.html#L673' title='Defined at 673 in src/dict.c.'>dictEmpty</a>(c-&gt;bpop.keys);
+<a name='L815'>    <b>if</b> (c-&gt;bpop.target) <font color='red'>{</font>
+<a name='L816'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(c-&gt;bpop.target);
+<a name='L817'>        c-&gt;bpop.target = NULL;
+<a name='L818'>    <font color='red'>}</font>
+<a name='L819'>    c-&gt;flags &amp;= ~<a href='../S/32.html#L176' title='Defined at 176 in src/redis.h.'>REDIS_BLOCKED</a>;
+<a name='L820'>    c-&gt;flags |= <a href='../S/32.html#L179' title='Defined at 179 in src/redis.h.'>REDIS_UNBLOCKED</a>;
+<a name='L821'>    server.bpop_blocked_clients--;
+<a name='L822'>    <a href='../S/54.html#L106' title='Defined at 106 in src/adlist.c.'>listAddNodeTail</a>(server.unblocked_clients,c);
+<a name='L823'><font color='red'>}</font>
+<a name='L824'>
+<a name='L825'><i><font color='green'>/* If the specified key has clients blocked waiting for list pushes, this</font></i>
+<a name='L826'><i><font color='green'> * function will put the key reference into the server.ready_keys list.</font></i>
+<a name='L827'><i><font color='green'> * Note that db-&gt;ready_keys is an hash table that allows us to avoid putting</font></i>
+<a name='L828'><i><font color='green'> * the same key agains and again in the list in case of multiple pushes</font></i>
+<a name='L829'><i><font color='green'> * made by a script or in the context of MULTI/EXEC.</font></i>
+<a name='L830'><i><font color='green'> *</font></i>
+<a name='L831'><i><font color='green'> * The list will be finally processed by handleClientsBlockedOnLists() */</font></i>
+<a name='L832'><b>void</b> <a href='../R/3792.html' title='Multiple refered from 3 places.'>signalListAsReady</a>(redisClient *c, robj *key) <font color='red'>{</font>
+<a name='L833'>    <a href='../D/3746.html' title='Multiple defined in 2 places.'>readyList</a> *rl;
+<a name='L834'>
+<a name='L835'>    <i><font color='green'>/* No clients blocking for this key? No need to queue it. */</font></i>
+<a name='L836'>    <b>if</b> (<a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(c-&gt;db-&gt;blocking_keys,key) == NULL) <b>return</b>;
+<a name='L837'>
+<a name='L838'>    <i><font color='green'>/* Key was already signaled? No need to queue it again. */</font></i>
+<a name='L839'>    <b>if</b> (<a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(c-&gt;db-&gt;ready_keys,key) != NULL) <b>return</b>;
+<a name='L840'>
+<a name='L841'>    <i><font color='green'>/* Ok, we need to queue this key into server.ready_keys. */</font></i>
+<a name='L842'>    rl = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(*rl));
+<a name='L843'>    rl-&gt;key = key;
+<a name='L844'>    rl-&gt;db = c-&gt;db;
+<a name='L845'>    <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(key);
+<a name='L846'>    <a href='../S/54.html#L106' title='Defined at 106 in src/adlist.c.'>listAddNodeTail</a>(server.ready_keys,rl);
+<a name='L847'>
+<a name='L848'>    <i><font color='green'>/* We also add the key in the db-&gt;ready_keys dictionary in order</font></i>
+<a name='L849'><i><font color='green'>     * to avoid adding it multiple times into a list with a simple O(1)</font></i>
+<a name='L850'><i><font color='green'>     * check. */</font></i>
+<a name='L851'>    <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(key);
+<a name='L852'>    <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(<a href='../D/2061.html' title='Multiple defined in 2 places.'>dictAdd</a>(c-&gt;db-&gt;ready_keys,key,NULL) == <a href='../D/124.html' title='Multiple defined in 2 places.'>DICT_OK</a>);
+<a name='L853'><font color='red'>}</font>
+<a name='L854'>
+<a name='L855'><i><font color='green'>/* This is an helper function for handleClientsBlockedOnLists(). It's work</font></i>
+<a name='L856'><i><font color='green'> * is to serve a specific client (receiver) that is blocked on 'key'</font></i>
+<a name='L857'><i><font color='green'> * in the context of the specified 'db', doing the following:</font></i>
+<a name='L858'><i><font color='green'> *</font></i>
+<a name='L859'><i><font color='green'> * 1) Provide the client with the 'value' element.</font></i>
+<a name='L860'><i><font color='green'> * 2) If the dstkey is not NULL (we are serving a BRPOPLPUSH) also push the</font></i>
+<a name='L861'><i><font color='green'> *    'value' element on the destionation list (the LPUSH side of the command).</font></i>
+<a name='L862'><i><font color='green'> * 3) Propagate the resulting BRPOP, BLPOP and additional LPUSH if any into</font></i>
+<a name='L863'><i><font color='green'> *    the AOF and replication channel.</font></i>
+<a name='L864'><i><font color='green'> *</font></i>
+<a name='L865'><i><font color='green'> * The argument 'where' is REDIS_TAIL or REDIS_HEAD, and indicates if the</font></i>
+<a name='L866'><i><font color='green'> * 'value' element was popped fron the head (BLPOP) or tail (BRPOP) so that</font></i>
+<a name='L867'><i><font color='green'> * we can propagate the command properly.</font></i>
+<a name='L868'><i><font color='green'> *</font></i>
+<a name='L869'><i><font color='green'> * The function returns REDIS_OK if we are able to serve the client, otherwise</font></i>
+<a name='L870'><i><font color='green'> * REDIS_ERR is returned to signal the caller that the list POP operation</font></i>
+<a name='L871'><i><font color='green'> * should be undoed as the client was not served: This only happens for</font></i>
+<a name='L872'><i><font color='green'> * BRPOPLPUSH that fails to push the value to the destination key as it is</font></i>
+<a name='L873'><i><font color='green'> * of the wrong type. */</font></i>
+<a name='L874'><b>int</b> <a href='../S/60.html#L982' title='Refered from 982 in src/t_list.c.'>serveClientBlockedOnList</a>(redisClient *receiver, robj *key, robj *dstkey, redisDb *db, robj *value, <b>int</b> where)
+<a name='L875'><font color='red'>{</font>
+<a name='L876'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *argv[3];
+<a name='L877'>
+<a name='L878'>    <b>if</b> (dstkey == NULL) <font color='red'>{</font>
+<a name='L879'>        <i><font color='green'>/* Propagate the [LR]POP operation. */</font></i>
+<a name='L880'>        argv[0] = (where == <a href='../S/32.html#L219' title='Defined at 219 in src/redis.h.'>REDIS_HEAD</a>) ? shared.lpop :
+<a name='L881'>                                          shared.rpop;
+<a name='L882'>        argv[1] = key;
+<a name='L883'>        <a href='../S/35.html#L1469' title='Defined at 1469 in src/redis.c.'>propagate</a>((where == <a href='../S/32.html#L219' title='Defined at 219 in src/redis.h.'>REDIS_HEAD</a>) ?
+<a name='L884'>            server.<a href='../S/60.html#L507' title='Defined at 507 in src/t_list.c.'>lpopCommand</a> : server.<a href='../S/60.html#L511' title='Defined at 511 in src/t_list.c.'>rpopCommand</a>,
+<a name='L885'>            db-&gt;id,argv,2,<a href='../S/32.html#L289' title='Defined at 289 in src/redis.h.'>REDIS_PROPAGATE_AOF</a>|<a href='../S/32.html#L290' title='Defined at 290 in src/redis.h.'>REDIS_PROPAGATE_REPL</a>);
+<a name='L886'>
+<a name='L887'>        <i><font color='green'>/* BRPOP/BLPOP */</font></i>
+<a name='L888'>        <a href='../S/86.html#L448' title='Defined at 448 in src/networking.c.'>addReplyMultiBulkLen</a>(receiver,2);
+<a name='L889'>        <a href='../S/86.html#L475' title='Defined at 475 in src/networking.c.'>addReplyBulk</a>(receiver,key);
+<a name='L890'>        <a href='../S/86.html#L475' title='Defined at 475 in src/networking.c.'>addReplyBulk</a>(receiver,value);
+<a name='L891'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L892'>        <i><font color='green'>/* BRPOPLPUSH */</font></i>
+<a name='L893'>        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *dstobj =
+<a name='L894'>            <a href='../S/31.html#L70' title='Defined at 70 in src/db.c.'>lookupKeyWrite</a>(receiver-&gt;db,dstkey);
+<a name='L895'>        <b>if</b> (!(dstobj &amp;&amp;
+<a name='L896'>             <a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(receiver,dstobj,<a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>)))
+<a name='L897'>        <font color='red'>{</font>
+<a name='L898'>            <i><font color='green'>/* Propagate the RPOP operation. */</font></i>
+<a name='L899'>            argv[0] = shared.rpop;
+<a name='L900'>            argv[1] = key;
+<a name='L901'>            <a href='../S/35.html#L1469' title='Defined at 1469 in src/redis.c.'>propagate</a>(server.<a href='../S/60.html#L511' title='Defined at 511 in src/t_list.c.'>rpopCommand</a>,
+<a name='L902'>                db-&gt;id,argv,2,
+<a name='L903'>                <a href='../S/32.html#L289' title='Defined at 289 in src/redis.h.'>REDIS_PROPAGATE_AOF</a>|
+<a name='L904'>                <a href='../S/32.html#L290' title='Defined at 290 in src/redis.h.'>REDIS_PROPAGATE_REPL</a>);
+<a name='L905'>            <a href='../S/60.html#L687' title='Defined at 687 in src/t_list.c.'>rpoplpushHandlePush</a>(receiver,dstkey,dstobj,
+<a name='L906'>                value);
+<a name='L907'>            <i><font color='green'>/* Propagate the LPUSH operation. */</font></i>
+<a name='L908'>            argv[0] = shared.lpush;
+<a name='L909'>            argv[1] = dstkey;
+<a name='L910'>            argv[2] = value;
+<a name='L911'>            <a href='../S/35.html#L1469' title='Defined at 1469 in src/redis.c.'>propagate</a>(server.<a href='../S/60.html#L323' title='Defined at 323 in src/t_list.c.'>lpushCommand</a>,
+<a name='L912'>                db-&gt;id,argv,3,
+<a name='L913'>                <a href='../S/32.html#L289' title='Defined at 289 in src/redis.h.'>REDIS_PROPAGATE_AOF</a>|
+<a name='L914'>                <a href='../S/32.html#L290' title='Defined at 290 in src/redis.h.'>REDIS_PROPAGATE_REPL</a>);
+<a name='L915'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L916'>            <i><font color='green'>/* BRPOPLPUSH failed because of wrong</font></i>
+<a name='L917'><i><font color='green'>             * destination type. */</font></i>
+<a name='L918'>            <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L919'>        <font color='red'>}</font>
+<a name='L920'>    <font color='red'>}</font>
+<a name='L921'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L922'><font color='red'>}</font>
+<a name='L923'>
+<a name='L924'><i><font color='green'>/* This function should be called by Redis every time a single command,</font></i>
+<a name='L925'><i><font color='green'> * a MULTI/EXEC block, or a Lua script, terminated its execution after</font></i>
+<a name='L926'><i><font color='green'> * being called by a client.</font></i>
+<a name='L927'><i><font color='green'> *</font></i>
+<a name='L928'><i><font color='green'> * All the keys with at least one client blocked that received at least</font></i>
+<a name='L929'><i><font color='green'> * one new element via some PUSH operation are accumulated into</font></i>
+<a name='L930'><i><font color='green'> * the server.ready_keys list. This function will run the list and will</font></i>
+<a name='L931'><i><font color='green'> * serve clients accordingly. Note that the function will iterate again and</font></i>
+<a name='L932'><i><font color='green'> * again as a result of serving BRPOPLPUSH we can have new blocking clients</font></i>
+<a name='L933'><i><font color='green'> * to serve because of the PUSH side of BRPOPLPUSH. */</font></i>
+<a name='L934'><b>void</b> <a href='../R/2111.html' title='Multiple refered from 2 places.'>handleClientsBlockedOnLists</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L935'>    <b>while</b>(<a href='../S/58.html#L57' title='Defined at 57 in src/adlist.h.'>listLength</a>(server.ready_keys) != 0) <font color='red'>{</font>
+<a name='L936'>        <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *l;
+<a name='L937'>
+<a name='L938'>        <i><font color='green'>/* Point server.ready_keys to a fresh list and save the current one</font></i>
+<a name='L939'><i><font color='green'>         * locally. This way as we run the old list we are free to call</font></i>
+<a name='L940'><i><font color='green'>         * signalListAsReady() that may push new elements in server.ready_keys</font></i>
+<a name='L941'><i><font color='green'>         * when handling clients blocked into BRPOPLPUSH. */</font></i>
+<a name='L942'>        l = server.ready_keys;
+<a name='L943'>        server.ready_keys = <a href='../S/54.html#L41' title='Defined at 41 in src/adlist.c.'>listCreate</a>();
+<a name='L944'>
+<a name='L945'>        <b>while</b>(<a href='../S/58.html#L57' title='Defined at 57 in src/adlist.h.'>listLength</a>(l) != 0) <font color='red'>{</font>
+<a name='L946'>            <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln = <a href='../S/58.html#L58' title='Defined at 58 in src/adlist.h.'>listFirst</a>(l);
+<a name='L947'>            <a href='../D/3746.html' title='Multiple defined in 2 places.'>readyList</a> *rl = ln-&gt;value;
+<a name='L948'>
+<a name='L949'>            <i><font color='green'>/* First of all remove this key from db-&gt;ready_keys so that</font></i>
+<a name='L950'><i><font color='green'>             * we can safely call signalListAsReady() against this key. */</font></i>
+<a name='L951'>            <a href='../D/2066.html' title='Multiple defined in 2 places.'>dictDelete</a>(rl-&gt;db-&gt;ready_keys,rl-&gt;key);
+<a name='L952'>
+<a name='L953'>            <i><font color='green'>/* If the key exists and it's a list, serve blocked clients</font></i>
+<a name='L954'><i><font color='green'>             * with data. */</font></i>
+<a name='L955'>            <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o = <a href='../S/31.html#L70' title='Defined at 70 in src/db.c.'>lookupKeyWrite</a>(rl-&gt;db,rl-&gt;key);
+<a name='L956'>            <b>if</b> (o != NULL &amp;&amp; o-&gt;type == <a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>) <font color='red'>{</font>
+<a name='L957'>                <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *de;
+<a name='L958'>
+<a name='L959'>                <i><font color='green'>/* We serve clients in the same order they blocked for</font></i>
+<a name='L960'><i><font color='green'>                 * this key, from the first blocked to the last. */</font></i>
+<a name='L961'>                de = <a href='../D/2076.html' title='Multiple defined in 2 places.'>dictFind</a>(rl-&gt;db-&gt;blocking_keys,rl-&gt;key);
+<a name='L962'>                <b>if</b> (de) <font color='red'>{</font>
+<a name='L963'>                    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *clients = <a href='../S/88.html#L132' title='Defined at 132 in src/dict.h.'>dictGetVal</a>(de);
+<a name='L964'>                    <b>int</b> numclients = <a href='../S/58.html#L57' title='Defined at 57 in src/adlist.h.'>listLength</a>(clients);
+<a name='L965'>
+<a name='L966'>                    <b>while</b>(numclients--) <font color='red'>{</font>
+<a name='L967'>                        <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *clientnode = <a href='../S/58.html#L58' title='Defined at 58 in src/adlist.h.'>listFirst</a>(clients);
+<a name='L968'>                        <a href='../D/3781.html' title='Multiple defined in 2 places.'>redisClient</a> *receiver = clientnode-&gt;value;
+<a name='L969'>                        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *dstkey = receiver-&gt;bpop.target;
+<a name='L970'>                        <b>int</b> where = (receiver-&gt;lastcmd &amp;&amp;
+<a name='L971'>                                     receiver-&gt;lastcmd-&gt;proc == <a href='../S/60.html#L1081' title='Defined at 1081 in src/t_list.c.'>blpopCommand</a>) ?
+<a name='L972'>                                    <a href='../S/32.html#L219' title='Defined at 219 in src/redis.h.'>REDIS_HEAD</a> : <a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>;
+<a name='L973'>                        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *value = <a href='../S/60.html#L77' title='Defined at 77 in src/t_list.c.'>listTypePop</a>(o,where);
+<a name='L974'>
+<a name='L975'>                        <b>if</b> (value) <font color='red'>{</font>
+<a name='L976'>                            <i><font color='green'>/* Protect receiver-&gt;bpop.target, that will be</font></i>
+<a name='L977'><i><font color='green'>                             * freed by the next unblockClientWaitingData()</font></i>
+<a name='L978'><i><font color='green'>                             * call. */</font></i>
+<a name='L979'>                            <b>if</b> (dstkey) <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(dstkey);
+<a name='L980'>                            <a href='../S/60.html#L792' title='Defined at 792 in src/t_list.c.'>unblockClientWaitingData</a>(receiver);
+<a name='L981'>
+<a name='L982'>                            <b>if</b> (<a href='../S/60.html#L874' title='Defined at 874 in src/t_list.c.'>serveClientBlockedOnList</a>(receiver,
+<a name='L983'>                                rl-&gt;key,dstkey,rl-&gt;db,value,
+<a name='L984'>                                where) == <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>)
+<a name='L985'>                            <font color='red'>{</font>
+<a name='L986'>                                <i><font color='green'>/* If we failed serving the client we need</font></i>
+<a name='L987'><i><font color='green'>                                 * to also undo the POP operation. */</font></i>
+<a name='L988'>                                    <a href='../S/60.html#L53' title='Defined at 53 in src/t_list.c.'>listTypePush</a>(o,value,where);
+<a name='L989'>                            <font color='red'>}</font>
+<a name='L990'>
+<a name='L991'>                            <b>if</b> (dstkey) <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(dstkey);
+<a name='L992'>                            <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(value);
+<a name='L993'>                        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L994'>                            <b>break</b>;
+<a name='L995'>                        <font color='red'>}</font>
+<a name='L996'>                    <font color='red'>}</font>
+<a name='L997'>                <font color='red'>}</font>
+<a name='L998'>                
+<a name='L999'>                <b>if</b> (<a href='../S/60.html#L114' title='Defined at 114 in src/t_list.c.'>listTypeLength</a>(o) == 0) <a href='../S/31.html#L158' title='Defined at 158 in src/db.c.'>dbDelete</a>(rl-&gt;db,rl-&gt;key);
+<a name='L1000'>                <i><font color='green'>/* We don't call signalModifiedKey() as it was already called</font></i>
+<a name='L1001'><i><font color='green'>                 * when an element was pushed on the list. */</font></i>
+<a name='L1002'>            <font color='red'>}</font>
+<a name='L1003'>
+<a name='L1004'>            <i><font color='green'>/* Free this item. */</font></i>
+<a name='L1005'>            <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(rl-&gt;key);
+<a name='L1006'>            <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(rl);
+<a name='L1007'>            <a href='../S/54.html#L159' title='Defined at 159 in src/adlist.c.'>listDelNode</a>(l,ln);
+<a name='L1008'>        <font color='red'>}</font>
+<a name='L1009'>        <a href='../S/54.html#L58' title='Defined at 58 in src/adlist.c.'>listRelease</a>(l); <i><font color='green'>/* We have the new list on place at this point. */</font></i>
+<a name='L1010'>    <font color='red'>}</font>
+<a name='L1011'><font color='red'>}</font>
+<a name='L1012'>
+<a name='L1013'><b>int</b> <a href='../R/2067.html' title='Multiple refered from 2 places.'>getTimeoutFromObjectOrReply</a>(redisClient *c, robj *object, time_t *timeout) <font color='red'>{</font>
+<a name='L1014'>    <b>long</b> tval;
+<a name='L1015'>
+<a name='L1016'>    <b>if</b> (<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c,object,&amp;tval,
+<a name='L1017'>        "timeout is not an integer or out of range") != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L1018'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L1019'>
+<a name='L1020'>    <b>if</b> (tval &lt; 0) <font color='red'>{</font>
+<a name='L1021'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"timeout is negative");
+<a name='L1022'>        <b>return</b> <a href='../D/794.html' title='Multiple defined in 2 places.'>REDIS_ERR</a>;
+<a name='L1023'>    <font color='red'>}</font>
+<a name='L1024'>
+<a name='L1025'>    <b>if</b> (tval &gt; 0) tval += server.unixtime;
+<a name='L1026'>    *timeout = tval;
+<a name='L1027'>
+<a name='L1028'>    <b>return</b> <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>;
+<a name='L1029'><font color='red'>}</font>
+<a name='L1030'>
+<a name='L1031'><i><font color='green'>/* Blocking RPOP/LPOP */</font></i>
+<a name='L1032'><b>void</b> <a href='../R/1490.html' title='Multiple refered from 2 places.'>blockingPopGenericCommand</a>(redisClient *c, <b>int</b> where) <font color='red'>{</font>
+<a name='L1033'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *o;
+<a name='L1034'>    time_t timeout;
+<a name='L1035'>    <b>int</b> j;
+<a name='L1036'>
+<a name='L1037'>    <b>if</b> (<a href='../S/60.html#L1013' title='Defined at 1013 in src/t_list.c.'>getTimeoutFromObjectOrReply</a>(c,c-&gt;argv[c-&gt;argc-1],&amp;timeout) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L1038'>        <b>return</b>;
+<a name='L1039'>
+<a name='L1040'>    <b>for</b> (j = 1; j &lt; c-&gt;argc-1; j++) <font color='red'>{</font>
+<a name='L1041'>        o = <a href='../S/31.html#L70' title='Defined at 70 in src/db.c.'>lookupKeyWrite</a>(c-&gt;db,c-&gt;argv[j]);
+<a name='L1042'>        <b>if</b> (o != NULL) <font color='red'>{</font>
+<a name='L1043'>            <b>if</b> (o-&gt;type != <a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>) <font color='red'>{</font>
+<a name='L1044'>                <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.wrongtypeerr);
+<a name='L1045'>                <b>return</b>;
+<a name='L1046'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1047'>                <b>if</b> (<a href='../S/60.html#L114' title='Defined at 114 in src/t_list.c.'>listTypeLength</a>(o) != 0) <font color='red'>{</font>
+<a name='L1048'>                    <i><font color='green'>/* Non empty list, this is like a non normal [LR]POP. */</font></i>
+<a name='L1049'>                    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *value = <a href='../S/60.html#L77' title='Defined at 77 in src/t_list.c.'>listTypePop</a>(o,where);
+<a name='L1050'>                    <a href='../S/32.html#L299' title='Defined at 299 in src/redis.h.'>redisAssert</a>(value != NULL);
+<a name='L1051'>
+<a name='L1052'>                    <a href='../S/86.html#L448' title='Defined at 448 in src/networking.c.'>addReplyMultiBulkLen</a>(c,2);
+<a name='L1053'>                    <a href='../S/86.html#L475' title='Defined at 475 in src/networking.c.'>addReplyBulk</a>(c,c-&gt;argv[j]);
+<a name='L1054'>                    <a href='../S/86.html#L475' title='Defined at 475 in src/networking.c.'>addReplyBulk</a>(c,value);
+<a name='L1055'>                    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(value);
+<a name='L1056'>                    <b>if</b> (<a href='../S/60.html#L114' title='Defined at 114 in src/t_list.c.'>listTypeLength</a>(o) == 0) <a href='../S/31.html#L158' title='Defined at 158 in src/db.c.'>dbDelete</a>(c-&gt;db,c-&gt;argv[j]);
+<a name='L1057'>                    <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,c-&gt;argv[j]);
+<a name='L1058'>                    server.dirty++;
+<a name='L1059'>
+<a name='L1060'>                    <i><font color='green'>/* Replicate it as an [LR]POP instead of B[LR]POP. */</font></i>
+<a name='L1061'>                    <a href='../S/86.html#L1199' title='Defined at 1199 in src/networking.c.'>rewriteClientCommandVector</a>(c,2,
+<a name='L1062'>                        (where == <a href='../S/32.html#L219' title='Defined at 219 in src/redis.h.'>REDIS_HEAD</a>) ? shared.lpop : shared.rpop,
+<a name='L1063'>                        c-&gt;argv[j]);
+<a name='L1064'>                    <b>return</b>;
+<a name='L1065'>                <font color='red'>}</font>
+<a name='L1066'>            <font color='red'>}</font>
+<a name='L1067'>        <font color='red'>}</font>
+<a name='L1068'>    <font color='red'>}</font>
+<a name='L1069'>
+<a name='L1070'>    <i><font color='green'>/* If we are inside a MULTI/EXEC and the list is empty the only thing</font></i>
+<a name='L1071'><i><font color='green'>     * we can do is treating it as a timeout (even with timeout 0). */</font></i>
+<a name='L1072'>    <b>if</b> (c-&gt;flags &amp; <a href='../S/32.html#L175' title='Defined at 175 in src/redis.h.'>REDIS_MULTI</a>) <font color='red'>{</font>
+<a name='L1073'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.nullmultibulk);
+<a name='L1074'>        <b>return</b>;
+<a name='L1075'>    <font color='red'>}</font>
+<a name='L1076'>
+<a name='L1077'>    <i><font color='green'>/* If the list is empty or the key does not exists we must block */</font></i>
+<a name='L1078'>    <a href='../S/60.html#L755' title='Defined at 755 in src/t_list.c.'>blockForKeys</a>(c, c-&gt;argv + 1, c-&gt;argc - 2, timeout, NULL);
+<a name='L1079'><font color='red'>}</font>
+<a name='L1080'>
+<a name='L1081'><b>void</b> <a href='../R/1492.html' title='Multiple refered from 3 places.'>blpopCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L1082'>    <a href='../S/60.html#L1032' title='Defined at 1032 in src/t_list.c.'>blockingPopGenericCommand</a>(c,<a href='../S/32.html#L219' title='Defined at 219 in src/redis.h.'>REDIS_HEAD</a>);
+<a name='L1083'><font color='red'>}</font>
+<a name='L1084'>
+<a name='L1085'><b>void</b> <a href='../R/1497.html' title='Multiple refered from 2 places.'>brpopCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L1086'>    <a href='../S/60.html#L1032' title='Defined at 1032 in src/t_list.c.'>blockingPopGenericCommand</a>(c,<a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>);
+<a name='L1087'><font color='red'>}</font>
+<a name='L1088'>
+<a name='L1089'><b>void</b> <a href='../R/1498.html' title='Multiple refered from 2 places.'>brpoplpushCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L1090'>    time_t timeout;
+<a name='L1091'>
+<a name='L1092'>    <b>if</b> (<a href='../S/60.html#L1013' title='Defined at 1013 in src/t_list.c.'>getTimeoutFromObjectOrReply</a>(c,c-&gt;argv[3],&amp;timeout) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)
+<a name='L1093'>        <b>return</b>;
+<a name='L1094'>
+<a name='L1095'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *key = <a href='../S/31.html#L70' title='Defined at 70 in src/db.c.'>lookupKeyWrite</a>(c-&gt;db, c-&gt;argv[1]);
+<a name='L1096'>
+<a name='L1097'>    <b>if</b> (key == NULL) <font color='red'>{</font>
+<a name='L1098'>        <b>if</b> (c-&gt;flags &amp; <a href='../S/32.html#L175' title='Defined at 175 in src/redis.h.'>REDIS_MULTI</a>) <font color='red'>{</font>
+<a name='L1099'>            <i><font color='green'>/* Blocking against an empty list in a multi state</font></i>
+<a name='L1100'><i><font color='green'>             * returns immediately. */</font></i>
+<a name='L1101'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c, shared.nullbulk);
+<a name='L1102'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1103'>            <i><font color='green'>/* The list is empty and the client blocks. */</font></i>
+<a name='L1104'>            <a href='../S/60.html#L755' title='Defined at 755 in src/t_list.c.'>blockForKeys</a>(c, c-&gt;argv + 1, 1, timeout, c-&gt;argv[2]);
+<a name='L1105'>        <font color='red'>}</font>
+<a name='L1106'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1107'>        <b>if</b> (key-&gt;type != <a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>) <font color='red'>{</font>
+<a name='L1108'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c, shared.wrongtypeerr);
+<a name='L1109'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L1110'>            <i><font color='green'>/* The list exists and has elements, so</font></i>
+<a name='L1111'><i><font color='green'>             * the regular rpoplpushCommand is executed. */</font></i>
+<a name='L1112'>            <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,key,<a href='../S/60.html#L114' title='Defined at 114 in src/t_list.c.'>listTypeLength</a>(key) &gt; 0);
+<a name='L1113'>            <a href='../S/60.html#L700' title='Defined at 700 in src/t_list.c.'>rpoplpushCommand</a>(c);
+<a name='L1114'>        <font color='red'>}</font>
+<a name='L1115'>    <font color='red'>}</font>
+<a name='L1116'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L41'>[^]</a><a href='#L1089'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

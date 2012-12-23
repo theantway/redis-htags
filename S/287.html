@@ -1,0 +1,437 @@
+<html>
+<head>
+<title>deps/lua/src/lua.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/lua.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L28'>[^]</a><a href='#L377'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L28' title='Defined at 28.'>lstop</a>
+<li><a href='#L35' title='Defined at 35.'>laction</a>
+<li><a href='#L42' title='Defined at 42.'>print_usage</a>
+<li><a href='#L58' title='Defined at 58.'>l_message</a>
+<li><a href='#L65' title='Defined at 65.'>report</a>
+<li><a href='#L76' title='Defined at 76.'>traceback</a>
+<li><a href='#L96' title='Defined at 96.'>docall</a>
+<li><a href='#L111' title='Defined at 111.'>print_version</a>
+<li><a href='#L116' title='Defined at 116.'>getargs</a>
+<li><a href='#L134' title='Defined at 134.'>dofile</a>
+<li><a href='#L140' title='Defined at 140.'>dostring</a>
+<li><a href='#L146' title='Defined at 146.'>dolibrary</a>
+<li><a href='#L153' title='Defined at 153.'>get_prompt</a>
+<li><a href='#L163' title='Defined at 163.'>incomplete</a>
+<li><a href='#L177' title='Defined at 177.'>pushline</a>
+<li><a href='#L196' title='Defined at 196.'>loadline</a>
+<li><a href='#L216' title='Defined at 216.'>dotty</a>
+<li><a href='#L239' title='Defined at 239.'>handle_script</a>
+<li><a href='#L261' title='Defined at 261.'>collectargs</a>
+<li><a href='#L294' title='Defined at 294.'>runargs</a>
+<li><a href='#L323' title='Defined at 323.'>handle_luainit</a>
+<li><a href='#L340' title='Defined at 340.'>pmain</a>
+<li><a href='#L377' title='Defined at 377.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: lua.c,v 1.160.1.2 2007/12/28 15:32:23 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Lua stand-alone interpreter</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'>
+<a name='L8'><font color='darkred'>#include</font> &lt;signal.h&gt;
+<a name='L9'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L10'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L11'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L12'>
+<a name='L13'><font color='darkred'>#define</font> <a href='../S/317.html#L219' title='Refered from 219 in deps/lua/src/luaconf.h.'>lua_c</a>
+<a name='L14'>
+<a name='L15'><font color='darkred'>#include</font> "<a href='266.html'>lua.h</a>"
+<a name='L16'>
+<a name='L17'><font color='darkred'>#include</font> "<a href='265.html'>lauxlib.h</a>"
+<a name='L18'><font color='darkred'>#include</font> "<a href='267.html'>lualib.h</a>"
+<a name='L19'>
+<a name='L20'>
+<a name='L21'>
+<a name='L22'><b>static</b> <a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *globalL = NULL;
+<a name='L23'>
+<a name='L24'><b>static</b> <b>const</b> <b>char</b> *progname = <a href='../S/317.html#L254' title='Defined at 254 in deps/lua/src/luaconf.h.'>LUA_PROGNAME</a>;
+<a name='L25'>
+<a name='L26'>
+<a name='L27'>
+<a name='L28'><b>static</b> <b>void</b> <a href='../S/287.html#L38' title='Refered from 38 in deps/lua/src/lua.c.'>lstop</a> (lua_State *L, lua_Debug *ar) <font color='red'>{</font>
+<a name='L29'>  (<b>void</b>)ar;  <i><font color='green'>/* unused arg. */</font></i>
+<a name='L30'>  <a href='../S/299.html#L56' title='Defined at 56 in deps/lua/src/ldebug.c.'>lua_sethook</a>(L, NULL, 0, 0);
+<a name='L31'>  <a href='../S/260.html#L86' title='Defined at 86 in deps/lua/src/lauxlib.c.'>luaL_error</a>(L, "interrupted!");
+<a name='L32'><font color='red'>}</font>
+<a name='L33'>
+<a name='L34'>
+<a name='L35'><b>static</b> <b>void</b> <a href='../S/287.html#L101' title='Refered from 101 in deps/lua/src/lua.c.'>laction</a> (<b>int</b> i) <font color='red'>{</font>
+<a name='L36'>  signal(i, SIG_DFL); <i><font color='green'>/* if another SIGINT happens before lstop,</font></i>
+<a name='L37'><i><font color='green'>                              terminate process (default action) */</font></i>
+<a name='L38'>  <a href='../S/299.html#L56' title='Defined at 56 in deps/lua/src/ldebug.c.'>lua_sethook</a>(globalL, <a href='../S/287.html#L28' title='Defined at 28 in deps/lua/src/lua.c.'>lstop</a>, <a href='../S/266.html#L321' title='Defined at 321 in deps/lua/src/lua.h.'>LUA_MASKCALL</a> | <a href='../S/266.html#L322' title='Defined at 322 in deps/lua/src/lua.h.'>LUA_MASKRET</a> | <a href='../S/266.html#L324' title='Defined at 324 in deps/lua/src/lua.h.'>LUA_MASKCOUNT</a>, 1);
+<a name='L39'><font color='red'>}</font>
+<a name='L40'>
+<a name='L41'>
+<a name='L42'><b>static</b> <b>void</b> <a href='../S/287.html#L354' title='Refered from 354 in deps/lua/src/lua.c.'>print_usage</a> (<b>void</b>) <font color='red'>{</font>
+<a name='L43'>  fprintf(stderr,
+<a name='L44'>  "usage: %s [options] [script [args]].\n"
+<a name='L45'>  "Available options are:\n"
+<a name='L46'>  "  -e stat  execute string " <a href='../S/317.html#L201' title='Defined at 201 in deps/lua/src/luaconf.h.'>LUA_QL</a>("stat") "\n"
+<a name='L47'>  "  -l name  require library " <a href='../S/317.html#L201' title='Defined at 201 in deps/lua/src/luaconf.h.'>LUA_QL</a>("name") "\n"
+<a name='L48'>  "  -i       enter interactive mode after executing " <a href='../S/317.html#L201' title='Defined at 201 in deps/lua/src/luaconf.h.'>LUA_QL</a>("script") "\n"
+<a name='L49'>  "  -v       show version information\n"
+<a name='L50'>  "  --       stop handling options\n"
+<a name='L51'>  "  -        execute stdin and stop handling options\n"
+<a name='L52'>  ,
+<a name='L53'>  progname);
+<a name='L54'>  fflush(stderr);
+<a name='L55'><font color='red'>}</font>
+<a name='L56'>
+<a name='L57'>
+<a name='L58'><b>static</b> <b>void</b> <a href='../R/2343.html' title='Multiple refered from 4 places.'>l_message</a> (<b>const</b> <b>char</b> *pname, <b>const</b> <b>char</b> *msg) <font color='red'>{</font>
+<a name='L59'>  <b>if</b> (pname) fprintf(stderr, "%s: ", pname);
+<a name='L60'>  fprintf(stderr, "%s\n", msg);
+<a name='L61'>  fflush(stderr);
+<a name='L62'><font color='red'>}</font>
+<a name='L63'>
+<a name='L64'>
+<a name='L65'><b>static</b> <b>int</b> <a href='../R/3534.html' title='Multiple refered from 6 places.'>report</a> (lua_State *L, <b>int</b> status) <font color='red'>{</font>
+<a name='L66'>  <b>if</b> (status &amp;&amp; !<a href='../S/266.html#L267' title='Defined at 267 in deps/lua/src/lua.h.'>lua_isnil</a>(L, -1)) <font color='red'>{</font>
+<a name='L67'>    <b>const</b> <b>char</b> *msg = <a href='../S/266.html#L279' title='Defined at 279 in deps/lua/src/lua.h.'>lua_tostring</a>(L, -1);
+<a name='L68'>    <b>if</b> (msg == NULL) msg = "(error object is not a string)";
+<a name='L69'>    <a href='../S/287.html#L58' title='Defined at 58 in deps/lua/src/lua.c.'>l_message</a>(progname, msg);
+<a name='L70'>    <a href='../S/266.html#L254' title='Defined at 254 in deps/lua/src/lua.h.'>lua_pop</a>(L, 1);
+<a name='L71'>  <font color='red'>}</font>
+<a name='L72'>  <b>return</b> status;
+<a name='L73'><font color='red'>}</font>
+<a name='L74'>
+<a name='L75'>
+<a name='L76'><b>static</b> <b>int</b> <a href='../S/287.html#L99' title='Refered from 99 in deps/lua/src/lua.c.'>traceback</a> (lua_State *L) <font color='red'>{</font>
+<a name='L77'>  <b>if</b> (!<a href='../S/272.html#L267' title='Defined at 267 in deps/lua/src/lapi.c.'>lua_isstring</a>(L, 1))  <i><font color='green'>/* 'message' not a string? */</font></i>
+<a name='L78'>    <b>return</b> 1;  <i><font color='green'>/* keep it intact */</font></i>
+<a name='L79'>  <a href='../S/272.html#L544' title='Defined at 544 in deps/lua/src/lapi.c.'>lua_getfield</a>(L, <a href='../S/266.html#L38' title='Defined at 38 in deps/lua/src/lua.h.'>LUA_GLOBALSINDEX</a>, "debug");
+<a name='L80'>  <b>if</b> (!<a href='../S/266.html#L265' title='Defined at 265 in deps/lua/src/lua.h.'>lua_istable</a>(L, -1)) <font color='red'>{</font>
+<a name='L81'>    <a href='../S/266.html#L254' title='Defined at 254 in deps/lua/src/lua.h.'>lua_pop</a>(L, 1);
+<a name='L82'>    <b>return</b> 1;
+<a name='L83'>  <font color='red'>}</font>
+<a name='L84'>  <a href='../S/272.html#L544' title='Defined at 544 in deps/lua/src/lapi.c.'>lua_getfield</a>(L, -1, "traceback");
+<a name='L85'>  <b>if</b> (!<a href='../S/266.html#L264' title='Defined at 264 in deps/lua/src/lua.h.'>lua_isfunction</a>(L, -1)) <font color='red'>{</font>
+<a name='L86'>    <a href='../S/266.html#L254' title='Defined at 254 in deps/lua/src/lua.h.'>lua_pop</a>(L, 2);
+<a name='L87'>    <b>return</b> 1;
+<a name='L88'>  <font color='red'>}</font>
+<a name='L89'>  <a href='../S/272.html#L228' title='Defined at 228 in deps/lua/src/lapi.c.'>lua_pushvalue</a>(L, 1);  <i><font color='green'>/* pass error message */</font></i>
+<a name='L90'>  <a href='../S/272.html#L437' title='Defined at 437 in deps/lua/src/lapi.c.'>lua_pushinteger</a>(L, 2);  <i><font color='green'>/* skip this function and traceback */</font></i>
+<a name='L91'>  <a href='../S/272.html#L776' title='Defined at 776 in deps/lua/src/lapi.c.'>lua_call</a>(L, 2, 1);  <i><font color='green'>/* call debug.traceback */</font></i>
+<a name='L92'>  <b>return</b> 1;
+<a name='L93'><font color='red'>}</font>
+<a name='L94'>
+<a name='L95'>
+<a name='L96'><b>static</b> <b>int</b> <a href='../R/1863.html' title='Multiple refered from 5 places.'>docall</a> (lua_State *L, <b>int</b> narg, <b>int</b> clear) <font color='red'>{</font>
+<a name='L97'>  <b>int</b> status;
+<a name='L98'>  <b>int</b> base = <a href='../S/272.html#L159' title='Defined at 159 in deps/lua/src/lapi.c.'>lua_gettop</a>(L) - narg;  <i><font color='green'>/* function index */</font></i>
+<a name='L99'>  <a href='../S/266.html#L260' title='Defined at 260 in deps/lua/src/lua.h.'>lua_pushcfunction</a>(L, <a href='../S/287.html#L76' title='Defined at 76 in deps/lua/src/lua.c.'>traceback</a>);  <i><font color='green'>/* push traceback function */</font></i>
+<a name='L100'>  <a href='../S/272.html#L191' title='Defined at 191 in deps/lua/src/lapi.c.'>lua_insert</a>(L, base);  <i><font color='green'>/* put it under chunk and args */</font></i>
+<a name='L101'>  signal(SIGINT, <a href='../S/287.html#L35' title='Defined at 35 in deps/lua/src/lua.c.'>laction</a>);
+<a name='L102'>  status = <a href='../S/272.html#L805' title='Defined at 805 in deps/lua/src/lapi.c.'>lua_pcall</a>(L, narg, (clear ? 0 : <a href='../S/266.html#L30' title='Defined at 30 in deps/lua/src/lua.h.'>LUA_MULTRET</a>), base);
+<a name='L103'>  signal(SIGINT, SIG_DFL);
+<a name='L104'>  <a href='../S/272.html#L180' title='Defined at 180 in deps/lua/src/lapi.c.'>lua_remove</a>(L, base);  <i><font color='green'>/* remove traceback function */</font></i>
+<a name='L105'>  <i><font color='green'>/* force a complete garbage collection in case of errors */</font></i>
+<a name='L106'>  <b>if</b> (status != 0) <a href='../S/272.html#L899' title='Defined at 899 in deps/lua/src/lapi.c.'>lua_gc</a>(L, <a href='../S/266.html#L223' title='Defined at 223 in deps/lua/src/lua.h.'>LUA_GCCOLLECT</a>, 0);
+<a name='L107'>  <b>return</b> status;
+<a name='L108'><font color='red'>}</font>
+<a name='L109'>
+<a name='L110'>
+<a name='L111'><b>static</b> <b>void</b> <a href='../R/3169.html' title='Multiple refered from 2 places.'>print_version</a> (<b>void</b>) <font color='red'>{</font>
+<a name='L112'>  <a href='../S/287.html#L58' title='Defined at 58 in deps/lua/src/lua.c.'>l_message</a>(NULL, <a href='../S/266.html#L20' title='Defined at 20 in deps/lua/src/lua.h.'>LUA_RELEASE</a> "  " <a href='../S/266.html#L22' title='Defined at 22 in deps/lua/src/lua.h.'>LUA_COPYRIGHT</a>);
+<a name='L113'><font color='red'>}</font>
+<a name='L114'>
+<a name='L115'>
+<a name='L116'><b>static</b> <b>int</b> <a href='../S/287.html#L242' title='Refered from 242 in deps/lua/src/lua.c.'>getargs</a> (lua_State *L, <b>char</b> **argv, <b>int</b> n) <font color='red'>{</font>
+<a name='L117'>  <b>int</b> narg;
+<a name='L118'>  <b>int</b> i;
+<a name='L119'>  <b>int</b> argc = 0;
+<a name='L120'>  <b>while</b> (argv[argc]) argc++;  <i><font color='green'>/* count total number of arguments */</font></i>
+<a name='L121'>  narg = argc - (n + 1);  <i><font color='green'>/* number of arguments to the script */</font></i>
+<a name='L122'>  <a href='../S/260.html#L140' title='Defined at 140 in deps/lua/src/lauxlib.c.'>luaL_checkstack</a>(L, narg + 3, "too many arguments to script");
+<a name='L123'>  <b>for</b> (i=n+1; i &lt; argc; i++)
+<a name='L124'>    <a href='../S/272.html#L454' title='Defined at 454 in deps/lua/src/lapi.c.'>lua_pushstring</a>(L, argv[i]);
+<a name='L125'>  <a href='../S/272.html#L578' title='Defined at 578 in deps/lua/src/lapi.c.'>lua_createtable</a>(L, narg, n + 1);
+<a name='L126'>  <b>for</b> (i=0; i &lt; argc; i++) <font color='red'>{</font>
+<a name='L127'>    <a href='../S/272.html#L454' title='Defined at 454 in deps/lua/src/lapi.c.'>lua_pushstring</a>(L, argv[i]);
+<a name='L128'>    <a href='../S/272.html#L684' title='Defined at 684 in deps/lua/src/lapi.c.'>lua_rawseti</a>(L, -2, i - n);
+<a name='L129'>  <font color='red'>}</font>
+<a name='L130'>  <b>return</b> narg;
+<a name='L131'><font color='red'>}</font>
+<a name='L132'>
+<a name='L133'>
+<a name='L134'><b>static</b> <b>int</b> <a href='../R/1864.html' title='Multiple refered from 2 places.'>dofile</a> (lua_State *L, <b>const</b> <b>char</b> *name) <font color='red'>{</font>
+<a name='L135'>  <b>int</b> status = <a href='../S/260.html#L552' title='Defined at 552 in deps/lua/src/lauxlib.c.'>luaL_loadfile</a>(L, name) || <a href='../S/287.html#L96' title='Defined at 96 in deps/lua/src/lua.c.'>docall</a>(L, 0, 1);
+<a name='L136'>  <b>return</b> <a href='../S/287.html#L65' title='Defined at 65 in deps/lua/src/lua.c.'>report</a>(L, status);
+<a name='L137'><font color='red'>}</font>
+<a name='L138'>
+<a name='L139'>
+<a name='L140'><b>static</b> <b>int</b> <a href='../R/1868.html' title='Multiple refered from 2 places.'>dostring</a> (lua_State *L, <b>const</b> <b>char</b> *s, <b>const</b> <b>char</b> *name) <font color='red'>{</font>
+<a name='L141'>  <b>int</b> status = <a href='../S/260.html#L609' title='Defined at 609 in deps/lua/src/lauxlib.c.'>luaL_loadbuffer</a>(L, s, strlen(s), name) || <a href='../S/287.html#L96' title='Defined at 96 in deps/lua/src/lua.c.'>docall</a>(L, 0, 1);
+<a name='L142'>  <b>return</b> <a href='../S/287.html#L65' title='Defined at 65 in deps/lua/src/lua.c.'>report</a>(L, status);
+<a name='L143'><font color='red'>}</font>
+<a name='L144'>
+<a name='L145'>
+<a name='L146'><b>static</b> <b>int</b> <a href='../S/287.html#L312' title='Refered from 312 in deps/lua/src/lua.c.'>dolibrary</a> (lua_State *L, <b>const</b> <b>char</b> *name) <font color='red'>{</font>
+<a name='L147'>  <a href='../S/266.html#L277' title='Defined at 277 in deps/lua/src/lua.h.'>lua_getglobal</a>(L, "require");
+<a name='L148'>  <a href='../S/272.html#L454' title='Defined at 454 in deps/lua/src/lapi.c.'>lua_pushstring</a>(L, name);
+<a name='L149'>  <b>return</b> <a href='../S/287.html#L65' title='Defined at 65 in deps/lua/src/lua.c.'>report</a>(L, <a href='../S/287.html#L96' title='Defined at 96 in deps/lua/src/lua.c.'>docall</a>(L, 1, 1));
+<a name='L150'><font color='red'>}</font>
+<a name='L151'>
+<a name='L152'>
+<a name='L153'><b>static</b> <b>const</b> <b>char</b> *<a href='../S/287.html#L181' title='Refered from 181 in deps/lua/src/lua.c.'>get_prompt</a> (lua_State *L, <b>int</b> firstline) <font color='red'>{</font>
+<a name='L154'>  <b>const</b> <b>char</b> *p;
+<a name='L155'>  <a href='../S/272.html#L544' title='Defined at 544 in deps/lua/src/lapi.c.'>lua_getfield</a>(L, <a href='../S/266.html#L38' title='Defined at 38 in deps/lua/src/lua.h.'>LUA_GLOBALSINDEX</a>, firstline ? "_PROMPT" : "_PROMPT2");
+<a name='L156'>  p = <a href='../S/266.html#L279' title='Defined at 279 in deps/lua/src/lua.h.'>lua_tostring</a>(L, -1);
+<a name='L157'>  <b>if</b> (p == NULL) p = (firstline ? <a href='../S/317.html#L245' title='Defined at 245 in deps/lua/src/luaconf.h.'>LUA_PROMPT</a> : <a href='../S/317.html#L246' title='Defined at 246 in deps/lua/src/luaconf.h.'>LUA_PROMPT2</a>);
+<a name='L158'>  <a href='../S/266.html#L254' title='Defined at 254 in deps/lua/src/lua.h.'>lua_pop</a>(L, 1);  <i><font color='green'>/* remove global */</font></i>
+<a name='L159'>  <b>return</b> p;
+<a name='L160'><font color='red'>}</font>
+<a name='L161'>
+<a name='L162'>
+<a name='L163'><b>static</b> <b>int</b> <a href='../S/287.html#L203' title='Refered from 203 in deps/lua/src/lua.c.'>incomplete</a> (lua_State *L, <b>int</b> status) <font color='red'>{</font>
+<a name='L164'>  <b>if</b> (status == <a href='../S/266.html#L45' title='Defined at 45 in deps/lua/src/lua.h.'>LUA_ERRSYNTAX</a>) <font color='red'>{</font>
+<a name='L165'>    size_t lmsg;
+<a name='L166'>    <b>const</b> <b>char</b> *msg = <a href='../S/272.html#L343' title='Defined at 343 in deps/lua/src/lapi.c.'>lua_tolstring</a>(L, -1, &amp;lmsg);
+<a name='L167'>    <b>const</b> <b>char</b> *tp = msg + lmsg - (<b>sizeof</b>(<a href='../S/317.html#L201' title='Defined at 201 in deps/lua/src/luaconf.h.'>LUA_QL</a>("&lt;eof&gt;")) - 1);
+<a name='L168'>    <b>if</b> (strstr(msg, <a href='../S/317.html#L201' title='Defined at 201 in deps/lua/src/luaconf.h.'>LUA_QL</a>("&lt;eof&gt;")) == tp) <font color='red'>{</font>
+<a name='L169'>      <a href='../S/266.html#L254' title='Defined at 254 in deps/lua/src/lua.h.'>lua_pop</a>(L, 1);
+<a name='L170'>      <b>return</b> 1;
+<a name='L171'>    <font color='red'>}</font>
+<a name='L172'>  <font color='red'>}</font>
+<a name='L173'>  <b>return</b> 0;  <i><font color='green'>/* else... */</font></i>
+<a name='L174'><font color='red'>}</font>
+<a name='L175'>
+<a name='L176'>
+<a name='L177'><b>static</b> <b>int</b> <a href='../R/3270.html' title='Multiple refered from 2 places.'>pushline</a> (lua_State *L, <b>int</b> firstline) <font color='red'>{</font>
+<a name='L178'>  <b>char</b> buffer[<a href='../S/317.html#L262' title='Defined at 262 in deps/lua/src/luaconf.h.'>LUA_MAXINPUT</a>];
+<a name='L179'>  <b>char</b> *b = buffer;
+<a name='L180'>  size_t l;
+<a name='L181'>  <b>const</b> <b>char</b> *prmt = <a href='../S/287.html#L153' title='Defined at 153 in deps/lua/src/lua.c.'>get_prompt</a>(L, firstline);
+<a name='L182'>  <b>if</b> (<a href='../D/3173.html' title='Multiple defined in 2 places.'>lua_readline</a>(L, b, prmt) == 0)
+<a name='L183'>    <b>return</b> 0;  <i><font color='green'>/* no input */</font></i>
+<a name='L184'>  l = strlen(b);
+<a name='L185'>  <b>if</b> (l &gt; 0 &amp;&amp; b[l-1] == '\n')  <i><font color='green'>/* line ends with newline? */</font></i>
+<a name='L186'>    b[l-1] = '\0';  <i><font color='green'>/* remove it */</font></i>
+<a name='L187'>  <b>if</b> (firstline &amp;&amp; b[0] == '=')  <i><font color='green'>/* first line starts with `=' ? */</font></i>
+<a name='L188'>    <a href='../S/272.html#L473' title='Defined at 473 in deps/lua/src/lapi.c.'>lua_pushfstring</a>(L, "return %s", b+1);  <i><font color='green'>/* change it to `return' */</font></i>
+<a name='L189'>  <b>else</b>
+<a name='L190'>    <a href='../S/272.html#L454' title='Defined at 454 in deps/lua/src/lapi.c.'>lua_pushstring</a>(L, b);
+<a name='L191'>  <a href='../D/3102.html' title='Multiple defined in 2 places.'>lua_freeline</a>(L, b);
+<a name='L192'>  <b>return</b> 1;
+<a name='L193'><font color='red'>}</font>
+<a name='L194'>
+<a name='L195'>
+<a name='L196'><b>static</b> <b>int</b> <a href='../S/287.html#L220' title='Refered from 220 in deps/lua/src/lua.c.'>loadline</a> (lua_State *L) <font color='red'>{</font>
+<a name='L197'>  <b>int</b> status;
+<a name='L198'>  <a href='../S/272.html#L164' title='Defined at 164 in deps/lua/src/lapi.c.'>lua_settop</a>(L, 0);
+<a name='L199'>  <b>if</b> (!<a href='../S/287.html#L177' title='Defined at 177 in deps/lua/src/lua.c.'>pushline</a>(L, 1))
+<a name='L200'>    <b>return</b> -1;  <i><font color='green'>/* no input */</font></i>
+<a name='L201'>  <b>for</b> (;;) <font color='red'>{</font>  <i><font color='green'>/* repeat until gets a complete line */</font></i>
+<a name='L202'>    status = <a href='../S/260.html#L609' title='Defined at 609 in deps/lua/src/lauxlib.c.'>luaL_loadbuffer</a>(L, <a href='../S/266.html#L279' title='Defined at 279 in deps/lua/src/lua.h.'>lua_tostring</a>(L, 1), <a href='../S/266.html#L262' title='Defined at 262 in deps/lua/src/lua.h.'>lua_strlen</a>(L, 1), "=stdin");
+<a name='L203'>    <b>if</b> (!<a href='../S/287.html#L163' title='Defined at 163 in deps/lua/src/lua.c.'>incomplete</a>(L, status)) <b>break</b>;  <i><font color='green'>/* cannot try to add lines? */</font></i>
+<a name='L204'>    <b>if</b> (!<a href='../S/287.html#L177' title='Defined at 177 in deps/lua/src/lua.c.'>pushline</a>(L, 0))  <i><font color='green'>/* no more input? */</font></i>
+<a name='L205'>      <b>return</b> -1;
+<a name='L206'>    <a href='../S/266.html#L273' title='Defined at 273 in deps/lua/src/lua.h.'>lua_pushliteral</a>(L, "\n");  <i><font color='green'>/* add a new line... */</font></i>
+<a name='L207'>    <a href='../S/272.html#L191' title='Defined at 191 in deps/lua/src/lapi.c.'>lua_insert</a>(L, -2);  <i><font color='green'>/* ...between the two lines */</font></i>
+<a name='L208'>    <a href='../S/272.html#L990' title='Defined at 990 in deps/lua/src/lapi.c.'>lua_concat</a>(L, 3);  <i><font color='green'>/* join them */</font></i>
+<a name='L209'>  <font color='red'>}</font>
+<a name='L210'>  <a href='../D/3179.html' title='Multiple defined in 2 places.'>lua_saveline</a>(L, 1);
+<a name='L211'>  <a href='../S/272.html#L180' title='Defined at 180 in deps/lua/src/lapi.c.'>lua_remove</a>(L, 1);  <i><font color='green'>/* remove line */</font></i>
+<a name='L212'>  <b>return</b> status;
+<a name='L213'><font color='red'>}</font>
+<a name='L214'>
+<a name='L215'>
+<a name='L216'><b>static</b> <b>void</b> <a href='../R/1869.html' title='Multiple refered from 2 places.'>dotty</a> (lua_State *L) <font color='red'>{</font>
+<a name='L217'>  <b>int</b> status;
+<a name='L218'>  <b>const</b> <b>char</b> *oldprogname = progname;
+<a name='L219'>  progname = NULL;
+<a name='L220'>  <b>while</b> ((status = <a href='../S/287.html#L196' title='Defined at 196 in deps/lua/src/lua.c.'>loadline</a>(L)) != -1) <font color='red'>{</font>
+<a name='L221'>    <b>if</b> (status == 0) status = <a href='../S/287.html#L96' title='Defined at 96 in deps/lua/src/lua.c.'>docall</a>(L, 0, 0);
+<a name='L222'>    <a href='../S/287.html#L65' title='Defined at 65 in deps/lua/src/lua.c.'>report</a>(L, status);
+<a name='L223'>    <b>if</b> (status == 0 &amp;&amp; <a href='../S/272.html#L159' title='Defined at 159 in deps/lua/src/lapi.c.'>lua_gettop</a>(L) &gt; 0) <font color='red'>{</font>  <i><font color='green'>/* any result to print? */</font></i>
+<a name='L224'>      <a href='../S/266.html#L277' title='Defined at 277 in deps/lua/src/lua.h.'>lua_getglobal</a>(L, "print");
+<a name='L225'>      <a href='../S/272.html#L191' title='Defined at 191 in deps/lua/src/lapi.c.'>lua_insert</a>(L, 1);
+<a name='L226'>      <b>if</b> (<a href='../S/272.html#L805' title='Defined at 805 in deps/lua/src/lapi.c.'>lua_pcall</a>(L, <a href='../S/272.html#L159' title='Defined at 159 in deps/lua/src/lapi.c.'>lua_gettop</a>(L)-1, 0, 0) != 0)
+<a name='L227'>        <a href='../S/287.html#L58' title='Defined at 58 in deps/lua/src/lua.c.'>l_message</a>(progname, <a href='../S/272.html#L473' title='Defined at 473 in deps/lua/src/lapi.c.'>lua_pushfstring</a>(L,
+<a name='L228'>                               "error calling " <a href='../S/317.html#L201' title='Defined at 201 in deps/lua/src/luaconf.h.'>LUA_QL</a>("print") " (%s)",
+<a name='L229'>                               <a href='../S/266.html#L279' title='Defined at 279 in deps/lua/src/lua.h.'>lua_tostring</a>(L, -1)));
+<a name='L230'>    <font color='red'>}</font>
+<a name='L231'>  <font color='red'>}</font>
+<a name='L232'>  <a href='../S/272.html#L164' title='Defined at 164 in deps/lua/src/lapi.c.'>lua_settop</a>(L, 0);  <i><font color='green'>/* clear stack */</font></i>
+<a name='L233'>  fputs("\n", stdout);
+<a name='L234'>  fflush(stdout);
+<a name='L235'>  progname = oldprogname;
+<a name='L236'><font color='red'>}</font>
+<a name='L237'>
+<a name='L238'>
+<a name='L239'><b>static</b> <b>int</b> <a href='../S/287.html#L362' title='Refered from 362 in deps/lua/src/lua.c.'>handle_script</a> (lua_State *L, <b>char</b> **argv, <b>int</b> n) <font color='red'>{</font>
+<a name='L240'>  <b>int</b> status;
+<a name='L241'>  <b>const</b> <b>char</b> *fname;
+<a name='L242'>  <b>int</b> narg = <a href='../S/287.html#L116' title='Defined at 116 in deps/lua/src/lua.c.'>getargs</a>(L, argv, n);  <i><font color='green'>/* collect arguments */</font></i>
+<a name='L243'>  <a href='../S/266.html#L276' title='Defined at 276 in deps/lua/src/lua.h.'>lua_setglobal</a>(L, "arg");
+<a name='L244'>  fname = argv[n];
+<a name='L245'>  <b>if</b> (strcmp(fname, "-") == 0 &amp;&amp; strcmp(argv[n-1], "--") != 0) 
+<a name='L246'>    fname = NULL;  <i><font color='green'>/* stdin */</font></i>
+<a name='L247'>  status = <a href='../S/260.html#L552' title='Defined at 552 in deps/lua/src/lauxlib.c.'>luaL_loadfile</a>(L, fname);
+<a name='L248'>  <a href='../S/272.html#L191' title='Defined at 191 in deps/lua/src/lapi.c.'>lua_insert</a>(L, -(narg+1));
+<a name='L249'>  <b>if</b> (status == 0)
+<a name='L250'>    status = <a href='../S/287.html#L96' title='Defined at 96 in deps/lua/src/lua.c.'>docall</a>(L, narg, 0);
+<a name='L251'>  <b>else</b>
+<a name='L252'>    <a href='../S/266.html#L254' title='Defined at 254 in deps/lua/src/lua.h.'>lua_pop</a>(L, narg);      
+<a name='L253'>  <b>return</b> <a href='../S/287.html#L65' title='Defined at 65 in deps/lua/src/lua.c.'>report</a>(L, status);
+<a name='L254'><font color='red'>}</font>
+<a name='L255'>
+<a name='L256'>
+<a name='L257'><i><font color='green'>/* check that argument has no extra characters at the end */</font></i>
+<a name='L258'><font color='darkred'>#define</font> <a href='../R/3081.html' title='Multiple refered from 3 places.'>notail</a>(x)       <font color='red'>{</font><b>if</b> ((x)[2] != '\0') <b>return</b> -1;<font color='red'>}</font>
+<a name='L259'>
+<a name='L260'>
+<a name='L261'><b>static</b> <b>int</b> <a href='../S/287.html#L352' title='Refered from 352 in deps/lua/src/lua.c.'>collectargs</a> (<b>char</b> **argv, <b>int</b> *pi, <b>int</b> *pv, <b>int</b> *pe) <font color='red'>{</font>
+<a name='L262'>  <b>int</b> i;
+<a name='L263'>  <b>for</b> (i = 1; argv[i] != NULL; i++) <font color='red'>{</font>
+<a name='L264'>    <b>if</b> (argv[i][0] != '-')  <i><font color='green'>/* not an option? */</font></i>
+<a name='L265'>        <b>return</b> i;
+<a name='L266'>    <b>switch</b> (argv[i][1]) <font color='red'>{</font>  <i><font color='green'>/* option */</font></i>
+<a name='L267'>      <b>case</b> '-':
+<a name='L268'>        <a href='../S/287.html#L258' title='Defined at 258 in deps/lua/src/lua.c.'>notail</a>(argv[i]);
+<a name='L269'>        <b>return</b> (argv[i+1] != NULL ? i+1 : 0);
+<a name='L270'>      <b>case</b> '\0':
+<a name='L271'>        <b>return</b> i;
+<a name='L272'>      <b>case</b> 'i':
+<a name='L273'>        <a href='../S/287.html#L258' title='Defined at 258 in deps/lua/src/lua.c.'>notail</a>(argv[i]);
+<a name='L274'>        *pi = 1;  <i><font color='green'>/* go through */</font></i>
+<a name='L275'>      <b>case</b> 'v':
+<a name='L276'>        <a href='../S/287.html#L258' title='Defined at 258 in deps/lua/src/lua.c.'>notail</a>(argv[i]);
+<a name='L277'>        *pv = 1;
+<a name='L278'>        <b>break</b>;
+<a name='L279'>      <b>case</b> 'e':
+<a name='L280'>        *pe = 1;  <i><font color='green'>/* go through */</font></i>
+<a name='L281'>      <b>case</b> 'l':
+<a name='L282'>        <b>if</b> (argv[i][2] == '\0') <font color='red'>{</font>
+<a name='L283'>          i++;
+<a name='L284'>          <b>if</b> (argv[i] == NULL) <b>return</b> -1;
+<a name='L285'>        <font color='red'>}</font>
+<a name='L286'>        <b>break</b>;
+<a name='L287'>      <b>default</b>: <b>return</b> -1;  <i><font color='green'>/* invalid option */</font></i>
+<a name='L288'>    <font color='red'>}</font>
+<a name='L289'>  <font color='red'>}</font>
+<a name='L290'>  <b>return</b> 0;
+<a name='L291'><font color='red'>}</font>
+<a name='L292'>
+<a name='L293'>
+<a name='L294'><b>static</b> <b>int</b> <a href='../S/287.html#L359' title='Refered from 359 in deps/lua/src/lua.c.'>runargs</a> (lua_State *L, <b>char</b> **argv, <b>int</b> n) <font color='red'>{</font>
+<a name='L295'>  <b>int</b> i;
+<a name='L296'>  <b>for</b> (i = 1; i &lt; n; i++) <font color='red'>{</font>
+<a name='L297'>    <b>if</b> (argv[i] == NULL) <b>continue</b>;
+<a name='L298'>    <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(argv[i][0] == '-');
+<a name='L299'>    <b>switch</b> (argv[i][1]) <font color='red'>{</font>  <i><font color='green'>/* option */</font></i>
+<a name='L300'>      <b>case</b> 'e': <font color='red'>{</font>
+<a name='L301'>        <b>const</b> <b>char</b> *<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a> = argv[i] + 2;
+<a name='L302'>        <b>if</b> (*<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a> == '\0') <a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a> = argv[++i];
+<a name='L303'>        <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a> != NULL);
+<a name='L304'>        <b>if</b> (<a href='../S/287.html#L140' title='Defined at 140 in deps/lua/src/lua.c.'>dostring</a>(L, <a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, "=(command line)") != 0)
+<a name='L305'>          <b>return</b> 1;
+<a name='L306'>        <b>break</b>;
+<a name='L307'>      <font color='red'>}</font>
+<a name='L308'>      <b>case</b> 'l': <font color='red'>{</font>
+<a name='L309'>        <b>const</b> <b>char</b> *filename = argv[i] + 2;
+<a name='L310'>        <b>if</b> (*filename == '\0') filename = argv[++i];
+<a name='L311'>        <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(filename != NULL);
+<a name='L312'>        <b>if</b> (<a href='../S/287.html#L146' title='Defined at 146 in deps/lua/src/lua.c.'>dolibrary</a>(L, filename))
+<a name='L313'>          <b>return</b> 1;  <i><font color='green'>/* stop if file fails */</font></i>
+<a name='L314'>        <b>break</b>;
+<a name='L315'>      <font color='red'>}</font>
+<a name='L316'>      <b>default</b>: <b>break</b>;
+<a name='L317'>    <font color='red'>}</font>
+<a name='L318'>  <font color='red'>}</font>
+<a name='L319'>  <b>return</b> 0;
+<a name='L320'><font color='red'>}</font>
+<a name='L321'>
+<a name='L322'>
+<a name='L323'><b>static</b> <b>int</b> <a href='../S/287.html#L350' title='Refered from 350 in deps/lua/src/lua.c.'>handle_luainit</a> (lua_State *L) <font color='red'>{</font>
+<a name='L324'>  <b>const</b> <b>char</b> *init = getenv(<a href='../S/317.html#L71' title='Defined at 71 in deps/lua/src/luaconf.h.'>LUA_INIT</a>);
+<a name='L325'>  <b>if</b> (init == NULL) <b>return</b> 0;  <i><font color='green'>/* status OK */</font></i>
+<a name='L326'>  <b>else</b> <b>if</b> (init[0] == '@')
+<a name='L327'>    <b>return</b> <a href='../S/287.html#L134' title='Defined at 134 in deps/lua/src/lua.c.'>dofile</a>(L, init+1);
+<a name='L328'>  <b>else</b>
+<a name='L329'>    <b>return</b> <a href='../S/287.html#L140' title='Defined at 140 in deps/lua/src/lua.c.'>dostring</a>(L, init, "=" <a href='../S/317.html#L71' title='Defined at 71 in deps/lua/src/luaconf.h.'>LUA_INIT</a>);
+<a name='L330'><font color='red'>}</font>
+<a name='L331'>
+<a name='L332'>
+<a name='L333'><b>struct</b> <a href='../R/918.html' title='Multiple refered from 4 places.'>Smain</a> <font color='red'>{</font>
+<a name='L334'>  <b>int</b> argc;
+<a name='L335'>  <b>char</b> **argv;
+<a name='L336'>  <b>int</b> status;
+<a name='L337'><font color='red'>}</font>;
+<a name='L338'>
+<a name='L339'>
+<a name='L340'><b>static</b> <b>int</b> <a href='../R/3148.html' title='Multiple refered from 2 places.'>pmain</a> (lua_State *L) <font color='red'>{</font>
+<a name='L341'>  <b>struct</b> <a href='../D/1153.html' title='Multiple defined in 2 places.'>Smain</a> *s = (<b>struct</b> <a href='../D/1153.html' title='Multiple defined in 2 places.'>Smain</a> *)<a href='../S/272.html#L385' title='Defined at 385 in deps/lua/src/lapi.c.'>lua_touserdata</a>(L, 1);
+<a name='L342'>  <b>char</b> **argv = s-&gt;argv;
+<a name='L343'>  <b>int</b> script;
+<a name='L344'>  <b>int</b> has_i = 0, has_v = 0, has_e = 0;
+<a name='L345'>  globalL = L;
+<a name='L346'>  <b>if</b> (argv[0] &amp;&amp; argv[0][0]) progname = argv[0];
+<a name='L347'>  <a href='../S/272.html#L899' title='Defined at 899 in deps/lua/src/lapi.c.'>lua_gc</a>(L, <a href='../S/266.html#L221' title='Defined at 221 in deps/lua/src/lua.h.'>LUA_GCSTOP</a>, 0);  <i><font color='green'>/* stop collector during initialization */</font></i>
+<a name='L348'>  <a href='../S/263.html#L30' title='Defined at 30 in deps/lua/src/linit.c.'>luaL_openlibs</a>(L);  <i><font color='green'>/* open libraries */</font></i>
+<a name='L349'>  <a href='../S/272.html#L899' title='Defined at 899 in deps/lua/src/lapi.c.'>lua_gc</a>(L, <a href='../S/266.html#L222' title='Defined at 222 in deps/lua/src/lua.h.'>LUA_GCRESTART</a>, 0);
+<a name='L350'>  s-&gt;status = <a href='../S/287.html#L323' title='Defined at 323 in deps/lua/src/lua.c.'>handle_luainit</a>(L);
+<a name='L351'>  <b>if</b> (s-&gt;status != 0) <b>return</b> 0;
+<a name='L352'>  script = <a href='../S/287.html#L261' title='Defined at 261 in deps/lua/src/lua.c.'>collectargs</a>(argv, &amp;has_i, &amp;has_v, &amp;has_e);
+<a name='L353'>  <b>if</b> (script &lt; 0) <font color='red'>{</font>  <i><font color='green'>/* invalid args? */</font></i>
+<a name='L354'>    <a href='../S/287.html#L42' title='Defined at 42 in deps/lua/src/lua.c.'>print_usage</a>();
+<a name='L355'>    s-&gt;status = 1;
+<a name='L356'>    <b>return</b> 0;
+<a name='L357'>  <font color='red'>}</font>
+<a name='L358'>  <b>if</b> (has_v) <a href='../S/287.html#L111' title='Defined at 111 in deps/lua/src/lua.c.'>print_version</a>();
+<a name='L359'>  s-&gt;status = <a href='../S/287.html#L294' title='Defined at 294 in deps/lua/src/lua.c.'>runargs</a>(L, argv, (script &gt; 0) ? script : s-&gt;argc);
+<a name='L360'>  <b>if</b> (s-&gt;status != 0) <b>return</b> 0;
+<a name='L361'>  <b>if</b> (script)
+<a name='L362'>    s-&gt;status = <a href='../S/287.html#L239' title='Defined at 239 in deps/lua/src/lua.c.'>handle_script</a>(L, argv, script);
+<a name='L363'>  <b>if</b> (s-&gt;status != 0) <b>return</b> 0;
+<a name='L364'>  <b>if</b> (has_i)
+<a name='L365'>    <a href='../S/287.html#L216' title='Defined at 216 in deps/lua/src/lua.c.'>dotty</a>(L);
+<a name='L366'>  <b>else</b> <b>if</b> (script == 0 &amp;&amp; !has_e &amp;&amp; !has_v) <font color='red'>{</font>
+<a name='L367'>    <b>if</b> (<a href='../D/3192.html' title='Multiple defined in 3 places.'>lua_stdin_is_tty</a>()) <font color='red'>{</font>
+<a name='L368'>      <a href='../S/287.html#L111' title='Defined at 111 in deps/lua/src/lua.c.'>print_version</a>();
+<a name='L369'>      <a href='../S/287.html#L216' title='Defined at 216 in deps/lua/src/lua.c.'>dotty</a>(L);
+<a name='L370'>    <font color='red'>}</font>
+<a name='L371'>    <b>else</b> <a href='../S/287.html#L134' title='Defined at 134 in deps/lua/src/lua.c.'>dofile</a>(L, NULL);  <i><font color='green'>/* executes stdin as a file */</font></i>
+<a name='L372'>  <font color='red'>}</font>
+<a name='L373'>  <b>return</b> 0;
+<a name='L374'><font color='red'>}</font>
+<a name='L375'>
+<a name='L376'>
+<a name='L377'><b>int</b> main (<b>int</b> argc, <b>char</b> **argv) <font color='red'>{</font>
+<a name='L378'>  <b>int</b> status;
+<a name='L379'>  <b>struct</b> <a href='../D/1153.html' title='Multiple defined in 2 places.'>Smain</a> s;
+<a name='L380'>  <a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L = <a href='../S/266.html#L287' title='Defined at 287 in deps/lua/src/lua.h.'>lua_open</a>();  <i><font color='green'>/* create state */</font></i>
+<a name='L381'>  <b>if</b> (L == NULL) <font color='red'>{</font>
+<a name='L382'>    <a href='../S/287.html#L58' title='Defined at 58 in deps/lua/src/lua.c.'>l_message</a>(argv[0], "cannot create state: not enough memory");
+<a name='L383'>    <b>return</b> EXIT_FAILURE;
+<a name='L384'>  <font color='red'>}</font>
+<a name='L385'>  s.argc = argc;
+<a name='L386'>  s.argv = argv;
+<a name='L387'>  status = <a href='../S/272.html#L850' title='Defined at 850 in deps/lua/src/lapi.c.'>lua_cpcall</a>(L, &amp;<a href='../D/3496.html' title='Multiple defined in 2 places.'>pmain</a>, &amp;s);
+<a name='L388'>  <a href='../S/287.html#L65' title='Defined at 65 in deps/lua/src/lua.c.'>report</a>(L, status);
+<a name='L389'>  <a href='../S/275.html#L199' title='Defined at 199 in deps/lua/src/lstate.c.'>lua_close</a>(L);
+<a name='L390'>  <b>return</b> (status || s.status) ? EXIT_FAILURE : EXIT_SUCCESS;
+<a name='L391'><font color='red'>}</font>
+<a name='L392'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L28'>[^]</a><a href='#L377'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<html>
+<head>
+<title>deps/lua/src/lvm.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/lvm.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/144.html' title='Multiple included from 5 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: lvm.h,v 2.5.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Lua virtual machine</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'><font color='darkred'>#ifndef</font> <a href='../S/262.html#L8' title='Defined at 8 in deps/lua/src/lvm.h.'>lvm_h</a>
+<a name='L8'><font color='darkred'>#define</font> <a href='../S/262.html#L7' title='Refered from 7 in deps/lua/src/lvm.h.'>lvm_h</a>
+<a name='L9'>
+<a name='L10'>
+<a name='L11'><font color='darkred'>#include</font> "<a href='296.html'>ldo.h</a>"
+<a name='L12'><font color='darkred'>#include</font> "<a href='282.html'>lobject.h</a>"
+<a name='L13'><font color='darkred'>#include</font> "<a href='307.html'>ltm.h</a>"
+<a name='L14'>
+<a name='L15'>
+<a name='L16'><font color='darkred'>#define</font> <a href='../R/4009.html' title='Multiple refered from 3 places.'>tostring</a>(L,o) ((<a href='../S/282.html#L90' title='Defined at 90 in deps/lua/src/lobject.h.'>ttype</a>(o) == <a href='../S/266.html#L78' title='Defined at 78 in deps/lua/src/lua.h.'>LUA_TSTRING</a>) || (<a href='../S/290.html#L47' title='Defined at 47 in deps/lua/src/lvm.c.'>luaV_tostring</a>(L, o)))
+<a name='L17'>
+<a name='L18'><font color='darkred'>#define</font> <a href='../R/4006.html' title='Multiple refered from 6 places.'>tonumber</a>(o,n)   (<a href='../S/282.html#L90' title='Defined at 90 in deps/lua/src/lobject.h.'>ttype</a>(o) == <a href='../S/266.html#L77' title='Defined at 77 in deps/lua/src/lua.h.'>LUA_TNUMBER</a> || \
+<a name='L19'>                         (((o) = <a href='../S/290.html#L35' title='Defined at 35 in deps/lua/src/lvm.c.'>luaV_tonumber</a>(o,n)) != NULL))
+<a name='L20'>
+<a name='L21'><font color='darkred'>#define</font> <a href='../R/1891.html' title='Multiple refered from 2 places.'>equalobj</a>(L,o1,o2) \
+<a name='L22'>        (<a href='../S/282.html#L90' title='Defined at 90 in deps/lua/src/lobject.h.'>ttype</a>(o1) == <a href='../S/282.html#L90' title='Defined at 90 in deps/lua/src/lobject.h.'>ttype</a>(o2) &amp;&amp; <a href='../S/290.html#L251' title='Defined at 251 in deps/lua/src/lvm.c.'>luaV_equalval</a>(L, o1, o2))
+<a name='L23'>
+<a name='L24'>
+<a name='L25'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>int</b> <a href='../S/290.html#L221' title='Defined at 221 in deps/lua/src/lvm.c.'>luaV_lessthan</a> (lua_State *L, <b>const</b> TValue *l, <b>const</b> TValue *r);
+<a name='L26'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>int</b> <a href='../S/290.html#L251' title='Defined at 251 in deps/lua/src/lvm.c.'>luaV_equalval</a> (lua_State *L, <b>const</b> TValue *t1, <b>const</b> TValue *t2);
+<a name='L27'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>const</b> <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *<a href='../S/290.html#L35' title='Defined at 35 in deps/lua/src/lvm.c.'>luaV_tonumber</a> (<b>const</b> TValue *obj, TValue *n);
+<a name='L28'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>int</b> <a href='../S/290.html#L47' title='Defined at 47 in deps/lua/src/lvm.c.'>luaV_tostring</a> (lua_State *L, StkId obj);
+<a name='L29'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/290.html#L108' title='Defined at 108 in deps/lua/src/lvm.c.'>luaV_gettable</a> (lua_State *L, <b>const</b> TValue *t, TValue *key,
+<a name='L30'>                                            StkId val);
+<a name='L31'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/290.html#L134' title='Defined at 134 in deps/lua/src/lvm.c.'>luaV_settable</a> (lua_State *L, <b>const</b> TValue *t, TValue *key,
+<a name='L32'>                                            StkId val);
+<a name='L33'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/290.html#L373' title='Defined at 373 in deps/lua/src/lvm.c.'>luaV_execute</a> (lua_State *L, <b>int</b> nexeccalls);
+<a name='L34'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/290.html#L278' title='Defined at 278 in deps/lua/src/lvm.c.'>luaV_concat</a> (lua_State *L, <b>int</b> total, <b>int</b> last);
+<a name='L35'>
+<a name='L36'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

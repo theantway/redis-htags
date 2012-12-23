@@ -1,0 +1,63 @@
+<html>
+<head>
+<title>deps/jemalloc/include/jemalloc/internal/extent.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/391.html'>include</a>/<a href='../files/392.html'>jemalloc</a>/<a href='../files/393.html'>internal</a>/extent.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L2'><font color='darkred'>#ifdef</font> JEMALLOC_H_TYPES
+<a name='L3'>
+<a name='L4'><b>typedef</b> <b>struct</b> <a href='../S/147.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_s</a> <a href='../R/1922.html' title='Multiple refered from 25 places.'>extent_node_t</a>;
+<a name='L5'>
+<a name='L6'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_TYPES */</font></i>
+<a name='L7'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L8'><font color='darkred'>#ifdef</font> JEMALLOC_H_STRUCTS
+<a name='L9'>
+<a name='L10'><i><font color='green'>/* Tree of extents. */</font></i>
+<a name='L11'><b>struct</b> <a href='../S/147.html#L4' title='Refered from 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_s</a> <font color='red'>{</font>
+<a name='L12'>        <i><font color='green'>/* Linkage for the size/address-ordered tree. */</font></i>
+<a name='L13'>        <a href='../D/3680.html' title='Multiple defined in 2 places.'>rb_node</a>(<a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a>)  link_szad;
+<a name='L14'>
+<a name='L15'>        <i><font color='green'>/* Linkage for the address-ordered tree. */</font></i>
+<a name='L16'>        <a href='../D/3680.html' title='Multiple defined in 2 places.'>rb_node</a>(<a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a>)  link_ad;
+<a name='L17'>
+<a name='L18'>        <i><font color='green'>/* Profile counters, used for huge objects. */</font></i>
+<a name='L19'>        <a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a>              *prof_ctx;
+<a name='L20'>
+<a name='L21'>        <i><font color='green'>/* Pointer to the extent that this tree node is responsible for. */</font></i>
+<a name='L22'>        <b>void</b>                    *addr;
+<a name='L23'>
+<a name='L24'>        <i><font color='green'>/* Total region size. */</font></i>
+<a name='L25'>        size_t                  size;
+<a name='L26'>
+<a name='L27'>        <i><font color='green'>/* True if zero-filled; used by chunk recycling code. */</font></i>
+<a name='L28'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>                    zeroed;
+<a name='L29'><font color='red'>}</font>;
+<a name='L30'><b>typedef</b> <a href='../S/129.html#L46' title='Defined at 46 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rb_tree</a>(extent_node_t) <a href='../R/1955.html' title='Multiple refered from 15 places.'>extent_tree_t</a>;
+<a name='L31'>
+<a name='L32'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_STRUCTS */</font></i>
+<a name='L33'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L34'><font color='darkred'>#ifdef</font> JEMALLOC_H_EXTERNS
+<a name='L35'>
+<a name='L36'><a href='../S/129.html#L162' title='Defined at 162 in deps/jemalloc/include/jemalloc/internal/rb.h.'>rb_proto</a>(, extent_tree_szad_, <a href='../S/147.html#L30' title='Defined at 30 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_tree_t</a>, <a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a>)
+<a name='L37'>
+<a name='L38'>rb_proto(, extent_tree_ad_, <a href='../S/147.html#L30' title='Defined at 30 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_tree_t</a>, <a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a>)
+<a name='L39'>
+<a name='L40'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_EXTERNS */</font></i>
+<a name='L41'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L42'><font color='darkred'>#ifdef</font> JEMALLOC_H_INLINES
+<a name='L43'>
+<a name='L44'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_INLINES */</font></i>
+<a name='L45'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L46'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

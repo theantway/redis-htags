@@ -1,0 +1,86 @@
+<html>
+<head>
+<title>deps/lua/src/lzio.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/lzio.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/146.html' title='Multiple included from 10 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: lzio.h,v 1.21.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Buffered streams</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'>
+<a name='L8'><font color='darkred'>#ifndef</font> <a href='../S/312.html#L9' title='Defined at 9 in deps/lua/src/lzio.h.'>lzio_h</a>
+<a name='L9'><font color='darkred'>#define</font> <a href='../S/312.html#L8' title='Refered from 8 in deps/lua/src/lzio.h.'>lzio_h</a>
+<a name='L10'>
+<a name='L11'><font color='darkred'>#include</font> "<a href='266.html'>lua.h</a>"
+<a name='L12'>
+<a name='L13'><font color='darkred'>#include</font> "<a href='278.html'>lmem.h</a>"
+<a name='L14'>
+<a name='L15'>
+<a name='L16'><font color='darkred'>#define</font> <a href='../R/141.html' title='Multiple refered from 9 places.'>EOZ</a>     (-1)                    <i><font color='green'>/* end of stream */</font></i>
+<a name='L17'>
+<a name='L18'><b>typedef</b> <b>struct</b> <a href='../S/312.html#L56' title='Defined at 56 in deps/lua/src/lzio.h.'>Zio</a> <a href='../R/1057.html' title='Multiple refered from 21 places.'>ZIO</a>;
+<a name='L19'>
+<a name='L20'><font color='darkred'>#define</font> <a href='../R/1536.html' title='Multiple refered from 3 places.'>char2int</a>(c)     <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>int</b>, <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(<b>unsigned</b> <b>char</b>, (c)))
+<a name='L21'>
+<a name='L22'><font color='darkred'>#define</font> <a href='../S/305.html#L28' title='Refered from 28 in deps/lua/src/llex.c.'>zgetc</a>(z)  (((z)-&gt;n--)&gt;0 ?  <a href='../S/312.html#L20' title='Defined at 20 in deps/lua/src/lzio.h.'>char2int</a>(*(z)-&gt;p++) : <a href='../S/289.html#L21' title='Defined at 21 in deps/lua/src/lzio.c.'>luaZ_fill</a>(z))
+<a name='L23'>
+<a name='L24'><b>typedef</b> <b>struct</b> <a href='../R/461.html' title='Multiple refered from 5 places.'>Mbuffer</a> <font color='red'>{</font>
+<a name='L25'>  <b>char</b> *buffer;
+<a name='L26'>  size_t n;
+<a name='L27'>  size_t buffsize;
+<a name='L28'><font color='red'>}</font> <a href='../R/461.html' title='Multiple refered from 5 places.'>Mbuffer</a>;
+<a name='L29'>
+<a name='L30'><font color='darkred'>#define</font> <a href='../R/2744.html' title='Multiple refered from 2 places.'>luaZ_initbuffer</a>(L, buff) ((buff)-&gt;buffer = NULL, (buff)-&gt;buffsize = 0)
+<a name='L31'>
+<a name='L32'><font color='darkred'>#define</font> <a href='../R/2739.html' title='Multiple refered from 7 places.'>luaZ_buffer</a>(buff)       ((buff)-&gt;buffer)
+<a name='L33'><font color='darkred'>#define</font> <a href='../R/2750.html' title='Multiple refered from 2 places.'>luaZ_sizebuffer</a>(buff)   ((buff)-&gt;buffsize)
+<a name='L34'><font color='darkred'>#define</font> <a href='../R/2740.html' title='Multiple refered from 4 places.'>luaZ_bufflen</a>(buff)      ((buff)-&gt;n)
+<a name='L35'>
+<a name='L36'><font color='darkred'>#define</font> <a href='../R/2748.html' title='Multiple refered from 4 places.'>luaZ_resetbuffer</a>(buff) ((buff)-&gt;n = 0)
+<a name='L37'>
+<a name='L38'>
+<a name='L39'><font color='darkred'>#define</font> <a href='../R/2749.html' title='Multiple refered from 5 places.'>luaZ_resizebuffer</a>(L, buff, size) \
+<a name='L40'>        (<a href='../S/278.html#L37' title='Defined at 37 in deps/lua/src/lmem.h.'>luaM_reallocvector</a>(L, (buff)-&gt;buffer, (buff)-&gt;buffsize, size, <b>char</b>), \
+<a name='L41'>        (buff)-&gt;buffsize = size)
+<a name='L42'>
+<a name='L43'><font color='darkred'>#define</font> <a href='../R/2742.html' title='Multiple refered from 2 places.'>luaZ_freebuffer</a>(L, buff)        <a href='../S/312.html#L39' title='Defined at 39 in deps/lua/src/lzio.h.'>luaZ_resizebuffer</a>(L, buff, 0)
+<a name='L44'>
+<a name='L45'>
+<a name='L46'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>char</b> *<a href='../S/289.html#L74' title='Defined at 74 in deps/lua/src/lzio.c.'>luaZ_openspace</a> (lua_State *L, Mbuffer *buff, size_t n);
+<a name='L47'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> <a href='../S/289.html#L48' title='Defined at 48 in deps/lua/src/lzio.c.'>luaZ_init</a> (lua_State *L, <a href='../S/312.html#L18' title='Defined at 18 in deps/lua/src/lzio.h.'>ZIO</a> *z, lua_Reader reader,
+<a name='L48'>                                        <b>void</b> *data);
+<a name='L49'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> size_t <a href='../S/289.html#L58' title='Defined at 58 in deps/lua/src/lzio.c.'>luaZ_read</a> (<a href='../S/312.html#L18' title='Defined at 18 in deps/lua/src/lzio.h.'>ZIO</a>* z, <b>void</b>* b, size_t n); <i><font color='green'>/* read next n bytes */</font></i>
+<a name='L50'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>int</b> <a href='../S/289.html#L35' title='Defined at 35 in deps/lua/src/lzio.c.'>luaZ_lookahead</a> (<a href='../S/312.html#L18' title='Defined at 18 in deps/lua/src/lzio.h.'>ZIO</a> *z);
+<a name='L51'>
+<a name='L52'>
+<a name='L53'>
+<a name='L54'><i><font color='green'>/* --------- Private Part ------------------ */</font></i>
+<a name='L55'>
+<a name='L56'><b>struct</b> <a href='../S/312.html#L18' title='Refered from 18 in deps/lua/src/lzio.h.'>Zio</a> <font color='red'>{</font>
+<a name='L57'>  size_t n;                     <i><font color='green'>/* bytes still unread */</font></i>
+<a name='L58'>  <b>const</b> <b>char</b> *p;                <i><font color='green'>/* current position in buffer */</font></i>
+<a name='L59'>  lua_Reader reader;
+<a name='L60'>  <b>void</b>* data;                   <i><font color='green'>/* additional data */</font></i>
+<a name='L61'>  <a href='../D/3087.html' title='Multiple defined in 2 places.'>lua_State</a> *L;                 <i><font color='green'>/* Lua state (for reader) */</font></i>
+<a name='L62'><font color='red'>}</font>;
+<a name='L63'>
+<a name='L64'>
+<a name='L65'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>int</b> <a href='../S/289.html#L21' title='Defined at 21 in deps/lua/src/lzio.c.'>luaZ_fill</a> (<a href='../S/312.html#L18' title='Defined at 18 in deps/lua/src/lzio.h.'>ZIO</a> *z);
+<a name='L66'>
+<a name='L67'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

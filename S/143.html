@@ -1,0 +1,57 @@
+<html>
+<head>
+<title>deps/jemalloc/include/jemalloc/internal/huge.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/391.html'>include</a>/<a href='../files/392.html'>jemalloc</a>/<a href='../files/393.html'>internal</a>/huge.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L2'><font color='darkred'>#ifdef</font> JEMALLOC_H_TYPES
+<a name='L3'>
+<a name='L4'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_TYPES */</font></i>
+<a name='L5'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L6'><font color='darkred'>#ifdef</font> JEMALLOC_H_STRUCTS
+<a name='L7'>
+<a name='L8'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_STRUCTS */</font></i>
+<a name='L9'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L10'><font color='darkred'>#ifdef</font> JEMALLOC_H_EXTERNS
+<a name='L11'>
+<a name='L12'><i><font color='green'>/* Huge allocation statistics. */</font></i>
+<a name='L13'><b>extern</b> <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>         <a href='../S/138.html#L183' title='Defined at 183 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_nmalloc</a>;
+<a name='L14'><b>extern</b> <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>         <a href='../S/138.html#L182' title='Defined at 182 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_ndalloc</a>;
+<a name='L15'><b>extern</b> size_t           <a href='../S/138.html#L177' title='Defined at 177 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_allocated</a>;
+<a name='L16'>
+<a name='L17'><i><font color='green'>/* Protects chunk-related data structures. */</font></i>
+<a name='L18'><b>extern</b> <a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a>   <a href='../S/138.html#L181' title='Defined at 181 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>huge_mtx</a>;
+<a name='L19'>
+<a name='L20'><b>void</b>    *<a href='../D/2442.html' title='Multiple defined in 2 places.'>huge_malloc</a>(size_t size, bool zero);
+<a name='L21'><b>void</b>    *<a href='../D/2446.html' title='Multiple defined in 2 places.'>huge_palloc</a>(size_t size, size_t alignment, bool zero);
+<a name='L22'><b>void</b>    *<a href='../D/2453.html' title='Multiple defined in 2 places.'>huge_ralloc_no_move</a>(<b>void</b> *ptr, size_t oldsize, size_t size,
+<a name='L23'>    size_t extra);
+<a name='L24'><b>void</b>    *<a href='../D/2452.html' title='Multiple defined in 2 places.'>huge_ralloc</a>(<b>void</b> *ptr, size_t oldsize, size_t size, size_t extra,
+<a name='L25'>    size_t alignment, bool zero, bool try_tcache_dalloc);
+<a name='L26'><b>void</b>    <a href='../D/2441.html' title='Multiple defined in 2 places.'>huge_dalloc</a>(<b>void</b> *ptr, bool unmap);
+<a name='L27'>size_t  <a href='../D/2454.html' title='Multiple defined in 2 places.'>huge_salloc</a>(<b>const</b> <b>void</b> *ptr);
+<a name='L28'><a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a>      *<a href='../D/2450.html' title='Multiple defined in 2 places.'>huge_prof_ctx_get</a>(<b>const</b> <b>void</b> *ptr);
+<a name='L29'><b>void</b>    <a href='../D/2451.html' title='Multiple defined in 2 places.'>huge_prof_ctx_set</a>(<b>const</b> <b>void</b> *ptr, <a href='../S/141.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/prof.h.'>prof_ctx_t</a> *ctx);
+<a name='L30'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>    <a href='../D/2440.html' title='Multiple defined in 2 places.'>huge_boot</a>(<b>void</b>);
+<a name='L31'><b>void</b>    <a href='../D/2449.html' title='Multiple defined in 2 places.'>huge_prefork</a>(<b>void</b>);
+<a name='L32'><b>void</b>    <a href='../D/2448.html' title='Multiple defined in 2 places.'>huge_postfork_parent</a>(<b>void</b>);
+<a name='L33'><b>void</b>    <a href='../D/2447.html' title='Multiple defined in 2 places.'>huge_postfork_child</a>(<b>void</b>);
+<a name='L34'>
+<a name='L35'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_EXTERNS */</font></i>
+<a name='L36'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L37'><font color='darkred'>#ifdef</font> JEMALLOC_H_INLINES
+<a name='L38'>
+<a name='L39'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_INLINES */</font></i>
+<a name='L40'><i><font color='green'>/******************************************************************************/</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

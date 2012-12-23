@@ -1,0 +1,35 @@
+<html>
+<head>
+<title>redisFormatCommand</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<pre>
+<a href='../S/121.html#L160'>redisFormatCommand</a>  160 deps/hiredis/hiredis.h int redisFormatCommand(char **target, const char *format, ...);
+<a href='../S/122.html#L104'>redisFormatCommand</a>  104 deps/hiredis/test.c     len = redisFormatCommand(&amp;cmd,"SET foo bar");
+<a href='../S/122.html#L110'>redisFormatCommand</a>  110 deps/hiredis/test.c     len = redisFormatCommand(&amp;cmd,"SET %s %s","foo","bar");
+<a href='../S/122.html#L116'>redisFormatCommand</a>  116 deps/hiredis/test.c     len = redisFormatCommand(&amp;cmd,"SET %s %s","foo","");
+<a href='../S/122.html#L122'>redisFormatCommand</a>  122 deps/hiredis/test.c     len = redisFormatCommand(&amp;cmd,"SET %s %s","","foo");
+<a href='../S/122.html#L128'>redisFormatCommand</a>  128 deps/hiredis/test.c     len = redisFormatCommand(&amp;cmd,"SET %b %b","foo",3,"b\0r",3);
+<a href='../S/122.html#L134'>redisFormatCommand</a>  134 deps/hiredis/test.c     len = redisFormatCommand(&amp;cmd,"SET %b %b","foo",3,"",0);
+<a href='../S/122.html#L140'>redisFormatCommand</a>  140 deps/hiredis/test.c     len = redisFormatCommand(&amp;cmd,"SET %% %%");
+<a href='../S/122.html#L151'>redisFormatCommand</a>  151 deps/hiredis/test.c     len = redisFormatCommand(&amp;cmd,"key:%08" fmt " str:%s", value, "hello");               \
+<a href='../S/122.html#L160'>redisFormatCommand</a>  160 deps/hiredis/test.c     len = redisFormatCommand(&amp;cmd,"key:%08.3f str:%s", value, "hello");                   \
+<a href='../S/122.html#L180'>redisFormatCommand</a>  180 deps/hiredis/test.c     len = redisFormatCommand(&amp;cmd,"key:%08p %b",(void*)1234,"foo",3);
+<a href='../S/94.html#L582'>redisFormatCommand</a>  582 src/redis-benchmark.c             len = redisFormatCommand(&amp;cmd,"PING");
+<a href='../S/94.html#L588'>redisFormatCommand</a>  588 src/redis-benchmark.c             len = redisFormatCommand(&amp;cmd,"SET foo:rand:000000000000 %s",data);
+<a href='../S/94.html#L594'>redisFormatCommand</a>  594 src/redis-benchmark.c             len = redisFormatCommand(&amp;cmd,"GET foo:rand:000000000000");
+<a href='../S/94.html#L600'>redisFormatCommand</a>  600 src/redis-benchmark.c             len = redisFormatCommand(&amp;cmd,"INCR counter:rand:000000000000");
+<a href='../S/94.html#L606'>redisFormatCommand</a>  606 src/redis-benchmark.c             len = redisFormatCommand(&amp;cmd,"LPUSH mylist %s",data);
+<a href='../S/94.html#L612'>redisFormatCommand</a>  612 src/redis-benchmark.c             len = redisFormatCommand(&amp;cmd,"LPOP mylist");
+<a href='../S/94.html#L618'>redisFormatCommand</a>  618 src/redis-benchmark.c             len = redisFormatCommand(&amp;cmd,
+<a href='../S/94.html#L625'>redisFormatCommand</a>  625 src/redis-benchmark.c             len = redisFormatCommand(&amp;cmd,"SPOP myset");
+<a href='../S/94.html#L636'>redisFormatCommand</a>  636 src/redis-benchmark.c             len = redisFormatCommand(&amp;cmd,"LPUSH mylist %s",data);
+<a href='../S/94.html#L642'>redisFormatCommand</a>  642 src/redis-benchmark.c             len = redisFormatCommand(&amp;cmd,"LRANGE mylist 0 99");
+<a href='../S/94.html#L648'>redisFormatCommand</a>  648 src/redis-benchmark.c             len = redisFormatCommand(&amp;cmd,"LRANGE mylist 0 299");
+<a href='../S/94.html#L654'>redisFormatCommand</a>  654 src/redis-benchmark.c             len = redisFormatCommand(&amp;cmd,"LRANGE mylist 0 449");
+<a href='../S/94.html#L660'>redisFormatCommand</a>  660 src/redis-benchmark.c             len = redisFormatCommand(&amp;cmd,"LRANGE mylist 0 599");
+</pre>
+</body>
+</html>

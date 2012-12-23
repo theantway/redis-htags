@@ -1,0 +1,104 @@
+<html>
+<head>
+<title>deps/jemalloc/test/thread_arena.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/396.html'>test</a>/thread_arena.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L7'>[^]</a><a href='#L42'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L7' title='Defined at 7.'>je_thread_start</a>
+<li><a href='#L42' title='Defined at 42.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> JEMALLOC_MANGLE
+<a name='L2'><font color='darkred'>#include</font> "jemalloc_test.h"
+<a name='L3'>
+<a name='L4'><font color='darkred'>#define</font> <a href='../R/469.html' title='Multiple refered from 6 places.'>NTHREADS</a> 10
+<a name='L5'>
+<a name='L6'><b>void</b> *
+<a name='L7'><a href='../R/2297.html' title='Multiple refered from 12 places.'>je_thread_start</a>(<b>void</b> *arg)
+<a name='L8'><font color='red'>{</font>
+<a name='L9'>        <b>unsigned</b> main_arena_ind = *(<b>unsigned</b> *)arg;
+<a name='L10'>        <b>void</b> *p;
+<a name='L11'>        <b>unsigned</b> arena_ind;
+<a name='L12'>        size_t size;
+<a name='L13'>        <b>int</b> err;
+<a name='L14'>
+<a name='L15'>        p = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(1);
+<a name='L16'>        <b>if</b> (p == NULL) <font color='red'>{</font>
+<a name='L17'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("%s(): Error in malloc()\n", __func__);
+<a name='L18'>                <b>return</b> (<b>void</b> *)1;
+<a name='L19'>        <font color='red'>}</font>
+<a name='L20'>
+<a name='L21'>        size = <b>sizeof</b>(arena_ind);
+<a name='L22'>        <b>if</b> ((err = mallctl("thread.arena", &amp;arena_ind, &amp;size, &amp;main_arena_ind,
+<a name='L23'>            <b>sizeof</b>(main_arena_ind)))) <font color='red'>{</font>
+<a name='L24'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("%s(): Error in mallctl(): %s\n", __func__,
+<a name='L25'>                    strerror(err));
+<a name='L26'>                <b>return</b> (<b>void</b> *)1;
+<a name='L27'>        <font color='red'>}</font>
+<a name='L28'>
+<a name='L29'>        size = <b>sizeof</b>(arena_ind);
+<a name='L30'>        <b>if</b> ((err = mallctl("thread.arena", &amp;arena_ind, &amp;size, NULL,
+<a name='L31'>            0))) <font color='red'>{</font>
+<a name='L32'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("%s(): Error in mallctl(): %s\n", __func__,
+<a name='L33'>                    strerror(err));
+<a name='L34'>                <b>return</b> (<b>void</b> *)1;
+<a name='L35'>        <font color='red'>}</font>
+<a name='L36'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(arena_ind == main_arena_ind);
+<a name='L37'>
+<a name='L38'>        <b>return</b> (NULL);
+<a name='L39'><font color='red'>}</font>
+<a name='L40'>
+<a name='L41'><b>int</b>
+<a name='L42'>main(<b>void</b>)
+<a name='L43'><font color='red'>{</font>
+<a name='L44'>        <b>int</b> ret = 0;
+<a name='L45'>        <b>void</b> *p;
+<a name='L46'>        <b>unsigned</b> arena_ind;
+<a name='L47'>        size_t size;
+<a name='L48'>        <b>int</b> err;
+<a name='L49'>        je_thread_t threads[<a href='../D/520.html' title='Multiple defined in 2 places.'>NTHREADS</a>];
+<a name='L50'>        <b>unsigned</b> i;
+<a name='L51'>
+<a name='L52'>        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Test begin\n");
+<a name='L53'>
+<a name='L54'>        p = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(1);
+<a name='L55'>        <b>if</b> (p == NULL) <font color='red'>{</font>
+<a name='L56'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("%s(): Error in malloc()\n", __func__);
+<a name='L57'>                ret = 1;
+<a name='L58'>                <b>goto</b> label_return;
+<a name='L59'>        <font color='red'>}</font>
+<a name='L60'>
+<a name='L61'>        size = <b>sizeof</b>(arena_ind);
+<a name='L62'>        <b>if</b> ((err = mallctl("thread.arena", &amp;arena_ind, &amp;size, NULL, 0))) <font color='red'>{</font>
+<a name='L63'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("%s(): Error in mallctl(): %s\n", __func__,
+<a name='L64'>                    strerror(err));
+<a name='L65'>                ret = 1;
+<a name='L66'>                <b>goto</b> label_return;
+<a name='L67'>        <font color='red'>}</font>
+<a name='L68'>
+<a name='L69'>        <b>for</b> (i = 0; i &lt; <a href='../D/520.html' title='Multiple defined in 2 places.'>NTHREADS</a>; i++) <font color='red'>{</font>
+<a name='L70'>                je_thread_create(&amp;threads[i], <a href='../D/2595.html' title='Multiple defined in 4 places.'>je_thread_start</a>,
+<a name='L71'>                    (<b>void</b> *)&amp;arena_ind);
+<a name='L72'>        <font color='red'>}</font>
+<a name='L73'>
+<a name='L74'>        <b>for</b> (i = 0; i &lt; <a href='../D/520.html' title='Multiple defined in 2 places.'>NTHREADS</a>; i++)
+<a name='L75'>                je_thread_join(threads[i], (<b>void</b> *)&amp;ret);
+<a name='L76'>
+<a name='L77'>label_return:
+<a name='L78'>        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Test end\n");
+<a name='L79'>        <b>return</b> (ret);
+<a name='L80'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L7'>[^]</a><a href='#L42'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

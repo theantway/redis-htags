@@ -1,0 +1,100 @@
+<html>
+<head>
+<title>deps/lua/src/ltm.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/ltm.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L30'>[^]</a><a href='#L61'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L30' title='Defined at 30.'>luaT_init</a>
+<li><a href='#L50' title='Defined at 50.'>luaT_gettm</a>
+<li><a href='#L61' title='Defined at 61.'>luaT_gettmbyobj</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: ltm.c,v 2.8.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Tag methods</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'>
+<a name='L8'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L9'>
+<a name='L10'><font color='darkred'>#define</font> ltm_c
+<a name='L11'><font color='darkred'>#define</font> <a href='../R/303.html' title='Multiple refered from 2 places.'>LUA_CORE</a>
+<a name='L12'>
+<a name='L13'><font color='darkred'>#include</font> "<a href='266.html'>lua.h</a>"
+<a name='L14'>
+<a name='L15'><font color='darkred'>#include</font> "<a href='282.html'>lobject.h</a>"
+<a name='L16'><font color='darkred'>#include</font> "<a href='298.html'>lstate.h</a>"
+<a name='L17'><font color='darkred'>#include</font> "<a href='268.html'>lstring.h</a>"
+<a name='L18'><font color='darkred'>#include</font> "<a href='281.html'>ltable.h</a>"
+<a name='L19'><font color='darkred'>#include</font> "<a href='307.html'>ltm.h</a>"
+<a name='L20'>
+<a name='L21'>
+<a name='L22'>
+<a name='L23'><b>const</b> <b>char</b> *<b>const</b> luaT_typenames[] = <font color='red'>{</font>
+<a name='L24'>  "nil", "boolean", "userdata", "number",
+<a name='L25'>  "string", "table", "function", "userdata", "thread",
+<a name='L26'>  "proto", "upval"
+<a name='L27'><font color='red'>}</font>;
+<a name='L28'>
+<a name='L29'>
+<a name='L30'><b>void</b> <a href='../R/2717.html' title='Multiple refered from 2 places.'>luaT_init</a> (lua_State *L) <font color='red'>{</font>
+<a name='L31'>  <b>static</b> <b>const</b> <b>char</b> *<b>const</b> luaT_eventname[] = <font color='red'>{</font>  <i><font color='green'>/* ORDER TM */</font></i>
+<a name='L32'>    "__index", "__newindex",
+<a name='L33'>    "__gc", "__mode", "__eq",
+<a name='L34'>    "__add", "__sub", "__mul", "__div", "__mod",
+<a name='L35'>    "__pow", "__unm", "__len", "__lt", "__le",
+<a name='L36'>    "__concat", "__call"
+<a name='L37'>  <font color='red'>}</font>;
+<a name='L38'>  <b>int</b> i;
+<a name='L39'>  <b>for</b> (i=0; i&lt;<a href='../S/307.html#L36' title='Defined at 36 in deps/lua/src/ltm.h.'>TM_N</a>; i++) <font color='red'>{</font>
+<a name='L40'>    <a href='../S/298.html#L130' title='Defined at 130 in deps/lua/src/lstate.h.'>G</a>(L)-&gt;tmname[i] = <a href='../S/268.html#L20' title='Defined at 20 in deps/lua/src/lstring.h.'>luaS_new</a>(L, luaT_eventname[i]);
+<a name='L41'>    <a href='../S/268.html#L24' title='Defined at 24 in deps/lua/src/lstring.h.'>luaS_fix</a>(<a href='../S/298.html#L130' title='Defined at 130 in deps/lua/src/lstate.h.'>G</a>(L)-&gt;tmname[i]);  <i><font color='green'>/* never collect these names */</font></i>
+<a name='L42'>  <font color='red'>}</font>
+<a name='L43'><font color='red'>}</font>
+<a name='L44'>
+<a name='L45'>
+<a name='L46'><i><font color='green'>/*</font></i>
+<a name='L47'><i><font color='green'>** function to be used with macro "fasttm": optimized for absence of</font></i>
+<a name='L48'><i><font color='green'>** tag methods</font></i>
+<a name='L49'><i><font color='green'>*/</font></i>
+<a name='L50'><b>const</b> <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *<a href='../R/2715.html' title='Multiple refered from 2 places.'>luaT_gettm</a> (Table *events, <a href='../S/307.html#L37' title='Defined at 37 in deps/lua/src/ltm.h.'>TMS</a> event, TString *ename) <font color='red'>{</font>
+<a name='L51'>  <b>const</b> <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *tm = <a href='../S/259.html#L455' title='Defined at 455 in deps/lua/src/ltable.c.'>luaH_getstr</a>(events, ename);
+<a name='L52'>  <a href='../D/3090.html' title='Multiple defined in 2 places.'>lua_assert</a>(event &lt;= <a href='../S/307.html#L23' title='Defined at 23 in deps/lua/src/ltm.h.'>TM_EQ</a>);
+<a name='L53'>  <b>if</b> (<a href='../S/282.html#L79' title='Defined at 79 in deps/lua/src/lobject.h.'>ttisnil</a>(tm)) <font color='red'>{</font>  <i><font color='green'>/* no tag method? */</font></i>
+<a name='L54'>    events-&gt;flags |= <a href='../S/310.html#L78' title='Defined at 78 in deps/lua/src/llimits.h.'>cast_byte</a>(1u&lt;&lt;event);  <i><font color='green'>/* cache this fact */</font></i>
+<a name='L55'>    <b>return</b> NULL;
+<a name='L56'>  <font color='red'>}</font>
+<a name='L57'>  <b>else</b> <b>return</b> tm;
+<a name='L58'><font color='red'>}</font>
+<a name='L59'>
+<a name='L60'>
+<a name='L61'><b>const</b> <a href='../S/282.html#L75' title='Defined at 75 in deps/lua/src/lobject.h.'>TValue</a> *<a href='../R/2716.html' title='Multiple refered from 8 places.'>luaT_gettmbyobj</a> (lua_State *L, <b>const</b> TValue *o, <a href='../S/307.html#L37' title='Defined at 37 in deps/lua/src/ltm.h.'>TMS</a> event) <font color='red'>{</font>
+<a name='L62'>  <a href='../D/1237.html' title='Multiple defined in 2 places.'>Table</a> *mt;
+<a name='L63'>  <b>switch</b> (<a href='../S/282.html#L90' title='Defined at 90 in deps/lua/src/lobject.h.'>ttype</a>(o)) <font color='red'>{</font>
+<a name='L64'>    <b>case</b> <a href='../S/266.html#L79' title='Defined at 79 in deps/lua/src/lua.h.'>LUA_TTABLE</a>:
+<a name='L65'>      mt = <a href='../S/282.html#L99' title='Defined at 99 in deps/lua/src/lobject.h.'>hvalue</a>(o)-&gt;metatable;
+<a name='L66'>      <b>break</b>;
+<a name='L67'>    <b>case</b> <a href='../S/266.html#L81' title='Defined at 81 in deps/lua/src/lua.h.'>LUA_TUSERDATA</a>:
+<a name='L68'>      mt = <a href='../S/282.html#L97' title='Defined at 97 in deps/lua/src/lobject.h.'>uvalue</a>(o)-&gt;metatable;
+<a name='L69'>      <b>break</b>;
+<a name='L70'>    <b>default</b>:
+<a name='L71'>      mt = <a href='../S/298.html#L130' title='Defined at 130 in deps/lua/src/lstate.h.'>G</a>(L)-&gt;mt[<a href='../S/282.html#L90' title='Defined at 90 in deps/lua/src/lobject.h.'>ttype</a>(o)];
+<a name='L72'>  <font color='red'>}</font>
+<a name='L73'>  <b>return</b> (mt ? <a href='../S/259.html#L455' title='Defined at 455 in deps/lua/src/ltable.c.'>luaH_getstr</a>(mt, <a href='../S/298.html#L130' title='Defined at 130 in deps/lua/src/lstate.h.'>G</a>(L)-&gt;tmname[event]) : <a href='../S/282.html#L363' title='Defined at 363 in deps/lua/src/lobject.h.'>luaO_nilobject</a>);
+<a name='L74'><font color='red'>}</font>
+<a name='L75'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L30'>[^]</a><a href='#L61'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

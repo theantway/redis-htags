@@ -1,0 +1,68 @@
+<html>
+<head>
+<title>deps/lua/src/lmem.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/lmem.h</h2>
+<i><font color='green'>/* [&lt;][&gt;][^][v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/114.html' title='Multiple included from 15 places.'>INCLUDED FROM</a></h2>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: lmem.h,v 1.31.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Interface to Memory Manager</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'><font color='darkred'>#ifndef</font> <a href='../S/278.html#L8' title='Defined at 8 in deps/lua/src/lmem.h.'>lmem_h</a>
+<a name='L8'><font color='darkred'>#define</font> <a href='../S/278.html#L7' title='Refered from 7 in deps/lua/src/lmem.h.'>lmem_h</a>
+<a name='L9'>
+<a name='L10'>
+<a name='L11'><font color='darkred'>#include</font> &lt;stddef.h&gt;
+<a name='L12'>
+<a name='L13'><font color='darkred'>#include</font> "<a href='310.html'>llimits.h</a>"
+<a name='L14'><font color='darkred'>#include</font> "<a href='266.html'>lua.h</a>"
+<a name='L15'>
+<a name='L16'><font color='darkred'>#define</font> <a href='../R/452.html' title='Multiple refered from 2 places.'>MEMERRMSG</a>       "not enough memory"
+<a name='L17'>
+<a name='L18'>
+<a name='L19'><font color='darkred'>#define</font> <a href='../R/2684.html' title='Multiple refered from 4 places.'>luaM_reallocv</a>(L,b,on,n,e) \
+<a name='L20'>        ((<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(size_t, (n)+1) &lt;= <a href='../S/310.html#L30' title='Defined at 30 in deps/lua/src/llimits.h.'>MAX_SIZET</a>/(e)) ?  <i><font color='green'>/* +1 to avoid warnings */</font></i> \
+<a name='L21'>                <a href='../S/300.html#L76' title='Defined at 76 in deps/lua/src/lmem.c.'>luaM_realloc_</a>(L, (b), (on)*(e), (n)*(e)) : \
+<a name='L22'>                <a href='../S/300.html#L66' title='Defined at 66 in deps/lua/src/lmem.c.'>luaM_toobig</a>(L))
+<a name='L23'>
+<a name='L24'><font color='darkred'>#define</font> <a href='../R/2677.html' title='Multiple refered from 4 places.'>luaM_freemem</a>(L, b, s)   <a href='../S/300.html#L76' title='Defined at 76 in deps/lua/src/lmem.c.'>luaM_realloc_</a>(L, (b), (s), 0)
+<a name='L25'><font color='darkred'>#define</font> <a href='../R/2675.html' title='Multiple refered from 3 places.'>luaM_free</a>(L, b)         <a href='../S/300.html#L76' title='Defined at 76 in deps/lua/src/lmem.c.'>luaM_realloc_</a>(L, (b), <b>sizeof</b>(*(b)), 0)
+<a name='L26'><font color='darkred'>#define</font> <a href='../R/2676.html' title='Multiple refered from 13 places.'>luaM_freearray</a>(L, b, n, t)   <a href='../S/278.html#L19' title='Defined at 19 in deps/lua/src/lmem.h.'>luaM_reallocv</a>(L, (b), n, 0, <b>sizeof</b>(t))
+<a name='L27'>
+<a name='L28'><font color='darkred'>#define</font> <a href='../R/2680.html' title='Multiple refered from 6 places.'>luaM_malloc</a>(L,t)        <a href='../S/300.html#L76' title='Defined at 76 in deps/lua/src/lmem.c.'>luaM_realloc_</a>(L, NULL, 0, (t))
+<a name='L29'><font color='darkred'>#define</font> <a href='../R/2681.html' title='Multiple refered from 4 places.'>luaM_new</a>(L,t)           <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(t *, <a href='../S/278.html#L28' title='Defined at 28 in deps/lua/src/lmem.h.'>luaM_malloc</a>(L, <b>sizeof</b>(t)))
+<a name='L30'><font color='darkred'>#define</font> <a href='../R/2682.html' title='Multiple refered from 12 places.'>luaM_newvector</a>(L,n,t) \
+<a name='L31'>                <a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(t *, <a href='../S/278.html#L19' title='Defined at 19 in deps/lua/src/lmem.h.'>luaM_reallocv</a>(L, NULL, 0, n, <b>sizeof</b>(t)))
+<a name='L32'>
+<a name='L33'><font color='darkred'>#define</font> <a href='../R/2679.html' title='Multiple refered from 6 places.'>luaM_growvector</a>(L,v,nelems,size,t,limit,e) \
+<a name='L34'>          <b>if</b> ((nelems)+1 &gt; (size)) \
+<a name='L35'>            ((v)=<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(t *, <a href='../S/300.html#L46' title='Defined at 46 in deps/lua/src/lmem.c.'>luaM_growaux_</a>(L,v,&amp;(size),<b>sizeof</b>(t),limit,e)))
+<a name='L36'>
+<a name='L37'><font color='darkred'>#define</font> <a href='../R/2685.html' title='Multiple refered from 11 places.'>luaM_reallocvector</a>(L, v,oldn,n,t) \
+<a name='L38'>   ((v)=<a href='../S/310.html#L75' title='Defined at 75 in deps/lua/src/llimits.h.'>cast</a>(t *, <a href='../S/278.html#L19' title='Defined at 19 in deps/lua/src/lmem.h.'>luaM_reallocv</a>(L, v, oldn, n, <b>sizeof</b>(t))))
+<a name='L39'>
+<a name='L40'>
+<a name='L41'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> *<a href='../S/300.html#L76' title='Defined at 76 in deps/lua/src/lmem.c.'>luaM_realloc_</a> (lua_State *L, <b>void</b> *block, size_t oldsize,
+<a name='L42'>                                                          size_t size);
+<a name='L43'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> *<a href='../S/300.html#L66' title='Defined at 66 in deps/lua/src/lmem.c.'>luaM_toobig</a> (lua_State *L);
+<a name='L44'><a href='../D/316.html' title='Multiple defined in 3 places.'>LUAI_FUNC</a> <b>void</b> *<a href='../S/300.html#L46' title='Defined at 46 in deps/lua/src/lmem.c.'>luaM_growaux_</a> (lua_State *L, <b>void</b> *block, <b>int</b> *size,
+<a name='L45'>                               size_t size_elem, <b>int</b> limit,
+<a name='L46'>                               <b>const</b> <b>char</b> *errormsg);
+<a name='L47'>
+<a name='L48'><font color='darkred'>#endif</font>
+<a name='L49'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^][v]<a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

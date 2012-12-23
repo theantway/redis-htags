@@ -1,0 +1,173 @@
+<html>
+<head>
+<title>src/lzf_d.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/lzf_d.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L56'>[^]</a>[v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L56' title='Defined at 56.'>lzf_decompress</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2000-2007 Marc Alexander Lehmann &lt;schmorp@schmorp.de&gt;</font></i>
+<a name='L3'><i><font color='green'> * </font></i>
+<a name='L4'><i><font color='green'> * Redistribution and use in source and binary forms, with or without modifica-</font></i>
+<a name='L5'><i><font color='green'> * tion, are permitted provided that the following conditions are met:</font></i>
+<a name='L6'><i><font color='green'> * </font></i>
+<a name='L7'><i><font color='green'> *   1.  Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L8'><i><font color='green'> *       this list of conditions and the following disclaimer.</font></i>
+<a name='L9'><i><font color='green'> * </font></i>
+<a name='L10'><i><font color='green'> *   2.  Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L11'><i><font color='green'> *       notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L12'><i><font color='green'> *       documentation and/or other materials provided with the distribution.</font></i>
+<a name='L13'><i><font color='green'> * </font></i>
+<a name='L14'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED</font></i>
+<a name='L15'><i><font color='green'> * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MER-</font></i>
+<a name='L16'><i><font color='green'> * CHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO</font></i>
+<a name='L17'><i><font color='green'> * EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPE-</font></i>
+<a name='L18'><i><font color='green'> * CIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,</font></i>
+<a name='L19'><i><font color='green'> * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;</font></i>
+<a name='L20'><i><font color='green'> * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,</font></i>
+<a name='L21'><i><font color='green'> * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTH-</font></i>
+<a name='L22'><i><font color='green'> * ERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED</font></i>
+<a name='L23'><i><font color='green'> * OF THE POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L24'><i><font color='green'> *</font></i>
+<a name='L25'><i><font color='green'> * Alternatively, the contents of this file may be used under the terms of</font></i>
+<a name='L26'><i><font color='green'> * the GNU General Public License ("GPL") version 2 or any later version,</font></i>
+<a name='L27'><i><font color='green'> * in which case the provisions of the GPL are applicable instead of</font></i>
+<a name='L28'><i><font color='green'> * the above. If you wish to allow the use of your version of this file</font></i>
+<a name='L29'><i><font color='green'> * only under the terms of the GPL and not to allow others to use your</font></i>
+<a name='L30'><i><font color='green'> * version of this file under the BSD license, indicate your decision</font></i>
+<a name='L31'><i><font color='green'> * by deleting the provisions above and replace them with the notice</font></i>
+<a name='L32'><i><font color='green'> * and other provisions required by the GPL. If you do not delete the</font></i>
+<a name='L33'><i><font color='green'> * provisions above, a recipient may use your version of this file under</font></i>
+<a name='L34'><i><font color='green'> * either the BSD or the GPL.</font></i>
+<a name='L35'><i><font color='green'> */</font></i>
+<a name='L36'>
+<a name='L37'><font color='darkred'>#include</font> "<a href='49.html'>lzfP.h</a>"
+<a name='L38'>
+<a name='L39'><font color='darkred'>#if</font> <a href='../S/49.html#L100' title='Defined at 100 in src/lzfP.h.'>AVOID_ERRNO</a>
+<a name='L40'><font color='darkred'># define</font> <a href='../R/870.html' title='Multiple refered from 6 places.'>SET_ERRNO</a>(n)
+<a name='L41'><font color='darkred'>#else</font>
+<a name='L42'><font color='darkred'># include</font> &lt;errno.h&gt;
+<a name='L43'><font color='darkred'># define</font> <a href='../R/870.html' title='Multiple refered from 6 places.'>SET_ERRNO</a>(n) errno = (n)
+<a name='L44'><font color='darkred'>#endif</font>
+<a name='L45'>
+<a name='L46'><i><font color='green'>/*</font></i>
+<a name='L47'><i><font color='green'>#if (__i386 || __amd64) &amp;&amp; __GNUC__ &gt;= 3</font></i>
+<a name='L48'><i><font color='green'># define lzf_movsb(dst, src, len)                \</font></i>
+<a name='L49'><i><font color='green'>   asm ("rep movsb"                              \</font></i>
+<a name='L50'><i><font color='green'>        : "=D" (dst), "=S" (src), "=c" (len)     \</font></i>
+<a name='L51'><i><font color='green'>        :  "0" (dst),  "1" (src),  "2" (len));</font></i>
+<a name='L52'><i><font color='green'>#endif</font></i>
+<a name='L53'><i><font color='green'>*/</font></i>
+<a name='L54'>
+<a name='L55'><b>unsigned</b> <b>int</b> 
+<a name='L56'><a href='../R/2910.html' title='Multiple refered from 3 places.'>lzf_decompress</a> (<b>const</b> <b>void</b> *<b>const</b> in_data,  <b>unsigned</b> <b>int</b> in_len,
+<a name='L57'>                <b>void</b>             *out_data, <b>unsigned</b> <b>int</b> out_len)
+<a name='L58'><font color='red'>{</font>
+<a name='L59'>  <a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a> <b>const</b> *ip = (<b>const</b> <a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a> *)in_data;
+<a name='L60'>  <a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a>       *op = (<a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a> *)out_data;
+<a name='L61'>  <a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a> <b>const</b> *<b>const</b> in_end  = ip + in_len;
+<a name='L62'>  <a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a>       *<b>const</b> out_end = op + out_len;
+<a name='L63'>
+<a name='L64'>  <b>do</b>
+<a name='L65'>    <font color='red'>{</font>
+<a name='L66'>      <b>unsigned</b> <b>int</b> ctrl = *ip++;
+<a name='L67'>
+<a name='L68'>      <b>if</b> (ctrl &lt; (1 &lt;&lt; 5)) <i><font color='green'>/* literal run */</font></i>
+<a name='L69'>        <font color='red'>{</font>
+<a name='L70'>          ctrl++;
+<a name='L71'>
+<a name='L72'>          <b>if</b> (op + ctrl &gt; out_end)
+<a name='L73'>            <font color='red'>{</font>
+<a name='L74'>              <a href='../D/1102.html' title='Multiple defined in 2 places.'>SET_ERRNO</a> (E2BIG);
+<a name='L75'>              <b>return</b> 0;
+<a name='L76'>            <font color='red'>}</font>
+<a name='L77'>
+<a name='L78'><font color='darkred'>#if</font> <a href='../S/49.html#L121' title='Defined at 121 in src/lzfP.h.'>CHECK_INPUT</a>
+<a name='L79'>          <b>if</b> (ip + ctrl &gt; in_end)
+<a name='L80'>            <font color='red'>{</font>
+<a name='L81'>              <a href='../D/1102.html' title='Multiple defined in 2 places.'>SET_ERRNO</a> (EINVAL);
+<a name='L82'>              <b>return</b> 0;
+<a name='L83'>            <font color='red'>}</font>
+<a name='L84'><font color='darkred'>#endif</font>
+<a name='L85'>
+<a name='L86'><font color='darkred'>#ifdef</font> lzf_movsb
+<a name='L87'>          lzf_movsb (op, ip, ctrl);
+<a name='L88'><font color='darkred'>#else</font>
+<a name='L89'>          <b>do</b>
+<a name='L90'>            *op++ = *ip++;
+<a name='L91'>          <b>while</b> (--ctrl);
+<a name='L92'><font color='darkred'>#endif</font>
+<a name='L93'>        <font color='red'>}</font>
+<a name='L94'>      <b>else</b> <i><font color='green'>/* back reference */</font></i>
+<a name='L95'>        <font color='red'>{</font>
+<a name='L96'>          <b>unsigned</b> <b>int</b> len = ctrl &gt;&gt; 5;
+<a name='L97'>
+<a name='L98'>          <a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a> *ref = op - ((ctrl &amp; 0x1f) &lt;&lt; 8) - 1;
+<a name='L99'>
+<a name='L100'><font color='darkred'>#if</font> <a href='../S/49.html#L121' title='Defined at 121 in src/lzfP.h.'>CHECK_INPUT</a>
+<a name='L101'>          <b>if</b> (ip &gt;= in_end)
+<a name='L102'>            <font color='red'>{</font>
+<a name='L103'>              <a href='../D/1102.html' title='Multiple defined in 2 places.'>SET_ERRNO</a> (EINVAL);
+<a name='L104'>              <b>return</b> 0;
+<a name='L105'>            <font color='red'>}</font>
+<a name='L106'><font color='darkred'>#endif</font>
+<a name='L107'>          <b>if</b> (len == 7)
+<a name='L108'>            <font color='red'>{</font>
+<a name='L109'>              len += *ip++;
+<a name='L110'><font color='darkred'>#if</font> <a href='../S/49.html#L121' title='Defined at 121 in src/lzfP.h.'>CHECK_INPUT</a>
+<a name='L111'>              <b>if</b> (ip &gt;= in_end)
+<a name='L112'>                <font color='red'>{</font>
+<a name='L113'>                  <a href='../D/1102.html' title='Multiple defined in 2 places.'>SET_ERRNO</a> (EINVAL);
+<a name='L114'>                  <b>return</b> 0;
+<a name='L115'>                <font color='red'>}</font>
+<a name='L116'><font color='darkred'>#endif</font>
+<a name='L117'>            <font color='red'>}</font>
+<a name='L118'>
+<a name='L119'>          ref -= *ip++;
+<a name='L120'>
+<a name='L121'>          <b>if</b> (op + len + 2 &gt; out_end)
+<a name='L122'>            <font color='red'>{</font>
+<a name='L123'>              <a href='../D/1102.html' title='Multiple defined in 2 places.'>SET_ERRNO</a> (E2BIG);
+<a name='L124'>              <b>return</b> 0;
+<a name='L125'>            <font color='red'>}</font>
+<a name='L126'>
+<a name='L127'>          <b>if</b> (ref &lt; (<a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a> *)out_data)
+<a name='L128'>            <font color='red'>{</font>
+<a name='L129'>              <a href='../D/1102.html' title='Multiple defined in 2 places.'>SET_ERRNO</a> (EINVAL);
+<a name='L130'>              <b>return</b> 0;
+<a name='L131'>            <font color='red'>}</font>
+<a name='L132'>
+<a name='L133'><font color='darkred'>#ifdef</font> lzf_movsb
+<a name='L134'>          len += 2;
+<a name='L135'>          lzf_movsb (op, ref, len);
+<a name='L136'><font color='darkred'>#else</font>
+<a name='L137'>          *op++ = *ref++;
+<a name='L138'>          *op++ = *ref++;
+<a name='L139'>
+<a name='L140'>          <b>do</b>
+<a name='L141'>            *op++ = *ref++;
+<a name='L142'>          <b>while</b> (--len);
+<a name='L143'><font color='darkred'>#endif</font>
+<a name='L144'>        <font color='red'>}</font>
+<a name='L145'>    <font color='red'>}</font>
+<a name='L146'>  <b>while</b> (ip &lt; in_end);
+<a name='L147'>
+<a name='L148'>  <b>return</b> op - (<a href='../S/49.html#L127' title='Defined at 127 in src/lzfP.h.'>u8</a> *)out_data;
+<a name='L149'><font color='red'>}</font>
+<a name='L150'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^]<a href='#L56'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

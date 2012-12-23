@@ -1,0 +1,555 @@
+<html>
+<head>
+<title>src/sort.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/sort.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L38'>[^]</a><a href='#L179'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L38' title='Defined at 38.'>createSortOperation</a>
+<li><a href='#L61' title='Defined at 61.'>lookupKeyByPattern</a>
+<li><a href='#L138' title='Defined at 138.'>sortCompare</a>
+<li><a href='#L179' title='Defined at 179.'>sortCommand</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* SORT command and helper functions.</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'>
+<a name='L32'><font color='darkred'>#include</font> "<a href='32.html'>redis.h</a>"
+<a name='L33'><font color='darkred'>#include</font> "<a href='61.html'>pqsort.h</a>" <i><font color='green'>/* Partial qsort for SORT+LIMIT */</font></i>
+<a name='L34'><font color='darkred'>#include</font> &lt;math.h&gt; <i><font color='green'>/* isnan() */</font></i>
+<a name='L35'>
+<a name='L36'><a href='../D/4582.html' title='Multiple defined in 2 places.'>zskiplistNode</a>* <a href='../S/59.html#L378' title='Defined at 378 in src/t_zset.c.'>zslGetElementByRank</a>(zskiplist *zsl, <b>unsigned</b> <b>long</b> rank);
+<a name='L37'>
+<a name='L38'><a href='../S/32.html#L705' title='Defined at 705 in src/redis.h.'>redisSortOperation</a> *<a href='../S/57.html#L237' title='Refered from 237 in src/sort.c.'>createSortOperation</a>(<b>int</b> type, robj *pattern) <font color='red'>{</font>
+<a name='L39'>    <a href='../S/32.html#L705' title='Defined at 705 in src/redis.h.'>redisSortOperation</a> *so = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(*so));
+<a name='L40'>    so-&gt;type = type;
+<a name='L41'>    so-&gt;pattern = pattern;
+<a name='L42'>    <b>return</b> so;
+<a name='L43'><font color='red'>}</font>
+<a name='L44'>
+<a name='L45'><i><font color='green'>/* Return the value associated to the key with a name obtained using</font></i>
+<a name='L46'><i><font color='green'> * the following rules:</font></i>
+<a name='L47'><i><font color='green'> *</font></i>
+<a name='L48'><i><font color='green'> * 1) The first occurence of '*' in 'pattern' is substituted with 'subst'.</font></i>
+<a name='L49'><i><font color='green'> *</font></i>
+<a name='L50'><i><font color='green'> * 2) If 'pattern' matches the "-&gt;" string, everything on the left of</font></i>
+<a name='L51'><i><font color='green'> *    the arrow is treated as the name of an hash field, and the part on the</font></i>
+<a name='L52'><i><font color='green'> *    left as the key name containing an hash. The value of the specified</font></i>
+<a name='L53'><i><font color='green'> *    field is returned.</font></i>
+<a name='L54'><i><font color='green'> *</font></i>
+<a name='L55'><i><font color='green'> * 3) If 'pattern' equals "#", the function simply returns 'subst' itself so</font></i>
+<a name='L56'><i><font color='green'> *    that the SORT command can be used like: SORT key GET # to retrieve</font></i>
+<a name='L57'><i><font color='green'> *    the Set/List elements directly.</font></i>
+<a name='L58'><i><font color='green'> *</font></i>
+<a name='L59'><i><font color='green'> * The returned object will always have its refcount increased by 1</font></i>
+<a name='L60'><i><font color='green'> * when it is non-NULL. */</font></i>
+<a name='L61'><a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *<a href='../R/2468.html' title='Multiple refered from 3 places.'>lookupKeyByPattern</a>(redisDb *db, robj *pattern, robj *subst) <font color='red'>{</font>
+<a name='L62'>    <b>char</b> *p, *f, *k;
+<a name='L63'>    <a href='../D/3987.html' title='Multiple defined in 2 places.'>sds</a> spat, ssub;
+<a name='L64'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *keyobj, *fieldobj = NULL, *o;
+<a name='L65'>    <b>int</b> prefixlen, sublen, postfixlen, fieldlen;
+<a name='L66'>
+<a name='L67'>    <i><font color='green'>/* If the pattern is "#" return the substitution object itself in order</font></i>
+<a name='L68'><i><font color='green'>     * to implement the "SORT ... GET #" feature. */</font></i>
+<a name='L69'>    spat = pattern-&gt;ptr;
+<a name='L70'>    <b>if</b> (spat[0] == '#' &amp;&amp; spat[1] == '\0') <font color='red'>{</font>
+<a name='L71'>        <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(subst);
+<a name='L72'>        <b>return</b> subst;
+<a name='L73'>    <font color='red'>}</font>
+<a name='L74'>
+<a name='L75'>    <i><font color='green'>/* The substitution object may be specially encoded. If so we create</font></i>
+<a name='L76'><i><font color='green'>     * a decoded object on the fly. Otherwise getDecodedObject will just</font></i>
+<a name='L77'><i><font color='green'>     * increment the ref count, that we'll decrement later. */</font></i>
+<a name='L78'>    subst = <a href='../S/71.html#L312' title='Defined at 312 in src/object.c.'>getDecodedObject</a>(subst);
+<a name='L79'>    ssub = subst-&gt;ptr;
+<a name='L80'>
+<a name='L81'>    <i><font color='green'>/* If we can't find '*' in the pattern we return NULL as to GET a</font></i>
+<a name='L82'><i><font color='green'>     * fixed key does not make sense. */</font></i>
+<a name='L83'>    p = strchr(spat,'*');
+<a name='L84'>    <b>if</b> (!p) <font color='red'>{</font>
+<a name='L85'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(subst);
+<a name='L86'>        <b>return</b> NULL;
+<a name='L87'>    <font color='red'>}</font>
+<a name='L88'>
+<a name='L89'>    <i><font color='green'>/* Find out if we're dealing with a hash dereference. */</font></i>
+<a name='L90'>    <b>if</b> ((f = strstr(p+1, "-&gt;")) != NULL &amp;&amp; *(f+2) != '\0') <font color='red'>{</font>
+<a name='L91'>        fieldlen = <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(spat)-(f-spat)-2;
+<a name='L92'>        fieldobj = <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>(f+2,fieldlen);
+<a name='L93'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L94'>        fieldlen = 0;
+<a name='L95'>    <font color='red'>}</font>
+<a name='L96'>
+<a name='L97'>    <i><font color='green'>/* Perform the '*' substitution. */</font></i>
+<a name='L98'>    prefixlen = p-spat;
+<a name='L99'>    sublen = <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(ssub);
+<a name='L100'>    postfixlen = <a href='../D/4011.html' title='Multiple defined in 2 places.'>sdslen</a>(spat)-(prefixlen+1)-(fieldlen ? fieldlen+2 : 0);
+<a name='L101'>    keyobj = <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>(NULL,prefixlen+sublen+postfixlen);
+<a name='L102'>    k = keyobj-&gt;ptr;
+<a name='L103'>    memcpy(k,spat,prefixlen);
+<a name='L104'>    memcpy(k+prefixlen,ssub,sublen);
+<a name='L105'>    memcpy(k+prefixlen+sublen,p+1,postfixlen);
+<a name='L106'>    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(subst); <i><font color='green'>/* Incremented by decodeObject() */</font></i>
+<a name='L107'>
+<a name='L108'>    <i><font color='green'>/* Lookup substituted key */</font></i>
+<a name='L109'>    o = <a href='../S/31.html#L58' title='Defined at 58 in src/db.c.'>lookupKeyRead</a>(db,keyobj);
+<a name='L110'>    <b>if</b> (o == NULL) <b>goto</b> noobj;
+<a name='L111'>
+<a name='L112'>    <b>if</b> (fieldobj) <font color='red'>{</font>
+<a name='L113'>        <b>if</b> (o-&gt;type != <a href='../D/807.html' title='Multiple defined in 2 places.'>REDIS_HASH</a>) <b>goto</b> noobj;
+<a name='L114'>
+<a name='L115'>        <i><font color='green'>/* Retrieve value from hash by the field name. This operation</font></i>
+<a name='L116'><i><font color='green'>         * already increases the refcount of the returned object. */</font></i>
+<a name='L117'>        o = <a href='../S/97.html#L118' title='Defined at 118 in src/t_hash.c.'>hashTypeGetObject</a>(o, fieldobj);
+<a name='L118'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L119'>        <b>if</b> (o-&gt;type != <a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>) <b>goto</b> noobj;
+<a name='L120'>
+<a name='L121'>        <i><font color='green'>/* Every object that this function returns needs to have its refcount</font></i>
+<a name='L122'><i><font color='green'>         * increased. sortCommand decreases it again. */</font></i>
+<a name='L123'>        <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(o);
+<a name='L124'>    <font color='red'>}</font>
+<a name='L125'>    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(keyobj);
+<a name='L126'>    <b>if</b> (fieldobj) <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(fieldobj);
+<a name='L127'>    <b>return</b> o;
+<a name='L128'>
+<a name='L129'>noobj:
+<a name='L130'>    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(keyobj);
+<a name='L131'>    <b>if</b> (fieldlen) <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(fieldobj);
+<a name='L132'>    <b>return</b> NULL;
+<a name='L133'><font color='red'>}</font>
+<a name='L134'>
+<a name='L135'><i><font color='green'>/* sortCompare() is used by qsort in sortCommand(). Given that qsort_r with</font></i>
+<a name='L136'><i><font color='green'> * the additional parameter is not standard but a BSD-specific we have to</font></i>
+<a name='L137'><i><font color='green'> * pass sorting parameters via the global 'server' structure */</font></i>
+<a name='L138'><b>int</b> <a href='../R/3823.html' title='Multiple refered from 2 places.'>sortCompare</a>(<b>const</b> <b>void</b> *s1, <b>const</b> <b>void</b> *s2) <font color='red'>{</font>
+<a name='L139'>    <b>const</b> <a href='../S/32.html#L700' title='Defined at 700 in src/redis.h.'>redisSortObject</a> *so1 = s1, *so2 = s2;
+<a name='L140'>    <b>int</b> cmp;
+<a name='L141'>
+<a name='L142'>    <b>if</b> (!server.sort_alpha) <font color='red'>{</font>
+<a name='L143'>        <i><font color='green'>/* Numeric sorting. Here it's trivial as we precomputed scores */</font></i>
+<a name='L144'>        <b>if</b> (so1-&gt;u.score &gt; so2-&gt;u.score) <font color='red'>{</font>
+<a name='L145'>            cmp = 1;
+<a name='L146'>        <font color='red'>}</font> <b>else</b> <b>if</b> (so1-&gt;u.score &lt; so2-&gt;u.score) <font color='red'>{</font>
+<a name='L147'>            cmp = -1;
+<a name='L148'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L149'>            <i><font color='green'>/* Objects have the same score, but we don't want the comparison</font></i>
+<a name='L150'><i><font color='green'>             * to be undefined, so we compare objects lexicographycally.</font></i>
+<a name='L151'><i><font color='green'>             * This way the result of SORT is deterministic. */</font></i>
+<a name='L152'>            cmp = <a href='../S/71.html#L338' title='Defined at 338 in src/object.c.'>compareStringObjects</a>(so1-&gt;obj,so2-&gt;obj);
+<a name='L153'>        <font color='red'>}</font>
+<a name='L154'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L155'>        <i><font color='green'>/* Alphanumeric sorting */</font></i>
+<a name='L156'>        <b>if</b> (server.sort_bypattern) <font color='red'>{</font>
+<a name='L157'>            <b>if</b> (!so1-&gt;u.cmpobj || !so2-&gt;u.cmpobj) <font color='red'>{</font>
+<a name='L158'>                <i><font color='green'>/* At least one compare object is NULL */</font></i>
+<a name='L159'>                <b>if</b> (so1-&gt;u.cmpobj == so2-&gt;u.cmpobj)
+<a name='L160'>                    cmp = 0;
+<a name='L161'>                <b>else</b> <b>if</b> (so1-&gt;u.cmpobj == NULL)
+<a name='L162'>                    cmp = -1;
+<a name='L163'>                <b>else</b>
+<a name='L164'>                    cmp = 1;
+<a name='L165'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L166'>                <i><font color='green'>/* We have both the objects, use strcoll */</font></i>
+<a name='L167'>                cmp = strcoll(so1-&gt;u.cmpobj-&gt;ptr,so2-&gt;u.cmpobj-&gt;ptr);
+<a name='L168'>            <font color='red'>}</font>
+<a name='L169'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L170'>            <i><font color='green'>/* Compare elements directly. */</font></i>
+<a name='L171'>            cmp = <a href='../S/71.html#L338' title='Defined at 338 in src/object.c.'>compareStringObjects</a>(so1-&gt;obj,so2-&gt;obj);
+<a name='L172'>        <font color='red'>}</font>
+<a name='L173'>    <font color='red'>}</font>
+<a name='L174'>    <b>return</b> server.sort_desc ? -cmp : cmp;
+<a name='L175'><font color='red'>}</font>
+<a name='L176'>
+<a name='L177'><i><font color='green'>/* The SORT command is the most complex command in Redis. Warning: this code</font></i>
+<a name='L178'><i><font color='green'> * is optimized for speed and a bit less for readability */</font></i>
+<a name='L179'><b>void</b> <a href='../R/3822.html' title='Multiple refered from 2 places.'>sortCommand</a>(redisClient *c) <font color='red'>{</font>
+<a name='L180'>    <a href='../D/2690.html' title='Multiple defined in 2 places.'>list</a> *operations;
+<a name='L181'>    <b>unsigned</b> <b>int</b> outputlen = 0;
+<a name='L182'>    <b>int</b> desc = 0, alpha = 0;
+<a name='L183'>    <b>long</b> limit_start = 0, limit_count = -1, start, end;
+<a name='L184'>    <b>int</b> j, dontsort = 0, vectorlen;
+<a name='L185'>    <b>int</b> getop = 0; <i><font color='green'>/* GET operation counter */</font></i>
+<a name='L186'>    <b>int</b> int_convertion_error = 0;
+<a name='L187'>    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *sortval, *sortby = NULL, *storekey = NULL;
+<a name='L188'>    <a href='../S/32.html#L700' title='Defined at 700 in src/redis.h.'>redisSortObject</a> *vector; <i><font color='green'>/* Resulting vector to sort */</font></i>
+<a name='L189'>
+<a name='L190'>    <i><font color='green'>/* Lookup the key to sort. It must be of the right types */</font></i>
+<a name='L191'>    sortval = <a href='../S/31.html#L58' title='Defined at 58 in src/db.c.'>lookupKeyRead</a>(c-&gt;db,c-&gt;argv[1]);
+<a name='L192'>    <b>if</b> (sortval &amp;&amp; sortval-&gt;type != <a href='../D/908.html' title='Multiple defined in 2 places.'>REDIS_SET</a> &amp;&amp;
+<a name='L193'>                   sortval-&gt;type != <a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a> &amp;&amp;
+<a name='L194'>                   sortval-&gt;type != <a href='../D/933.html' title='Multiple defined in 2 places.'>REDIS_ZSET</a>)
+<a name='L195'>    <font color='red'>{</font>
+<a name='L196'>        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.wrongtypeerr);
+<a name='L197'>        <b>return</b>;
+<a name='L198'>    <font color='red'>}</font>
+<a name='L199'>
+<a name='L200'>    <i><font color='green'>/* Create a list of operations to perform for every sorted element.</font></i>
+<a name='L201'><i><font color='green'>     * Operations can be GET/DEL/INCR/DECR */</font></i>
+<a name='L202'>    operations = <a href='../S/54.html#L41' title='Defined at 41 in src/adlist.c.'>listCreate</a>();
+<a name='L203'>    <a href='../S/58.html#L65' title='Defined at 65 in src/adlist.h.'>listSetFreeMethod</a>(operations,<a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>);
+<a name='L204'>    j = 2; <i><font color='green'>/* options start at argv[2] */</font></i>
+<a name='L205'>
+<a name='L206'>    <i><font color='green'>/* Now we need to protect sortval incrementing its count, in the future</font></i>
+<a name='L207'><i><font color='green'>     * SORT may have options able to overwrite/delete keys during the sorting</font></i>
+<a name='L208'><i><font color='green'>     * and the sorted key itself may get destroied */</font></i>
+<a name='L209'>    <b>if</b> (sortval)
+<a name='L210'>        <a href='../S/71.html#L214' title='Defined at 214 in src/object.c.'>incrRefCount</a>(sortval);
+<a name='L211'>    <b>else</b>
+<a name='L212'>        sortval = <a href='../S/71.html#L97' title='Defined at 97 in src/object.c.'>createListObject</a>();
+<a name='L213'>
+<a name='L214'>    <i><font color='green'>/* The SORT command has an SQL-alike syntax, parse it */</font></i>
+<a name='L215'>    <b>while</b>(j &lt; c-&gt;argc) <font color='red'>{</font>
+<a name='L216'>        <b>int</b> leftargs = c-&gt;argc-j-1;
+<a name='L217'>        <b>if</b> (!strcasecmp(c-&gt;argv[j]-&gt;ptr,"asc")) <font color='red'>{</font>
+<a name='L218'>            desc = 0;
+<a name='L219'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[j]-&gt;ptr,"desc")) <font color='red'>{</font>
+<a name='L220'>            desc = 1;
+<a name='L221'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[j]-&gt;ptr,"alpha")) <font color='red'>{</font>
+<a name='L222'>            alpha = 1;
+<a name='L223'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[j]-&gt;ptr,"limit") &amp;&amp; leftargs &gt;= 2) <font color='red'>{</font>
+<a name='L224'>            <b>if</b> ((<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c, c-&gt;argv[j+1], &amp;limit_start, NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>) ||
+<a name='L225'>                (<a href='../S/71.html#L498' title='Defined at 498 in src/object.c.'>getLongFromObjectOrReply</a>(c, c-&gt;argv[j+2], &amp;limit_count, NULL) != <a href='../D/848.html' title='Multiple defined in 2 places.'>REDIS_OK</a>)) <b>return</b>;
+<a name='L226'>            j+=2;
+<a name='L227'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[j]-&gt;ptr,"store") &amp;&amp; leftargs &gt;= 1) <font color='red'>{</font>
+<a name='L228'>            storekey = c-&gt;argv[j+1];
+<a name='L229'>            j++;
+<a name='L230'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[j]-&gt;ptr,"by") &amp;&amp; leftargs &gt;= 1) <font color='red'>{</font>
+<a name='L231'>            sortby = c-&gt;argv[j+1];
+<a name='L232'>            <i><font color='green'>/* If the BY pattern does not contain '*', i.e. it is constant,</font></i>
+<a name='L233'><i><font color='green'>             * we don't need to sort nor to lookup the weight keys. */</font></i>
+<a name='L234'>            <b>if</b> (strchr(c-&gt;argv[j+1]-&gt;ptr,'*') == NULL) dontsort = 1;
+<a name='L235'>            j++;
+<a name='L236'>        <font color='red'>}</font> <b>else</b> <b>if</b> (!strcasecmp(c-&gt;argv[j]-&gt;ptr,"get") &amp;&amp; leftargs &gt;= 1) <font color='red'>{</font>
+<a name='L237'>            <a href='../S/54.html#L106' title='Defined at 106 in src/adlist.c.'>listAddNodeTail</a>(operations,<a href='../S/57.html#L38' title='Defined at 38 in src/sort.c.'>createSortOperation</a>(
+<a name='L238'>                <a href='../S/32.html#L223' title='Defined at 223 in src/redis.h.'>REDIS_SORT_GET</a>,c-&gt;argv[j+1]));
+<a name='L239'>            getop++;
+<a name='L240'>            j++;
+<a name='L241'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L242'>            <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(sortval);
+<a name='L243'>            <a href='../S/54.html#L58' title='Defined at 58 in src/adlist.c.'>listRelease</a>(operations);
+<a name='L244'>            <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.syntaxerr);
+<a name='L245'>            <b>return</b>;
+<a name='L246'>        <font color='red'>}</font>
+<a name='L247'>        j++;
+<a name='L248'>    <font color='red'>}</font>
+<a name='L249'>
+<a name='L250'>    <i><font color='green'>/* For the STORE option, or when SORT is called from a Lua script,</font></i>
+<a name='L251'><i><font color='green'>     * we want to force a specific ordering even when no explicit ordering</font></i>
+<a name='L252'><i><font color='green'>     * was asked (SORT BY nosort). This guarantees that replication / AOF</font></i>
+<a name='L253'><i><font color='green'>     * is deterministic.</font></i>
+<a name='L254'><i><font color='green'>     *</font></i>
+<a name='L255'><i><font color='green'>     * However in the case 'dontsort' is true, but the type to sort is a</font></i>
+<a name='L256'><i><font color='green'>     * sorted set, we don't need to do anything as ordering is guaranteed</font></i>
+<a name='L257'><i><font color='green'>     * in this special case. */</font></i>
+<a name='L258'>    <b>if</b> ((storekey || c-&gt;flags &amp; <a href='../S/32.html#L181' title='Defined at 181 in src/redis.h.'>REDIS_LUA_CLIENT</a>) &amp;&amp;
+<a name='L259'>        (dontsort &amp;&amp; sortval-&gt;type != <a href='../D/933.html' title='Multiple defined in 2 places.'>REDIS_ZSET</a>))
+<a name='L260'>    <font color='red'>{</font>
+<a name='L261'>        <i><font color='green'>/* Force ALPHA sorting */</font></i>
+<a name='L262'>        dontsort = 0;
+<a name='L263'>        alpha = 1;
+<a name='L264'>        sortby = NULL;
+<a name='L265'>    <font color='red'>}</font>
+<a name='L266'>
+<a name='L267'>    <i><font color='green'>/* Destructively convert encoded sorted sets for SORT. */</font></i>
+<a name='L268'>    <b>if</b> (sortval-&gt;type == <a href='../D/933.html' title='Multiple defined in 2 places.'>REDIS_ZSET</a>)
+<a name='L269'>        <a href='../S/59.html#L760' title='Defined at 760 in src/t_zset.c.'>zsetConvert</a>(sortval, <a href='../S/32.html#L137' title='Defined at 137 in src/redis.h.'>REDIS_ENCODING_SKIPLIST</a>);
+<a name='L270'>
+<a name='L271'>    <i><font color='green'>/* Objtain the length of the object to sort. */</font></i>
+<a name='L272'>    <b>switch</b>(sortval-&gt;type) <font color='red'>{</font>
+<a name='L273'>    <b>case</b> <a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>: vectorlen = <a href='../S/60.html#L114' title='Defined at 114 in src/t_list.c.'>listTypeLength</a>(sortval); <b>break</b>;
+<a name='L274'>    <b>case</b> <a href='../D/908.html' title='Multiple defined in 2 places.'>REDIS_SET</a>: vectorlen =  <a href='../S/92.html#L208' title='Defined at 208 in src/t_set.c.'>setTypeSize</a>(sortval); <b>break</b>;
+<a name='L275'>    <b>case</b> <a href='../D/933.html' title='Multiple defined in 2 places.'>REDIS_ZSET</a>: vectorlen = <a href='../D/2125.html' title='Multiple defined in 2 places.'>dictSize</a>(((<a href='../D/4576.html' title='Multiple defined in 2 places.'>zset</a>*)sortval-&gt;ptr)-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>); <b>break</b>;
+<a name='L276'>    <b>default</b>: vectorlen = 0; <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Bad SORT type"); <i><font color='green'>/* Avoid GCC warning */</font></i>
+<a name='L277'>    <font color='red'>}</font>
+<a name='L278'>
+<a name='L279'>    <i><font color='green'>/* Perform LIMIT start,count sanity checking. */</font></i>
+<a name='L280'>    start = (limit_start &lt; 0) ? 0 : limit_start;
+<a name='L281'>    end = (limit_count &lt; 0) ? vectorlen-1 : start+limit_count-1;
+<a name='L282'>    <b>if</b> (start &gt;= vectorlen) <font color='red'>{</font>
+<a name='L283'>        start = vectorlen-1;
+<a name='L284'>        end = vectorlen-2;
+<a name='L285'>    <font color='red'>}</font>
+<a name='L286'>    <b>if</b> (end &gt;= vectorlen) end = vectorlen-1;
+<a name='L287'>
+<a name='L288'>    <i><font color='green'>/* Optimization:</font></i>
+<a name='L289'><i><font color='green'>     *</font></i>
+<a name='L290'><i><font color='green'>     * 1) if the object to sort is a sorted set.</font></i>
+<a name='L291'><i><font color='green'>     * 2) There is nothing to sort as dontsort is true (BY &lt;constant string&gt;).</font></i>
+<a name='L292'><i><font color='green'>     * 3) We have a LIMIT option that actually reduces the number of elements</font></i>
+<a name='L293'><i><font color='green'>     *    to fetch.</font></i>
+<a name='L294'><i><font color='green'>     *</font></i>
+<a name='L295'><i><font color='green'>     * In this case to load all the objects in the vector is a huge waste of</font></i>
+<a name='L296'><i><font color='green'>     * resources. We just allocate a vector that is big enough for the selected</font></i>
+<a name='L297'><i><font color='green'>     * range length, and make sure to load just this part in the vector. */</font></i>
+<a name='L298'>    <b>if</b> (sortval-&gt;type == <a href='../D/933.html' title='Multiple defined in 2 places.'>REDIS_ZSET</a> &amp;&amp;
+<a name='L299'>        dontsort &amp;&amp;
+<a name='L300'>        (start != 0 || end != vectorlen-1))
+<a name='L301'>    <font color='red'>{</font>
+<a name='L302'>        vectorlen = end-start+1;
+<a name='L303'>    <font color='red'>}</font>
+<a name='L304'>
+<a name='L305'>    <i><font color='green'>/* Load the sorting vector with all the objects to sort */</font></i>
+<a name='L306'>    vector = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<a href='../S/32.html#L700' title='Defined at 700 in src/redis.h.'>redisSortObject</a>)*vectorlen);
+<a name='L307'>    j = 0;
+<a name='L308'>
+<a name='L309'>    <b>if</b> (sortval-&gt;type == <a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>) <font color='red'>{</font>
+<a name='L310'>        <a href='../S/32.html#L714' title='Defined at 714 in src/redis.h.'>listTypeIterator</a> *li = <a href='../S/60.html#L125' title='Defined at 125 in src/t_list.c.'>listTypeInitIterator</a>(sortval,0,<a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>);
+<a name='L311'>        <a href='../S/32.html#L721' title='Defined at 721 in src/redis.h.'>listTypeEntry</a> <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>;
+<a name='L312'>        <b>while</b>(<a href='../S/60.html#L148' title='Defined at 148 in src/t_list.c.'>listTypeNext</a>(li,&amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>)) <font color='red'>{</font>
+<a name='L313'>            vector[j].obj = <a href='../S/60.html#L178' title='Defined at 178 in src/t_list.c.'>listTypeGet</a>(&amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>);
+<a name='L314'>            vector[j].u.score = 0;
+<a name='L315'>            vector[j].u.cmpobj = NULL;
+<a name='L316'>            j++;
+<a name='L317'>        <font color='red'>}</font>
+<a name='L318'>        <a href='../S/60.html#L141' title='Defined at 141 in src/t_list.c.'>listTypeReleaseIterator</a>(li);
+<a name='L319'>    <font color='red'>}</font> <b>else</b> <b>if</b> (sortval-&gt;type == <a href='../D/908.html' title='Multiple defined in 2 places.'>REDIS_SET</a>) <font color='red'>{</font>
+<a name='L320'>        <a href='../S/32.html#L729' title='Defined at 729 in src/redis.h.'>setTypeIterator</a> *si = <a href='../S/92.html#L114' title='Defined at 114 in src/t_set.c.'>setTypeInitIterator</a>(sortval);
+<a name='L321'>        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *ele;
+<a name='L322'>        <b>while</b>((ele = <a href='../S/92.html#L164' title='Defined at 164 in src/t_set.c.'>setTypeNextObject</a>(si)) != NULL) <font color='red'>{</font>
+<a name='L323'>            vector[j].obj = ele;
+<a name='L324'>            vector[j].u.score = 0;
+<a name='L325'>            vector[j].u.cmpobj = NULL;
+<a name='L326'>            j++;
+<a name='L327'>        <font color='red'>}</font>
+<a name='L328'>        <a href='../S/92.html#L128' title='Defined at 128 in src/t_set.c.'>setTypeReleaseIterator</a>(si);
+<a name='L329'>    <font color='red'>}</font> <b>else</b> <b>if</b> (sortval-&gt;type == <a href='../D/933.html' title='Multiple defined in 2 places.'>REDIS_ZSET</a> &amp;&amp; dontsort) <font color='red'>{</font>
+<a name='L330'>        <i><font color='green'>/* Special handling for a sorted set, if 'dontsort' is true.</font></i>
+<a name='L331'><i><font color='green'>         * This makes sure we return elements in the sorted set original</font></i>
+<a name='L332'><i><font color='green'>         * ordering, accordingly to DESC / ASC options.</font></i>
+<a name='L333'><i><font color='green'>         *</font></i>
+<a name='L334'><i><font color='green'>         * Note that in this case we also handle LIMIT here in a direct</font></i>
+<a name='L335'><i><font color='green'>         * way, just getting the required range, as an optimization. */</font></i>
+<a name='L336'>
+<a name='L337'>        <a href='../D/4576.html' title='Multiple defined in 2 places.'>zset</a> *zs = sortval-&gt;ptr;
+<a name='L338'>        <a href='../D/4581.html' title='Multiple defined in 2 places.'>zskiplist</a> *zsl = zs-&gt;zsl;
+<a name='L339'>        <a href='../D/4582.html' title='Multiple defined in 2 places.'>zskiplistNode</a> *ln;
+<a name='L340'>        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *ele;
+<a name='L341'>        <b>int</b> rangelen = vectorlen;
+<a name='L342'>
+<a name='L343'>        <i><font color='green'>/* Check if starting point is trivial, before doing log(N) lookup. */</font></i>
+<a name='L344'>        <b>if</b> (desc) <font color='red'>{</font>
+<a name='L345'>            <b>long</b> zsetlen = <a href='../D/2125.html' title='Multiple defined in 2 places.'>dictSize</a>(((<a href='../D/4576.html' title='Multiple defined in 2 places.'>zset</a>*)sortval-&gt;ptr)-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>);
+<a name='L346'>
+<a name='L347'>            ln = zsl-&gt;tail;
+<a name='L348'>            <b>if</b> (start &gt; 0)
+<a name='L349'>                ln = <a href='../S/59.html#L378' title='Defined at 378 in src/t_zset.c.'>zslGetElementByRank</a>(zsl,zsetlen-start);
+<a name='L350'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L351'>            ln = zsl-&gt;header-&gt;level[0].forward;
+<a name='L352'>            <b>if</b> (start &gt; 0)
+<a name='L353'>                ln = <a href='../S/59.html#L378' title='Defined at 378 in src/t_zset.c.'>zslGetElementByRank</a>(zsl,start+1);
+<a name='L354'>        <font color='red'>}</font>
+<a name='L355'>
+<a name='L356'>        <b>while</b>(rangelen--) <font color='red'>{</font>
+<a name='L357'>            <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,sortval,ln != NULL);
+<a name='L358'>            ele = ln-&gt;obj;
+<a name='L359'>            vector[j].obj = ele;
+<a name='L360'>            vector[j].u.score = 0;
+<a name='L361'>            vector[j].u.cmpobj = NULL;
+<a name='L362'>            j++;
+<a name='L363'>            ln = desc ? ln-&gt;backward : ln-&gt;level[0].forward;
+<a name='L364'>        <font color='red'>}</font>
+<a name='L365'>        <i><font color='green'>/* The code producing the output does not know that in the case of</font></i>
+<a name='L366'><i><font color='green'>         * sorted set, 'dontsort', and LIMIT, we are able to get just the</font></i>
+<a name='L367'><i><font color='green'>         * range, already sorted, so we need to adjust "start" and "end"</font></i>
+<a name='L368'><i><font color='green'>         * to make sure start is set to 0. */</font></i>
+<a name='L369'>        end -= start;
+<a name='L370'>        start = 0;
+<a name='L371'>    <font color='red'>}</font> <b>else</b> <b>if</b> (sortval-&gt;type == <a href='../D/933.html' title='Multiple defined in 2 places.'>REDIS_ZSET</a>) <font color='red'>{</font>
+<a name='L372'>        <a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a> *set = ((<a href='../D/4576.html' title='Multiple defined in 2 places.'>zset</a>*)sortval-&gt;ptr)-&gt;<a href='../D/2060.html' title='Multiple defined in 4 places.'>dict</a>;
+<a name='L373'>        <a href='../D/2099.html' title='Multiple defined in 4 places.'>dictIterator</a> *di;
+<a name='L374'>        <a href='../D/2073.html' title='Multiple defined in 4 places.'>dictEntry</a> *setele;
+<a name='L375'>        di = <a href='../D/2087.html' title='Multiple defined in 2 places.'>dictGetIterator</a>(set);
+<a name='L376'>        <b>while</b>((setele = <a href='../D/2101.html' title='Multiple defined in 2 places.'>dictNext</a>(di)) != NULL) <font color='red'>{</font>
+<a name='L377'>            vector[j].obj = <a href='../S/88.html#L131' title='Defined at 131 in src/dict.h.'>dictGetKey</a>(setele);
+<a name='L378'>            vector[j].u.score = 0;
+<a name='L379'>            vector[j].u.cmpobj = NULL;
+<a name='L380'>            j++;
+<a name='L381'>        <font color='red'>}</font>
+<a name='L382'>        <a href='../D/2109.html' title='Multiple defined in 2 places.'>dictReleaseIterator</a>(di);
+<a name='L383'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L384'>        <a href='../S/32.html#L300' title='Defined at 300 in src/redis.h.'>redisPanic</a>("Unknown type");
+<a name='L385'>    <font color='red'>}</font>
+<a name='L386'>    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,sortval,j == vectorlen);
+<a name='L387'>
+<a name='L388'>    <i><font color='green'>/* Now it's time to load the right scores in the sorting vector */</font></i>
+<a name='L389'>    <b>if</b> (dontsort == 0) <font color='red'>{</font>
+<a name='L390'>        <b>for</b> (j = 0; j &lt; vectorlen; j++) <font color='red'>{</font>
+<a name='L391'>            <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *byval;
+<a name='L392'>            <b>if</b> (sortby) <font color='red'>{</font>
+<a name='L393'>                <i><font color='green'>/* lookup value to sort by */</font></i>
+<a name='L394'>                byval = <a href='../S/57.html#L61' title='Defined at 61 in src/sort.c.'>lookupKeyByPattern</a>(c-&gt;db,sortby,vector[j].obj);
+<a name='L395'>                <b>if</b> (!byval) <b>continue</b>;
+<a name='L396'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L397'>                <i><font color='green'>/* use object itself to sort by */</font></i>
+<a name='L398'>                byval = vector[j].obj;
+<a name='L399'>            <font color='red'>}</font>
+<a name='L400'>
+<a name='L401'>            <b>if</b> (alpha) <font color='red'>{</font>
+<a name='L402'>                <b>if</b> (sortby) vector[j].u.cmpobj = <a href='../S/71.html#L312' title='Defined at 312 in src/object.c.'>getDecodedObject</a>(byval);
+<a name='L403'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L404'>                <b>if</b> (byval-&gt;encoding == <a href='../D/789.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_RAW</a>) <font color='red'>{</font>
+<a name='L405'>                    <b>char</b> *eptr;
+<a name='L406'>
+<a name='L407'>                    vector[j].u.score = strtod(byval-&gt;ptr,&amp;eptr);
+<a name='L408'>                    <b>if</b> (eptr[0] != '\0' || errno == ERANGE ||
+<a name='L409'>                        <a href='../D/2570.html' title='Multiple defined in 2 places.'>isnan</a>(vector[j].u.score))
+<a name='L410'>                    <font color='red'>{</font>
+<a name='L411'>                        int_convertion_error = 1;
+<a name='L412'>                    <font color='red'>}</font>
+<a name='L413'>                <font color='red'>}</font> <b>else</b> <b>if</b> (byval-&gt;encoding == <a href='../D/786.html' title='Multiple defined in 2 places.'>REDIS_ENCODING_INT</a>) <font color='red'>{</font>
+<a name='L414'>                    <i><font color='green'>/* Don't need to decode the object if it's</font></i>
+<a name='L415'><i><font color='green'>                     * integer-encoded (the only encoding supported) so</font></i>
+<a name='L416'><i><font color='green'>                     * far. We can just cast it */</font></i>
+<a name='L417'>                    vector[j].u.score = (<b>long</b>)byval-&gt;ptr;
+<a name='L418'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L419'>                    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,sortval,1 != 1);
+<a name='L420'>                <font color='red'>}</font>
+<a name='L421'>            <font color='red'>}</font>
+<a name='L422'>
+<a name='L423'>            <i><font color='green'>/* when the object was retrieved using lookupKeyByPattern,</font></i>
+<a name='L424'><i><font color='green'>             * its refcount needs to be decreased. */</font></i>
+<a name='L425'>            <b>if</b> (sortby) <font color='red'>{</font>
+<a name='L426'>                <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(byval);
+<a name='L427'>            <font color='red'>}</font>
+<a name='L428'>        <font color='red'>}</font>
+<a name='L429'>    <font color='red'>}</font>
+<a name='L430'>
+<a name='L431'>    <b>if</b> (dontsort == 0) <font color='red'>{</font>
+<a name='L432'>        server.sort_desc = desc;
+<a name='L433'>        server.sort_alpha = alpha;
+<a name='L434'>        server.sort_bypattern = sortby ? 1 : 0;
+<a name='L435'>        <b>if</b> (sortby &amp;&amp; (start != 0 || end != vectorlen-1))
+<a name='L436'>            <a href='../S/20.html#L192' title='Defined at 192 in src/pqsort.c.'>pqsort</a>(vector,vectorlen,<b>sizeof</b>(<a href='../S/32.html#L700' title='Defined at 700 in src/redis.h.'>redisSortObject</a>),<a href='../S/57.html#L138' title='Defined at 138 in src/sort.c.'>sortCompare</a>, start,end);
+<a name='L437'>        <b>else</b>
+<a name='L438'>            qsort(vector,vectorlen,<b>sizeof</b>(<a href='../S/32.html#L700' title='Defined at 700 in src/redis.h.'>redisSortObject</a>),<a href='../S/57.html#L138' title='Defined at 138 in src/sort.c.'>sortCompare</a>);
+<a name='L439'>    <font color='red'>}</font>
+<a name='L440'>
+<a name='L441'>    <i><font color='green'>/* Send command output to the output buffer, performing the specified</font></i>
+<a name='L442'><i><font color='green'>     * GET/DEL/INCR/DECR operations if any. */</font></i>
+<a name='L443'>    outputlen = getop ? getop*(end-start+1) : end-start+1;
+<a name='L444'>    <b>if</b> (int_convertion_error) <font color='red'>{</font>
+<a name='L445'>        <a href='../S/86.html#L330' title='Defined at 330 in src/networking.c.'>addReplyError</a>(c,"One or more scores can't be converted into double");
+<a name='L446'>    <font color='red'>}</font> <b>else</b> <b>if</b> (storekey == NULL) <font color='red'>{</font>
+<a name='L447'>        <i><font color='green'>/* STORE option not specified, sent the sorting result to client */</font></i>
+<a name='L448'>        <a href='../S/86.html#L448' title='Defined at 448 in src/networking.c.'>addReplyMultiBulkLen</a>(c,outputlen);
+<a name='L449'>        <b>for</b> (j = start; j &lt;= end; j++) <font color='red'>{</font>
+<a name='L450'>            <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln;
+<a name='L451'>            <a href='../D/2703.html' title='Multiple defined in 2 places.'>listIter</a> li;
+<a name='L452'>
+<a name='L453'>            <b>if</b> (!getop) <a href='../S/86.html#L475' title='Defined at 475 in src/networking.c.'>addReplyBulk</a>(c,vector[j].obj);
+<a name='L454'>            <a href='../S/54.html#L197' title='Defined at 197 in src/adlist.c.'>listRewind</a>(operations,&amp;li);
+<a name='L455'>            <b>while</b>((ln = <a href='../S/54.html#L221' title='Defined at 221 in src/adlist.c.'>listNext</a>(&amp;li))) <font color='red'>{</font>
+<a name='L456'>                <a href='../S/32.html#L705' title='Defined at 705 in src/redis.h.'>redisSortOperation</a> *sop = ln-&gt;value;
+<a name='L457'>                <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *val = <a href='../S/57.html#L61' title='Defined at 61 in src/sort.c.'>lookupKeyByPattern</a>(c-&gt;db,sop-&gt;pattern,
+<a name='L458'>                    vector[j].obj);
+<a name='L459'>
+<a name='L460'>                <b>if</b> (sop-&gt;type == <a href='../S/32.html#L223' title='Defined at 223 in src/redis.h.'>REDIS_SORT_GET</a>) <font color='red'>{</font>
+<a name='L461'>                    <b>if</b> (!val) <font color='red'>{</font>
+<a name='L462'>                        <a href='../S/86.html#L268' title='Defined at 268 in src/networking.c.'>addReply</a>(c,shared.nullbulk);
+<a name='L463'>                    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L464'>                        <a href='../S/86.html#L475' title='Defined at 475 in src/networking.c.'>addReplyBulk</a>(c,val);
+<a name='L465'>                        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(val);
+<a name='L466'>                    <font color='red'>}</font>
+<a name='L467'>                <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L468'>                    <i><font color='green'>/* Always fails */</font></i>
+<a name='L469'>                    <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,sortval,sop-&gt;type == <a href='../S/32.html#L223' title='Defined at 223 in src/redis.h.'>REDIS_SORT_GET</a>);
+<a name='L470'>                <font color='red'>}</font>
+<a name='L471'>            <font color='red'>}</font>
+<a name='L472'>        <font color='red'>}</font>
+<a name='L473'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L474'>        <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *sobj = <a href='../S/71.html#L105' title='Defined at 105 in src/object.c.'>createZiplistObject</a>();
+<a name='L475'>
+<a name='L476'>        <i><font color='green'>/* STORE option specified, set the sorting result as a List object */</font></i>
+<a name='L477'>        <b>for</b> (j = start; j &lt;= end; j++) <font color='red'>{</font>
+<a name='L478'>            <a href='../D/2710.html' title='Multiple defined in 2 places.'>listNode</a> *ln;
+<a name='L479'>            <a href='../D/2703.html' title='Multiple defined in 2 places.'>listIter</a> li;
+<a name='L480'>
+<a name='L481'>            <b>if</b> (!getop) <font color='red'>{</font>
+<a name='L482'>                <a href='../S/60.html#L53' title='Defined at 53 in src/t_list.c.'>listTypePush</a>(sobj,vector[j].obj,<a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>);
+<a name='L483'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L484'>                <a href='../S/54.html#L197' title='Defined at 197 in src/adlist.c.'>listRewind</a>(operations,&amp;li);
+<a name='L485'>                <b>while</b>((ln = <a href='../S/54.html#L221' title='Defined at 221 in src/adlist.c.'>listNext</a>(&amp;li))) <font color='red'>{</font>
+<a name='L486'>                    <a href='../S/32.html#L705' title='Defined at 705 in src/redis.h.'>redisSortOperation</a> *sop = ln-&gt;value;
+<a name='L487'>                    <a href='../S/32.html#L318' title='Defined at 318 in src/redis.h.'>robj</a> *val = <a href='../S/57.html#L61' title='Defined at 61 in src/sort.c.'>lookupKeyByPattern</a>(c-&gt;db,sop-&gt;pattern,
+<a name='L488'>                        vector[j].obj);
+<a name='L489'>
+<a name='L490'>                    <b>if</b> (sop-&gt;type == <a href='../S/32.html#L223' title='Defined at 223 in src/redis.h.'>REDIS_SORT_GET</a>) <font color='red'>{</font>
+<a name='L491'>                        <b>if</b> (!val) val = <a href='../D/1986.html' title='Multiple defined in 2 places.'>createStringObject</a>("",0);
+<a name='L492'>
+<a name='L493'>                        <i><font color='green'>/* listTypePush does an incrRefCount, so we should take care</font></i>
+<a name='L494'><i><font color='green'>                         * care of the incremented refcount caused by either</font></i>
+<a name='L495'><i><font color='green'>                         * lookupKeyByPattern or createStringObject("",0) */</font></i>
+<a name='L496'>                        <a href='../S/60.html#L53' title='Defined at 53 in src/t_list.c.'>listTypePush</a>(sobj,val,<a href='../S/32.html#L220' title='Defined at 220 in src/redis.h.'>REDIS_TAIL</a>);
+<a name='L497'>                        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(val);
+<a name='L498'>                    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L499'>                        <i><font color='green'>/* Always fails */</font></i>
+<a name='L500'>                        <a href='../S/32.html#L298' title='Defined at 298 in src/redis.h.'>redisAssertWithInfo</a>(c,sortval,sop-&gt;type == <a href='../S/32.html#L223' title='Defined at 223 in src/redis.h.'>REDIS_SORT_GET</a>);
+<a name='L501'>                    <font color='red'>}</font>
+<a name='L502'>                <font color='red'>}</font>
+<a name='L503'>            <font color='red'>}</font>
+<a name='L504'>        <font color='red'>}</font>
+<a name='L505'>        <b>if</b> (outputlen) <font color='red'>{</font>
+<a name='L506'>            <a href='../S/31.html#L116' title='Defined at 116 in src/db.c.'>setKey</a>(c-&gt;db,storekey,sobj);
+<a name='L507'>            server.dirty += outputlen;
+<a name='L508'>        <font color='red'>}</font> <b>else</b> <b>if</b> (<a href='../S/31.html#L158' title='Defined at 158 in src/db.c.'>dbDelete</a>(c-&gt;db,storekey)) <font color='red'>{</font>
+<a name='L509'>            <a href='../S/31.html#L197' title='Defined at 197 in src/db.c.'>signalModifiedKey</a>(c-&gt;db,storekey);
+<a name='L510'>            server.dirty++;
+<a name='L511'>        <font color='red'>}</font>
+<a name='L512'>        <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(sobj);
+<a name='L513'>        <a href='../S/86.html#L439' title='Defined at 439 in src/networking.c.'>addReplyLongLong</a>(c,outputlen);
+<a name='L514'>    <font color='red'>}</font>
+<a name='L515'>
+<a name='L516'>    <i><font color='green'>/* Cleanup */</font></i>
+<a name='L517'>    <b>if</b> (sortval-&gt;type == <a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a> || sortval-&gt;type == <a href='../D/908.html' title='Multiple defined in 2 places.'>REDIS_SET</a>)
+<a name='L518'>        <b>for</b> (j = 0; j &lt; vectorlen; j++)
+<a name='L519'>            <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(vector[j].obj);
+<a name='L520'>    <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(sortval);
+<a name='L521'>    <a href='../S/54.html#L58' title='Defined at 58 in src/adlist.c.'>listRelease</a>(operations);
+<a name='L522'>    <b>for</b> (j = 0; j &lt; vectorlen; j++) <font color='red'>{</font>
+<a name='L523'>        <b>if</b> (alpha &amp;&amp; vector[j].u.cmpobj)
+<a name='L524'>            <a href='../S/71.html#L218' title='Defined at 218 in src/object.c.'>decrRefCount</a>(vector[j].u.cmpobj);
+<a name='L525'>    <font color='red'>}</font>
+<a name='L526'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(vector);
+<a name='L527'><font color='red'>}</font>
+<a name='L528'>
+<a name='L529'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L38'>[^]</a><a href='#L179'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

@@ -1,0 +1,239 @@
+<html>
+<head>
+<title>deps/jemalloc/src/chunk_mmap.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/395.html'>src</a>/chunk_mmap.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L15'>[^]</a><a href='#L203'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L15' title='Defined at 15.'>pages_map</a>
+<li><a href='#L61' title='Defined at 61.'>pages_unmap</a>
+<li><a href='#L86' title='Defined at 86.'>pages_trim</a>
+<li><a href='#L117' title='Defined at 117.'>pages_purge</a>
+<li><a href='#L143' title='Defined at 143.'>chunk_alloc_mmap_slow</a>
+<li><a href='#L167' title='Defined at 167.'>chunk_alloc_mmap</a>
+<li><a href='#L203' title='Defined at 203.'>chunk_dealloc_mmap</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> JEMALLOC_CHUNK_MMAP_C_
+<a name='L2'><font color='darkred'>#include</font> "jemalloc/internal/jemalloc_internal.h"
+<a name='L3'>
+<a name='L4'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L5'><i><font color='green'>/* Function prototypes for non-inline static functions. */</font></i>
+<a name='L6'>
+<a name='L7'><b>static</b> <b>void</b>     *<a href='../S/215.html#L15' title='Defined at 15 in deps/jemalloc/src/chunk_mmap.c.'>pages_map</a>(<b>void</b> *addr, size_t size);
+<a name='L8'><b>static</b> <b>void</b>     <a href='../S/215.html#L61' title='Defined at 61 in deps/jemalloc/src/chunk_mmap.c.'>pages_unmap</a>(<b>void</b> *addr, size_t size);
+<a name='L9'><b>static</b> <b>void</b>     *<a href='../S/215.html#L143' title='Defined at 143 in deps/jemalloc/src/chunk_mmap.c.'>chunk_alloc_mmap_slow</a>(size_t size, size_t alignment,
+<a name='L10'>    bool *zero);
+<a name='L11'>
+<a name='L12'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L13'>
+<a name='L14'><b>static</b> <b>void</b> *
+<a name='L15'><a href='../R/3132.html' title='Multiple refered from 4 places.'>pages_map</a>(<b>void</b> *addr, size_t size)
+<a name='L16'><font color='red'>{</font>
+<a name='L17'>        <b>void</b> *ret;
+<a name='L18'>
+<a name='L19'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(size != 0);
+<a name='L20'>
+<a name='L21'><font color='darkred'>#ifdef</font> _WIN32
+<a name='L22'>        <i><font color='green'>/*</font></i>
+<a name='L23'><i><font color='green'>         * If VirtualAlloc can't allocate at the given address when one is</font></i>
+<a name='L24'><i><font color='green'>         * given, it fails and returns NULL.</font></i>
+<a name='L25'><i><font color='green'>         */</font></i>
+<a name='L26'>        ret = VirtualAlloc(addr, size, MEM_COMMIT | MEM_RESERVE,
+<a name='L27'>            PAGE_READWRITE);
+<a name='L28'><font color='darkred'>#else</font>
+<a name='L29'>        <i><font color='green'>/*</font></i>
+<a name='L30'><i><font color='green'>         * We don't use MAP_FIXED here, because it can cause the *replacement*</font></i>
+<a name='L31'><i><font color='green'>         * of existing mappings, and we only want to create new mappings.</font></i>
+<a name='L32'><i><font color='green'>         */</font></i>
+<a name='L33'>        ret = mmap(addr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON,
+<a name='L34'>            -1, 0);
+<a name='L35'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ret != NULL);
+<a name='L36'>
+<a name='L37'>        <b>if</b> (ret == MAP_FAILED)
+<a name='L38'>                ret = NULL;
+<a name='L39'>        <b>else</b> <b>if</b> (addr != NULL &amp;&amp; ret != addr) <font color='red'>{</font>
+<a name='L40'>                <i><font color='green'>/*</font></i>
+<a name='L41'><i><font color='green'>                 * We succeeded in mapping memory, but not in the right place.</font></i>
+<a name='L42'><i><font color='green'>                 */</font></i>
+<a name='L43'>                <b>if</b> (munmap(ret, size) == -1) <font color='red'>{</font>
+<a name='L44'>                        <b>char</b> buf[<a href='../S/149.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/util.h.'>BUFERROR_BUF</a>];
+<a name='L45'>
+<a name='L46'>                        <a href='../D/1776.html' title='Multiple defined in 2 places.'>buferror</a>(buf, <b>sizeof</b>(buf));
+<a name='L47'>                        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("&lt;jemalloc: Error in munmap(): %s\n",
+<a name='L48'>                            buf);
+<a name='L49'>                        <b>if</b> (<a href='../S/138.html#L238' title='Defined at 238 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_abort</a>)
+<a name='L50'>                                abort();
+<a name='L51'>                <font color='red'>}</font>
+<a name='L52'>                ret = NULL;
+<a name='L53'>        <font color='red'>}</font>
+<a name='L54'><font color='darkred'>#endif</font>
+<a name='L55'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ret == NULL || (addr == NULL &amp;&amp; ret != addr)
+<a name='L56'>            || (addr != NULL &amp;&amp; ret == addr));
+<a name='L57'>        <b>return</b> (ret);
+<a name='L58'><font color='red'>}</font>
+<a name='L59'>
+<a name='L60'><b>static</b> <b>void</b>
+<a name='L61'><a href='../R/3135.html' title='Multiple refered from 7 places.'>pages_unmap</a>(<b>void</b> *addr, size_t size)
+<a name='L62'><font color='red'>{</font>
+<a name='L63'>
+<a name='L64'><font color='darkred'>#ifdef</font> _WIN32
+<a name='L65'>        <b>if</b> (VirtualFree(addr, 0, MEM_RELEASE) == 0)
+<a name='L66'><font color='darkred'>#else</font>
+<a name='L67'>        <b>if</b> (munmap(addr, size) == -1)
+<a name='L68'><font color='darkred'>#endif</font>
+<a name='L69'>        <font color='red'>{</font>
+<a name='L70'>                <b>char</b> buf[<a href='../S/149.html#L5' title='Defined at 5 in deps/jemalloc/include/jemalloc/internal/util.h.'>BUFERROR_BUF</a>];
+<a name='L71'>
+<a name='L72'>                <a href='../D/1776.html' title='Multiple defined in 2 places.'>buferror</a>(buf, <b>sizeof</b>(buf));
+<a name='L73'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("&lt;jemalloc&gt;: Error in "
+<a name='L74'><font color='darkred'>#ifdef</font> _WIN32
+<a name='L75'>                              "VirtualFree"
+<a name='L76'><font color='darkred'>#else</font>
+<a name='L77'>                              "munmap"
+<a name='L78'><font color='darkred'>#endif</font>
+<a name='L79'>                              "(): %s\n", buf);
+<a name='L80'>                <b>if</b> (<a href='../S/138.html#L238' title='Defined at 238 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_abort</a>)
+<a name='L81'>                        abort();
+<a name='L82'>        <font color='red'>}</font>
+<a name='L83'><font color='red'>}</font>
+<a name='L84'>
+<a name='L85'><b>static</b> <b>void</b> *
+<a name='L86'><a href='../S/215.html#L158' title='Refered from 158 in deps/jemalloc/src/chunk_mmap.c.'>pages_trim</a>(<b>void</b> *addr, size_t alloc_size, size_t leadsize, size_t size)
+<a name='L87'><font color='red'>{</font>
+<a name='L88'>        <b>void</b> *ret = (<b>void</b> *)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)addr + leadsize);
+<a name='L89'>
+<a name='L90'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(alloc_size &gt;= leadsize + size);
+<a name='L91'><font color='darkred'>#ifdef</font> _WIN32
+<a name='L92'>        <font color='red'>{</font>
+<a name='L93'>                <b>void</b> *new_addr;
+<a name='L94'>
+<a name='L95'>                <a href='../S/215.html#L61' title='Defined at 61 in deps/jemalloc/src/chunk_mmap.c.'>pages_unmap</a>(addr, alloc_size);
+<a name='L96'>                new_addr = <a href='../S/215.html#L15' title='Defined at 15 in deps/jemalloc/src/chunk_mmap.c.'>pages_map</a>(ret, size);
+<a name='L97'>                <b>if</b> (new_addr == ret)
+<a name='L98'>                        <b>return</b> (ret);
+<a name='L99'>                <b>if</b> (new_addr)
+<a name='L100'>                        <a href='../S/215.html#L61' title='Defined at 61 in deps/jemalloc/src/chunk_mmap.c.'>pages_unmap</a>(new_addr, size);
+<a name='L101'>                <b>return</b> (NULL);
+<a name='L102'>        <font color='red'>}</font>
+<a name='L103'><font color='darkred'>#else</font>
+<a name='L104'>        <font color='red'>{</font>
+<a name='L105'>                size_t trailsize = alloc_size - leadsize - size;
+<a name='L106'>
+<a name='L107'>                <b>if</b> (leadsize != 0)
+<a name='L108'>                        <a href='../S/215.html#L61' title='Defined at 61 in deps/jemalloc/src/chunk_mmap.c.'>pages_unmap</a>(addr, leadsize);
+<a name='L109'>                <b>if</b> (trailsize != 0)
+<a name='L110'>                        <a href='../S/215.html#L61' title='Defined at 61 in deps/jemalloc/src/chunk_mmap.c.'>pages_unmap</a>((<b>void</b> *)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ret + size), trailsize);
+<a name='L111'>                <b>return</b> (ret);
+<a name='L112'>        <font color='red'>}</font>
+<a name='L113'><font color='darkred'>#endif</font>
+<a name='L114'><font color='red'>}</font>
+<a name='L115'>
+<a name='L116'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L117'><a href='../R/3133.html' title='Multiple refered from 4 places.'>pages_purge</a>(<b>void</b> *addr, size_t length)
+<a name='L118'><font color='red'>{</font>
+<a name='L119'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> unzeroed;
+<a name='L120'>
+<a name='L121'><font color='darkred'>#ifdef</font> _WIN32
+<a name='L122'>        VirtualAlloc(addr, length, MEM_RESET, PAGE_READWRITE);
+<a name='L123'>        unzeroed = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L124'><font color='darkred'>#else</font>
+<a name='L125'><font color='darkred'>#  ifdef</font> JEMALLOC_PURGE_MADVISE_DONTNEED
+<a name='L126'><font color='darkred'>#    define</font> <a href='../S/215.html#L134' title='Refered from 134 in deps/jemalloc/src/chunk_mmap.c.'>JEMALLOC_MADV_PURGE</a> MADV_DONTNEED
+<a name='L127'><font color='darkred'>#    define</font> <a href='../S/215.html#L135' title='Refered from 135 in deps/jemalloc/src/chunk_mmap.c.'>JEMALLOC_MADV_ZEROS</a> <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>
+<a name='L128'><font color='darkred'>#  elif</font> <b>defined</b>(JEMALLOC_PURGE_MADVISE_FREE)
+<a name='L129'><font color='darkred'>#    define</font> <a href='../S/215.html#L134' title='Refered from 134 in deps/jemalloc/src/chunk_mmap.c.'>JEMALLOC_MADV_PURGE</a> MADV_FREE
+<a name='L130'><font color='darkred'>#    define</font> <a href='../S/215.html#L135' title='Refered from 135 in deps/jemalloc/src/chunk_mmap.c.'>JEMALLOC_MADV_ZEROS</a> <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>
+<a name='L131'><font color='darkred'>#  else</font>
+<a name='L132'><font color='darkred'>#    error</font> "No method defined for purging unused dirty pages."
+<a name='L133'><font color='darkred'>#  endif</font>
+<a name='L134'>        <b>int</b> err = madvise(addr, length, <a href='../D/264.html' title='Multiple defined in 3 places.'>JEMALLOC_MADV_PURGE</a>);
+<a name='L135'>        unzeroed = (<a href='../D/265.html' title='Multiple defined in 3 places.'>JEMALLOC_MADV_ZEROS</a> == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a> || err != 0);
+<a name='L136'><font color='darkred'>#  undef</font> <a href='../S/215.html#L134' title='Refered from 134 in deps/jemalloc/src/chunk_mmap.c.'>JEMALLOC_MADV_PURGE</a>
+<a name='L137'><font color='darkred'>#  undef</font> <a href='../S/215.html#L135' title='Refered from 135 in deps/jemalloc/src/chunk_mmap.c.'>JEMALLOC_MADV_ZEROS</a>
+<a name='L138'><font color='darkred'>#endif</font>
+<a name='L139'>        <b>return</b> (unzeroed);
+<a name='L140'><font color='red'>}</font>
+<a name='L141'>
+<a name='L142'><b>static</b> <b>void</b> *
+<a name='L143'><a href='../R/1567.html' title='Multiple refered from 2 places.'>chunk_alloc_mmap_slow</a>(size_t size, size_t alignment, bool *zero)
+<a name='L144'><font color='red'>{</font>
+<a name='L145'>        <b>void</b> *ret, *pages;
+<a name='L146'>        size_t alloc_size, leadsize;
+<a name='L147'>
+<a name='L148'>        alloc_size = size + alignment - PAGE;
+<a name='L149'>        <i><font color='green'>/* Beware size_t wrap-around. */</font></i>
+<a name='L150'>        <b>if</b> (alloc_size &lt; size)
+<a name='L151'>                <b>return</b> (NULL);
+<a name='L152'>        <b>do</b> <font color='red'>{</font>
+<a name='L153'>                pages = <a href='../S/215.html#L15' title='Defined at 15 in deps/jemalloc/src/chunk_mmap.c.'>pages_map</a>(NULL, alloc_size);
+<a name='L154'>                <b>if</b> (pages == NULL)
+<a name='L155'>                        <b>return</b> (NULL);
+<a name='L156'>                leadsize = ALIGNMENT_CEILING((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)pages, alignment) -
+<a name='L157'>                    (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)pages;
+<a name='L158'>                ret = <a href='../S/215.html#L86' title='Defined at 86 in deps/jemalloc/src/chunk_mmap.c.'>pages_trim</a>(pages, alloc_size, leadsize, size);
+<a name='L159'>        <font color='red'>}</font> <b>while</b> (ret == NULL);
+<a name='L160'>
+<a name='L161'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ret != NULL);
+<a name='L162'>        *zero = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L163'>        <b>return</b> (ret);
+<a name='L164'><font color='red'>}</font>
+<a name='L165'>
+<a name='L166'><b>void</b> *
+<a name='L167'><a href='../R/1566.html' title='Multiple refered from 3 places.'>chunk_alloc_mmap</a>(size_t size, size_t alignment, bool *zero)
+<a name='L168'><font color='red'>{</font>
+<a name='L169'>        <b>void</b> *ret;
+<a name='L170'>        size_t offset;
+<a name='L171'>
+<a name='L172'>        <i><font color='green'>/*</font></i>
+<a name='L173'><i><font color='green'>         * Ideally, there would be a way to specify alignment to mmap() (like</font></i>
+<a name='L174'><i><font color='green'>         * NetBSD has), but in the absence of such a feature, we have to work</font></i>
+<a name='L175'><i><font color='green'>         * hard to efficiently create aligned mappings.  The reliable, but</font></i>
+<a name='L176'><i><font color='green'>         * slow method is to create a mapping that is over-sized, then trim the</font></i>
+<a name='L177'><i><font color='green'>         * excess.  However, that always results in one or two calls to</font></i>
+<a name='L178'><i><font color='green'>         * pages_unmap().</font></i>
+<a name='L179'><i><font color='green'>         *</font></i>
+<a name='L180'><i><font color='green'>         * Optimistically try mapping precisely the right amount before falling</font></i>
+<a name='L181'><i><font color='green'>         * back to the slow method, with the expectation that the optimistic</font></i>
+<a name='L182'><i><font color='green'>         * approach works most of the time.</font></i>
+<a name='L183'><i><font color='green'>         */</font></i>
+<a name='L184'>
+<a name='L185'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(alignment != 0);
+<a name='L186'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((alignment &amp; <a href='../S/138.html#L117' title='Defined at 117 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize_mask</a>) == 0);
+<a name='L187'>
+<a name='L188'>        ret = <a href='../S/215.html#L15' title='Defined at 15 in deps/jemalloc/src/chunk_mmap.c.'>pages_map</a>(NULL, size);
+<a name='L189'>        <b>if</b> (ret == NULL)
+<a name='L190'>                <b>return</b> (NULL);
+<a name='L191'>        offset = ALIGNMENT_ADDR2OFFSET(ret, alignment);
+<a name='L192'>        <b>if</b> (offset != 0) <font color='red'>{</font>
+<a name='L193'>                <a href='../S/215.html#L61' title='Defined at 61 in deps/jemalloc/src/chunk_mmap.c.'>pages_unmap</a>(ret, size);
+<a name='L194'>                <b>return</b> (<a href='../S/215.html#L143' title='Defined at 143 in deps/jemalloc/src/chunk_mmap.c.'>chunk_alloc_mmap_slow</a>(size, alignment, zero));
+<a name='L195'>        <font color='red'>}</font>
+<a name='L196'>
+<a name='L197'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(ret != NULL);
+<a name='L198'>        *zero = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L199'>        <b>return</b> (ret);
+<a name='L200'><font color='red'>}</font>
+<a name='L201'>
+<a name='L202'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L203'><a href='../R/1570.html' title='Multiple refered from 4 places.'>chunk_dealloc_mmap</a>(<b>void</b> *chunk, size_t size)
+<a name='L204'><font color='red'>{</font>
+<a name='L205'>
+<a name='L206'>        <b>if</b> (config_munmap)
+<a name='L207'>                <a href='../S/215.html#L61' title='Defined at 61 in deps/jemalloc/src/chunk_mmap.c.'>pages_unmap</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, size);
+<a name='L208'>
+<a name='L209'>        <b>return</b> (config_munmap == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L210'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L15'>[^]</a><a href='#L203'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

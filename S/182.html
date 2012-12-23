@@ -1,0 +1,90 @@
+<html>
+<head>
+<title>deps/jemalloc/test/ALLOCM_ARENA.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/396.html'>test</a>/ALLOCM_ARENA.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L7'>[^]</a><a href='#L49'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L7' title='Defined at 7.'>je_thread_start</a>
+<li><a href='#L49' title='Defined at 49.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> JEMALLOC_MANGLE
+<a name='L2'><font color='darkred'>#include</font> "jemalloc_test.h"
+<a name='L3'>
+<a name='L4'><font color='darkred'>#define</font> <a href='../R/469.html' title='Multiple refered from 6 places.'>NTHREADS</a> 10
+<a name='L5'>
+<a name='L6'><b>void</b> *
+<a name='L7'><a href='../R/2297.html' title='Multiple refered from 12 places.'>je_thread_start</a>(<b>void</b> *arg)
+<a name='L8'><font color='red'>{</font>
+<a name='L9'>        <b>unsigned</b> thread_ind = (<b>unsigned</b>)(<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)arg;
+<a name='L10'>        <b>unsigned</b> arena_ind;
+<a name='L11'>        <b>int</b> r;
+<a name='L12'>        <b>void</b> *p;
+<a name='L13'>        size_t rsz, sz;
+<a name='L14'>
+<a name='L15'>        sz = <b>sizeof</b>(arena_ind);
+<a name='L16'>        <b>if</b> (mallctl("arenas.extend", &amp;arena_ind, &amp;sz, NULL, 0)
+<a name='L17'>            != 0) <font color='red'>{</font>
+<a name='L18'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Error in arenas.extend\n");
+<a name='L19'>                abort();
+<a name='L20'>        <font color='red'>}</font>
+<a name='L21'>
+<a name='L22'>        <b>if</b> (thread_ind % 4 != 3) <font color='red'>{</font>
+<a name='L23'>                size_t mib[3];
+<a name='L24'>                size_t miblen = <b>sizeof</b>(mib) / <b>sizeof</b>(size_t);
+<a name='L25'>                <b>const</b> <b>char</b> *dss_precs[] = <font color='red'>{</font>"disabled", "primary", "secondary"<font color='red'>}</font>;
+<a name='L26'>                <b>const</b> <b>char</b> *dss = dss_precs[thread_ind % 4];
+<a name='L27'>                <b>if</b> (mallctlnametomib("arena.0.dss", mib, &amp;miblen) != 0) <font color='red'>{</font>
+<a name='L28'>                        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Error in mallctlnametomib()\n");
+<a name='L29'>                        abort();
+<a name='L30'>                <font color='red'>}</font>
+<a name='L31'>                mib[1] = arena_ind;
+<a name='L32'>                <b>if</b> (mallctlbymib(mib, miblen, NULL, NULL, (<b>void</b> *)&amp;dss,
+<a name='L33'>                    <b>sizeof</b>(<b>const</b> <b>char</b> *))) <font color='red'>{</font>
+<a name='L34'>                        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Error in mallctlbymib()\n");
+<a name='L35'>                        abort();
+<a name='L36'>                <font color='red'>}</font>
+<a name='L37'>        <font color='red'>}</font>
+<a name='L38'>
+<a name='L39'>        r = allocm(&amp;p, &amp;rsz, 1, ALLOCM_ARENA(arena_ind));
+<a name='L40'>        <b>if</b> (r != ALLOCM_SUCCESS) <font color='red'>{</font>
+<a name='L41'>                <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Unexpected allocm() error\n");
+<a name='L42'>                abort();
+<a name='L43'>        <font color='red'>}</font>
+<a name='L44'>
+<a name='L45'>        <b>return</b> (NULL);
+<a name='L46'><font color='red'>}</font>
+<a name='L47'>
+<a name='L48'><b>int</b>
+<a name='L49'>main(<b>void</b>)
+<a name='L50'><font color='red'>{</font>
+<a name='L51'>        je_thread_t threads[<a href='../D/520.html' title='Multiple defined in 2 places.'>NTHREADS</a>];
+<a name='L52'>        <b>unsigned</b> i;
+<a name='L53'>
+<a name='L54'>        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Test begin\n");
+<a name='L55'>
+<a name='L56'>        <b>for</b> (i = 0; i &lt; <a href='../D/520.html' title='Multiple defined in 2 places.'>NTHREADS</a>; i++) <font color='red'>{</font>
+<a name='L57'>                je_thread_create(&amp;threads[i], <a href='../D/2595.html' title='Multiple defined in 4 places.'>je_thread_start</a>,
+<a name='L58'>                    (<b>void</b> *)(<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)i);
+<a name='L59'>        <font color='red'>}</font>
+<a name='L60'>
+<a name='L61'>        <b>for</b> (i = 0; i &lt; <a href='../D/520.html' title='Multiple defined in 2 places.'>NTHREADS</a>; i++)
+<a name='L62'>                je_thread_join(threads[i], NULL);
+<a name='L63'>
+<a name='L64'>        <a href='../S/138.html#L219' title='Defined at 219 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>malloc_printf</a>("Test end\n");
+<a name='L65'>        <b>return</b> (0);
+<a name='L66'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L7'>[^]</a><a href='#L49'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

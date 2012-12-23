@@ -1,0 +1,177 @@
+<html>
+<head>
+<title>deps/lua/src/strbuf.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/strbuf.h</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L76'>[^]</a><a href='#L133'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2><a href='../J/149.html' title='Multiple included from 2 places.'>INCLUDED FROM</a></h2>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L76' title='Defined at 76.'>strbuf_reset</a>
+<li><a href='#L81' title='Defined at 81.'>strbuf_allocated</a>
+<li><a href='#L88' title='Defined at 88.'>strbuf_empty_length</a>
+<li><a href='#L93' title='Defined at 93.'>strbuf_ensure_empty_length</a>
+<li><a href='#L99' title='Defined at 99.'>strbuf_length</a>
+<li><a href='#L104' title='Defined at 104.'>strbuf_append_char</a>
+<li><a href='#L110' title='Defined at 110.'>strbuf_append_char_unsafe</a>
+<li><a href='#L115' title='Defined at 115.'>strbuf_append_mem</a>
+<li><a href='#L122' title='Defined at 122.'>strbuf_append_mem_unsafe</a>
+<li><a href='#L128' title='Defined at 128.'>strbuf_ensure_null</a>
+<li><a href='#L133' title='Defined at 133.'>strbuf_string</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* strbuf - String buffer routines</font></i>
+<a name='L2'><i><font color='green'> *</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2010-2011  Mark Pulford &lt;mark@kyne.com.au&gt;</font></i>
+<a name='L4'><i><font color='green'> *</font></i>
+<a name='L5'><i><font color='green'> * Permission is hereby granted, free of charge, to any person obtaining</font></i>
+<a name='L6'><i><font color='green'> * a copy of this software and associated documentation files (the</font></i>
+<a name='L7'><i><font color='green'> * "Software"), to deal in the Software without restriction, including</font></i>
+<a name='L8'><i><font color='green'> * without limitation the rights to use, copy, modify, merge, publish,</font></i>
+<a name='L9'><i><font color='green'> * distribute, sublicense, and/or sell copies of the Software, and to</font></i>
+<a name='L10'><i><font color='green'> * permit persons to whom the Software is furnished to do so, subject to</font></i>
+<a name='L11'><i><font color='green'> * the following conditions:</font></i>
+<a name='L12'><i><font color='green'> *</font></i>
+<a name='L13'><i><font color='green'> * The above copyright notice and this permission notice shall be</font></i>
+<a name='L14'><i><font color='green'> * included in all copies or substantial portions of the Software.</font></i>
+<a name='L15'><i><font color='green'> *</font></i>
+<a name='L16'><i><font color='green'> * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,</font></i>
+<a name='L17'><i><font color='green'> * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF</font></i>
+<a name='L18'><i><font color='green'> * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.</font></i>
+<a name='L19'><i><font color='green'> * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY</font></i>
+<a name='L20'><i><font color='green'> * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,</font></i>
+<a name='L21'><i><font color='green'> * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE</font></i>
+<a name='L22'><i><font color='green'> * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</font></i>
+<a name='L23'><i><font color='green'> */</font></i>
+<a name='L24'>
+<a name='L25'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L26'><font color='darkred'>#include</font> &lt;stdarg.h&gt;
+<a name='L27'>
+<a name='L28'><i><font color='green'>/* Size: Total bytes allocated to *buf</font></i>
+<a name='L29'><i><font color='green'> * Length: String length, excluding optional NULL terminator.</font></i>
+<a name='L30'><i><font color='green'> * Increment: Allocation increments when resizing the string buffer.</font></i>
+<a name='L31'><i><font color='green'> * Dynamic: True if created via strbuf_new()</font></i>
+<a name='L32'><i><font color='green'> */</font></i>
+<a name='L33'>
+<a name='L34'><b>typedef</b> <b>struct</b> <font color='red'>{</font>
+<a name='L35'>    <b>char</b> *buf;
+<a name='L36'>    <b>int</b> size;
+<a name='L37'>    <b>int</b> length;
+<a name='L38'>    <b>int</b> increment;
+<a name='L39'>    <b>int</b> dynamic;
+<a name='L40'>    <b>int</b> reallocs;
+<a name='L41'>    <b>int</b> <a href='../S/89.html#L959' title='Defined at 959 in src/ziplist.c.'>debug</a>;
+<a name='L42'><font color='red'>}</font> <a href='../R/3884.html' title='Multiple refered from 48 places.'>strbuf_t</a>;
+<a name='L43'>
+<a name='L44'><font color='darkred'>#ifndef</font> <a href='../S/301.html#L45' title='Defined at 45 in deps/lua/src/strbuf.h.'>STRBUF_DEFAULT_SIZE</a>
+<a name='L45'><font color='darkred'>#define</font> <a href='../R/913.html' title='Multiple refered from 2 places.'>STRBUF_DEFAULT_SIZE</a> 1023
+<a name='L46'><font color='darkred'>#endif</font>
+<a name='L47'><font color='darkred'>#ifndef</font> <a href='../S/301.html#L48' title='Defined at 48 in deps/lua/src/strbuf.h.'>STRBUF_DEFAULT_INCREMENT</a>
+<a name='L48'><font color='darkred'>#define</font> <a href='../R/912.html' title='Multiple refered from 2 places.'>STRBUF_DEFAULT_INCREMENT</a> -2
+<a name='L49'><font color='darkred'>#endif</font>
+<a name='L50'>
+<a name='L51'><i><font color='green'>/* Initialise */</font></i>
+<a name='L52'><b>extern</b> <a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *<a href='../S/274.html#L68' title='Defined at 68 in deps/lua/src/strbuf.c.'>strbuf_new</a>(<b>int</b> len);
+<a name='L53'><b>extern</b> <b>void</b> <a href='../S/274.html#L44' title='Defined at 44 in deps/lua/src/strbuf.c.'>strbuf_init</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>int</b> len);
+<a name='L54'><b>extern</b> <b>void</b> <a href='../S/274.html#L84' title='Defined at 84 in deps/lua/src/strbuf.c.'>strbuf_set_increment</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>int</b> increment);
+<a name='L55'>
+<a name='L56'><i><font color='green'>/* Release */</font></i>
+<a name='L57'><b>extern</b> <b>void</b> <a href='../S/274.html#L104' title='Defined at 104 in deps/lua/src/strbuf.c.'>strbuf_free</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s);
+<a name='L58'><b>extern</b> <b>char</b> *<a href='../S/274.html#L116' title='Defined at 116 in deps/lua/src/strbuf.c.'>strbuf_free_to_string</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>int</b> *len);
+<a name='L59'>
+<a name='L60'><i><font color='green'>/* Management */</font></i>
+<a name='L61'><b>extern</b> <b>void</b> <a href='../S/274.html#L164' title='Defined at 164 in deps/lua/src/strbuf.c.'>strbuf_resize</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>int</b> len);
+<a name='L62'><b>static</b> <b>int</b> <a href='../S/301.html#L88' title='Defined at 88 in deps/lua/src/strbuf.h.'>strbuf_empty_length</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s);
+<a name='L63'><b>static</b> <b>int</b> <a href='../S/301.html#L99' title='Defined at 99 in deps/lua/src/strbuf.h.'>strbuf_length</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s);
+<a name='L64'><b>static</b> <b>char</b> *<a href='../S/301.html#L133' title='Defined at 133 in deps/lua/src/strbuf.h.'>strbuf_string</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>int</b> *len);
+<a name='L65'><b>static</b>  <b>void</b> <a href='../S/301.html#L93' title='Defined at 93 in deps/lua/src/strbuf.h.'>strbuf_ensure_empty_length</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>int</b> len);
+<a name='L66'>
+<a name='L67'><i><font color='green'>/* Update */</font></i>
+<a name='L68'><b>extern</b> <b>void</b> <a href='../S/274.html#L202' title='Defined at 202 in deps/lua/src/strbuf.c.'>strbuf_append_fmt</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>int</b> len, <b>const</b> <b>char</b> *fmt, ...);
+<a name='L69'><b>extern</b> <b>void</b> <a href='../S/274.html#L221' title='Defined at 221 in deps/lua/src/strbuf.c.'>strbuf_append_fmt_retry</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>const</b> <b>char</b> *format, ...);
+<a name='L70'><b>static</b> <b>void</b> <a href='../S/301.html#L115' title='Defined at 115 in deps/lua/src/strbuf.h.'>strbuf_append_mem</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>const</b> <b>char</b> *c, <b>int</b> len);
+<a name='L71'><b>extern</b> <b>void</b> <a href='../S/274.html#L182' title='Defined at 182 in deps/lua/src/strbuf.c.'>strbuf_append_string</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>const</b> <b>char</b> *str);
+<a name='L72'><b>static</b> <b>void</b> <a href='../S/301.html#L104' title='Defined at 104 in deps/lua/src/strbuf.h.'>strbuf_append_char</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>const</b> <b>char</b> c);
+<a name='L73'><b>static</b> <b>void</b> <a href='../S/301.html#L128' title='Defined at 128 in deps/lua/src/strbuf.h.'>strbuf_ensure_null</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s);
+<a name='L74'>
+<a name='L75'><i><font color='green'>/* Reset string for before use */</font></i>
+<a name='L76'><b>static</b> <b>inline</b> <b>void</b> <a href='../R/3880.html' title='Multiple refered from 2 places.'>strbuf_reset</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s)
+<a name='L77'><font color='red'>{</font>
+<a name='L78'>    s-&gt;length = 0;
+<a name='L79'><font color='red'>}</font>
+<a name='L80'>
+<a name='L81'><b>static</b> <b>inline</b> <b>int</b> <a href='../S/285.html#L701' title='Refered from 701 in deps/lua/src/lua_cjson.c.'>strbuf_allocated</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s)
+<a name='L82'><font color='red'>{</font>
+<a name='L83'>    <b>return</b> s-&gt;buf != NULL;
+<a name='L84'><font color='red'>}</font>
+<a name='L85'>
+<a name='L86'><i><font color='green'>/* Return bytes remaining in the string buffer</font></i>
+<a name='L87'><i><font color='green'> * Ensure there is space for a NULL terminator. */</font></i>
+<a name='L88'><b>static</b> <b>inline</b> <b>int</b> <a href='../R/3872.html' title='Multiple refered from 5 places.'>strbuf_empty_length</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s)
+<a name='L89'><font color='red'>{</font>
+<a name='L90'>    <b>return</b> s-&gt;size - s-&gt;length - 1;
+<a name='L91'><font color='red'>}</font>
+<a name='L92'>
+<a name='L93'><b>static</b> <b>inline</b> <b>void</b> <a href='../R/3873.html' title='Multiple refered from 5 places.'>strbuf_ensure_empty_length</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>int</b> len)
+<a name='L94'><font color='red'>{</font>
+<a name='L95'>    <b>if</b> (len &gt; <a href='../S/301.html#L88' title='Defined at 88 in deps/lua/src/strbuf.h.'>strbuf_empty_length</a>(s))
+<a name='L96'>        <a href='../S/274.html#L164' title='Defined at 164 in deps/lua/src/strbuf.c.'>strbuf_resize</a>(s, s-&gt;length + len);
+<a name='L97'><font color='red'>}</font>
+<a name='L98'>
+<a name='L99'><b>static</b> <b>inline</b> <b>int</b> <a href='../S/301.html#L63' title='Refered from 63 in deps/lua/src/strbuf.h.'>strbuf_length</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s)
+<a name='L100'><font color='red'>{</font>
+<a name='L101'>    <b>return</b> s-&gt;length;
+<a name='L102'><font color='red'>}</font>
+<a name='L103'>
+<a name='L104'><b>static</b> <b>inline</b> <b>void</b> <a href='../R/3865.html' title='Multiple refered from 9 places.'>strbuf_append_char</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>const</b> <b>char</b> c)
+<a name='L105'><font color='red'>{</font>
+<a name='L106'>    <a href='../S/301.html#L93' title='Defined at 93 in deps/lua/src/strbuf.h.'>strbuf_ensure_empty_length</a>(s, 1);
+<a name='L107'>    s-&gt;buf[s-&gt;length++] = c;
+<a name='L108'><font color='red'>}</font>
+<a name='L109'>
+<a name='L110'><b>static</b> <b>inline</b> <b>void</b> <a href='../R/3866.html' title='Multiple refered from 4 places.'>strbuf_append_char_unsafe</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>const</b> <b>char</b> c)
+<a name='L111'><font color='red'>{</font>
+<a name='L112'>    s-&gt;buf[s-&gt;length++] = c;
+<a name='L113'><font color='red'>}</font>
+<a name='L114'>
+<a name='L115'><b>static</b> <b>inline</b> <b>void</b> <a href='../R/3869.html' title='Multiple refered from 6 places.'>strbuf_append_mem</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>const</b> <b>char</b> *c, <b>int</b> len)
+<a name='L116'><font color='red'>{</font>
+<a name='L117'>    <a href='../S/301.html#L93' title='Defined at 93 in deps/lua/src/strbuf.h.'>strbuf_ensure_empty_length</a>(s, len);
+<a name='L118'>    memcpy(s-&gt;buf + s-&gt;length, c, len);
+<a name='L119'>    s-&gt;length += len;
+<a name='L120'><font color='red'>}</font>
+<a name='L121'>
+<a name='L122'><b>static</b> <b>inline</b> <b>void</b> <a href='../S/285.html#L854' title='Refered from 854 in deps/lua/src/lua_cjson.c.'>strbuf_append_mem_unsafe</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>const</b> <b>char</b> *c, <b>int</b> len)
+<a name='L123'><font color='red'>{</font>
+<a name='L124'>    memcpy(s-&gt;buf + s-&gt;length, c, len);
+<a name='L125'>    s-&gt;length += len;
+<a name='L126'><font color='red'>}</font>
+<a name='L127'>
+<a name='L128'><b>static</b> <b>inline</b> <b>void</b> <a href='../R/3874.html' title='Multiple refered from 4 places.'>strbuf_ensure_null</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s)
+<a name='L129'><font color='red'>{</font>
+<a name='L130'>    s-&gt;buf[s-&gt;length] = 0;
+<a name='L131'><font color='red'>}</font>
+<a name='L132'>
+<a name='L133'><b>static</b> <b>inline</b> <b>char</b> *<a href='../R/3883.html' title='Multiple refered from 3 places.'>strbuf_string</a>(<a href='../S/301.html#L42' title='Defined at 42 in deps/lua/src/strbuf.h.'>strbuf_t</a> *s, <b>int</b> *len)
+<a name='L134'><font color='red'>{</font>
+<a name='L135'>    <b>if</b> (len)
+<a name='L136'>        *len = s-&gt;length;
+<a name='L137'>
+<a name='L138'>    <b>return</b> s-&gt;buf;
+<a name='L139'><font color='red'>}</font>
+<a name='L140'>
+<a name='L141'><i><font color='green'>/* vi:ai et sw=4 ts=4:</font></i>
+<a name='L142'><i><font color='green'> */</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L76'>[^]</a><a href='#L133'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

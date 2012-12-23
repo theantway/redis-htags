@@ -1,0 +1,470 @@
+<html>
+<head>
+<title>src/ae.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/ae.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L62'>[^]</a><a href='#L429'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L62' title='Defined at 62.'>aeCreateEventLoop</a>
+<li><a href='#L93' title='Defined at 93.'>aeDeleteEventLoop</a>
+<li><a href='#L100' title='Defined at 100.'>aeStop</a>
+<li><a href='#L104' title='Defined at 104.'>aeCreateFileEvent</a>
+<li><a href='#L121' title='Defined at 121.'>aeDeleteFileEvent</a>
+<li><a href='#L139' title='Defined at 139.'>aeGetFileEvents</a>
+<li><a href='#L146' title='Defined at 146.'>aeGetTime</a>
+<li><a href='#L155' title='Defined at 155.'>aeAddMillisecondsToNow</a>
+<li><a href='#L169' title='Defined at 169.'>aeCreateTimeEvent</a>
+<li><a href='#L188' title='Defined at 188.'>aeDeleteTimeEvent</a>
+<li><a href='#L221' title='Defined at 221.'>aeSearchNearestTimer</a>
+<li><a href='#L237' title='Defined at 237.'>processTimeEvents</a>
+<li><a href='#L318' title='Defined at 318.'>aeProcessEvents</a>
+<li><a href='#L396' title='Defined at 396.'>aeWait</a>
+<li><a href='#L416' title='Defined at 416.'>aeMain</a>
+<li><a href='#L425' title='Defined at 425.'>aeGetApiName</a>
+<li><a href='#L429' title='Defined at 429.'>aeSetBeforeSleepProc</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* A simple event-driven programming library. Originally I wrote this code</font></i>
+<a name='L2'><i><font color='green'> * for the Jim's event-loop (Jim is a Tcl interpreter) but later translated</font></i>
+<a name='L3'><i><font color='green'> * it in form of a library for easy reuse.</font></i>
+<a name='L4'><i><font color='green'> *</font></i>
+<a name='L5'><i><font color='green'> * Copyright (c) 2006-2010, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L6'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L7'><i><font color='green'> *</font></i>
+<a name='L8'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L9'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L10'><i><font color='green'> *</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L12'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L13'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L14'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L15'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L16'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L17'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L18'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L19'><i><font color='green'> *</font></i>
+<a name='L20'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L21'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L22'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L23'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L24'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L25'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L26'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L27'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L28'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L29'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L30'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L31'><i><font color='green'> */</font></i>
+<a name='L32'>
+<a name='L33'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L34'><font color='darkred'>#include</font> &lt;sys/time.h&gt;
+<a name='L35'><font color='darkred'>#include</font> &lt;sys/types.h&gt;
+<a name='L36'><font color='darkred'>#include</font> &lt;unistd.h&gt;
+<a name='L37'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L38'><font color='darkred'>#include</font> &lt;poll.h&gt;
+<a name='L39'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L40'><font color='darkred'>#include</font> &lt;time.h&gt;
+<a name='L41'>
+<a name='L42'><font color='darkred'>#include</font> "<a href='../I/1.html'>ae.h</a>"
+<a name='L43'><font color='darkred'>#include</font> "<a href='28.html'>zmalloc.h</a>"
+<a name='L44'><font color='darkred'>#include</font> "<a href='53.html'>config.h</a>"
+<a name='L45'>
+<a name='L46'><i><font color='green'>/* Include the best multiplexing layer supported by this system.</font></i>
+<a name='L47'><i><font color='green'> * The following should be ordered by performances, descending. */</font></i>
+<a name='L48'><font color='darkred'>#ifdef</font> <a href='../S/53.html#L73' title='Defined at 73 in src/config.h.'>HAVE_EVPORT</a>
+<a name='L49'><font color='darkred'>#include</font> "ae_evport.c"
+<a name='L50'><font color='darkred'>#else</font>
+<a name='L51'><font color='darkred'>    #ifdef</font> <a href='../S/53.html#L63' title='Defined at 63 in src/config.h.'>HAVE_EPOLL</a>
+<a name='L52'><font color='darkred'>    #include</font> "ae_epoll.c"
+<a name='L53'><font color='darkred'>    #else</font>
+<a name='L54'><font color='darkred'>        #ifdef</font> <a href='../S/53.html#L67' title='Defined at 67 in src/config.h.'>HAVE_KQUEUE</a>
+<a name='L55'><font color='darkred'>        #include</font> "ae_kqueue.c"
+<a name='L56'><font color='darkred'>        #else</font>
+<a name='L57'><font color='darkred'>        #include</font> "ae_select.c"
+<a name='L58'><font color='darkred'>        #endif</font>
+<a name='L59'><font color='darkred'>    #endif</font>
+<a name='L60'><font color='darkred'>#endif</font>
+<a name='L61'>
+<a name='L62'><a href='../D/1510.html' title='Multiple defined in 2 places.'>aeEventLoop</a> *<a href='../R/1241.html' title='Multiple refered from 4 places.'>aeCreateEventLoop</a>(<b>int</b> setsize) <font color='red'>{</font>
+<a name='L63'>    <a href='../D/1510.html' title='Multiple defined in 2 places.'>aeEventLoop</a> *eventLoop;
+<a name='L64'>    <b>int</b> i;
+<a name='L65'>
+<a name='L66'>    <b>if</b> ((eventLoop = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(*eventLoop))) == NULL) <b>goto</b> err;
+<a name='L67'>    eventLoop-&gt;events = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<a href='../D/1511.html' title='Multiple defined in 2 places.'>aeFileEvent</a>)*setsize);
+<a name='L68'>    eventLoop-&gt;fired = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(<a href='../D/1513.html' title='Multiple defined in 2 places.'>aeFiredEvent</a>)*setsize);
+<a name='L69'>    <b>if</b> (eventLoop-&gt;events == NULL || eventLoop-&gt;fired == NULL) <b>goto</b> err;
+<a name='L70'>    eventLoop-&gt;setsize = setsize;
+<a name='L71'>    eventLoop-&gt;lastTime = time(NULL);
+<a name='L72'>    eventLoop-&gt;timeEventHead = NULL;
+<a name='L73'>    eventLoop-&gt;timeEventNextId = 0;
+<a name='L74'>    eventLoop-&gt;stop = 0;
+<a name='L75'>    eventLoop-&gt;maxfd = -1;
+<a name='L76'>    eventLoop-&gt;beforesleep = NULL;
+<a name='L77'>    <b>if</b> (<a href='../D/1495.html' title='Multiple defined in 4 places.'>aeApiCreate</a>(eventLoop) == -1) <b>goto</b> err;
+<a name='L78'>    <i><font color='green'>/* Events with mask == AE_NONE are not set. So let's initialize the</font></i>
+<a name='L79'><i><font color='green'>     * vector with it. */</font></i>
+<a name='L80'>    <b>for</b> (i = 0; i &lt; setsize; i++)
+<a name='L81'>        eventLoop-&gt;events[i].mask = <a href='../S/38.html#L39' title='Defined at 39 in src/ae.h.'>AE_NONE</a>;
+<a name='L82'>    <b>return</b> eventLoop;
+<a name='L83'>
+<a name='L84'>err:
+<a name='L85'>    <b>if</b> (eventLoop) <font color='red'>{</font>
+<a name='L86'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(eventLoop-&gt;events);
+<a name='L87'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(eventLoop-&gt;fired);
+<a name='L88'>        <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(eventLoop);
+<a name='L89'>    <font color='red'>}</font>
+<a name='L90'>    <b>return</b> NULL;
+<a name='L91'><font color='red'>}</font>
+<a name='L92'>
+<a name='L93'><b>void</b> <a href='../R/1244.html' title='Multiple refered from 2 places.'>aeDeleteEventLoop</a>(aeEventLoop *eventLoop) <font color='red'>{</font>
+<a name='L94'>    <a href='../D/1497.html' title='Multiple defined in 4 places.'>aeApiFree</a>(eventLoop);
+<a name='L95'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(eventLoop-&gt;events);
+<a name='L96'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(eventLoop-&gt;fired);
+<a name='L97'>    <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(eventLoop);
+<a name='L98'><font color='red'>}</font>
+<a name='L99'>
+<a name='L100'><b>void</b> <a href='../R/1259.html' title='Multiple refered from 2 places.'>aeStop</a>(aeEventLoop *eventLoop) <font color='red'>{</font>
+<a name='L101'>    eventLoop-&gt;stop = 1;
+<a name='L102'><font color='red'>}</font>
+<a name='L103'>
+<a name='L104'><b>int</b> <a href='../R/1242.html' title='Multiple refered from 17 places.'>aeCreateFileEvent</a>(aeEventLoop *eventLoop, <b>int</b> fd, <b>int</b> mask,
+<a name='L105'>        aeFileProc *proc, <b>void</b> *clientData)
+<a name='L106'><font color='red'>{</font>
+<a name='L107'>    <b>if</b> (fd &gt;= eventLoop-&gt;setsize) <b>return</b> <a href='../S/38.html#L37' title='Defined at 37 in src/ae.h.'>AE_ERR</a>;
+<a name='L108'>    <a href='../D/1511.html' title='Multiple defined in 2 places.'>aeFileEvent</a> *fe = &amp;eventLoop-&gt;events[fd];
+<a name='L109'>
+<a name='L110'>    <b>if</b> (<a href='../D/1493.html' title='Multiple defined in 4 places.'>aeApiAddEvent</a>(eventLoop, fd, mask) == -1)
+<a name='L111'>        <b>return</b> <a href='../S/38.html#L37' title='Defined at 37 in src/ae.h.'>AE_ERR</a>;
+<a name='L112'>    fe-&gt;mask |= mask;
+<a name='L113'>    <b>if</b> (mask &amp; <a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>) fe-&gt;rfileProc = proc;
+<a name='L114'>    <b>if</b> (mask &amp; <a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>) fe-&gt;wfileProc = proc;
+<a name='L115'>    fe-&gt;clientData = clientData;
+<a name='L116'>    <b>if</b> (fd &gt; eventLoop-&gt;maxfd)
+<a name='L117'>        eventLoop-&gt;maxfd = fd;
+<a name='L118'>    <b>return</b> <a href='../S/38.html#L36' title='Defined at 36 in src/ae.h.'>AE_OK</a>;
+<a name='L119'><font color='red'>}</font>
+<a name='L120'>
+<a name='L121'><b>void</b> <a href='../R/1245.html' title='Multiple refered from 22 places.'>aeDeleteFileEvent</a>(aeEventLoop *eventLoop, <b>int</b> fd, <b>int</b> mask)
+<a name='L122'><font color='red'>{</font>
+<a name='L123'>    <b>if</b> (fd &gt;= eventLoop-&gt;setsize) <b>return</b>;
+<a name='L124'>    <a href='../D/1511.html' title='Multiple defined in 2 places.'>aeFileEvent</a> *fe = &amp;eventLoop-&gt;events[fd];
+<a name='L125'>
+<a name='L126'>    <b>if</b> (fe-&gt;mask == <a href='../S/38.html#L39' title='Defined at 39 in src/ae.h.'>AE_NONE</a>) <b>return</b>;
+<a name='L127'>    fe-&gt;mask = fe-&gt;mask &amp; (~mask);
+<a name='L128'>    <b>if</b> (fd == eventLoop-&gt;maxfd &amp;&amp; fe-&gt;mask == <a href='../S/38.html#L39' title='Defined at 39 in src/ae.h.'>AE_NONE</a>) <font color='red'>{</font>
+<a name='L129'>        <i><font color='green'>/* Update the max fd */</font></i>
+<a name='L130'>        <b>int</b> j;
+<a name='L131'>
+<a name='L132'>        <b>for</b> (j = eventLoop-&gt;maxfd-1; j &gt;= 0; j--)
+<a name='L133'>            <b>if</b> (eventLoop-&gt;events[j].mask != <a href='../S/38.html#L39' title='Defined at 39 in src/ae.h.'>AE_NONE</a>) <b>break</b>;
+<a name='L134'>        eventLoop-&gt;maxfd = j;
+<a name='L135'>    <font color='red'>}</font>
+<a name='L136'>    <a href='../D/1496.html' title='Multiple defined in 4 places.'>aeApiDelEvent</a>(eventLoop, fd, mask);
+<a name='L137'><font color='red'>}</font>
+<a name='L138'>
+<a name='L139'><b>int</b> <a href='../R/1253.html' title='Multiple refered from 3 places.'>aeGetFileEvents</a>(aeEventLoop *eventLoop, <b>int</b> fd) <font color='red'>{</font>
+<a name='L140'>    <b>if</b> (fd &gt;= eventLoop-&gt;setsize) <b>return</b> 0;
+<a name='L141'>    <a href='../D/1511.html' title='Multiple defined in 2 places.'>aeFileEvent</a> *fe = &amp;eventLoop-&gt;events[fd];
+<a name='L142'>
+<a name='L143'>    <b>return</b> fe-&gt;mask;
+<a name='L144'><font color='red'>}</font>
+<a name='L145'>
+<a name='L146'><b>static</b> <b>void</b> <a href='../R/1254.html' title='Multiple refered from 3 places.'>aeGetTime</a>(<b>long</b> *seconds, <b>long</b> *milliseconds)
+<a name='L147'><font color='red'>{</font>
+<a name='L148'>    <b>struct</b> timeval tv;
+<a name='L149'>
+<a name='L150'>    gettimeofday(&amp;tv, NULL);
+<a name='L151'>    *seconds = tv.tv_sec;
+<a name='L152'>    *milliseconds = tv.tv_usec/1000;
+<a name='L153'><font color='red'>}</font>
+<a name='L154'>
+<a name='L155'><b>static</b> <b>void</b> <a href='../R/1230.html' title='Multiple refered from 2 places.'>aeAddMillisecondsToNow</a>(<b>long</b> <b>long</b> milliseconds, <b>long</b> *sec, <b>long</b> *ms) <font color='red'>{</font>
+<a name='L156'>    <b>long</b> cur_sec, cur_ms, when_sec, when_ms;
+<a name='L157'>
+<a name='L158'>    <a href='../S/36.html#L146' title='Defined at 146 in src/ae.c.'>aeGetTime</a>(&amp;cur_sec, &amp;cur_ms);
+<a name='L159'>    when_sec = cur_sec + milliseconds/1000;
+<a name='L160'>    when_ms = cur_ms + milliseconds%1000;
+<a name='L161'>    <b>if</b> (when_ms &gt;= 1000) <font color='red'>{</font>
+<a name='L162'>        when_sec ++;
+<a name='L163'>        when_ms -= 1000;
+<a name='L164'>    <font color='red'>}</font>
+<a name='L165'>    *sec = when_sec;
+<a name='L166'>    *ms = when_ms;
+<a name='L167'><font color='red'>}</font>
+<a name='L168'>
+<a name='L169'><b>long</b> <b>long</b> <a href='../R/1243.html' title='Multiple refered from 3 places.'>aeCreateTimeEvent</a>(aeEventLoop *eventLoop, <b>long</b> <b>long</b> milliseconds,
+<a name='L170'>        aeTimeProc *proc, <b>void</b> *clientData,
+<a name='L171'>        aeEventFinalizerProc *finalizerProc)
+<a name='L172'><font color='red'>{</font>
+<a name='L173'>    <b>long</b> <b>long</b> id = eventLoop-&gt;timeEventNextId++;
+<a name='L174'>    <a href='../D/1522.html' title='Multiple defined in 2 places.'>aeTimeEvent</a> *te;
+<a name='L175'>
+<a name='L176'>    te = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(<b>sizeof</b>(*te));
+<a name='L177'>    <b>if</b> (te == NULL) <b>return</b> <a href='../S/38.html#L37' title='Defined at 37 in src/ae.h.'>AE_ERR</a>;
+<a name='L178'>    te-&gt;id = id;
+<a name='L179'>    <a href='../S/36.html#L155' title='Defined at 155 in src/ae.c.'>aeAddMillisecondsToNow</a>(milliseconds,&amp;te-&gt;when_sec,&amp;te-&gt;when_ms);
+<a name='L180'>    te-&gt;timeProc = proc;
+<a name='L181'>    te-&gt;finalizerProc = finalizerProc;
+<a name='L182'>    te-&gt;clientData = clientData;
+<a name='L183'>    te-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = eventLoop-&gt;timeEventHead;
+<a name='L184'>    eventLoop-&gt;timeEventHead = te;
+<a name='L185'>    <b>return</b> id;
+<a name='L186'><font color='red'>}</font>
+<a name='L187'>
+<a name='L188'><b>int</b> <a href='../R/1246.html' title='Multiple refered from 2 places.'>aeDeleteTimeEvent</a>(aeEventLoop *eventLoop, <b>long</b> <b>long</b> id)
+<a name='L189'><font color='red'>{</font>
+<a name='L190'>    <a href='../D/1522.html' title='Multiple defined in 2 places.'>aeTimeEvent</a> *te, *prev = NULL;
+<a name='L191'>
+<a name='L192'>    te = eventLoop-&gt;timeEventHead;
+<a name='L193'>    <b>while</b>(te) <font color='red'>{</font>
+<a name='L194'>        <b>if</b> (te-&gt;id == id) <font color='red'>{</font>
+<a name='L195'>            <b>if</b> (prev == NULL)
+<a name='L196'>                eventLoop-&gt;timeEventHead = te-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L197'>            <b>else</b>
+<a name='L198'>                prev-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a> = te-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L199'>            <b>if</b> (te-&gt;finalizerProc)
+<a name='L200'>                te-&gt;finalizerProc(eventLoop, te-&gt;clientData);
+<a name='L201'>            <a href='../S/39.html#L192' title='Defined at 192 in src/zmalloc.c.'>zfree</a>(te);
+<a name='L202'>            <b>return</b> <a href='../S/38.html#L36' title='Defined at 36 in src/ae.h.'>AE_OK</a>;
+<a name='L203'>        <font color='red'>}</font>
+<a name='L204'>        prev = te;
+<a name='L205'>        te = te-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L206'>    <font color='red'>}</font>
+<a name='L207'>    <b>return</b> <a href='../S/38.html#L37' title='Defined at 37 in src/ae.h.'>AE_ERR</a>; <i><font color='green'>/* NO event with the specified ID found */</font></i>
+<a name='L208'><font color='red'>}</font>
+<a name='L209'>
+<a name='L210'><i><font color='green'>/* Search the first timer to fire.</font></i>
+<a name='L211'><i><font color='green'> * This operation is useful to know how many time the select can be</font></i>
+<a name='L212'><i><font color='green'> * put in sleep without to delay any event.</font></i>
+<a name='L213'><i><font color='green'> * If there are no timers NULL is returned.</font></i>
+<a name='L214'><i><font color='green'> *</font></i>
+<a name='L215'><i><font color='green'> * Note that's O(N) since time events are unsorted.</font></i>
+<a name='L216'><i><font color='green'> * Possible optimizations (not needed by Redis so far, but...):</font></i>
+<a name='L217'><i><font color='green'> * 1) Insert the event in order, so that the nearest is just the head.</font></i>
+<a name='L218'><i><font color='green'> *    Much better but still insertion or deletion of timers is O(N).</font></i>
+<a name='L219'><i><font color='green'> * 2) Use a skiplist to have this operation as O(1) and insertion as O(log(N)).</font></i>
+<a name='L220'><i><font color='green'> */</font></i>
+<a name='L221'><b>static</b> <a href='../D/1522.html' title='Multiple defined in 2 places.'>aeTimeEvent</a> *<a href='../S/36.html#L336' title='Refered from 336 in src/ae.c.'>aeSearchNearestTimer</a>(aeEventLoop *eventLoop)
+<a name='L222'><font color='red'>{</font>
+<a name='L223'>    <a href='../D/1522.html' title='Multiple defined in 2 places.'>aeTimeEvent</a> *te = eventLoop-&gt;timeEventHead;
+<a name='L224'>    <a href='../D/1522.html' title='Multiple defined in 2 places.'>aeTimeEvent</a> *nearest = NULL;
+<a name='L225'>
+<a name='L226'>    <b>while</b>(te) <font color='red'>{</font>
+<a name='L227'>        <b>if</b> (!nearest || te-&gt;when_sec &lt; nearest-&gt;when_sec ||
+<a name='L228'>                (te-&gt;when_sec == nearest-&gt;when_sec &amp;&amp;
+<a name='L229'>                 te-&gt;when_ms &lt; nearest-&gt;when_ms))
+<a name='L230'>            nearest = te;
+<a name='L231'>        te = te-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L232'>    <font color='red'>}</font>
+<a name='L233'>    <b>return</b> nearest;
+<a name='L234'><font color='red'>}</font>
+<a name='L235'>
+<a name='L236'><i><font color='green'>/* Process time events */</font></i>
+<a name='L237'><b>static</b> <b>int</b> <a href='../S/36.html#L389' title='Refered from 389 in src/ae.c.'>processTimeEvents</a>(aeEventLoop *eventLoop) <font color='red'>{</font>
+<a name='L238'>    <b>int</b> processed = 0;
+<a name='L239'>    <a href='../D/1522.html' title='Multiple defined in 2 places.'>aeTimeEvent</a> *te;
+<a name='L240'>    <b>long</b> <b>long</b> maxId;
+<a name='L241'>    time_t now = time(NULL);
+<a name='L242'>
+<a name='L243'>    <i><font color='green'>/* If the system clock is moved to the future, and then set back to the</font></i>
+<a name='L244'><i><font color='green'>     * right value, time events may be delayed in a random way. Often this</font></i>
+<a name='L245'><i><font color='green'>     * means that scheduled operations will not be performed soon enough.</font></i>
+<a name='L246'><i><font color='green'>     *</font></i>
+<a name='L247'><i><font color='green'>     * Here we try to detect system clock skews, and force all the time</font></i>
+<a name='L248'><i><font color='green'>     * events to be processed ASAP when this happens: the idea is that</font></i>
+<a name='L249'><i><font color='green'>     * processing events earlier is less dangerous than delaying them</font></i>
+<a name='L250'><i><font color='green'>     * indefinitely, and practice suggests it is. */</font></i>
+<a name='L251'>    <b>if</b> (now &lt; eventLoop-&gt;lastTime) <font color='red'>{</font>
+<a name='L252'>        te = eventLoop-&gt;timeEventHead;
+<a name='L253'>        <b>while</b>(te) <font color='red'>{</font>
+<a name='L254'>            te-&gt;when_sec = 0;
+<a name='L255'>            te = te-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L256'>        <font color='red'>}</font>
+<a name='L257'>    <font color='red'>}</font>
+<a name='L258'>    eventLoop-&gt;lastTime = now;
+<a name='L259'>
+<a name='L260'>    te = eventLoop-&gt;timeEventHead;
+<a name='L261'>    maxId = eventLoop-&gt;timeEventNextId-1;
+<a name='L262'>    <b>while</b>(te) <font color='red'>{</font>
+<a name='L263'>        <b>long</b> now_sec, now_ms;
+<a name='L264'>        <b>long</b> <b>long</b> id;
+<a name='L265'>
+<a name='L266'>        <b>if</b> (te-&gt;id &gt; maxId) <font color='red'>{</font>
+<a name='L267'>            te = te-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L268'>            <b>continue</b>;
+<a name='L269'>        <font color='red'>}</font>
+<a name='L270'>        <a href='../S/36.html#L146' title='Defined at 146 in src/ae.c.'>aeGetTime</a>(&amp;now_sec, &amp;now_ms);
+<a name='L271'>        <b>if</b> (now_sec &gt; te-&gt;when_sec ||
+<a name='L272'>            (now_sec == te-&gt;when_sec &amp;&amp; now_ms &gt;= te-&gt;when_ms))
+<a name='L273'>        <font color='red'>{</font>
+<a name='L274'>            <b>int</b> retval;
+<a name='L275'>
+<a name='L276'>            id = te-&gt;id;
+<a name='L277'>            retval = te-&gt;timeProc(eventLoop, id, te-&gt;clientData);
+<a name='L278'>            processed++;
+<a name='L279'>            <i><font color='green'>/* After an event is processed our time event list may</font></i>
+<a name='L280'><i><font color='green'>             * no longer be the same, so we restart from head.</font></i>
+<a name='L281'><i><font color='green'>             * Still we make sure to don't process events registered</font></i>
+<a name='L282'><i><font color='green'>             * by event handlers itself in order to don't loop forever.</font></i>
+<a name='L283'><i><font color='green'>             * To do so we saved the max ID we want to handle.</font></i>
+<a name='L284'><i><font color='green'>             *</font></i>
+<a name='L285'><i><font color='green'>             * FUTURE OPTIMIZATIONS:</font></i>
+<a name='L286'><i><font color='green'>             * Note that this is NOT great algorithmically. Redis uses</font></i>
+<a name='L287'><i><font color='green'>             * a single time event so it's not a problem but the right</font></i>
+<a name='L288'><i><font color='green'>             * way to do this is to add the new elements on head, and</font></i>
+<a name='L289'><i><font color='green'>             * to flag deleted elements in a special way for later</font></i>
+<a name='L290'><i><font color='green'>             * deletion (putting references to the nodes to delete into</font></i>
+<a name='L291'><i><font color='green'>             * another linked list). */</font></i>
+<a name='L292'>            <b>if</b> (retval != <a href='../S/38.html#L48' title='Defined at 48 in src/ae.h.'>AE_NOMORE</a>) <font color='red'>{</font>
+<a name='L293'>                <a href='../S/36.html#L155' title='Defined at 155 in src/ae.c.'>aeAddMillisecondsToNow</a>(retval,&amp;te-&gt;when_sec,&amp;te-&gt;when_ms);
+<a name='L294'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L295'>                <a href='../S/36.html#L188' title='Defined at 188 in src/ae.c.'>aeDeleteTimeEvent</a>(eventLoop, id);
+<a name='L296'>            <font color='red'>}</font>
+<a name='L297'>            te = eventLoop-&gt;timeEventHead;
+<a name='L298'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L299'>            te = te-&gt;<a href='../D/3419.html' title='Multiple defined in 2 places.'>next</a>;
+<a name='L300'>        <font color='red'>}</font>
+<a name='L301'>    <font color='red'>}</font>
+<a name='L302'>    <b>return</b> processed;
+<a name='L303'><font color='red'>}</font>
+<a name='L304'>
+<a name='L305'><i><font color='green'>/* Process every pending time event, then every pending file event</font></i>
+<a name='L306'><i><font color='green'> * (that may be registered by time event callbacks just processed).</font></i>
+<a name='L307'><i><font color='green'> * Without special flags the function sleeps until some file event</font></i>
+<a name='L308'><i><font color='green'> * fires, or when the next time event occurrs (if any).</font></i>
+<a name='L309'><i><font color='green'> *</font></i>
+<a name='L310'><i><font color='green'> * If flags is 0, the function does nothing and returns.</font></i>
+<a name='L311'><i><font color='green'> * if flags has AE_ALL_EVENTS set, all the kind of events are processed.</font></i>
+<a name='L312'><i><font color='green'> * if flags has AE_FILE_EVENTS set, file events are processed.</font></i>
+<a name='L313'><i><font color='green'> * if flags has AE_TIME_EVENTS set, time events are processed.</font></i>
+<a name='L314'><i><font color='green'> * if flags has AE_DONT_WAIT set the function returns ASAP until all</font></i>
+<a name='L315'><i><font color='green'> * the events that's possible to process without to wait are processed.</font></i>
+<a name='L316'><i><font color='green'> *</font></i>
+<a name='L317'><i><font color='green'> * The function returns the number of events processed. */</font></i>
+<a name='L318'><b>int</b> <a href='../R/1256.html' title='Multiple refered from 5 places.'>aeProcessEvents</a>(aeEventLoop *eventLoop, <b>int</b> flags)
+<a name='L319'><font color='red'>{</font>
+<a name='L320'>    <b>int</b> processed = 0, numevents;
+<a name='L321'>
+<a name='L322'>    <i><font color='green'>/* Nothing to do? return ASAP */</font></i>
+<a name='L323'>    <b>if</b> (!(flags &amp; <a href='../S/38.html#L44' title='Defined at 44 in src/ae.h.'>AE_TIME_EVENTS</a>) &amp;&amp; !(flags &amp; <a href='../S/38.html#L43' title='Defined at 43 in src/ae.h.'>AE_FILE_EVENTS</a>)) <b>return</b> 0;
+<a name='L324'>
+<a name='L325'>    <i><font color='green'>/* Note that we want call select() even if there are no</font></i>
+<a name='L326'><i><font color='green'>     * file events to process as long as we want to process time</font></i>
+<a name='L327'><i><font color='green'>     * events, in order to sleep until the next time event is ready</font></i>
+<a name='L328'><i><font color='green'>     * to fire. */</font></i>
+<a name='L329'>    <b>if</b> (eventLoop-&gt;maxfd != -1 ||
+<a name='L330'>        ((flags &amp; <a href='../S/38.html#L44' title='Defined at 44 in src/ae.h.'>AE_TIME_EVENTS</a>) &amp;&amp; !(flags &amp; <a href='../S/38.html#L46' title='Defined at 46 in src/ae.h.'>AE_DONT_WAIT</a>))) <font color='red'>{</font>
+<a name='L331'>        <b>int</b> j;
+<a name='L332'>        <a href='../D/1522.html' title='Multiple defined in 2 places.'>aeTimeEvent</a> *shortest = NULL;
+<a name='L333'>        <b>struct</b> timeval tv, *tvp;
+<a name='L334'>
+<a name='L335'>        <b>if</b> (flags &amp; <a href='../S/38.html#L44' title='Defined at 44 in src/ae.h.'>AE_TIME_EVENTS</a> &amp;&amp; !(flags &amp; <a href='../S/38.html#L46' title='Defined at 46 in src/ae.h.'>AE_DONT_WAIT</a>))
+<a name='L336'>            shortest = <a href='../S/36.html#L221' title='Defined at 221 in src/ae.c.'>aeSearchNearestTimer</a>(eventLoop);
+<a name='L337'>        <b>if</b> (shortest) <font color='red'>{</font>
+<a name='L338'>            <b>long</b> now_sec, now_ms;
+<a name='L339'>
+<a name='L340'>            <i><font color='green'>/* Calculate the time missing for the nearest</font></i>
+<a name='L341'><i><font color='green'>             * timer to fire. */</font></i>
+<a name='L342'>            <a href='../S/36.html#L146' title='Defined at 146 in src/ae.c.'>aeGetTime</a>(&amp;now_sec, &amp;now_ms);
+<a name='L343'>            tvp = &amp;tv;
+<a name='L344'>            tvp-&gt;tv_sec = shortest-&gt;when_sec - now_sec;
+<a name='L345'>            <b>if</b> (shortest-&gt;when_ms &lt; now_ms) <font color='red'>{</font>
+<a name='L346'>                tvp-&gt;tv_usec = ((shortest-&gt;when_ms+1000) - now_ms)*1000;
+<a name='L347'>                tvp-&gt;tv_sec --;
+<a name='L348'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L349'>                tvp-&gt;tv_usec = (shortest-&gt;when_ms - now_ms)*1000;
+<a name='L350'>            <font color='red'>}</font>
+<a name='L351'>            <b>if</b> (tvp-&gt;tv_sec &lt; 0) tvp-&gt;tv_sec = 0;
+<a name='L352'>            <b>if</b> (tvp-&gt;tv_usec &lt; 0) tvp-&gt;tv_usec = 0;
+<a name='L353'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L354'>            <i><font color='green'>/* If we have to check for events but need to return</font></i>
+<a name='L355'><i><font color='green'>             * ASAP because of AE_DONT_WAIT we need to se the timeout</font></i>
+<a name='L356'><i><font color='green'>             * to zero */</font></i>
+<a name='L357'>            <b>if</b> (flags &amp; <a href='../S/38.html#L46' title='Defined at 46 in src/ae.h.'>AE_DONT_WAIT</a>) <font color='red'>{</font>
+<a name='L358'>                tv.tv_sec = tv.tv_usec = 0;
+<a name='L359'>                tvp = &amp;tv;
+<a name='L360'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L361'>                <i><font color='green'>/* Otherwise we can block */</font></i>
+<a name='L362'>                tvp = NULL; <i><font color='green'>/* wait forever */</font></i>
+<a name='L363'>            <font color='red'>}</font>
+<a name='L364'>        <font color='red'>}</font>
+<a name='L365'>
+<a name='L366'>        numevents = <a href='../D/1500.html' title='Multiple defined in 4 places.'>aeApiPoll</a>(eventLoop, tvp);
+<a name='L367'>        <b>for</b> (j = 0; j &lt; numevents; j++) <font color='red'>{</font>
+<a name='L368'>            <a href='../D/1511.html' title='Multiple defined in 2 places.'>aeFileEvent</a> *fe = &amp;eventLoop-&gt;events[eventLoop-&gt;fired[j].fd];
+<a name='L369'>            <b>int</b> mask = eventLoop-&gt;fired[j].mask;
+<a name='L370'>            <b>int</b> fd = eventLoop-&gt;fired[j].fd;
+<a name='L371'>            <b>int</b> rfired = 0;
+<a name='L372'>
+<a name='L373'>            <i><font color='green'>/* note the fe-&gt;mask &amp; mask &amp; ... code: maybe an already processed</font></i>
+<a name='L374'><i><font color='green'>             * event removed an element that fired and we still didn't</font></i>
+<a name='L375'><i><font color='green'>             * processed, so we check if the event is still valid. */</font></i>
+<a name='L376'>            <b>if</b> (fe-&gt;mask &amp; mask &amp; <a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>) <font color='red'>{</font>
+<a name='L377'>                rfired = 1;
+<a name='L378'>                fe-&gt;rfileProc(eventLoop,fd,fe-&gt;clientData,mask);
+<a name='L379'>            <font color='red'>}</font>
+<a name='L380'>            <b>if</b> (fe-&gt;mask &amp; mask &amp; <a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>) <font color='red'>{</font>
+<a name='L381'>                <b>if</b> (!rfired || fe-&gt;wfileProc != fe-&gt;rfileProc)
+<a name='L382'>                    fe-&gt;wfileProc(eventLoop,fd,fe-&gt;clientData,mask);
+<a name='L383'>            <font color='red'>}</font>
+<a name='L384'>            processed++;
+<a name='L385'>        <font color='red'>}</font>
+<a name='L386'>    <font color='red'>}</font>
+<a name='L387'>    <i><font color='green'>/* Check time events */</font></i>
+<a name='L388'>    <b>if</b> (flags &amp; <a href='../S/38.html#L44' title='Defined at 44 in src/ae.h.'>AE_TIME_EVENTS</a>)
+<a name='L389'>        processed += <a href='../S/36.html#L237' title='Defined at 237 in src/ae.c.'>processTimeEvents</a>(eventLoop);
+<a name='L390'>
+<a name='L391'>    <b>return</b> processed; <i><font color='green'>/* return the number of processed file/time events */</font></i>
+<a name='L392'><font color='red'>}</font>
+<a name='L393'>
+<a name='L394'><i><font color='green'>/* Wait for millseconds until the given file descriptor becomes</font></i>
+<a name='L395'><i><font color='green'> * writable/readable/exception */</font></i>
+<a name='L396'><b>int</b> <a href='../R/1262.html' title='Multiple refered from 5 places.'>aeWait</a>(<b>int</b> fd, <b>int</b> mask, <b>long</b> <b>long</b> milliseconds) <font color='red'>{</font>
+<a name='L397'>    <b>struct</b> pollfd pfd;
+<a name='L398'>    <b>int</b> retmask = 0, retval;
+<a name='L399'>
+<a name='L400'>    memset(&amp;pfd, 0, <b>sizeof</b>(pfd));
+<a name='L401'>    pfd.fd = fd;
+<a name='L402'>    <b>if</b> (mask &amp; <a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>) pfd.events |= POLLIN;
+<a name='L403'>    <b>if</b> (mask &amp; <a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>) pfd.events |= POLLOUT;
+<a name='L404'>
+<a name='L405'>    <b>if</b> ((retval = poll(&amp;pfd, 1, milliseconds))== 1) <font color='red'>{</font>
+<a name='L406'>        <b>if</b> (pfd.revents &amp; POLLIN) retmask |= <a href='../S/38.html#L40' title='Defined at 40 in src/ae.h.'>AE_READABLE</a>;
+<a name='L407'>        <b>if</b> (pfd.revents &amp; POLLOUT) retmask |= <a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>;
+<a name='L408'>        <b>if</b> (pfd.revents &amp; POLLERR) retmask |= <a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>;
+<a name='L409'>        <b>if</b> (pfd.revents &amp; POLLHUP) retmask |= <a href='../S/38.html#L41' title='Defined at 41 in src/ae.h.'>AE_WRITABLE</a>;
+<a name='L410'>        <b>return</b> retmask;
+<a name='L411'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L412'>        <b>return</b> retval;
+<a name='L413'>    <font color='red'>}</font>
+<a name='L414'><font color='red'>}</font>
+<a name='L415'>
+<a name='L416'><b>void</b> <a href='../R/1255.html' title='Multiple refered from 5 places.'>aeMain</a>(aeEventLoop *eventLoop) <font color='red'>{</font>
+<a name='L417'>    eventLoop-&gt;stop = 0;
+<a name='L418'>    <b>while</b> (!eventLoop-&gt;stop) <font color='red'>{</font>
+<a name='L419'>        <b>if</b> (eventLoop-&gt;beforesleep != NULL)
+<a name='L420'>            eventLoop-&gt;beforesleep(eventLoop);
+<a name='L421'>        <a href='../S/36.html#L318' title='Defined at 318 in src/ae.c.'>aeProcessEvents</a>(eventLoop, <a href='../S/38.html#L45' title='Defined at 45 in src/ae.h.'>AE_ALL_EVENTS</a>);
+<a name='L422'>    <font color='red'>}</font>
+<a name='L423'><font color='red'>}</font>
+<a name='L424'>
+<a name='L425'><b>char</b> *<a href='../R/1252.html' title='Multiple refered from 2 places.'>aeGetApiName</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L426'>    <b>return</b> <a href='../D/1499.html' title='Multiple defined in 4 places.'>aeApiName</a>();
+<a name='L427'><font color='red'>}</font>
+<a name='L428'>
+<a name='L429'><b>void</b> <a href='../R/1258.html' title='Multiple refered from 2 places.'>aeSetBeforeSleepProc</a>(aeEventLoop *eventLoop, aeBeforeSleepProc *beforesleep) <font color='red'>{</font>
+<a name='L430'>    eventLoop-&gt;beforesleep = beforesleep;
+<a name='L431'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L62'>[^]</a><a href='#L429'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

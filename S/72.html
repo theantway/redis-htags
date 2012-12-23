@@ -1,0 +1,508 @@
+<html>
+<head>
+<title>src/zipmap.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/zipmap.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L98'>[^]</a><a href='#L409'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L98' title='Defined at 98.'>zipmapNew</a>
+<li><a href='#L107' title='Defined at 107.'>zipmapDecodeLength</a>
+<li><a href='#L118' title='Defined at 118.'>zipmapEncodeLength</a>
+<li><a href='#L140' title='Defined at 140.'>zipmapLookupRaw</a>
+<li><a href='#L170' title='Defined at 170.'>zipmapRequiredLength</a>
+<li><a href='#L180' title='Defined at 180.'>zipmapRawKeyLength</a>
+<li><a href='#L187' title='Defined at 187.'>zipmapRawValueLength</a>
+<li><a href='#L199' title='Defined at 199.'>zipmapRawEntryLength</a>
+<li><a href='#L204' title='Defined at 204.'>zipmapResize</a>
+<li><a href='#L213' title='Defined at 213.'>zipmapSet</a>
+<li><a href='#L283' title='Defined at 283.'>zipmapDel</a>
+<li><a href='#L302' title='Defined at 302.'>zipmapRewind</a>
+<li><a href='#L317' title='Defined at 317.'>zipmapNext</a>
+<li><a href='#L336' title='Defined at 336.'>zipmapGet</a>
+<li><a href='#L347' title='Defined at 347.'>zipmapExists</a>
+<li><a href='#L352' title='Defined at 352.'>zipmapLen</a>
+<li><a href='#L369' title='Defined at 369.'>zipmapBlobLen</a>
+<li><a href='#L376' title='Defined at 376.'>zipmapRepr</a>
+<li><a href='#L409' title='Defined at 409.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/* String -&gt; String Map data structure optimized for size.</font></i>
+<a name='L2'><i><font color='green'> * This file implements a data structure mapping strings to other strings</font></i>
+<a name='L3'><i><font color='green'> * implementing an O(n) lookup data structure designed to be very memory</font></i>
+<a name='L4'><i><font color='green'> * efficient.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * The Redis Hash type uses this data structure for hashes composed of a small</font></i>
+<a name='L7'><i><font color='green'> * number of elements, to switch to an hash table once a given number of</font></i>
+<a name='L8'><i><font color='green'> * elements is reached.</font></i>
+<a name='L9'><i><font color='green'> *</font></i>
+<a name='L10'><i><font color='green'> * Given that many times Redis Hashes are used to represent objects composed</font></i>
+<a name='L11'><i><font color='green'> * of few fields, this is a very big win in terms of used memory.</font></i>
+<a name='L12'><i><font color='green'> *</font></i>
+<a name='L13'><i><font color='green'> * --------------------------------------------------------------------------</font></i>
+<a name='L14'><i><font color='green'> *</font></i>
+<a name='L15'><i><font color='green'> * Copyright (c) 2009-2010, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L16'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L19'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L20'><i><font color='green'> *</font></i>
+<a name='L21'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L22'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L23'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L24'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L25'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L26'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L27'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L28'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L29'><i><font color='green'> *</font></i>
+<a name='L30'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L31'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L32'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L33'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L34'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L35'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L36'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L37'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L38'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L39'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L40'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L41'><i><font color='green'> */</font></i>
+<a name='L42'>
+<a name='L43'><i><font color='green'>/* Memory layout of a zipmap, for the map "foo" =&gt; "bar", "hello" =&gt; "world":</font></i>
+<a name='L44'><i><font color='green'> *</font></i>
+<a name='L45'><i><font color='green'> * &lt;zmlen&gt;&lt;len&gt;"foo"&lt;len&gt;&lt;free&gt;"bar"&lt;len&gt;"hello"&lt;len&gt;&lt;free&gt;"world"</font></i>
+<a name='L46'><i><font color='green'> *</font></i>
+<a name='L47'><i><font color='green'> * &lt;zmlen&gt; is 1 byte length that holds the current size of the zipmap.</font></i>
+<a name='L48'><i><font color='green'> * When the zipmap length is greater than or equal to 254, this value</font></i>
+<a name='L49'><i><font color='green'> * is not used and the zipmap needs to be traversed to find out the length.</font></i>
+<a name='L50'><i><font color='green'> *</font></i>
+<a name='L51'><i><font color='green'> * &lt;len&gt; is the length of the following string (key or value).</font></i>
+<a name='L52'><i><font color='green'> * &lt;len&gt; lengths are encoded in a single value or in a 5 bytes value.</font></i>
+<a name='L53'><i><font color='green'> * If the first byte value (as an unsigned 8 bit value) is between 0 and</font></i>
+<a name='L54'><i><font color='green'> * 252, it's a single-byte length. If it is 253 then a four bytes unsigned</font></i>
+<a name='L55'><i><font color='green'> * integer follows (in the host byte ordering). A value of 255 is used to</font></i>
+<a name='L56'><i><font color='green'> * signal the end of the hash. The special value 254 is used to mark</font></i>
+<a name='L57'><i><font color='green'> * empty space that can be used to add new key/value pairs.</font></i>
+<a name='L58'><i><font color='green'> *</font></i>
+<a name='L59'><i><font color='green'> * &lt;free&gt; is the number of free unused bytes after the string, resulting </font></i>
+<a name='L60'><i><font color='green'> * from modification of values associated to a key. For instance if "foo"</font></i>
+<a name='L61'><i><font color='green'> * is set to "bar", and later "foo" will be set to "hi", it will have a</font></i>
+<a name='L62'><i><font color='green'> * free byte to use if the value will enlarge again later, or even in</font></i>
+<a name='L63'><i><font color='green'> * order to add a key/value pair if it fits.</font></i>
+<a name='L64'><i><font color='green'> *</font></i>
+<a name='L65'><i><font color='green'> * &lt;free&gt; is always an unsigned 8 bit number, because if after an</font></i>
+<a name='L66'><i><font color='green'> * update operation there are more than a few free bytes, the zipmap will be</font></i>
+<a name='L67'><i><font color='green'> * reallocated to make sure it is as small as possible.</font></i>
+<a name='L68'><i><font color='green'> *</font></i>
+<a name='L69'><i><font color='green'> * The most compact representation of the above two elements hash is actually:</font></i>
+<a name='L70'><i><font color='green'> *</font></i>
+<a name='L71'><i><font color='green'> * "\x02\x03foo\x03\x00bar\x05hello\x05\x00world\xff"</font></i>
+<a name='L72'><i><font color='green'> *</font></i>
+<a name='L73'><i><font color='green'> * Note that because keys and values are prefixed length "objects",</font></i>
+<a name='L74'><i><font color='green'> * the lookup will take O(N) where N is the number of elements</font></i>
+<a name='L75'><i><font color='green'> * in the zipmap and *not* the number of bytes needed to represent the zipmap.</font></i>
+<a name='L76'><i><font color='green'> * This lowers the constant times considerably.</font></i>
+<a name='L77'><i><font color='green'> */</font></i>
+<a name='L78'>
+<a name='L79'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L80'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L81'><font color='darkred'>#include</font> &lt;assert.h&gt;
+<a name='L82'><font color='darkred'>#include</font> "<a href='28.html'>zmalloc.h</a>"
+<a name='L83'><font color='darkred'>#include</font> "<a href='42.html'>endianconv.h</a>"
+<a name='L84'>
+<a name='L85'><font color='darkred'>#define</font> <a href='../R/1068.html' title='Multiple refered from 10 places.'>ZIPMAP_BIGLEN</a> 254
+<a name='L86'><font color='darkred'>#define</font> <a href='../R/1069.html' title='Multiple refered from 5 places.'>ZIPMAP_END</a> 255
+<a name='L87'>
+<a name='L88'><i><font color='green'>/* The following defines the max value for the &lt;free&gt; field described in the</font></i>
+<a name='L89'><i><font color='green'> * comments above, that is, the max number of trailing bytes in a value. */</font></i>
+<a name='L90'><font color='darkred'>#define</font> <a href='../S/72.html#L256' title='Refered from 256 in src/zipmap.c.'>ZIPMAP_VALUE_MAX_FREE</a> 4
+<a name='L91'>
+<a name='L92'><i><font color='green'>/* The following macro returns the number of bytes needed to encode the length</font></i>
+<a name='L93'><i><font color='green'> * for the integer value _l, that is, 1 byte for lengths &lt; ZIPMAP_BIGLEN and</font></i>
+<a name='L94'><i><font color='green'> * 5 bytes for all the other lengths. */</font></i>
+<a name='L95'><font color='darkred'>#define</font> <a href='../R/1070.html' title='Multiple refered from 4 places.'>ZIPMAP_LEN_BYTES</a>(_l) (((_l) &lt; <a href='../S/72.html#L85' title='Defined at 85 in src/zipmap.c.'>ZIPMAP_BIGLEN</a>) ? 1 : <b>sizeof</b>(<b>unsigned</b> <b>int</b>)+1)
+<a name='L96'>
+<a name='L97'><i><font color='green'>/* Create a new empty zipmap. */</font></i>
+<a name='L98'><b>unsigned</b> <b>char</b> *<a href='../R/4139.html' title='Multiple refered from 2 places.'>zipmapNew</a>(<b>void</b>) <font color='red'>{</font>
+<a name='L99'>    <b>unsigned</b> <b>char</b> *zm = <a href='../S/39.html#L121' title='Defined at 121 in src/zmalloc.c.'>zmalloc</a>(2);
+<a name='L100'>
+<a name='L101'>    zm[0] = 0; <i><font color='green'>/* Length */</font></i>
+<a name='L102'>    zm[1] = <a href='../S/72.html#L86' title='Defined at 86 in src/zipmap.c.'>ZIPMAP_END</a>;
+<a name='L103'>    <b>return</b> zm;
+<a name='L104'><font color='red'>}</font>
+<a name='L105'>
+<a name='L106'><i><font color='green'>/* Decode the encoded length pointed by 'p' */</font></i>
+<a name='L107'><b>static</b> <b>unsigned</b> <b>int</b> <a href='../R/4132.html' title='Multiple refered from 9 places.'>zipmapDecodeLength</a>(<b>unsigned</b> <b>char</b> *p) <font color='red'>{</font>
+<a name='L108'>    <b>unsigned</b> <b>int</b> len = *p;
+<a name='L109'>
+<a name='L110'>    <b>if</b> (len &lt; <a href='../S/72.html#L85' title='Defined at 85 in src/zipmap.c.'>ZIPMAP_BIGLEN</a>) <b>return</b> len;
+<a name='L111'>    memcpy(&amp;len,p+1,<b>sizeof</b>(<b>unsigned</b> <b>int</b>));
+<a name='L112'>    <a href='../D/3346.html' title='Multiple defined in 2 places.'>memrev32ifbe</a>(&amp;len);
+<a name='L113'>    <b>return</b> len;
+<a name='L114'><font color='red'>}</font>
+<a name='L115'>
+<a name='L116'><i><font color='green'>/* Encode the length 'l' writing it in 'p'. If p is NULL it just returns</font></i>
+<a name='L117'><i><font color='green'> * the amount of bytes required to encode such a length. */</font></i>
+<a name='L118'><b>static</b> <b>unsigned</b> <b>int</b> <a href='../R/4134.html' title='Multiple refered from 8 places.'>zipmapEncodeLength</a>(<b>unsigned</b> <b>char</b> *p, <b>unsigned</b> <b>int</b> len) <font color='red'>{</font>
+<a name='L119'>    <b>if</b> (p == NULL) <font color='red'>{</font>
+<a name='L120'>        <b>return</b> <a href='../S/72.html#L95' title='Defined at 95 in src/zipmap.c.'>ZIPMAP_LEN_BYTES</a>(len);
+<a name='L121'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L122'>        <b>if</b> (len &lt; <a href='../S/72.html#L85' title='Defined at 85 in src/zipmap.c.'>ZIPMAP_BIGLEN</a>) <font color='red'>{</font>
+<a name='L123'>            p[0] = len;
+<a name='L124'>            <b>return</b> 1;
+<a name='L125'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L126'>            p[0] = <a href='../S/72.html#L85' title='Defined at 85 in src/zipmap.c.'>ZIPMAP_BIGLEN</a>;
+<a name='L127'>            memcpy(p+1,&amp;len,<b>sizeof</b>(len));
+<a name='L128'>            <a href='../D/3346.html' title='Multiple defined in 2 places.'>memrev32ifbe</a>(p+1);
+<a name='L129'>            <b>return</b> 1+<b>sizeof</b>(len);
+<a name='L130'>        <font color='red'>}</font>
+<a name='L131'>    <font color='red'>}</font>
+<a name='L132'><font color='red'>}</font>
+<a name='L133'>
+<a name='L134'><i><font color='green'>/* Search for a matching key, returning a pointer to the entry inside the</font></i>
+<a name='L135'><i><font color='green'> * zipmap. Returns NULL if the key is not found.</font></i>
+<a name='L136'><i><font color='green'> *</font></i>
+<a name='L137'><i><font color='green'> * If NULL is returned, and totlen is not NULL, it is set to the entire</font></i>
+<a name='L138'><i><font color='green'> * size of the zimap, so that the calling function will be able to</font></i>
+<a name='L139'><i><font color='green'> * reallocate the original zipmap to make room for more entries. */</font></i>
+<a name='L140'><b>static</b> <b>unsigned</b> <b>char</b> *<a href='../R/4138.html' title='Multiple refered from 5 places.'>zipmapLookupRaw</a>(<b>unsigned</b> <b>char</b> *zm, <b>unsigned</b> <b>char</b> *key, <b>unsigned</b> <b>int</b> klen, <b>unsigned</b> <b>int</b> *totlen) <font color='red'>{</font>
+<a name='L141'>    <b>unsigned</b> <b>char</b> *p = zm+1, *k = NULL;
+<a name='L142'>    <b>unsigned</b> <b>int</b> l,llen;
+<a name='L143'>
+<a name='L144'>    <b>while</b>(*p != <a href='../S/72.html#L86' title='Defined at 86 in src/zipmap.c.'>ZIPMAP_END</a>) <font color='red'>{</font>
+<a name='L145'>        <b>unsigned</b> <b>char</b> <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>;
+<a name='L146'>
+<a name='L147'>        <i><font color='green'>/* Match or skip the key */</font></i>
+<a name='L148'>        l = <a href='../S/72.html#L107' title='Defined at 107 in src/zipmap.c.'>zipmapDecodeLength</a>(p);
+<a name='L149'>        llen = <a href='../S/72.html#L118' title='Defined at 118 in src/zipmap.c.'>zipmapEncodeLength</a>(NULL,l);
+<a name='L150'>        <b>if</b> (key != NULL &amp;&amp; k == NULL &amp;&amp; l == klen &amp;&amp; !memcmp(p+llen,key,l)) <font color='red'>{</font>
+<a name='L151'>            <i><font color='green'>/* Only return when the user doesn't care</font></i>
+<a name='L152'><i><font color='green'>             * for the total length of the zipmap. */</font></i>
+<a name='L153'>            <b>if</b> (totlen != NULL) <font color='red'>{</font>
+<a name='L154'>                k = p;
+<a name='L155'>            <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L156'>                <b>return</b> p;
+<a name='L157'>            <font color='red'>}</font>
+<a name='L158'>        <font color='red'>}</font>
+<a name='L159'>        p += llen+l;
+<a name='L160'>        <i><font color='green'>/* Skip the value as well */</font></i>
+<a name='L161'>        l = <a href='../S/72.html#L107' title='Defined at 107 in src/zipmap.c.'>zipmapDecodeLength</a>(p);
+<a name='L162'>        p += <a href='../S/72.html#L118' title='Defined at 118 in src/zipmap.c.'>zipmapEncodeLength</a>(NULL,l);
+<a name='L163'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a> = p[0];
+<a name='L164'>        p += l+1+<a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>; <i><font color='green'>/* +1 to skip the free byte */</font></i>
+<a name='L165'>    <font color='red'>}</font>
+<a name='L166'>    <b>if</b> (totlen != NULL) *totlen = (<b>unsigned</b> <b>int</b>)(p-zm)+1;
+<a name='L167'>    <b>return</b> k;
+<a name='L168'><font color='red'>}</font>
+<a name='L169'>
+<a name='L170'><b>static</b> <b>unsigned</b> <b>long</b> <a href='../S/72.html#L215' title='Refered from 215 in src/zipmap.c.'>zipmapRequiredLength</a>(<b>unsigned</b> <b>int</b> klen, <b>unsigned</b> <b>int</b> vlen) <font color='red'>{</font>
+<a name='L171'>    <b>unsigned</b> <b>int</b> l;
+<a name='L172'>
+<a name='L173'>    l = klen+vlen+3;
+<a name='L174'>    <b>if</b> (klen &gt;= <a href='../S/72.html#L85' title='Defined at 85 in src/zipmap.c.'>ZIPMAP_BIGLEN</a>) l += 4;
+<a name='L175'>    <b>if</b> (vlen &gt;= <a href='../S/72.html#L85' title='Defined at 85 in src/zipmap.c.'>ZIPMAP_BIGLEN</a>) l += 4;
+<a name='L176'>    <b>return</b> l;
+<a name='L177'><font color='red'>}</font>
+<a name='L178'>
+<a name='L179'><i><font color='green'>/* Return the total amount used by a key (encoded length + payload) */</font></i>
+<a name='L180'><b>static</b> <b>unsigned</b> <b>int</b> <a href='../R/4142.html' title='Multiple refered from 3 places.'>zipmapRawKeyLength</a>(<b>unsigned</b> <b>char</b> *p) <font color='red'>{</font>
+<a name='L181'>    <b>unsigned</b> <b>int</b> l = <a href='../S/72.html#L107' title='Defined at 107 in src/zipmap.c.'>zipmapDecodeLength</a>(p);
+<a name='L182'>    <b>return</b> <a href='../S/72.html#L118' title='Defined at 118 in src/zipmap.c.'>zipmapEncodeLength</a>(NULL,l) + l;
+<a name='L183'><font color='red'>}</font>
+<a name='L184'>
+<a name='L185'><i><font color='green'>/* Return the total amount used by a value</font></i>
+<a name='L186'><i><font color='green'> * (encoded length + single byte free count + payload) */</font></i>
+<a name='L187'><b>static</b> <b>unsigned</b> <b>int</b> <a href='../R/4143.html' title='Multiple refered from 2 places.'>zipmapRawValueLength</a>(<b>unsigned</b> <b>char</b> *p) <font color='red'>{</font>
+<a name='L188'>    <b>unsigned</b> <b>int</b> l = <a href='../S/72.html#L107' title='Defined at 107 in src/zipmap.c.'>zipmapDecodeLength</a>(p);
+<a name='L189'>    <b>unsigned</b> <b>int</b> used;
+<a name='L190'>    
+<a name='L191'>    used = <a href='../S/72.html#L118' title='Defined at 118 in src/zipmap.c.'>zipmapEncodeLength</a>(NULL,l);
+<a name='L192'>    used += p[used] + 1 + l;
+<a name='L193'>    <b>return</b> used;
+<a name='L194'><font color='red'>}</font>
+<a name='L195'>
+<a name='L196'><i><font color='green'>/* If 'p' points to a key, this function returns the total amount of</font></i>
+<a name='L197'><i><font color='green'> * bytes used to store this entry (entry = key + associated value + trailing</font></i>
+<a name='L198'><i><font color='green'> * free space if any). */</font></i>
+<a name='L199'><b>static</b> <b>unsigned</b> <b>int</b> <a href='../R/4141.html' title='Multiple refered from 2 places.'>zipmapRawEntryLength</a>(<b>unsigned</b> <b>char</b> *p) <font color='red'>{</font>
+<a name='L200'>    <b>unsigned</b> <b>int</b> l = <a href='../S/72.html#L180' title='Defined at 180 in src/zipmap.c.'>zipmapRawKeyLength</a>(p);
+<a name='L201'>    <b>return</b> l + <a href='../S/72.html#L187' title='Defined at 187 in src/zipmap.c.'>zipmapRawValueLength</a>(p+l);
+<a name='L202'><font color='red'>}</font>
+<a name='L203'>
+<a name='L204'><b>static</b> <b>inline</b> <b>unsigned</b> <b>char</b> *<a href='../R/4146.html' title='Multiple refered from 4 places.'>zipmapResize</a>(<b>unsigned</b> <b>char</b> *zm, <b>unsigned</b> <b>int</b> len) <font color='red'>{</font>
+<a name='L205'>    zm = <a href='../S/39.html#L149' title='Defined at 149 in src/zmalloc.c.'>zrealloc</a>(zm, len);
+<a name='L206'>    zm[len-1] = <a href='../S/72.html#L86' title='Defined at 86 in src/zipmap.c.'>ZIPMAP_END</a>;
+<a name='L207'>    <b>return</b> zm;
+<a name='L208'><font color='red'>}</font>
+<a name='L209'>
+<a name='L210'><i><font color='green'>/* Set key to value, creating the key if it does not already exist.</font></i>
+<a name='L211'><i><font color='green'> * If 'update' is not NULL, *update is set to 1 if the key was</font></i>
+<a name='L212'><i><font color='green'> * already preset, otherwise to 0. */</font></i>
+<a name='L213'><b>unsigned</b> <b>char</b> *<a href='../R/4148.html' title='Multiple refered from 11 places.'>zipmapSet</a>(<b>unsigned</b> <b>char</b> *zm, <b>unsigned</b> <b>char</b> *key, <b>unsigned</b> <b>int</b> klen, <b>unsigned</b> <b>char</b> *val, <b>unsigned</b> <b>int</b> vlen, <b>int</b> *update) <font color='red'>{</font>
+<a name='L214'>    <b>unsigned</b> <b>int</b> zmlen, offset;
+<a name='L215'>    <b>unsigned</b> <b>int</b> freelen, reqlen = <a href='../S/72.html#L170' title='Defined at 170 in src/zipmap.c.'>zipmapRequiredLength</a>(klen,vlen);
+<a name='L216'>    <b>unsigned</b> <b>int</b> empty, vempty;
+<a name='L217'>    <b>unsigned</b> <b>char</b> *p;
+<a name='L218'>   
+<a name='L219'>    freelen = reqlen;
+<a name='L220'>    <b>if</b> (update) *update = 0;
+<a name='L221'>    p = <a href='../S/72.html#L140' title='Defined at 140 in src/zipmap.c.'>zipmapLookupRaw</a>(zm,key,klen,&amp;zmlen);
+<a name='L222'>    <b>if</b> (p == NULL) <font color='red'>{</font>
+<a name='L223'>        <i><font color='green'>/* Key not found: enlarge */</font></i>
+<a name='L224'>        zm = <a href='../S/72.html#L204' title='Defined at 204 in src/zipmap.c.'>zipmapResize</a>(zm, zmlen+reqlen);
+<a name='L225'>        p = zm+zmlen-1;
+<a name='L226'>        zmlen = zmlen+reqlen;
+<a name='L227'>
+<a name='L228'>        <i><font color='green'>/* Increase zipmap length (this is an insert) */</font></i>
+<a name='L229'>        <b>if</b> (zm[0] &lt; <a href='../S/72.html#L85' title='Defined at 85 in src/zipmap.c.'>ZIPMAP_BIGLEN</a>) zm[0]++;
+<a name='L230'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L231'>        <i><font color='green'>/* Key found. Is there enough space for the new value? */</font></i>
+<a name='L232'>        <i><font color='green'>/* Compute the total length: */</font></i>
+<a name='L233'>        <b>if</b> (update) *update = 1;
+<a name='L234'>        freelen = <a href='../S/72.html#L199' title='Defined at 199 in src/zipmap.c.'>zipmapRawEntryLength</a>(p);
+<a name='L235'>        <b>if</b> (freelen &lt; reqlen) <font color='red'>{</font>
+<a name='L236'>            <i><font color='green'>/* Store the offset of this key within the current zipmap, so</font></i>
+<a name='L237'><i><font color='green'>             * it can be resized. Then, move the tail backwards so this</font></i>
+<a name='L238'><i><font color='green'>             * pair fits at the current position. */</font></i>
+<a name='L239'>            offset = p-zm;
+<a name='L240'>            zm = <a href='../S/72.html#L204' title='Defined at 204 in src/zipmap.c.'>zipmapResize</a>(zm, zmlen-freelen+reqlen);
+<a name='L241'>            p = zm+offset;
+<a name='L242'>
+<a name='L243'>            <i><font color='green'>/* The +1 in the number of bytes to be moved is caused by the</font></i>
+<a name='L244'><i><font color='green'>             * end-of-zipmap byte. Note: the *original* zmlen is used. */</font></i>
+<a name='L245'>            memmove(p+reqlen, p+freelen, zmlen-(offset+freelen+1));
+<a name='L246'>            zmlen = zmlen-freelen+reqlen;
+<a name='L247'>            freelen = reqlen;
+<a name='L248'>        <font color='red'>}</font>
+<a name='L249'>    <font color='red'>}</font>
+<a name='L250'>
+<a name='L251'>    <i><font color='green'>/* We now have a suitable block where the key/value entry can</font></i>
+<a name='L252'><i><font color='green'>     * be written. If there is too much free space, move the tail</font></i>
+<a name='L253'><i><font color='green'>     * of the zipmap a few bytes to the front and shrink the zipmap,</font></i>
+<a name='L254'><i><font color='green'>     * as we want zipmaps to be very space efficient. */</font></i>
+<a name='L255'>    empty = freelen-reqlen;
+<a name='L256'>    <b>if</b> (empty &gt;= <a href='../S/72.html#L90' title='Defined at 90 in src/zipmap.c.'>ZIPMAP_VALUE_MAX_FREE</a>) <font color='red'>{</font>
+<a name='L257'>        <i><font color='green'>/* First, move the tail &lt;empty&gt; bytes to the front, then resize</font></i>
+<a name='L258'><i><font color='green'>         * the zipmap to be &lt;empty&gt; bytes smaller. */</font></i>
+<a name='L259'>        offset = p-zm;
+<a name='L260'>        memmove(p+reqlen, p+freelen, zmlen-(offset+freelen+1));
+<a name='L261'>        zmlen -= empty;
+<a name='L262'>        zm = <a href='../S/72.html#L204' title='Defined at 204 in src/zipmap.c.'>zipmapResize</a>(zm, zmlen);
+<a name='L263'>        p = zm+offset;
+<a name='L264'>        vempty = 0;
+<a name='L265'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L266'>        vempty = empty;
+<a name='L267'>    <font color='red'>}</font>
+<a name='L268'>
+<a name='L269'>    <i><font color='green'>/* Just write the key + value and we are done. */</font></i>
+<a name='L270'>    <i><font color='green'>/* Key: */</font></i>
+<a name='L271'>    p += <a href='../S/72.html#L118' title='Defined at 118 in src/zipmap.c.'>zipmapEncodeLength</a>(p,klen);
+<a name='L272'>    memcpy(p,key,klen);
+<a name='L273'>    p += klen;
+<a name='L274'>    <i><font color='green'>/* Value: */</font></i>
+<a name='L275'>    p += <a href='../S/72.html#L118' title='Defined at 118 in src/zipmap.c.'>zipmapEncodeLength</a>(p,vlen);
+<a name='L276'>    *p++ = vempty;
+<a name='L277'>    memcpy(p,val,vlen);
+<a name='L278'>    <b>return</b> zm;
+<a name='L279'><font color='red'>}</font>
+<a name='L280'>
+<a name='L281'><i><font color='green'>/* Remove the specified key. If 'deleted' is not NULL the pointed integer is</font></i>
+<a name='L282'><i><font color='green'> * set to 0 if the key was not found, to 1 if it was found and deleted. */</font></i>
+<a name='L283'><b>unsigned</b> <b>char</b> *<a href='../R/4133.html' title='Multiple refered from 2 places.'>zipmapDel</a>(<b>unsigned</b> <b>char</b> *zm, <b>unsigned</b> <b>char</b> *key, <b>unsigned</b> <b>int</b> klen, <b>int</b> *deleted) <font color='red'>{</font>
+<a name='L284'>    <b>unsigned</b> <b>int</b> zmlen, freelen;
+<a name='L285'>    <b>unsigned</b> <b>char</b> *p = <a href='../S/72.html#L140' title='Defined at 140 in src/zipmap.c.'>zipmapLookupRaw</a>(zm,key,klen,&amp;zmlen);
+<a name='L286'>    <b>if</b> (p) <font color='red'>{</font>
+<a name='L287'>        freelen = <a href='../S/72.html#L199' title='Defined at 199 in src/zipmap.c.'>zipmapRawEntryLength</a>(p);
+<a name='L288'>        memmove(p, p+freelen, zmlen-((p-zm)+freelen+1));
+<a name='L289'>        zm = <a href='../S/72.html#L204' title='Defined at 204 in src/zipmap.c.'>zipmapResize</a>(zm, zmlen-freelen);
+<a name='L290'>
+<a name='L291'>        <i><font color='green'>/* Decrease zipmap length */</font></i>
+<a name='L292'>        <b>if</b> (zm[0] &lt; <a href='../S/72.html#L85' title='Defined at 85 in src/zipmap.c.'>ZIPMAP_BIGLEN</a>) zm[0]--;
+<a name='L293'>
+<a name='L294'>        <b>if</b> (deleted) *deleted = 1;
+<a name='L295'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L296'>        <b>if</b> (deleted) *deleted = 0;
+<a name='L297'>    <font color='red'>}</font>
+<a name='L298'>    <b>return</b> zm;
+<a name='L299'><font color='red'>}</font>
+<a name='L300'>
+<a name='L301'><i><font color='green'>/* Call before iterating through elements via zipmapNext() */</font></i>
+<a name='L302'><b>unsigned</b> <b>char</b> *<a href='../R/4147.html' title='Multiple refered from 4 places.'>zipmapRewind</a>(<b>unsigned</b> <b>char</b> *zm) <font color='red'>{</font>
+<a name='L303'>    <b>return</b> zm+1;
+<a name='L304'><font color='red'>}</font>
+<a name='L305'>
+<a name='L306'><i><font color='green'>/* This function is used to iterate through all the zipmap elements.</font></i>
+<a name='L307'><i><font color='green'> * In the first call the first argument is the pointer to the zipmap + 1.</font></i>
+<a name='L308'><i><font color='green'> * In the next calls what zipmapNext returns is used as first argument.</font></i>
+<a name='L309'><i><font color='green'> * Example:</font></i>
+<a name='L310'><i><font color='green'> *</font></i>
+<a name='L311'><i><font color='green'> * unsigned char *i = zipmapRewind(my_zipmap);</font></i>
+<a name='L312'><i><font color='green'> * while((i = zipmapNext(i,&amp;key,&amp;klen,&amp;value,&amp;vlen)) != NULL) {</font></i>
+<a name='L313'><i><font color='green'> *     printf("%d bytes key at $p\n", klen, key);</font></i>
+<a name='L314'><i><font color='green'> *     printf("%d bytes value at $p\n", vlen, value);</font></i>
+<a name='L315'><i><font color='green'> * }</font></i>
+<a name='L316'><i><font color='green'> */</font></i>
+<a name='L317'><b>unsigned</b> <b>char</b> *<a href='../R/4140.html' title='Multiple refered from 4 places.'>zipmapNext</a>(<b>unsigned</b> <b>char</b> *zm, <b>unsigned</b> <b>char</b> **key, <b>unsigned</b> <b>int</b> *klen, <b>unsigned</b> <b>char</b> **value, <b>unsigned</b> <b>int</b> *vlen) <font color='red'>{</font>
+<a name='L318'>    <b>if</b> (zm[0] == <a href='../S/72.html#L86' title='Defined at 86 in src/zipmap.c.'>ZIPMAP_END</a>) <b>return</b> NULL;
+<a name='L319'>    <b>if</b> (key) <font color='red'>{</font>
+<a name='L320'>        *key = zm;
+<a name='L321'>        *klen = <a href='../S/72.html#L107' title='Defined at 107 in src/zipmap.c.'>zipmapDecodeLength</a>(zm);
+<a name='L322'>        *key += <a href='../S/72.html#L95' title='Defined at 95 in src/zipmap.c.'>ZIPMAP_LEN_BYTES</a>(*klen);
+<a name='L323'>    <font color='red'>}</font>
+<a name='L324'>    zm += <a href='../S/72.html#L180' title='Defined at 180 in src/zipmap.c.'>zipmapRawKeyLength</a>(zm);
+<a name='L325'>    <b>if</b> (value) <font color='red'>{</font>
+<a name='L326'>        *value = zm+1;
+<a name='L327'>        *vlen = <a href='../S/72.html#L107' title='Defined at 107 in src/zipmap.c.'>zipmapDecodeLength</a>(zm);
+<a name='L328'>        *value += <a href='../S/72.html#L95' title='Defined at 95 in src/zipmap.c.'>ZIPMAP_LEN_BYTES</a>(*vlen);
+<a name='L329'>    <font color='red'>}</font>
+<a name='L330'>    zm += <a href='../S/72.html#L187' title='Defined at 187 in src/zipmap.c.'>zipmapRawValueLength</a>(zm);
+<a name='L331'>    <b>return</b> zm;
+<a name='L332'><font color='red'>}</font>
+<a name='L333'>
+<a name='L334'><i><font color='green'>/* Search a key and retrieve the pointer and len of the associated value.</font></i>
+<a name='L335'><i><font color='green'> * If the key is found the function returns 1, otherwise 0. */</font></i>
+<a name='L336'><b>int</b> <a href='../R/4136.html' title='Multiple refered from 3 places.'>zipmapGet</a>(<b>unsigned</b> <b>char</b> *zm, <b>unsigned</b> <b>char</b> *key, <b>unsigned</b> <b>int</b> klen, <b>unsigned</b> <b>char</b> **value, <b>unsigned</b> <b>int</b> *vlen) <font color='red'>{</font>
+<a name='L337'>    <b>unsigned</b> <b>char</b> *p;
+<a name='L338'>
+<a name='L339'>    <b>if</b> ((p = <a href='../S/72.html#L140' title='Defined at 140 in src/zipmap.c.'>zipmapLookupRaw</a>(zm,key,klen,NULL)) == NULL) <b>return</b> 0;
+<a name='L340'>    p += <a href='../S/72.html#L180' title='Defined at 180 in src/zipmap.c.'>zipmapRawKeyLength</a>(p);
+<a name='L341'>    *vlen = <a href='../S/72.html#L107' title='Defined at 107 in src/zipmap.c.'>zipmapDecodeLength</a>(p);
+<a name='L342'>    *value = p + <a href='../S/72.html#L95' title='Defined at 95 in src/zipmap.c.'>ZIPMAP_LEN_BYTES</a>(*vlen) + 1;
+<a name='L343'>    <b>return</b> 1;
+<a name='L344'><font color='red'>}</font>
+<a name='L345'>
+<a name='L346'><i><font color='green'>/* Return 1 if the key exists, otherwise 0 is returned. */</font></i>
+<a name='L347'><b>int</b> <a href='../S/37.html#L44' title='Refered from 44 in src/zipmap.h.'>zipmapExists</a>(<b>unsigned</b> <b>char</b> *zm, <b>unsigned</b> <b>char</b> *key, <b>unsigned</b> <b>int</b> klen) <font color='red'>{</font>
+<a name='L348'>    <b>return</b> <a href='../S/72.html#L140' title='Defined at 140 in src/zipmap.c.'>zipmapLookupRaw</a>(zm,key,klen,NULL) != NULL;
+<a name='L349'><font color='red'>}</font>
+<a name='L350'>
+<a name='L351'><i><font color='green'>/* Return the number of entries inside a zipmap */</font></i>
+<a name='L352'><b>unsigned</b> <b>int</b> <a href='../S/37.html#L45' title='Refered from 45 in src/zipmap.h.'>zipmapLen</a>(<b>unsigned</b> <b>char</b> *zm) <font color='red'>{</font>
+<a name='L353'>    <b>unsigned</b> <b>int</b> len = 0;
+<a name='L354'>    <b>if</b> (zm[0] &lt; <a href='../S/72.html#L85' title='Defined at 85 in src/zipmap.c.'>ZIPMAP_BIGLEN</a>) <font color='red'>{</font>
+<a name='L355'>        len = zm[0];
+<a name='L356'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L357'>        <b>unsigned</b> <b>char</b> *p = <a href='../S/72.html#L302' title='Defined at 302 in src/zipmap.c.'>zipmapRewind</a>(zm);
+<a name='L358'>        <b>while</b>((p = <a href='../S/72.html#L317' title='Defined at 317 in src/zipmap.c.'>zipmapNext</a>(p,NULL,NULL,NULL,NULL)) != NULL) len++;
+<a name='L359'>
+<a name='L360'>        <i><font color='green'>/* Re-store length if small enough */</font></i>
+<a name='L361'>        <b>if</b> (len &lt; <a href='../S/72.html#L85' title='Defined at 85 in src/zipmap.c.'>ZIPMAP_BIGLEN</a>) zm[0] = len;
+<a name='L362'>    <font color='red'>}</font>
+<a name='L363'>    <b>return</b> len;
+<a name='L364'><font color='red'>}</font>
+<a name='L365'>
+<a name='L366'><i><font color='green'>/* Return the raw size in bytes of a zipmap, so that we can serialize</font></i>
+<a name='L367'><i><font color='green'> * the zipmap on disk (or everywhere is needed) just writing the returned</font></i>
+<a name='L368'><i><font color='green'> * amount of bytes of the C array starting at the zipmap pointer. */</font></i>
+<a name='L369'>size_t <a href='../S/37.html#L46' title='Refered from 46 in src/zipmap.h.'>zipmapBlobLen</a>(<b>unsigned</b> <b>char</b> *zm) <font color='red'>{</font>
+<a name='L370'>    <b>unsigned</b> <b>int</b> totlen;
+<a name='L371'>    <a href='../S/72.html#L140' title='Defined at 140 in src/zipmap.c.'>zipmapLookupRaw</a>(zm,NULL,0,&amp;totlen);
+<a name='L372'>    <b>return</b> totlen;
+<a name='L373'><font color='red'>}</font>
+<a name='L374'>
+<a name='L375'><font color='darkred'>#ifdef</font> ZIPMAP_TEST_MAIN
+<a name='L376'><b>void</b> <a href='../R/4144.html' title='Multiple refered from 6 places.'>zipmapRepr</a>(<b>unsigned</b> <b>char</b> *p) <font color='red'>{</font>
+<a name='L377'>    <b>unsigned</b> <b>int</b> l;
+<a name='L378'>
+<a name='L379'>    printf("{status %u}",*p++);
+<a name='L380'>    <b>while</b>(1) <font color='red'>{</font>
+<a name='L381'>        <b>if</b> (p[0] == <a href='../S/72.html#L86' title='Defined at 86 in src/zipmap.c.'>ZIPMAP_END</a>) <font color='red'>{</font>
+<a name='L382'>            printf("{end}");
+<a name='L383'>            <b>break</b>;
+<a name='L384'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L385'>            <b>unsigned</b> <b>char</b> e;
+<a name='L386'>
+<a name='L387'>            l = <a href='../S/72.html#L107' title='Defined at 107 in src/zipmap.c.'>zipmapDecodeLength</a>(p);
+<a name='L388'>            printf("{key %u}",l);
+<a name='L389'>            p += <a href='../S/72.html#L118' title='Defined at 118 in src/zipmap.c.'>zipmapEncodeLength</a>(NULL,l);
+<a name='L390'>            <b>if</b> (l != 0 &amp;&amp; fwrite(p,l,1,stdout) == 0) perror("fwrite");
+<a name='L391'>            p += l;
+<a name='L392'>
+<a name='L393'>            l = <a href='../S/72.html#L107' title='Defined at 107 in src/zipmap.c.'>zipmapDecodeLength</a>(p);
+<a name='L394'>            printf("{value %u}",l);
+<a name='L395'>            p += <a href='../S/72.html#L118' title='Defined at 118 in src/zipmap.c.'>zipmapEncodeLength</a>(NULL,l);
+<a name='L396'>            e = *p++;
+<a name='L397'>            <b>if</b> (l != 0 &amp;&amp; fwrite(p,l,1,stdout) == 0) perror("fwrite");
+<a name='L398'>            p += l+e;
+<a name='L399'>            <b>if</b> (e) <font color='red'>{</font>
+<a name='L400'>                printf("[");
+<a name='L401'>                <b>while</b>(e--) printf(".");
+<a name='L402'>                printf("]");
+<a name='L403'>            <font color='red'>}</font>
+<a name='L404'>        <font color='red'>}</font>
+<a name='L405'>    <font color='red'>}</font>
+<a name='L406'>    printf("\n");
+<a name='L407'><font color='red'>}</font>
+<a name='L408'>
+<a name='L409'><b>int</b> main(<b>void</b>) <font color='red'>{</font>
+<a name='L410'>    <b>unsigned</b> <b>char</b> *zm;
+<a name='L411'>
+<a name='L412'>    zm = <a href='../S/72.html#L98' title='Defined at 98 in src/zipmap.c.'>zipmapNew</a>();
+<a name='L413'>
+<a name='L414'>    zm = <a href='../S/72.html#L213' title='Defined at 213 in src/zipmap.c.'>zipmapSet</a>(zm,(<b>unsigned</b> <b>char</b>*) "name",4, (<b>unsigned</b> <b>char</b>*) "foo",3,NULL);
+<a name='L415'>    zm = <a href='../S/72.html#L213' title='Defined at 213 in src/zipmap.c.'>zipmapSet</a>(zm,(<b>unsigned</b> <b>char</b>*) "surname",7, (<b>unsigned</b> <b>char</b>*) "foo",3,NULL);
+<a name='L416'>    zm = <a href='../S/72.html#L213' title='Defined at 213 in src/zipmap.c.'>zipmapSet</a>(zm,(<b>unsigned</b> <b>char</b>*) "age",3, (<b>unsigned</b> <b>char</b>*) "foo",3,NULL);
+<a name='L417'>    <a href='../S/72.html#L376' title='Defined at 376 in src/zipmap.c.'>zipmapRepr</a>(zm);
+<a name='L418'>
+<a name='L419'>    zm = <a href='../S/72.html#L213' title='Defined at 213 in src/zipmap.c.'>zipmapSet</a>(zm,(<b>unsigned</b> <b>char</b>*) "hello",5, (<b>unsigned</b> <b>char</b>*) "world!",6,NULL);
+<a name='L420'>    zm = <a href='../S/72.html#L213' title='Defined at 213 in src/zipmap.c.'>zipmapSet</a>(zm,(<b>unsigned</b> <b>char</b>*) "foo",3, (<b>unsigned</b> <b>char</b>*) "bar",3,NULL);
+<a name='L421'>    zm = <a href='../S/72.html#L213' title='Defined at 213 in src/zipmap.c.'>zipmapSet</a>(zm,(<b>unsigned</b> <b>char</b>*) "foo",3, (<b>unsigned</b> <b>char</b>*) "!",1,NULL);
+<a name='L422'>    <a href='../S/72.html#L376' title='Defined at 376 in src/zipmap.c.'>zipmapRepr</a>(zm);
+<a name='L423'>    zm = <a href='../S/72.html#L213' title='Defined at 213 in src/zipmap.c.'>zipmapSet</a>(zm,(<b>unsigned</b> <b>char</b>*) "foo",3, (<b>unsigned</b> <b>char</b>*) "12345",5,NULL);
+<a name='L424'>    <a href='../S/72.html#L376' title='Defined at 376 in src/zipmap.c.'>zipmapRepr</a>(zm);
+<a name='L425'>    zm = <a href='../S/72.html#L213' title='Defined at 213 in src/zipmap.c.'>zipmapSet</a>(zm,(<b>unsigned</b> <b>char</b>*) "new",3, (<b>unsigned</b> <b>char</b>*) "xx",2,NULL);
+<a name='L426'>    zm = <a href='../S/72.html#L213' title='Defined at 213 in src/zipmap.c.'>zipmapSet</a>(zm,(<b>unsigned</b> <b>char</b>*) "noval",5, (<b>unsigned</b> <b>char</b>*) "",0,NULL);
+<a name='L427'>    <a href='../S/72.html#L376' title='Defined at 376 in src/zipmap.c.'>zipmapRepr</a>(zm);
+<a name='L428'>    zm = <a href='../S/72.html#L283' title='Defined at 283 in src/zipmap.c.'>zipmapDel</a>(zm,(<b>unsigned</b> <b>char</b>*) "new",3,NULL);
+<a name='L429'>    <a href='../S/72.html#L376' title='Defined at 376 in src/zipmap.c.'>zipmapRepr</a>(zm);
+<a name='L430'>
+<a name='L431'>    printf("\nLook up large key:\n");
+<a name='L432'>    <font color='red'>{</font>
+<a name='L433'>        <b>unsigned</b> <b>char</b> buf[512];
+<a name='L434'>        <b>unsigned</b> <b>char</b> *value;
+<a name='L435'>        <b>unsigned</b> <b>int</b> vlen, i;
+<a name='L436'>        <b>for</b> (i = 0; i &lt; 512; i++) buf[i] = 'a';
+<a name='L437'>
+<a name='L438'>        zm = <a href='../S/72.html#L213' title='Defined at 213 in src/zipmap.c.'>zipmapSet</a>(zm,buf,512,(<b>unsigned</b> <b>char</b>*) "long",4,NULL);
+<a name='L439'>        <b>if</b> (<a href='../S/72.html#L336' title='Defined at 336 in src/zipmap.c.'>zipmapGet</a>(zm,buf,512,&amp;value,&amp;vlen)) <font color='red'>{</font>
+<a name='L440'>            printf("  &lt;long key&gt; is associated to the %d bytes value: %.*s\n",
+<a name='L441'>                vlen, vlen, value);
+<a name='L442'>        <font color='red'>}</font>
+<a name='L443'>    <font color='red'>}</font>
+<a name='L444'>
+<a name='L445'>    printf("\nPerform a direct lookup:\n");
+<a name='L446'>    <font color='red'>{</font>
+<a name='L447'>        <b>unsigned</b> <b>char</b> *value;
+<a name='L448'>        <b>unsigned</b> <b>int</b> vlen;
+<a name='L449'>
+<a name='L450'>        <b>if</b> (<a href='../S/72.html#L336' title='Defined at 336 in src/zipmap.c.'>zipmapGet</a>(zm,(<b>unsigned</b> <b>char</b>*) "foo",3,&amp;value,&amp;vlen)) <font color='red'>{</font>
+<a name='L451'>            printf("  foo is associated to the %d bytes value: %.*s\n",
+<a name='L452'>                vlen, vlen, value);
+<a name='L453'>        <font color='red'>}</font>
+<a name='L454'>    <font color='red'>}</font>
+<a name='L455'>    printf("\nIterate through elements:\n");
+<a name='L456'>    <font color='red'>{</font>
+<a name='L457'>        <b>unsigned</b> <b>char</b> *i = <a href='../S/72.html#L302' title='Defined at 302 in src/zipmap.c.'>zipmapRewind</a>(zm);
+<a name='L458'>        <b>unsigned</b> <b>char</b> *key, *value;
+<a name='L459'>        <b>unsigned</b> <b>int</b> klen, vlen;
+<a name='L460'>
+<a name='L461'>        <b>while</b>((i = <a href='../S/72.html#L317' title='Defined at 317 in src/zipmap.c.'>zipmapNext</a>(i,&amp;key,&amp;klen,&amp;value,&amp;vlen)) != NULL) <font color='red'>{</font>
+<a name='L462'>            printf("  %d:%.*s =&gt; %d:%.*s\n", klen, klen, key, vlen, vlen, value);
+<a name='L463'>        <font color='red'>}</font>
+<a name='L464'>    <font color='red'>}</font>
+<a name='L465'>    <b>return</b> 0;
+<a name='L466'><font color='red'>}</font>
+<a name='L467'><font color='darkred'>#endif</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L98'>[^]</a><a href='#L409'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

@@ -1,0 +1,813 @@
+<html>
+<head>
+<title>src/redis-check-dump.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/401.html'>src</a>/redis-check-dump.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L147'>[^]</a><a href='#L710'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L147' title='Defined at 147.'>checkType</a>
+<li><a href='#L157' title='Defined at 157.'>readBytes</a>
+<li><a href='#L171' title='Defined at 171.'>processHeader</a>
+<li><a href='#L191' title='Defined at 191.'>loadType</a>
+<li><a href='#L211' title='Defined at 211.'>peekType</a>
+<li><a href='#L219' title='Defined at 219.'>processTime</a>
+<li><a href='#L234' title='Defined at 234.'>loadLength</a>
+<li><a href='#L260' title='Defined at 260.'>loadIntegerObject</a>
+<li><a href='#L292' title='Defined at 292.'>loadLzfStringObject</a>
+<li><a href='#L316' title='Defined at 316.'>loadStringObject</a>
+<li><a href='#L348' title='Defined at 348.'>processStringObject</a>
+<li><a href='#L365' title='Defined at 365.'>loadDoubleValue</a>
+<li><a href='#L388' title='Defined at 388.'>processDoubleValue</a>
+<li><a href='#L405' title='Defined at 405.'>loadPair</a>
+<li><a href='#L488' title='Defined at 488.'>loadEntry</a>
+<li><a href='#L546' title='Defined at 546.'>printCentered</a>
+<li><a href='#L556' title='Defined at 556.'>printValid</a>
+<li><a href='#L563' title='Defined at 563.'>printSkipped</a>
+<li><a href='#L570' title='Defined at 570.'>printErrorStack</a>
+<li><a href='#L605' title='Defined at 605.'>process</a>
+<li><a href='#L710' title='Defined at 710.'>main</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'> * Copyright (c) 2009-2012, Pieter Noordhuis &lt;pcnoordhuis at gmail dot com&gt;</font></i>
+<a name='L3'><i><font color='green'> * Copyright (c) 2009-2012, Salvatore Sanfilippo &lt;antirez at gmail dot com&gt;</font></i>
+<a name='L4'><i><font color='green'> * All rights reserved.</font></i>
+<a name='L5'><i><font color='green'> *</font></i>
+<a name='L6'><i><font color='green'> * Redistribution and use in source and binary forms, with or without</font></i>
+<a name='L7'><i><font color='green'> * modification, are permitted provided that the following conditions are met:</font></i>
+<a name='L8'><i><font color='green'> *</font></i>
+<a name='L9'><i><font color='green'> *   * Redistributions of source code must retain the above copyright notice,</font></i>
+<a name='L10'><i><font color='green'> *     this list of conditions and the following disclaimer.</font></i>
+<a name='L11'><i><font color='green'> *   * Redistributions in binary form must reproduce the above copyright</font></i>
+<a name='L12'><i><font color='green'> *     notice, this list of conditions and the following disclaimer in the</font></i>
+<a name='L13'><i><font color='green'> *     documentation and/or other materials provided with the distribution.</font></i>
+<a name='L14'><i><font color='green'> *   * Neither the name of Redis nor the names of its contributors may be used</font></i>
+<a name='L15'><i><font color='green'> *     to endorse or promote products derived from this software without</font></i>
+<a name='L16'><i><font color='green'> *     specific prior written permission.</font></i>
+<a name='L17'><i><font color='green'> *</font></i>
+<a name='L18'><i><font color='green'> * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"</font></i>
+<a name='L19'><i><font color='green'> * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</font></i>
+<a name='L20'><i><font color='green'> * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</font></i>
+<a name='L21'><i><font color='green'> * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</font></i>
+<a name='L22'><i><font color='green'> * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</font></i>
+<a name='L23'><i><font color='green'> * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</font></i>
+<a name='L24'><i><font color='green'> * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</font></i>
+<a name='L25'><i><font color='green'> * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</font></i>
+<a name='L26'><i><font color='green'> * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</font></i>
+<a name='L27'><i><font color='green'> * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</font></i>
+<a name='L28'><i><font color='green'> * POSSIBILITY OF SUCH DAMAGE.</font></i>
+<a name='L29'><i><font color='green'> */</font></i>
+<a name='L30'>
+<a name='L31'>
+<a name='L32'><font color='darkred'>#include</font> &lt;stdlib.h&gt;
+<a name='L33'><font color='darkred'>#include</font> &lt;stdio.h&gt;
+<a name='L34'><font color='darkred'>#include</font> &lt;unistd.h&gt;
+<a name='L35'><font color='darkred'>#include</font> &lt;fcntl.h&gt;
+<a name='L36'><font color='darkred'>#include</font> &lt;sys/stat.h&gt;
+<a name='L37'><font color='darkred'>#include</font> &lt;sys/mman.h&gt;
+<a name='L38'><font color='darkred'>#include</font> &lt;string.h&gt;
+<a name='L39'><font color='darkred'>#include</font> &lt;arpa/inet.h&gt;
+<a name='L40'><font color='darkred'>#include</font> &lt;<a href='160.html'>stdint.h</a>&gt;
+<a name='L41'><font color='darkred'>#include</font> &lt;limits.h&gt;
+<a name='L42'><font color='darkred'>#include</font> "<a href='15.html'>lzf.h</a>"
+<a name='L43'>
+<a name='L44'><i><font color='green'>/* Object types */</font></i>
+<a name='L45'><font color='darkred'>#define</font> <a href='../R/781.html' title='Multiple refered from 86 places.'>REDIS_STRING</a> 0
+<a name='L46'><font color='darkred'>#define</font> <a href='../R/681.html' title='Multiple refered from 33 places.'>REDIS_LIST</a> 1
+<a name='L47'><font color='darkred'>#define</font> <a href='../R/769.html' title='Multiple refered from 35 places.'>REDIS_SET</a> 2
+<a name='L48'><font color='darkred'>#define</font> <a href='../R/791.html' title='Multiple refered from 36 places.'>REDIS_ZSET</a> 3
+<a name='L49'><font color='darkred'>#define</font> <a href='../R/668.html' title='Multiple refered from 22 places.'>REDIS_HASH</a> 4
+<a name='L50'><font color='darkred'>#define</font> <a href='../R/674.html' title='Multiple refered from 2 places.'>REDIS_HASH_ZIPMAP</a> 9
+<a name='L51'><font color='darkred'>#define</font> <a href='../S/55.html#L432' title='Refered from 432 in src/redis-check-dump.c.'>REDIS_LIST_ZIPLIST</a> 10
+<a name='L52'><font color='darkred'>#define</font> <a href='../S/55.html#L433' title='Refered from 433 in src/redis-check-dump.c.'>REDIS_SET_INTSET</a> 11
+<a name='L53'><font color='darkred'>#define</font> <a href='../S/55.html#L434' title='Refered from 434 in src/redis-check-dump.c.'>REDIS_ZSET_ZIPLIST</a> 12
+<a name='L54'><font color='darkred'>#define</font> <a href='../R/673.html' title='Multiple refered from 2 places.'>REDIS_HASH_ZIPLIST</a> 13
+<a name='L55'>
+<a name='L56'><i><font color='green'>/* Objects encoding. Some kind of objects like Strings and Hashes can be</font></i>
+<a name='L57'><i><font color='green'> * internally represented in multiple ways. The 'encoding' field of the object</font></i>
+<a name='L58'><i><font color='green'> * is set to one of this fields for this object. */</font></i>
+<a name='L59'><font color='darkred'>#define</font> <a href='../R/652.html' title='Multiple refered from 47 places.'>REDIS_ENCODING_RAW</a> 0    <i><font color='green'>/* Raw representation */</font></i>
+<a name='L60'><font color='darkred'>#define</font> <a href='../R/649.html' title='Multiple refered from 26 places.'>REDIS_ENCODING_INT</a> 1    <i><font color='green'>/* Encoded as integer */</font></i>
+<a name='L61'><font color='darkred'>#define</font> REDIS_ENCODING_ZIPMAP 2 <i><font color='green'>/* Encoded as zipmap */</font></i>
+<a name='L62'><font color='darkred'>#define</font> <a href='../R/648.html' title='Multiple refered from 58 places.'>REDIS_ENCODING_HT</a> 3     <i><font color='green'>/* Encoded as an hash table */</font></i>
+<a name='L63'>
+<a name='L64'><i><font color='green'>/* Object types only used for dumping to disk */</font></i>
+<a name='L65'><font color='darkred'>#define</font> <a href='../R/665.html' title='Multiple refered from 3 places.'>REDIS_EXPIRETIME_MS</a> 252
+<a name='L66'><font color='darkred'>#define</font> <a href='../R/664.html' title='Multiple refered from 2 places.'>REDIS_EXPIRETIME</a> 253
+<a name='L67'><font color='darkred'>#define</font> <a href='../R/766.html' title='Multiple refered from 2 places.'>REDIS_SELECTDB</a> 254
+<a name='L68'><font color='darkred'>#define</font> <a href='../R/655.html' title='Multiple refered from 3 places.'>REDIS_EOF</a> 255
+<a name='L69'>
+<a name='L70'><i><font color='green'>/* Defines related to the dump file format. To store 32 bits lengths for short</font></i>
+<a name='L71'><i><font color='green'> * keys requires a lot of space, so we check the most significant 2 bits of</font></i>
+<a name='L72'><i><font color='green'> * the first byte to interpreter the length:</font></i>
+<a name='L73'><i><font color='green'> *</font></i>
+<a name='L74'><i><font color='green'> * 00|000000 =&gt; if the two MSB are 00 the len is the 6 bits of this byte</font></i>
+<a name='L75'><i><font color='green'> * 01|000000 00000000 =&gt;  01, the len is 14 byes, 6 bits + 8 bits of next byte</font></i>
+<a name='L76'><i><font color='green'> * 10|000000 [32 bit integer] =&gt; if it's 01, a full 32 bit len will follow</font></i>
+<a name='L77'><i><font color='green'> * 11|000000 this means: specially encoded object will follow. The six bits</font></i>
+<a name='L78'><i><font color='green'> *           number specify the kind of object that follows.</font></i>
+<a name='L79'><i><font color='green'> *           See the REDIS_RDB_ENC_* defines.</font></i>
+<a name='L80'><i><font color='green'> *</font></i>
+<a name='L81'><i><font color='green'> * Lenghts up to 63 are stored using a single byte, most DB keys, and may</font></i>
+<a name='L82'><i><font color='green'> * values, will fit inside. */</font></i>
+<a name='L83'><font color='darkred'>#define</font> <a href='../R/720.html' title='Multiple refered from 3 places.'>REDIS_RDB_6BITLEN</a> 0
+<a name='L84'><font color='darkred'>#define</font> <a href='../R/718.html' title='Multiple refered from 3 places.'>REDIS_RDB_14BITLEN</a> 1
+<a name='L85'><font color='darkred'>#define</font> <a href='../S/87.html#L99' title='Refered from 99 in src/rdb.c.'>REDIS_RDB_32BITLEN</a> 2
+<a name='L86'><font color='darkred'>#define</font> <a href='../R/721.html' title='Multiple refered from 6 places.'>REDIS_RDB_ENCVAL</a> 3
+<a name='L87'><font color='darkred'>#define</font> <a href='../R/726.html' title='Multiple refered from 19 places.'>REDIS_RDB_LENERR</a> UINT_MAX
+<a name='L88'>
+<a name='L89'><i><font color='green'>/* When a length of a string object stored on disk has the first two bits</font></i>
+<a name='L90'><i><font color='green'> * set, the remaining two bits specify a special encoding for the object</font></i>
+<a name='L91'><i><font color='green'> * accordingly to the following defines: */</font></i>
+<a name='L92'><font color='darkred'>#define</font> <a href='../R/724.html' title='Multiple refered from 5 places.'>REDIS_RDB_ENC_INT8</a> 0        <i><font color='green'>/* 8 bit signed integer */</font></i>
+<a name='L93'><font color='darkred'>#define</font> <a href='../R/722.html' title='Multiple refered from 5 places.'>REDIS_RDB_ENC_INT16</a> 1       <i><font color='green'>/* 16 bit signed integer */</font></i>
+<a name='L94'><font color='darkred'>#define</font> <a href='../R/723.html' title='Multiple refered from 5 places.'>REDIS_RDB_ENC_INT32</a> 2       <i><font color='green'>/* 32 bit signed integer */</font></i>
+<a name='L95'><font color='darkred'>#define</font> <a href='../R/725.html' title='Multiple refered from 3 places.'>REDIS_RDB_ENC_LZF</a> 3         <i><font color='green'>/* string compressed with FASTLZ */</font></i>
+<a name='L96'>
+<a name='L97'><font color='darkred'>#define</font> <a href='../R/144.html' title='Multiple refered from 13 places.'>ERROR</a>(...) <font color='red'>{</font> \
+<a name='L98'>    printf(__VA_ARGS__); \
+<a name='L99'>    exit(1); \
+<a name='L100'><font color='red'>}</font>
+<a name='L101'>
+<a name='L102'><i><font color='green'>/* data type to hold offset in file and size */</font></i>
+<a name='L103'><b>typedef</b> <b>struct</b> <font color='red'>{</font>
+<a name='L104'>    <b>void</b> *data;
+<a name='L105'>    size_t size;
+<a name='L106'>    size_t offset;
+<a name='L107'><font color='red'>}</font> <a href='../R/3153.html' title='Multiple refered from 211 places.'>pos</a>;
+<a name='L108'>
+<a name='L109'><b>static</b> <b>unsigned</b> <b>char</b> level = 0;
+<a name='L110'><b>static</b> <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> positions[16];
+<a name='L111'>
+<a name='L112'><font color='darkred'>#define</font> <a href='../R/103.html' title='Multiple refered from 16 places.'>CURR_OFFSET</a> (positions[level].offset)
+<a name='L113'>
+<a name='L114'><i><font color='green'>/* Hold a stack of errors */</font></i>
+<a name='L115'><b>typedef</b> <b>struct</b> <font color='red'>{</font>
+<a name='L116'>    <b>char</b> <a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>[16][1024];
+<a name='L117'>    size_t offset[16];
+<a name='L118'>    size_t level;
+<a name='L119'><font color='red'>}</font> <a href='../S/55.html#L120' title='Refered from 120 in src/redis-check-dump.c.'>errors_t</a>;
+<a name='L120'><b>static</b> <a href='../S/55.html#L119' title='Defined at 119 in src/redis-check-dump.c.'>errors_t</a> errors;
+<a name='L121'>
+<a name='L122'><font color='darkred'>#define</font> <a href='../R/879.html' title='Multiple refered from 24 places.'>SHIFT_ERROR</a>(provided_offset, ...) <font color='red'>{</font> \
+<a name='L123'>    sprintf(errors.<a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>[errors.level], __VA_ARGS__); \
+<a name='L124'>    errors.offset[errors.level] = provided_offset; \
+<a name='L125'>    errors.level++; \
+<a name='L126'><font color='red'>}</font>
+<a name='L127'>
+<a name='L128'><i><font color='green'>/* Data type to hold opcode with optional key name an success status */</font></i>
+<a name='L129'><b>typedef</b> <b>struct</b> <font color='red'>{</font>
+<a name='L130'>    <b>char</b>* key;
+<a name='L131'>    <b>int</b> type;
+<a name='L132'>    <b>char</b> success;
+<a name='L133'><font color='red'>}</font> <a href='../R/1889.html' title='Multiple refered from 190 places.'>entry</a>;
+<a name='L134'>
+<a name='L135'><i><font color='green'>/* Global vars that are actally used as constants. The following double</font></i>
+<a name='L136'><i><font color='green'> * values are used for double on-disk serialization, and are initialized</font></i>
+<a name='L137'><i><font color='green'> * at runtime to avoid strange compiler optimizations. */</font></i>
+<a name='L138'><b>static</b> <b>double</b> R_Zero, R_PosInf, R_NegInf, R_Nan;
+<a name='L139'>
+<a name='L140'><i><font color='green'>/* store string types for output */</font></i>
+<a name='L141'><b>static</b> <b>char</b> types[256][16];
+<a name='L142'>
+<a name='L143'><i><font color='green'>/* Prototypes */</font></i>
+<a name='L144'><a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> <a href='../S/77.html#L173' title='Defined at 173 in src/crc64.c.'>crc64</a>(<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> crc, <b>const</b> <b>unsigned</b> <b>char</b> *s, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> l);
+<a name='L145'>
+<a name='L146'><i><font color='green'>/* Return true if 't' is a valid object type. */</font></i>
+<a name='L147'><b>int</b> <a href='../R/1544.html' title='Multiple refered from 48 places.'>checkType</a>(<b>unsigned</b> <b>char</b> t) <font color='red'>{</font>
+<a name='L148'>    <i><font color='green'>/* In case a new object type is added, update the following </font></i>
+<a name='L149'><i><font color='green'>     * condition as necessary. */</font></i>
+<a name='L150'>    <b>return</b>
+<a name='L151'>        (t &gt;= <a href='../S/55.html#L50' title='Defined at 50 in src/redis-check-dump.c.'>REDIS_HASH_ZIPMAP</a> &amp;&amp; t &lt;= <a href='../S/55.html#L54' title='Defined at 54 in src/redis-check-dump.c.'>REDIS_HASH_ZIPLIST</a>) ||
+<a name='L152'>        t &lt;= <a href='../D/807.html' title='Multiple defined in 2 places.'>REDIS_HASH</a> ||
+<a name='L153'>        t &gt;= <a href='../S/55.html#L65' title='Defined at 65 in src/redis-check-dump.c.'>REDIS_EXPIRETIME_MS</a>;
+<a name='L154'><font color='red'>}</font>
+<a name='L155'>
+<a name='L156'><i><font color='green'>/* when number of bytes to read is negative, do a peek */</font></i>
+<a name='L157'><b>int</b> <a href='../R/3372.html' title='Multiple refered from 16 places.'>readBytes</a>(<b>void</b> *target, <b>long</b> num) <font color='red'>{</font>
+<a name='L158'>    <b>char</b> peek = (num &lt; 0) ? 1 : 0;
+<a name='L159'>    num = (num &lt; 0) ? -num : num;
+<a name='L160'>
+<a name='L161'>    <a href='../S/55.html#L107' title='Defined at 107 in src/redis-check-dump.c.'>pos</a> p = positions[level];
+<a name='L162'>    <b>if</b> (p.offset + num &gt; p.size) <font color='red'>{</font>
+<a name='L163'>        <b>return</b> 0;
+<a name='L164'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L165'>        memcpy(target, (<b>void</b>*)((size_t)p.data + p.offset), num);
+<a name='L166'>        <b>if</b> (!peek) positions[level].offset += num;
+<a name='L167'>    <font color='red'>}</font>
+<a name='L168'>    <b>return</b> 1;
+<a name='L169'><font color='red'>}</font>
+<a name='L170'>
+<a name='L171'><b>int</b> <a href='../S/55.html#L608' title='Refered from 608 in src/redis-check-dump.c.'>processHeader</a>() <font color='red'>{</font>
+<a name='L172'>    <b>char</b> buf[10] = "_________";
+<a name='L173'>    <b>int</b> dump_version;
+<a name='L174'>
+<a name='L175'>    <b>if</b> (!<a href='../D/3731.html' title='Multiple defined in 3 places.'>readBytes</a>(buf, 9)) <font color='red'>{</font>
+<a name='L176'>        <a href='../D/147.html' title='Multiple defined in 2 places.'>ERROR</a>("Cannot read header\n");
+<a name='L177'>    <font color='red'>}</font>
+<a name='L178'>
+<a name='L179'>    <i><font color='green'>/* expect the first 5 bytes to equal REDIS */</font></i>
+<a name='L180'>    <b>if</b> (memcmp(buf,"REDIS",5) != 0) <font color='red'>{</font>
+<a name='L181'>        <a href='../D/147.html' title='Multiple defined in 2 places.'>ERROR</a>("Wrong signature in header\n");
+<a name='L182'>    <font color='red'>}</font>
+<a name='L183'>
+<a name='L184'>    dump_version = (<b>int</b>)strtol(buf + 5, NULL, 10);
+<a name='L185'>    <b>if</b> (dump_version &lt; 1 || dump_version &gt; 6) <font color='red'>{</font>
+<a name='L186'>        <a href='../D/147.html' title='Multiple defined in 2 places.'>ERROR</a>("Unknown RDB format version: %d\n", dump_version);
+<a name='L187'>    <font color='red'>}</font>
+<a name='L188'>    <b>return</b> dump_version;
+<a name='L189'><font color='red'>}</font>
+<a name='L190'>
+<a name='L191'><b>int</b> <a href='../R/2449.html' title='Multiple refered from 2 places.'>loadType</a>(entry *e) <font color='red'>{</font>
+<a name='L192'>    <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> offset = <a href='../S/55.html#L112' title='Defined at 112 in src/redis-check-dump.c.'>CURR_OFFSET</a>;
+<a name='L193'>
+<a name='L194'>    <i><font color='green'>/* this byte needs to qualify as type */</font></i>
+<a name='L195'>    <b>unsigned</b> <b>char</b> t;
+<a name='L196'>    <b>if</b> (<a href='../D/3731.html' title='Multiple defined in 3 places.'>readBytes</a>(&amp;t, 1)) <font color='red'>{</font>
+<a name='L197'>        <b>if</b> (<a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(t)) <font color='red'>{</font>
+<a name='L198'>            e-&gt;type = t;
+<a name='L199'>            <b>return</b> 1;
+<a name='L200'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L201'>            <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset, "Unknown type (0x%02x)", t);
+<a name='L202'>        <font color='red'>}</font>
+<a name='L203'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L204'>        <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset, "Could not read type");
+<a name='L205'>    <font color='red'>}</font>
+<a name='L206'>
+<a name='L207'>    <i><font color='green'>/* failure */</font></i>
+<a name='L208'>    <b>return</b> 0;
+<a name='L209'><font color='red'>}</font>
+<a name='L210'>
+<a name='L211'><b>int</b> <a href='../S/55.html#L535' title='Refered from 535 in src/redis-check-dump.c.'>peekType</a>() <font color='red'>{</font>
+<a name='L212'>    <b>unsigned</b> <b>char</b> t;
+<a name='L213'>    <b>if</b> (<a href='../D/3731.html' title='Multiple defined in 3 places.'>readBytes</a>(&amp;t, -1) &amp;&amp; (<a href='../D/1818.html' title='Multiple defined in 2 places.'>checkType</a>(t)))
+<a name='L214'>        <b>return</b> t;
+<a name='L215'>    <b>return</b> -1;
+<a name='L216'><font color='red'>}</font>
+<a name='L217'>
+<a name='L218'><i><font color='green'>/* discard time, just consume the bytes */</font></i>
+<a name='L219'><b>int</b> <a href='../S/55.html#L521' title='Refered from 521 in src/redis-check-dump.c.'>processTime</a>(<b>int</b> type) <font color='red'>{</font>
+<a name='L220'>    <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> offset = <a href='../S/55.html#L112' title='Defined at 112 in src/redis-check-dump.c.'>CURR_OFFSET</a>;
+<a name='L221'>    <b>unsigned</b> <b>char</b> t[8];
+<a name='L222'>    <b>int</b> timelen = (type == <a href='../S/55.html#L65' title='Defined at 65 in src/redis-check-dump.c.'>REDIS_EXPIRETIME_MS</a>) ? 8 : 4;
+<a name='L223'>
+<a name='L224'>    <b>if</b> (<a href='../D/3731.html' title='Multiple defined in 3 places.'>readBytes</a>(t,timelen)) <font color='red'>{</font>
+<a name='L225'>        <b>return</b> 1;
+<a name='L226'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L227'>        <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset, "Could not read time");
+<a name='L228'>    <font color='red'>}</font>
+<a name='L229'>
+<a name='L230'>    <i><font color='green'>/* failure */</font></i>
+<a name='L231'>    <b>return</b> 0;
+<a name='L232'><font color='red'>}</font>
+<a name='L233'>
+<a name='L234'><a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> <a href='../R/2443.html' title='Multiple refered from 5 places.'>loadLength</a>(<b>int</b> *isencoded) <font color='red'>{</font>
+<a name='L235'>    <b>unsigned</b> <b>char</b> buf[2];
+<a name='L236'>    <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> len;
+<a name='L237'>    <b>int</b> type;
+<a name='L238'>
+<a name='L239'>    <b>if</b> (isencoded) *isencoded = 0;
+<a name='L240'>    <b>if</b> (!<a href='../D/3731.html' title='Multiple defined in 3 places.'>readBytes</a>(buf, 1)) <b>return</b> <a href='../D/865.html' title='Multiple defined in 3 places.'>REDIS_RDB_LENERR</a>;
+<a name='L241'>    type = (buf[0] &amp; 0xC0) &gt;&gt; 6;
+<a name='L242'>    <b>if</b> (type == <a href='../D/859.html' title='Multiple defined in 3 places.'>REDIS_RDB_6BITLEN</a>) <font color='red'>{</font>
+<a name='L243'>        <i><font color='green'>/* Read a 6 bit len */</font></i>
+<a name='L244'>        <b>return</b> buf[0] &amp; 0x3F;
+<a name='L245'>    <font color='red'>}</font> <b>else</b> <b>if</b> (type == <a href='../D/860.html' title='Multiple defined in 3 places.'>REDIS_RDB_ENCVAL</a>) <font color='red'>{</font>
+<a name='L246'>        <i><font color='green'>/* Read a 6 bit len encoding type */</font></i>
+<a name='L247'>        <b>if</b> (isencoded) *isencoded = 1;
+<a name='L248'>        <b>return</b> buf[0] &amp; 0x3F;
+<a name='L249'>    <font color='red'>}</font> <b>else</b> <b>if</b> (type == <a href='../D/857.html' title='Multiple defined in 3 places.'>REDIS_RDB_14BITLEN</a>) <font color='red'>{</font>
+<a name='L250'>        <i><font color='green'>/* Read a 14 bit len */</font></i>
+<a name='L251'>        <b>if</b> (!<a href='../D/3731.html' title='Multiple defined in 3 places.'>readBytes</a>(buf+1,1)) <b>return</b> <a href='../D/865.html' title='Multiple defined in 3 places.'>REDIS_RDB_LENERR</a>;
+<a name='L252'>        <b>return</b> ((buf[0] &amp; 0x3F) &lt;&lt; 8) | buf[1];
+<a name='L253'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L254'>        <i><font color='green'>/* Read a 32 bit len */</font></i>
+<a name='L255'>        <b>if</b> (!<a href='../D/3731.html' title='Multiple defined in 3 places.'>readBytes</a>(&amp;len, 4)) <b>return</b> <a href='../D/865.html' title='Multiple defined in 3 places.'>REDIS_RDB_LENERR</a>;
+<a name='L256'>        <b>return</b> (<b>unsigned</b> <b>int</b>)ntohl(len);
+<a name='L257'>    <font color='red'>}</font>
+<a name='L258'><font color='red'>}</font>
+<a name='L259'>
+<a name='L260'><b>char</b> *<a href='../S/55.html#L327' title='Refered from 327 in src/redis-check-dump.c.'>loadIntegerObject</a>(<b>int</b> enctype) <font color='red'>{</font>
+<a name='L261'>    <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> offset = <a href='../S/55.html#L112' title='Defined at 112 in src/redis-check-dump.c.'>CURR_OFFSET</a>;
+<a name='L262'>    <b>unsigned</b> <b>char</b> enc[4];
+<a name='L263'>    <b>long</b> <b>long</b> val;
+<a name='L264'>
+<a name='L265'>    <b>if</b> (enctype == <a href='../D/863.html' title='Multiple defined in 3 places.'>REDIS_RDB_ENC_INT8</a>) <font color='red'>{</font>
+<a name='L266'>        <a href='../D/4431.html' title='Multiple defined in 2 places.'>uint8_t</a> v;
+<a name='L267'>        <b>if</b> (!<a href='../D/3731.html' title='Multiple defined in 3 places.'>readBytes</a>(enc, 1)) <b>return</b> NULL;
+<a name='L268'>        v = enc[0];
+<a name='L269'>        val = (<a href='../D/2495.html' title='Multiple defined in 2 places.'>int8_t</a>)v;
+<a name='L270'>    <font color='red'>}</font> <b>else</b> <b>if</b> (enctype == <a href='../D/861.html' title='Multiple defined in 3 places.'>REDIS_RDB_ENC_INT16</a>) <font color='red'>{</font>
+<a name='L271'>        <a href='../D/4428.html' title='Multiple defined in 2 places.'>uint16_t</a> v;
+<a name='L272'>        <b>if</b> (!<a href='../D/3731.html' title='Multiple defined in 3 places.'>readBytes</a>(enc, 2)) <b>return</b> NULL;
+<a name='L273'>        v = enc[0]|(enc[1]&lt;&lt;8);
+<a name='L274'>        val = (<a href='../D/2492.html' title='Multiple defined in 2 places.'>int16_t</a>)v;
+<a name='L275'>    <font color='red'>}</font> <b>else</b> <b>if</b> (enctype == <a href='../D/862.html' title='Multiple defined in 3 places.'>REDIS_RDB_ENC_INT32</a>) <font color='red'>{</font>
+<a name='L276'>        <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> v;
+<a name='L277'>        <b>if</b> (!<a href='../D/3731.html' title='Multiple defined in 3 places.'>readBytes</a>(enc, 4)) <b>return</b> NULL;
+<a name='L278'>        v = enc[0]|(enc[1]&lt;&lt;8)|(enc[2]&lt;&lt;16)|(enc[3]&lt;&lt;24);
+<a name='L279'>        val = (<a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a>)v;
+<a name='L280'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L281'>        <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset, "Unknown integer encoding (0x%02x)", enctype);
+<a name='L282'>        <b>return</b> NULL;
+<a name='L283'>    <font color='red'>}</font>
+<a name='L284'>
+<a name='L285'>    <i><font color='green'>/* convert val into string */</font></i>
+<a name='L286'>    <b>char</b> *buf;
+<a name='L287'>    buf = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(<b>char</b>) * 128);
+<a name='L288'>    sprintf(buf, "%lld", val);
+<a name='L289'>    <b>return</b> buf;
+<a name='L290'><font color='red'>}</font>
+<a name='L291'>
+<a name='L292'><b>char</b>* <a href='../S/55.html#L329' title='Refered from 329 in src/redis-check-dump.c.'>loadLzfStringObject</a>() <font color='red'>{</font>
+<a name='L293'>    <b>unsigned</b> <b>int</b> slen, clen;
+<a name='L294'>    <b>char</b> *c, *s;
+<a name='L295'>
+<a name='L296'>    <b>if</b> ((clen = <a href='../S/55.html#L234' title='Defined at 234 in src/redis-check-dump.c.'>loadLength</a>(NULL)) == <a href='../D/865.html' title='Multiple defined in 3 places.'>REDIS_RDB_LENERR</a>) <b>return</b> NULL;
+<a name='L297'>    <b>if</b> ((slen = <a href='../S/55.html#L234' title='Defined at 234 in src/redis-check-dump.c.'>loadLength</a>(NULL)) == <a href='../D/865.html' title='Multiple defined in 3 places.'>REDIS_RDB_LENERR</a>) <b>return</b> NULL;
+<a name='L298'>
+<a name='L299'>    c = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(clen);
+<a name='L300'>    <b>if</b> (!<a href='../D/3731.html' title='Multiple defined in 3 places.'>readBytes</a>(c, clen)) <font color='red'>{</font>
+<a name='L301'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(c);
+<a name='L302'>        <b>return</b> NULL;
+<a name='L303'>    <font color='red'>}</font>
+<a name='L304'>
+<a name='L305'>    s = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(slen+1);
+<a name='L306'>    <b>if</b> (<a href='../S/52.html#L56' title='Defined at 56 in src/lzf_d.c.'>lzf_decompress</a>(c,clen,s,slen) == 0) <font color='red'>{</font>
+<a name='L307'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(c); <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(s);
+<a name='L308'>        <b>return</b> NULL;
+<a name='L309'>    <font color='red'>}</font>
+<a name='L310'>
+<a name='L311'>    <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(c);
+<a name='L312'>    <b>return</b> s;
+<a name='L313'><font color='red'>}</font>
+<a name='L314'>
+<a name='L315'><i><font color='green'>/* returns NULL when not processable, char* when valid */</font></i>
+<a name='L316'><b>char</b>* <a href='../S/55.html#L350' title='Refered from 350 in src/redis-check-dump.c.'>loadStringObject</a>() <font color='red'>{</font>
+<a name='L317'>    <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> offset = <a href='../S/55.html#L112' title='Defined at 112 in src/redis-check-dump.c.'>CURR_OFFSET</a>;
+<a name='L318'>    <b>int</b> isencoded;
+<a name='L319'>    <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> len;
+<a name='L320'>
+<a name='L321'>    len = <a href='../S/55.html#L234' title='Defined at 234 in src/redis-check-dump.c.'>loadLength</a>(&amp;isencoded);
+<a name='L322'>    <b>if</b> (isencoded) <font color='red'>{</font>
+<a name='L323'>        <b>switch</b>(len) <font color='red'>{</font>
+<a name='L324'>        <b>case</b> <a href='../D/863.html' title='Multiple defined in 3 places.'>REDIS_RDB_ENC_INT8</a>:
+<a name='L325'>        <b>case</b> <a href='../D/861.html' title='Multiple defined in 3 places.'>REDIS_RDB_ENC_INT16</a>:
+<a name='L326'>        <b>case</b> <a href='../D/862.html' title='Multiple defined in 3 places.'>REDIS_RDB_ENC_INT32</a>:
+<a name='L327'>            <b>return</b> <a href='../S/55.html#L260' title='Defined at 260 in src/redis-check-dump.c.'>loadIntegerObject</a>(len);
+<a name='L328'>        <b>case</b> <a href='../D/864.html' title='Multiple defined in 3 places.'>REDIS_RDB_ENC_LZF</a>:
+<a name='L329'>            <b>return</b> <a href='../S/55.html#L292' title='Defined at 292 in src/redis-check-dump.c.'>loadLzfStringObject</a>();
+<a name='L330'>        <b>default</b>:
+<a name='L331'>            <i><font color='green'>/* unknown encoding */</font></i>
+<a name='L332'>            <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset, "Unknown string encoding (0x%02x)", len);
+<a name='L333'>            <b>return</b> NULL;
+<a name='L334'>        <font color='red'>}</font>
+<a name='L335'>    <font color='red'>}</font>
+<a name='L336'>
+<a name='L337'>    <b>if</b> (len == <a href='../D/865.html' title='Multiple defined in 3 places.'>REDIS_RDB_LENERR</a>) <b>return</b> NULL;
+<a name='L338'>
+<a name='L339'>    <b>char</b> *buf = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(<b>char</b>) * (len+1));
+<a name='L340'>    buf[len] = '\0';
+<a name='L341'>    <b>if</b> (!<a href='../D/3731.html' title='Multiple defined in 3 places.'>readBytes</a>(buf, len)) <font color='red'>{</font>
+<a name='L342'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(buf);
+<a name='L343'>        <b>return</b> NULL;
+<a name='L344'>    <font color='red'>}</font>
+<a name='L345'>    <b>return</b> buf;
+<a name='L346'><font color='red'>}</font>
+<a name='L347'>
+<a name='L348'><b>int</b> <a href='../R/3183.html' title='Multiple refered from 6 places.'>processStringObject</a>(<b>char</b>** store) <font color='red'>{</font>
+<a name='L349'>    <b>unsigned</b> <b>long</b> offset = <a href='../S/55.html#L112' title='Defined at 112 in src/redis-check-dump.c.'>CURR_OFFSET</a>;
+<a name='L350'>    <b>char</b> *key = <a href='../S/55.html#L316' title='Defined at 316 in src/redis-check-dump.c.'>loadStringObject</a>();
+<a name='L351'>    <b>if</b> (key == NULL) <font color='red'>{</font>
+<a name='L352'>        <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset, "Error reading string object");
+<a name='L353'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(key);
+<a name='L354'>        <b>return</b> 0;
+<a name='L355'>    <font color='red'>}</font>
+<a name='L356'>
+<a name='L357'>    <b>if</b> (store != NULL) <font color='red'>{</font>
+<a name='L358'>        *store = key;
+<a name='L359'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L360'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(key);
+<a name='L361'>    <font color='red'>}</font>
+<a name='L362'>    <b>return</b> 1;
+<a name='L363'><font color='red'>}</font>
+<a name='L364'>
+<a name='L365'><b>double</b>* <a href='../S/55.html#L390' title='Refered from 390 in src/redis-check-dump.c.'>loadDoubleValue</a>() <font color='red'>{</font>
+<a name='L366'>    <b>char</b> buf[256];
+<a name='L367'>    <b>unsigned</b> <b>char</b> len;
+<a name='L368'>    <b>double</b>* val;
+<a name='L369'>
+<a name='L370'>    <b>if</b> (!<a href='../D/3731.html' title='Multiple defined in 3 places.'>readBytes</a>(&amp;len,1)) <b>return</b> NULL;
+<a name='L371'>
+<a name='L372'>    val = <a href='../D/3259.html' title='Multiple defined in 2 places.'>malloc</a>(<b>sizeof</b>(<b>double</b>));
+<a name='L373'>    <b>switch</b>(len) <font color='red'>{</font>
+<a name='L374'>    <b>case</b> 255: *val = R_NegInf;  <b>return</b> val;
+<a name='L375'>    <b>case</b> 254: *val = R_PosInf;  <b>return</b> val;
+<a name='L376'>    <b>case</b> 253: *val = R_Nan;     <b>return</b> val;
+<a name='L377'>    <b>default</b>:
+<a name='L378'>        <b>if</b> (!<a href='../D/3731.html' title='Multiple defined in 3 places.'>readBytes</a>(buf, len)) <font color='red'>{</font>
+<a name='L379'>            <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(val);
+<a name='L380'>            <b>return</b> NULL;
+<a name='L381'>        <font color='red'>}</font>
+<a name='L382'>        buf[len] = '\0';
+<a name='L383'>        sscanf(buf, "%lg", val);
+<a name='L384'>        <b>return</b> val;
+<a name='L385'>    <font color='red'>}</font>
+<a name='L386'><font color='red'>}</font>
+<a name='L387'>
+<a name='L388'><b>int</b> <a href='../S/55.html#L459' title='Refered from 459 in src/redis-check-dump.c.'>processDoubleValue</a>(<b>double</b>** store) <font color='red'>{</font>
+<a name='L389'>    <b>unsigned</b> <b>long</b> offset = <a href='../S/55.html#L112' title='Defined at 112 in src/redis-check-dump.c.'>CURR_OFFSET</a>;
+<a name='L390'>    <b>double</b> *val = <a href='../S/55.html#L365' title='Defined at 365 in src/redis-check-dump.c.'>loadDoubleValue</a>();
+<a name='L391'>    <b>if</b> (val == NULL) <font color='red'>{</font>
+<a name='L392'>        <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset, "Error reading double value");
+<a name='L393'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(val);
+<a name='L394'>        <b>return</b> 0;
+<a name='L395'>    <font color='red'>}</font>
+<a name='L396'>
+<a name='L397'>    <b>if</b> (store != NULL) <font color='red'>{</font>
+<a name='L398'>        *store = val;
+<a name='L399'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L400'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(val);
+<a name='L401'>    <font color='red'>}</font>
+<a name='L402'>    <b>return</b> 1;
+<a name='L403'><font color='red'>}</font>
+<a name='L404'>
+<a name='L405'><b>int</b> <a href='../S/55.html#L526' title='Refered from 526 in src/redis-check-dump.c.'>loadPair</a>(entry *e) <font color='red'>{</font>
+<a name='L406'>    <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> offset = <a href='../S/55.html#L112' title='Defined at 112 in src/redis-check-dump.c.'>CURR_OFFSET</a>;
+<a name='L407'>    <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> i;
+<a name='L408'>
+<a name='L409'>    <i><font color='green'>/* read key first */</font></i>
+<a name='L410'>    <b>char</b> *key;
+<a name='L411'>    <b>if</b> (<a href='../S/55.html#L348' title='Defined at 348 in src/redis-check-dump.c.'>processStringObject</a>(&amp;key)) <font color='red'>{</font>
+<a name='L412'>        e-&gt;key = key;
+<a name='L413'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L414'>        <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset, "Error reading entry key");
+<a name='L415'>        <b>return</b> 0;
+<a name='L416'>    <font color='red'>}</font>
+<a name='L417'>
+<a name='L418'>    <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> length = 0;
+<a name='L419'>    <b>if</b> (e-&gt;type == <a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a> ||
+<a name='L420'>        e-&gt;type == <a href='../D/908.html' title='Multiple defined in 2 places.'>REDIS_SET</a>  ||
+<a name='L421'>        e-&gt;type == <a href='../D/933.html' title='Multiple defined in 2 places.'>REDIS_ZSET</a> ||
+<a name='L422'>        e-&gt;type == <a href='../D/807.html' title='Multiple defined in 2 places.'>REDIS_HASH</a>) <font color='red'>{</font>
+<a name='L423'>        <b>if</b> ((length = <a href='../S/55.html#L234' title='Defined at 234 in src/redis-check-dump.c.'>loadLength</a>(NULL)) == <a href='../D/865.html' title='Multiple defined in 3 places.'>REDIS_RDB_LENERR</a>) <font color='red'>{</font>
+<a name='L424'>            <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset, "Error reading %s length", types[e-&gt;type]);
+<a name='L425'>            <b>return</b> 0;
+<a name='L426'>        <font color='red'>}</font>
+<a name='L427'>    <font color='red'>}</font>
+<a name='L428'>
+<a name='L429'>    <b>switch</b>(e-&gt;type) <font color='red'>{</font>
+<a name='L430'>    <b>case</b> <a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>:
+<a name='L431'>    <b>case</b> <a href='../S/55.html#L50' title='Defined at 50 in src/redis-check-dump.c.'>REDIS_HASH_ZIPMAP</a>:
+<a name='L432'>    <b>case</b> <a href='../S/55.html#L51' title='Defined at 51 in src/redis-check-dump.c.'>REDIS_LIST_ZIPLIST</a>:
+<a name='L433'>    <b>case</b> <a href='../S/55.html#L52' title='Defined at 52 in src/redis-check-dump.c.'>REDIS_SET_INTSET</a>:
+<a name='L434'>    <b>case</b> <a href='../S/55.html#L53' title='Defined at 53 in src/redis-check-dump.c.'>REDIS_ZSET_ZIPLIST</a>:
+<a name='L435'>    <b>case</b> <a href='../S/55.html#L54' title='Defined at 54 in src/redis-check-dump.c.'>REDIS_HASH_ZIPLIST</a>:
+<a name='L436'>        <b>if</b> (!<a href='../S/55.html#L348' title='Defined at 348 in src/redis-check-dump.c.'>processStringObject</a>(NULL)) <font color='red'>{</font>
+<a name='L437'>            <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset, "Error reading entry value");
+<a name='L438'>            <b>return</b> 0;
+<a name='L439'>        <font color='red'>}</font>
+<a name='L440'>    <b>break</b>;
+<a name='L441'>    <b>case</b> <a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>:
+<a name='L442'>    <b>case</b> <a href='../D/908.html' title='Multiple defined in 2 places.'>REDIS_SET</a>:
+<a name='L443'>        <b>for</b> (i = 0; i &lt; length; i++) <font color='red'>{</font>
+<a name='L444'>            offset = <a href='../S/55.html#L112' title='Defined at 112 in src/redis-check-dump.c.'>CURR_OFFSET</a>;
+<a name='L445'>            <b>if</b> (!<a href='../S/55.html#L348' title='Defined at 348 in src/redis-check-dump.c.'>processStringObject</a>(NULL)) <font color='red'>{</font>
+<a name='L446'>                <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset, "Error reading element at index %d (length: %d)", i, length);
+<a name='L447'>                <b>return</b> 0;
+<a name='L448'>            <font color='red'>}</font>
+<a name='L449'>        <font color='red'>}</font>
+<a name='L450'>    <b>break</b>;
+<a name='L451'>    <b>case</b> <a href='../D/933.html' title='Multiple defined in 2 places.'>REDIS_ZSET</a>:
+<a name='L452'>        <b>for</b> (i = 0; i &lt; length; i++) <font color='red'>{</font>
+<a name='L453'>            offset = <a href='../S/55.html#L112' title='Defined at 112 in src/redis-check-dump.c.'>CURR_OFFSET</a>;
+<a name='L454'>            <b>if</b> (!<a href='../S/55.html#L348' title='Defined at 348 in src/redis-check-dump.c.'>processStringObject</a>(NULL)) <font color='red'>{</font>
+<a name='L455'>                <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset, "Error reading element key at index %d (length: %d)", i, length);
+<a name='L456'>                <b>return</b> 0;
+<a name='L457'>            <font color='red'>}</font>
+<a name='L458'>            offset = <a href='../S/55.html#L112' title='Defined at 112 in src/redis-check-dump.c.'>CURR_OFFSET</a>;
+<a name='L459'>            <b>if</b> (!<a href='../S/55.html#L388' title='Defined at 388 in src/redis-check-dump.c.'>processDoubleValue</a>(NULL)) <font color='red'>{</font>
+<a name='L460'>                <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset, "Error reading element value at index %d (length: %d)", i, length);
+<a name='L461'>                <b>return</b> 0;
+<a name='L462'>            <font color='red'>}</font>
+<a name='L463'>        <font color='red'>}</font>
+<a name='L464'>    <b>break</b>;
+<a name='L465'>    <b>case</b> <a href='../D/807.html' title='Multiple defined in 2 places.'>REDIS_HASH</a>:
+<a name='L466'>        <b>for</b> (i = 0; i &lt; length; i++) <font color='red'>{</font>
+<a name='L467'>            offset = <a href='../S/55.html#L112' title='Defined at 112 in src/redis-check-dump.c.'>CURR_OFFSET</a>;
+<a name='L468'>            <b>if</b> (!<a href='../S/55.html#L348' title='Defined at 348 in src/redis-check-dump.c.'>processStringObject</a>(NULL)) <font color='red'>{</font>
+<a name='L469'>                <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset, "Error reading element key at index %d (length: %d)", i, length);
+<a name='L470'>                <b>return</b> 0;
+<a name='L471'>            <font color='red'>}</font>
+<a name='L472'>            offset = <a href='../S/55.html#L112' title='Defined at 112 in src/redis-check-dump.c.'>CURR_OFFSET</a>;
+<a name='L473'>            <b>if</b> (!<a href='../S/55.html#L348' title='Defined at 348 in src/redis-check-dump.c.'>processStringObject</a>(NULL)) <font color='red'>{</font>
+<a name='L474'>                <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset, "Error reading element value at index %d (length: %d)", i, length);
+<a name='L475'>                <b>return</b> 0;
+<a name='L476'>            <font color='red'>}</font>
+<a name='L477'>        <font color='red'>}</font>
+<a name='L478'>    <b>break</b>;
+<a name='L479'>    <b>default</b>:
+<a name='L480'>        <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset, "Type not implemented");
+<a name='L481'>        <b>return</b> 0;
+<a name='L482'>    <font color='red'>}</font>
+<a name='L483'>    <i><font color='green'>/* because we're done, we assume success */</font></i>
+<a name='L484'>    e-&gt;success = 1;
+<a name='L485'>    <b>return</b> 1;
+<a name='L486'><font color='red'>}</font>
+<a name='L487'>
+<a name='L488'><a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a> <a href='../R/2441.html' title='Multiple refered from 2 places.'>loadEntry</a>() <font color='red'>{</font>
+<a name='L489'>    <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a> e = <font color='red'>{</font> NULL, -1, 0 <font color='red'>}</font>;
+<a name='L490'>    <a href='../D/4429.html' title='Multiple defined in 2 places.'>uint32_t</a> length, offset[4];
+<a name='L491'>
+<a name='L492'>    <i><font color='green'>/* reset error container */</font></i>
+<a name='L493'>    errors.level = 0;
+<a name='L494'>
+<a name='L495'>    offset[0] = <a href='../S/55.html#L112' title='Defined at 112 in src/redis-check-dump.c.'>CURR_OFFSET</a>;
+<a name='L496'>    <b>if</b> (!<a href='../S/55.html#L191' title='Defined at 191 in src/redis-check-dump.c.'>loadType</a>(&amp;e)) <font color='red'>{</font>
+<a name='L497'>        <b>return</b> e;
+<a name='L498'>    <font color='red'>}</font>
+<a name='L499'>
+<a name='L500'>    offset[1] = <a href='../S/55.html#L112' title='Defined at 112 in src/redis-check-dump.c.'>CURR_OFFSET</a>;
+<a name='L501'>    <b>if</b> (e.type == <a href='../S/55.html#L67' title='Defined at 67 in src/redis-check-dump.c.'>REDIS_SELECTDB</a>) <font color='red'>{</font>
+<a name='L502'>        <b>if</b> ((length = <a href='../S/55.html#L234' title='Defined at 234 in src/redis-check-dump.c.'>loadLength</a>(NULL)) == <a href='../D/865.html' title='Multiple defined in 3 places.'>REDIS_RDB_LENERR</a>) <font color='red'>{</font>
+<a name='L503'>            <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset[1], "Error reading database number");
+<a name='L504'>            <b>return</b> e;
+<a name='L505'>        <font color='red'>}</font>
+<a name='L506'>        <b>if</b> (length &gt; 63) <font color='red'>{</font>
+<a name='L507'>            <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset[1], "Database number out of range (%d)", length);
+<a name='L508'>            <b>return</b> e;
+<a name='L509'>        <font color='red'>}</font>
+<a name='L510'>    <font color='red'>}</font> <b>else</b> <b>if</b> (e.type == <a href='../S/55.html#L68' title='Defined at 68 in src/redis-check-dump.c.'>REDIS_EOF</a>) <font color='red'>{</font>
+<a name='L511'>        <b>if</b> (positions[level].offset &lt; positions[level].size) <font color='red'>{</font>
+<a name='L512'>            <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset[0], "Unexpected EOF");
+<a name='L513'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L514'>            e.success = 1;
+<a name='L515'>        <font color='red'>}</font>
+<a name='L516'>        <b>return</b> e;
+<a name='L517'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L518'>        <i><font color='green'>/* optionally consume expire */</font></i>
+<a name='L519'>        <b>if</b> (e.type == <a href='../S/55.html#L66' title='Defined at 66 in src/redis-check-dump.c.'>REDIS_EXPIRETIME</a> || 
+<a name='L520'>            e.type == <a href='../S/55.html#L65' title='Defined at 65 in src/redis-check-dump.c.'>REDIS_EXPIRETIME_MS</a>) <font color='red'>{</font>
+<a name='L521'>            <b>if</b> (!<a href='../S/55.html#L219' title='Defined at 219 in src/redis-check-dump.c.'>processTime</a>(e.type)) <b>return</b> e;
+<a name='L522'>            <b>if</b> (!<a href='../S/55.html#L191' title='Defined at 191 in src/redis-check-dump.c.'>loadType</a>(&amp;e)) <b>return</b> e;
+<a name='L523'>        <font color='red'>}</font>
+<a name='L524'>
+<a name='L525'>        offset[1] = <a href='../S/55.html#L112' title='Defined at 112 in src/redis-check-dump.c.'>CURR_OFFSET</a>;
+<a name='L526'>        <b>if</b> (!<a href='../S/55.html#L405' title='Defined at 405 in src/redis-check-dump.c.'>loadPair</a>(&amp;e)) <font color='red'>{</font>
+<a name='L527'>            <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset[1], "Error for type %s", types[e.type]);
+<a name='L528'>            <b>return</b> e;
+<a name='L529'>        <font color='red'>}</font>
+<a name='L530'>    <font color='red'>}</font>
+<a name='L531'>
+<a name='L532'>    <i><font color='green'>/* all entries are followed by a valid type:</font></i>
+<a name='L533'><i><font color='green'>     * e.g. a new entry, SELECTDB, EXPIRE, EOF */</font></i>
+<a name='L534'>    offset[2] = <a href='../S/55.html#L112' title='Defined at 112 in src/redis-check-dump.c.'>CURR_OFFSET</a>;
+<a name='L535'>    <b>if</b> (<a href='../S/55.html#L211' title='Defined at 211 in src/redis-check-dump.c.'>peekType</a>() == -1) <font color='red'>{</font>
+<a name='L536'>        <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset[2], "Followed by invalid type");
+<a name='L537'>        <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(offset[0], "Error for type %s", types[e.type]);
+<a name='L538'>        e.success = 0;
+<a name='L539'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L540'>        e.success = 1;
+<a name='L541'>    <font color='red'>}</font>
+<a name='L542'>
+<a name='L543'>    <b>return</b> e;
+<a name='L544'><font color='red'>}</font>
+<a name='L545'>
+<a name='L546'><b>void</b> <a href='../R/3164.html' title='Multiple refered from 3 places.'>printCentered</a>(<b>int</b> indent, <b>int</b> width, <b>char</b>* body) <font color='red'>{</font>
+<a name='L547'>    <b>char</b> head[256], tail[256];
+<a name='L548'>    memset(head, '\0', 256);
+<a name='L549'>    memset(tail, '\0', 256);
+<a name='L550'>
+<a name='L551'>    memset(head, '=', indent);
+<a name='L552'>    memset(tail, '=', width - 2 - indent - strlen(<a href='../S/304.html#L576' title='Defined at 576 in deps/lua/src/lparser.c.'>body</a>));
+<a name='L553'>    printf("%s %s %s\n", head, <a href='../S/304.html#L576' title='Defined at 576 in deps/lua/src/lparser.c.'>body</a>, tail);
+<a name='L554'><font color='red'>}</font>
+<a name='L555'>
+<a name='L556'><b>void</b> <a href='../R/3167.html' title='Multiple refered from 2 places.'>printValid</a>(<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> ops, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> bytes) <font color='red'>{</font>
+<a name='L557'>    <b>char</b> <a href='../S/304.html#L576' title='Defined at 576 in deps/lua/src/lparser.c.'>body</a>[80];
+<a name='L558'>    sprintf(<a href='../S/304.html#L576' title='Defined at 576 in deps/lua/src/lparser.c.'>body</a>, "Processed %llu valid opcodes (in %llu bytes)",
+<a name='L559'>        (<b>unsigned</b> <b>long</b> <b>long</b>) ops, (<b>unsigned</b> <b>long</b> <b>long</b>) bytes);
+<a name='L560'>    <a href='../S/55.html#L546' title='Defined at 546 in src/redis-check-dump.c.'>printCentered</a>(4, 80, <a href='../S/304.html#L576' title='Defined at 576 in deps/lua/src/lparser.c.'>body</a>);
+<a name='L561'><font color='red'>}</font>
+<a name='L562'>
+<a name='L563'><b>void</b> <a href='../S/55.html#L651' title='Refered from 651 in src/redis-check-dump.c.'>printSkipped</a>(<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> bytes, <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> offset) <font color='red'>{</font>
+<a name='L564'>    <b>char</b> <a href='../S/304.html#L576' title='Defined at 576 in deps/lua/src/lparser.c.'>body</a>[80];
+<a name='L565'>    sprintf(<a href='../S/304.html#L576' title='Defined at 576 in deps/lua/src/lparser.c.'>body</a>, "Skipped %llu bytes (resuming at 0x%08llx)",
+<a name='L566'>        (<b>unsigned</b> <b>long</b> <b>long</b>) bytes, (<b>unsigned</b> <b>long</b> <b>long</b>) offset);
+<a name='L567'>    <a href='../S/55.html#L546' title='Defined at 546 in src/redis-check-dump.c.'>printCentered</a>(4, 80, <a href='../S/304.html#L576' title='Defined at 576 in deps/lua/src/lparser.c.'>body</a>);
+<a name='L568'><font color='red'>}</font>
+<a name='L569'>
+<a name='L570'><b>void</b> <a href='../R/3165.html' title='Multiple refered from 2 places.'>printErrorStack</a>(entry *e) <font color='red'>{</font>
+<a name='L571'>    <b>unsigned</b> <b>int</b> i;
+<a name='L572'>    <b>char</b> <a href='../S/304.html#L576' title='Defined at 576 in deps/lua/src/lparser.c.'>body</a>[64];
+<a name='L573'>
+<a name='L574'>    <b>if</b> (e-&gt;type == -1) <font color='red'>{</font>
+<a name='L575'>        sprintf(<a href='../S/304.html#L576' title='Defined at 576 in deps/lua/src/lparser.c.'>body</a>, "Error trace");
+<a name='L576'>    <font color='red'>}</font> <b>else</b> <b>if</b> (e-&gt;type &gt;= 253) <font color='red'>{</font>
+<a name='L577'>        sprintf(<a href='../S/304.html#L576' title='Defined at 576 in deps/lua/src/lparser.c.'>body</a>, "Error trace (%s)", types[e-&gt;type]);
+<a name='L578'>    <font color='red'>}</font> <b>else</b> <b>if</b> (!e-&gt;key) <font color='red'>{</font>
+<a name='L579'>        sprintf(<a href='../S/304.html#L576' title='Defined at 576 in deps/lua/src/lparser.c.'>body</a>, "Error trace (%s: (unknown))", types[e-&gt;type]);
+<a name='L580'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L581'>        <b>char</b> tmp[41];
+<a name='L582'>        strncpy(tmp, e-&gt;key, 40);
+<a name='L583'>
+<a name='L584'>        <i><font color='green'>/* display truncation at the last 3 chars */</font></i>
+<a name='L585'>        <b>if</b> (strlen(e-&gt;key) &gt; 40) <font color='red'>{</font>
+<a name='L586'>            memset(&amp;tmp[37], '.', 3);
+<a name='L587'>        <font color='red'>}</font>
+<a name='L588'>
+<a name='L589'>        <i><font color='green'>/* display unprintable characters as ? */</font></i>
+<a name='L590'>        <b>for</b> (i = 0; i &lt; strlen(tmp); i++) <font color='red'>{</font>
+<a name='L591'>            <b>if</b> (tmp[i] &lt;= 32) tmp[i] = '?';
+<a name='L592'>        <font color='red'>}</font>
+<a name='L593'>        sprintf(<a href='../S/304.html#L576' title='Defined at 576 in deps/lua/src/lparser.c.'>body</a>, "Error trace (%s: %s)", types[e-&gt;type], tmp);
+<a name='L594'>    <font color='red'>}</font>
+<a name='L595'>
+<a name='L596'>    <a href='../S/55.html#L546' title='Defined at 546 in src/redis-check-dump.c.'>printCentered</a>(4, 80, <a href='../S/304.html#L576' title='Defined at 576 in deps/lua/src/lparser.c.'>body</a>);
+<a name='L597'>
+<a name='L598'>    <i><font color='green'>/* display error stack */</font></i>
+<a name='L599'>    <b>for</b> (i = 0; i &lt; errors.level; i++) <font color='red'>{</font>
+<a name='L600'>        printf("0x%08lx - %s\n",
+<a name='L601'>            (<b>unsigned</b> <b>long</b>) errors.offset[i], errors.<a href='../D/2172.html' title='Multiple defined in 3 places.'>error</a>[i]);
+<a name='L602'>    <font color='red'>}</font>
+<a name='L603'><font color='red'>}</font>
+<a name='L604'>
+<a name='L605'><b>void</b> <a href='../R/3172.html' title='Multiple refered from 2 places.'>process</a>() <font color='red'>{</font>
+<a name='L606'>    <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> num_errors = 0, num_valid_ops = 0, num_valid_bytes = 0;
+<a name='L607'>    <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a> <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>;
+<a name='L608'>    <b>int</b> dump_version = <a href='../S/55.html#L171' title='Defined at 171 in src/redis-check-dump.c.'>processHeader</a>();
+<a name='L609'>
+<a name='L610'>    <i><font color='green'>/* Exclude the final checksum for RDB &gt;= 5. Will be checked at the end. */</font></i>
+<a name='L611'>    <b>if</b> (dump_version &gt;= 5) <font color='red'>{</font>
+<a name='L612'>        <b>if</b> (positions[0].size &lt; 8) <font color='red'>{</font>
+<a name='L613'>            printf("RDB version &gt;= 5 but no room for checksum.\n");
+<a name='L614'>            exit(1);
+<a name='L615'>        <font color='red'>}</font>
+<a name='L616'>        positions[0].size -= 8;;
+<a name='L617'>    <font color='red'>}</font>
+<a name='L618'>
+<a name='L619'>    level = 1;
+<a name='L620'>    <b>while</b>(positions[0].offset &lt; positions[0].size) <font color='red'>{</font>
+<a name='L621'>        positions[1] = positions[0];
+<a name='L622'>
+<a name='L623'>        <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a> = <a href='../S/55.html#L488' title='Defined at 488 in src/redis-check-dump.c.'>loadEntry</a>();
+<a name='L624'>        <b>if</b> (!<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.success) <font color='red'>{</font>
+<a name='L625'>            <a href='../S/55.html#L556' title='Defined at 556 in src/redis-check-dump.c.'>printValid</a>(num_valid_ops, num_valid_bytes);
+<a name='L626'>            <a href='../S/55.html#L570' title='Defined at 570 in src/redis-check-dump.c.'>printErrorStack</a>(&amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>);
+<a name='L627'>            num_errors++;
+<a name='L628'>            num_valid_ops = 0;
+<a name='L629'>            num_valid_bytes = 0;
+<a name='L630'>
+<a name='L631'>            <i><font color='green'>/* search for next valid entry */</font></i>
+<a name='L632'>            <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> offset = positions[0].offset + 1;
+<a name='L633'>            <b>int</b> i = 0;
+<a name='L634'>
+<a name='L635'>            <b>while</b> (!<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.success &amp;&amp; offset &lt; positions[0].size) <font color='red'>{</font>
+<a name='L636'>                positions[1].offset = offset;
+<a name='L637'>
+<a name='L638'>                <i><font color='green'>/* find 3 consecutive valid entries */</font></i>
+<a name='L639'>                <b>for</b> (i = 0; i &lt; 3; i++) <font color='red'>{</font>
+<a name='L640'>                    <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a> = <a href='../S/55.html#L488' title='Defined at 488 in src/redis-check-dump.c.'>loadEntry</a>();
+<a name='L641'>                    <b>if</b> (!<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.success) <b>break</b>;
+<a name='L642'>                <font color='red'>}</font>
+<a name='L643'>                <i><font color='green'>/* check if we found 3 consecutive valid entries */</font></i>
+<a name='L644'>                <b>if</b> (i &lt; 3) <font color='red'>{</font>
+<a name='L645'>                    offset++;
+<a name='L646'>                <font color='red'>}</font>
+<a name='L647'>            <font color='red'>}</font>
+<a name='L648'>
+<a name='L649'>            <i><font color='green'>/* print how many bytes we have skipped to find a new valid opcode */</font></i>
+<a name='L650'>            <b>if</b> (offset &lt; positions[0].size) <font color='red'>{</font>
+<a name='L651'>                <a href='../S/55.html#L563' title='Defined at 563 in src/redis-check-dump.c.'>printSkipped</a>(offset - positions[0].offset, offset);
+<a name='L652'>            <font color='red'>}</font>
+<a name='L653'>
+<a name='L654'>            positions[0].offset = offset;
+<a name='L655'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L656'>            num_valid_ops++;
+<a name='L657'>            num_valid_bytes += positions[1].offset - positions[0].offset;
+<a name='L658'>
+<a name='L659'>            <i><font color='green'>/* advance position */</font></i>
+<a name='L660'>            positions[0] = positions[1];
+<a name='L661'>        <font color='red'>}</font>
+<a name='L662'>        <a href='../D/2271.html' title='Multiple defined in 2 places.'>free</a>(<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.key);
+<a name='L663'>    <font color='red'>}</font>
+<a name='L664'>
+<a name='L665'>    <i><font color='green'>/* because there is another potential error,</font></i>
+<a name='L666'><i><font color='green'>     * print how many valid ops we have processed */</font></i>
+<a name='L667'>    <a href='../S/55.html#L556' title='Defined at 556 in src/redis-check-dump.c.'>printValid</a>(num_valid_ops, num_valid_bytes);
+<a name='L668'>
+<a name='L669'>    <i><font color='green'>/* expect an eof */</font></i>
+<a name='L670'>    <b>if</b> (<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.type != <a href='../S/55.html#L68' title='Defined at 68 in src/redis-check-dump.c.'>REDIS_EOF</a>) <font color='red'>{</font>
+<a name='L671'>        <i><font color='green'>/* last byte should be EOF, add error */</font></i>
+<a name='L672'>        errors.level = 0;
+<a name='L673'>        <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(positions[0].offset, "Expected EOF, got %s", types[<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.type]);
+<a name='L674'>
+<a name='L675'>        <i><font color='green'>/* this is an EOF error so reset type */</font></i>
+<a name='L676'>        <a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>.type = -1;
+<a name='L677'>        <a href='../S/55.html#L570' title='Defined at 570 in src/redis-check-dump.c.'>printErrorStack</a>(&amp;<a href='../S/55.html#L133' title='Defined at 133 in src/redis-check-dump.c.'>entry</a>);
+<a name='L678'>
+<a name='L679'>        num_errors++;
+<a name='L680'>    <font color='red'>}</font>
+<a name='L681'>
+<a name='L682'>    <i><font color='green'>/* Verify checksum */</font></i>
+<a name='L683'>    <b>if</b> (dump_version &gt;= 5) <font color='red'>{</font>
+<a name='L684'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> crc = <a href='../S/77.html#L173' title='Defined at 173 in src/crc64.c.'>crc64</a>(0,positions[0].data,positions[0].size);
+<a name='L685'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a> crc2;
+<a name='L686'>        <b>unsigned</b> <b>char</b> *p = (<b>unsigned</b> <b>char</b>*)positions[0].data+positions[0].size;
+<a name='L687'>        crc2 = ((<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)p[0] &lt;&lt; 0) |
+<a name='L688'>               ((<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)p[1] &lt;&lt; 8) |
+<a name='L689'>               ((<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)p[2] &lt;&lt; 16) |
+<a name='L690'>               ((<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)p[3] &lt;&lt; 24) |
+<a name='L691'>               ((<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)p[4] &lt;&lt; 32) |
+<a name='L692'>               ((<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)p[5] &lt;&lt; 40) |
+<a name='L693'>               ((<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)p[6] &lt;&lt; 48) |
+<a name='L694'>               ((<a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>)p[7] &lt;&lt; 56);
+<a name='L695'>        <b>if</b> (crc != crc2) <font color='red'>{</font>
+<a name='L696'>            <a href='../S/55.html#L122' title='Defined at 122 in src/redis-check-dump.c.'>SHIFT_ERROR</a>(positions[0].offset, "RDB CRC64 does not match.");
+<a name='L697'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L698'>            printf("CRC64 checksum is OK\n");
+<a name='L699'>        <font color='red'>}</font>
+<a name='L700'>    <font color='red'>}</font>
+<a name='L701'>
+<a name='L702'>    <i><font color='green'>/* print summary on errors */</font></i>
+<a name='L703'>    <b>if</b> (num_errors) <font color='red'>{</font>
+<a name='L704'>        printf("\n");
+<a name='L705'>        printf("Total unprocessable opcodes: %llu\n",
+<a name='L706'>            (<b>unsigned</b> <b>long</b> <b>long</b>) num_errors);
+<a name='L707'>    <font color='red'>}</font>
+<a name='L708'><font color='red'>}</font>
+<a name='L709'>
+<a name='L710'><b>int</b> main(<b>int</b> argc, <b>char</b> **argv) <font color='red'>{</font>
+<a name='L711'>    <i><font color='green'>/* expect the first argument to be the dump file */</font></i>
+<a name='L712'>    <b>if</b> (argc &lt;= 1) <font color='red'>{</font>
+<a name='L713'>        printf("Usage: %s &lt;dump.rdb&gt;\n", argv[0]);
+<a name='L714'>        exit(0);
+<a name='L715'>    <font color='red'>}</font>
+<a name='L716'>
+<a name='L717'>    <b>int</b> fd;
+<a name='L718'>    off_t size;
+<a name='L719'>    <b>struct</b> stat stat;
+<a name='L720'>    <b>void</b> *data;
+<a name='L721'>
+<a name='L722'>    fd = open(argv[1], O_RDONLY);
+<a name='L723'>    <b>if</b> (fd &lt; 1) <font color='red'>{</font>
+<a name='L724'>        <a href='../D/147.html' title='Multiple defined in 2 places.'>ERROR</a>("Cannot open file: %s\n", argv[1]);
+<a name='L725'>    <font color='red'>}</font>
+<a name='L726'>    <b>if</b> (fstat(fd, &amp;stat) == -1) <font color='red'>{</font>
+<a name='L727'>        <a href='../D/147.html' title='Multiple defined in 2 places.'>ERROR</a>("Cannot stat: %s\n", argv[1]);
+<a name='L728'>    <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L729'>        size = stat.st_size;
+<a name='L730'>    <font color='red'>}</font>
+<a name='L731'>
+<a name='L732'>    <b>if</b> (<b>sizeof</b>(size_t) == <b>sizeof</b>(<a href='../D/2493.html' title='Multiple defined in 2 places.'>int32_t</a>) &amp;&amp; size &gt;= INT_MAX) <font color='red'>{</font>
+<a name='L733'>        <a href='../D/147.html' title='Multiple defined in 2 places.'>ERROR</a>("Cannot check dump files &gt;2GB on a 32-bit platform\n");
+<a name='L734'>    <font color='red'>}</font>
+<a name='L735'>
+<a name='L736'>    data = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
+<a name='L737'>    <b>if</b> (data == MAP_FAILED) <font color='red'>{</font>
+<a name='L738'>        <a href='../D/147.html' title='Multiple defined in 2 places.'>ERROR</a>("Cannot mmap: %s\n", argv[1]);
+<a name='L739'>    <font color='red'>}</font>
+<a name='L740'>
+<a name='L741'>    <i><font color='green'>/* Initialize static vars */</font></i>
+<a name='L742'>    positions[0].data = data;
+<a name='L743'>    positions[0].size = size;
+<a name='L744'>    positions[0].offset = 0;
+<a name='L745'>    errors.level = 0;
+<a name='L746'>
+<a name='L747'>    <i><font color='green'>/* Object types */</font></i>
+<a name='L748'>    sprintf(types[<a href='../D/923.html' title='Multiple defined in 2 places.'>REDIS_STRING</a>], "STRING");
+<a name='L749'>    sprintf(types[<a href='../D/820.html' title='Multiple defined in 2 places.'>REDIS_LIST</a>], "LIST");
+<a name='L750'>    sprintf(types[<a href='../D/908.html' title='Multiple defined in 2 places.'>REDIS_SET</a>], "SET");
+<a name='L751'>    sprintf(types[<a href='../D/933.html' title='Multiple defined in 2 places.'>REDIS_ZSET</a>], "ZSET");
+<a name='L752'>    sprintf(types[<a href='../D/807.html' title='Multiple defined in 2 places.'>REDIS_HASH</a>], "HASH");
+<a name='L753'>
+<a name='L754'>    <i><font color='green'>/* Object types only used for dumping to disk */</font></i>
+<a name='L755'>    sprintf(types[<a href='../S/55.html#L66' title='Defined at 66 in src/redis-check-dump.c.'>REDIS_EXPIRETIME</a>], "EXPIRETIME");
+<a name='L756'>    sprintf(types[<a href='../S/55.html#L67' title='Defined at 67 in src/redis-check-dump.c.'>REDIS_SELECTDB</a>], "SELECTDB");
+<a name='L757'>    sprintf(types[<a href='../S/55.html#L68' title='Defined at 68 in src/redis-check-dump.c.'>REDIS_EOF</a>], "EOF");
+<a name='L758'>
+<a name='L759'>    <i><font color='green'>/* Double constants initialization */</font></i>
+<a name='L760'>    R_Zero = 0.0;
+<a name='L761'>    R_PosInf = 1.0/R_Zero;
+<a name='L762'>    R_NegInf = -1.0/R_Zero;
+<a name='L763'>    R_Nan = R_Zero/R_Zero;
+<a name='L764'>
+<a name='L765'>    <a href='../D/3520.html' title='Multiple defined in 2 places.'>process</a>();
+<a name='L766'>
+<a name='L767'>    munmap(data, size);
+<a name='L768'>    close(fd);
+<a name='L769'>    <b>return</b> 0;
+<a name='L770'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L147'>[^]</a><a href='#L710'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

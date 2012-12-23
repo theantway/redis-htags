@@ -1,0 +1,412 @@
+<html>
+<head>
+<title>deps/jemalloc/src/chunk.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/395.html'>src</a>/chunk.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L45'>[^]</a><a href='#L374'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L45' title='Defined at 45.'>chunk_recycle</a>
+<li><a href='#L139' title='Defined at 139.'>chunk_alloc</a>
+<li><a href='#L210' title='Defined at 210.'>chunk_record</a>
+<li><a href='#L287' title='Defined at 287.'>chunk_unmap</a>
+<li><a href='#L301' title='Defined at 301.'>chunk_dealloc</a>
+<li><a href='#L323' title='Defined at 323.'>chunk_boot</a>
+<li><a href='#L354' title='Defined at 354.'>chunk_prefork</a>
+<li><a href='#L364' title='Defined at 364.'>chunk_postfork_parent</a>
+<li><a href='#L374' title='Defined at 374.'>chunk_postfork_child</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><font color='darkred'>#define</font> JEMALLOC_CHUNK_C_
+<a name='L2'><font color='darkred'>#include</font> "jemalloc/internal/jemalloc_internal.h"
+<a name='L3'>
+<a name='L4'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L5'><i><font color='green'>/* Data. */</font></i>
+<a name='L6'>
+<a name='L7'><b>const</b> <b>char</b>      *opt_dss = <a href='../S/130.html#L12' title='Defined at 12 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>DSS_DEFAULT</a>;
+<a name='L8'>size_t          <a href='../S/138.html#L240' title='Defined at 240 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_lg_chunk</a> = <a href='../S/142.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>LG_CHUNK_DEFAULT</a>;
+<a name='L9'>
+<a name='L10'><a href='../S/144.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/mutex.h.'>malloc_mutex_t</a>  <a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>;
+<a name='L11'><a href='../S/137.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/stats.h.'>chunk_stats_t</a>   <a href='../S/138.html#L316' title='Defined at 316 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_chunks</a>;
+<a name='L12'>
+<a name='L13'><i><font color='green'>/*</font></i>
+<a name='L14'><i><font color='green'> * Trees of chunks that were previously allocated (trees differ only in node</font></i>
+<a name='L15'><i><font color='green'> * ordering).  These are used when allocating chunks, in an attempt to re-use</font></i>
+<a name='L16'><i><font color='green'> * address space.  Depending on function, different tree orderings are needed,</font></i>
+<a name='L17'><i><font color='green'> * which is why there are two trees with the same contents.</font></i>
+<a name='L18'><i><font color='green'> */</font></i>
+<a name='L19'><b>static</b> <a href='../S/147.html#L30' title='Defined at 30 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_tree_t</a>    chunks_szad_mmap;
+<a name='L20'><b>static</b> <a href='../S/147.html#L30' title='Defined at 30 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_tree_t</a>    chunks_ad_mmap;
+<a name='L21'><b>static</b> <a href='../S/147.html#L30' title='Defined at 30 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_tree_t</a>    chunks_szad_dss;
+<a name='L22'><b>static</b> <a href='../S/147.html#L30' title='Defined at 30 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_tree_t</a>    chunks_ad_dss;
+<a name='L23'>
+<a name='L24'><a href='../S/132.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/rtree.h.'>rtree_t</a>         *<a href='../S/138.html#L115' title='Defined at 115 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_rtree</a>;
+<a name='L25'>
+<a name='L26'><i><font color='green'>/* Various chunk-related settings. */</font></i>
+<a name='L27'>size_t          <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a>;
+<a name='L28'>size_t          <a href='../S/138.html#L117' title='Defined at 117 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize_mask</a>; <i><font color='green'>/* (chunksize - 1). */</font></i>
+<a name='L29'>size_t          <a href='../S/138.html#L109' title='Defined at 109 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunk_npages</a>;
+<a name='L30'>size_t          <a href='../S/138.html#L230' title='Defined at 230 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>map_bias</a>;
+<a name='L31'>size_t          <a href='../S/138.html#L37' title='Defined at 37 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>arena_maxclass</a>; <i><font color='green'>/* Max size class for arenas. */</font></i>
+<a name='L32'>
+<a name='L33'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L34'><i><font color='green'>/* Function prototypes for non-inline static functions. */</font></i>
+<a name='L35'>
+<a name='L36'><b>static</b> <b>void</b>     *<a href='../S/201.html#L45' title='Defined at 45 in deps/jemalloc/src/chunk.c.'>chunk_recycle</a>(<a href='../S/147.html#L30' title='Defined at 30 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_tree_t</a> *chunks_szad,
+<a name='L37'>    <a href='../S/147.html#L30' title='Defined at 30 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_tree_t</a> *chunks_ad, size_t size, size_t alignment, bool base,
+<a name='L38'>    bool *zero);
+<a name='L39'><b>static</b> <b>void</b>     <a href='../S/201.html#L210' title='Defined at 210 in deps/jemalloc/src/chunk.c.'>chunk_record</a>(<a href='../S/147.html#L30' title='Defined at 30 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_tree_t</a> *chunks_szad,
+<a name='L40'>    <a href='../S/147.html#L30' title='Defined at 30 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_tree_t</a> *chunks_ad, <b>void</b> *chunk, size_t size);
+<a name='L41'>
+<a name='L42'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L43'>
+<a name='L44'><b>static</b> <b>void</b> *
+<a name='L45'><a href='../R/1583.html' title='Multiple refered from 4 places.'>chunk_recycle</a>(<a href='../S/147.html#L30' title='Defined at 30 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_tree_t</a> *chunks_szad, <a href='../S/147.html#L30' title='Defined at 30 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_tree_t</a> *chunks_ad, size_t size,
+<a name='L46'>    size_t alignment, bool base, bool *zero)
+<a name='L47'><font color='red'>{</font>
+<a name='L48'>        <b>void</b> *ret;
+<a name='L49'>        <a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a> *node;
+<a name='L50'>        <a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a> key;
+<a name='L51'>        size_t alloc_size, leadsize, trailsize;
+<a name='L52'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> zeroed;
+<a name='L53'>
+<a name='L54'>        <b>if</b> (base) <font color='red'>{</font>
+<a name='L55'>                <i><font color='green'>/*</font></i>
+<a name='L56'><i><font color='green'>                 * This function may need to call base_node_{,de}alloc(), but</font></i>
+<a name='L57'><i><font color='green'>                 * the current chunk allocation request is on behalf of the</font></i>
+<a name='L58'><i><font color='green'>                 * base allocator.  Avoid deadlock (and if that weren't an</font></i>
+<a name='L59'><i><font color='green'>                 * issue, potential for infinite recursion) by returning NULL.</font></i>
+<a name='L60'><i><font color='green'>                 */</font></i>
+<a name='L61'>                <b>return</b> (NULL);
+<a name='L62'>        <font color='red'>}</font>
+<a name='L63'>
+<a name='L64'>        alloc_size = size + alignment - <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a>;
+<a name='L65'>        <i><font color='green'>/* Beware size_t wrap-around. */</font></i>
+<a name='L66'>        <b>if</b> (alloc_size &lt; size)
+<a name='L67'>                <b>return</b> (NULL);
+<a name='L68'>        key.addr = NULL;
+<a name='L69'>        key.size = alloc_size;
+<a name='L70'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;<a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>);
+<a name='L71'>        node = <a href='../S/138.html#L167' title='Defined at 167 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_szad_nsearch</a>(chunks_szad, &amp;key);
+<a name='L72'>        <b>if</b> (node == NULL) <font color='red'>{</font>
+<a name='L73'>                <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;<a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>);
+<a name='L74'>                <b>return</b> (NULL);
+<a name='L75'>        <font color='red'>}</font>
+<a name='L76'>        leadsize = ALIGNMENT_CEILING((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)node-&gt;addr, alignment) -
+<a name='L77'>            (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)node-&gt;addr;
+<a name='L78'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(node-&gt;size &gt;= leadsize + size);
+<a name='L79'>        trailsize = node-&gt;size - leadsize - size;
+<a name='L80'>        ret = (<b>void</b> *)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)node-&gt;addr + leadsize);
+<a name='L81'>        <i><font color='green'>/* Remove node from the tree. */</font></i>
+<a name='L82'>        <a href='../S/138.html#L170' title='Defined at 170 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_szad_remove</a>(chunks_szad, node);
+<a name='L83'>        <a href='../S/138.html#L154' title='Defined at 154 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_ad_remove</a>(chunks_ad, node);
+<a name='L84'>        <b>if</b> (leadsize != 0) <font color='red'>{</font>
+<a name='L85'>                <i><font color='green'>/* Insert the leading space as a smaller chunk. */</font></i>
+<a name='L86'>                node-&gt;size = leadsize;
+<a name='L87'>                <a href='../S/138.html#L160' title='Defined at 160 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_szad_insert</a>(chunks_szad, node);
+<a name='L88'>                <a href='../S/138.html#L144' title='Defined at 144 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_ad_insert</a>(chunks_ad, node);
+<a name='L89'>                node = NULL;
+<a name='L90'>        <font color='red'>}</font>
+<a name='L91'>        <b>if</b> (trailsize != 0) <font color='red'>{</font>
+<a name='L92'>                <i><font color='green'>/* Insert the trailing space as a smaller chunk. */</font></i>
+<a name='L93'>                <b>if</b> (node == NULL) <font color='red'>{</font>
+<a name='L94'>                        <i><font color='green'>/*</font></i>
+<a name='L95'><i><font color='green'>                         * An additional node is required, but</font></i>
+<a name='L96'><i><font color='green'>                         * base_node_alloc() can cause a new base chunk to be</font></i>
+<a name='L97'><i><font color='green'>                         * allocated.  Drop chunks_mtx in order to avoid</font></i>
+<a name='L98'><i><font color='green'>                         * deadlock, and if node allocation fails, deallocate</font></i>
+<a name='L99'><i><font color='green'>                         * the result before returning an error.</font></i>
+<a name='L100'><i><font color='green'>                         */</font></i>
+<a name='L101'>                        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;<a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>);
+<a name='L102'>                        node = <a href='../D/1718.html' title='Multiple defined in 2 places.'>base_node_alloc</a>();
+<a name='L103'>                        <b>if</b> (node == NULL) <font color='red'>{</font>
+<a name='L104'>                                <a href='../D/1844.html' title='Multiple defined in 2 places.'>chunk_dealloc</a>(ret, size, <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L105'>                                <b>return</b> (NULL);
+<a name='L106'>                        <font color='red'>}</font>
+<a name='L107'>                        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;<a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>);
+<a name='L108'>                <font color='red'>}</font>
+<a name='L109'>                node-&gt;addr = (<b>void</b> *)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)(ret) + size);
+<a name='L110'>                node-&gt;size = trailsize;
+<a name='L111'>                <a href='../S/138.html#L160' title='Defined at 160 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_szad_insert</a>(chunks_szad, node);
+<a name='L112'>                <a href='../S/138.html#L144' title='Defined at 144 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_ad_insert</a>(chunks_ad, node);
+<a name='L113'>                node = NULL;
+<a name='L114'>        <font color='red'>}</font>
+<a name='L115'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;<a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>);
+<a name='L116'>
+<a name='L117'>        zeroed = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L118'>        <b>if</b> (node != NULL) <font color='red'>{</font>
+<a name='L119'>                <b>if</b> (node-&gt;zeroed) <font color='red'>{</font>
+<a name='L120'>                        zeroed = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L121'>                        *zero = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L122'>                <font color='red'>}</font>
+<a name='L123'>                <a href='../D/1719.html' title='Multiple defined in 2 places.'>base_node_dealloc</a>(node);
+<a name='L124'>        <font color='red'>}</font>
+<a name='L125'>        <b>if</b> (zeroed == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a> &amp;&amp; *zero) <font color='red'>{</font>
+<a name='L126'>                VALGRIND_MAKE_MEM_UNDEFINED(ret, size);
+<a name='L127'>                memset(ret, 0, size);
+<a name='L128'>        <font color='red'>}</font>
+<a name='L129'>        <b>return</b> (ret);
+<a name='L130'><font color='red'>}</font>
+<a name='L131'>
+<a name='L132'><i><font color='green'>/*</font></i>
+<a name='L133'><i><font color='green'> * If the caller specifies (*zero == false), it is still possible to receive</font></i>
+<a name='L134'><i><font color='green'> * zeroed memory, in which case *zero is toggled to true.  arena_chunk_alloc()</font></i>
+<a name='L135'><i><font color='green'> * takes advantage of this to avoid demanding zeroed chunks, but taking</font></i>
+<a name='L136'><i><font color='green'> * advantage of them if they are returned.</font></i>
+<a name='L137'><i><font color='green'> */</font></i>
+<a name='L138'><b>void</b> *
+<a name='L139'><a href='../R/1564.html' title='Multiple refered from 5 places.'>chunk_alloc</a>(size_t size, size_t alignment, bool base, bool *zero,
+<a name='L140'>    <a href='../S/130.html#L10' title='Defined at 10 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>dss_prec_t</a> dss_prec)
+<a name='L141'><font color='red'>{</font>
+<a name='L142'>        <b>void</b> *ret;
+<a name='L143'>
+<a name='L144'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(size != 0);
+<a name='L145'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((size &amp; <a href='../S/138.html#L117' title='Defined at 117 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize_mask</a>) == 0);
+<a name='L146'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(alignment != 0);
+<a name='L147'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((alignment &amp; <a href='../S/138.html#L117' title='Defined at 117 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize_mask</a>) == 0);
+<a name='L148'>
+<a name='L149'>        <i><font color='green'>/* "primary" dss. */</font></i>
+<a name='L150'>        <b>if</b> (config_dss &amp;&amp; dss_prec == <a href='../S/130.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>dss_prec_primary</a>) <font color='red'>{</font>
+<a name='L151'>                <b>if</b> ((ret = <a href='../S/201.html#L45' title='Defined at 45 in deps/jemalloc/src/chunk.c.'>chunk_recycle</a>(&amp;chunks_szad_dss, &amp;chunks_ad_dss, size,
+<a name='L152'>                    alignment, base, zero)) != NULL)
+<a name='L153'>                        <b>goto</b> label_return;
+<a name='L154'>                <b>if</b> ((ret = <a href='../D/1840.html' title='Multiple defined in 2 places.'>chunk_alloc_dss</a>(size, alignment, zero)) != NULL)
+<a name='L155'>                        <b>goto</b> label_return;
+<a name='L156'>        <font color='red'>}</font>
+<a name='L157'>        <i><font color='green'>/* mmap. */</font></i>
+<a name='L158'>        <b>if</b> ((ret = <a href='../S/201.html#L45' title='Defined at 45 in deps/jemalloc/src/chunk.c.'>chunk_recycle</a>(&amp;chunks_szad_mmap, &amp;chunks_ad_mmap, size,
+<a name='L159'>            alignment, base, zero)) != NULL)
+<a name='L160'>                <b>goto</b> label_return;
+<a name='L161'>        <b>if</b> ((ret = <a href='../D/1841.html' title='Multiple defined in 2 places.'>chunk_alloc_mmap</a>(size, alignment, zero)) != NULL)
+<a name='L162'>                <b>goto</b> label_return;
+<a name='L163'>        <i><font color='green'>/* "secondary" dss. */</font></i>
+<a name='L164'>        <b>if</b> (config_dss &amp;&amp; dss_prec == <a href='../S/130.html#L7' title='Defined at 7 in deps/jemalloc/include/jemalloc/internal/chunk_dss.h.'>dss_prec_secondary</a>) <font color='red'>{</font>
+<a name='L165'>                <b>if</b> ((ret = <a href='../S/201.html#L45' title='Defined at 45 in deps/jemalloc/src/chunk.c.'>chunk_recycle</a>(&amp;chunks_szad_dss, &amp;chunks_ad_dss, size,
+<a name='L166'>                    alignment, base, zero)) != NULL)
+<a name='L167'>                        <b>goto</b> label_return;
+<a name='L168'>                <b>if</b> ((ret = <a href='../D/1840.html' title='Multiple defined in 2 places.'>chunk_alloc_dss</a>(size, alignment, zero)) != NULL)
+<a name='L169'>                        <b>goto</b> label_return;
+<a name='L170'>        <font color='red'>}</font>
+<a name='L171'>
+<a name='L172'>        <i><font color='green'>/* All strategies for allocation failed. */</font></i>
+<a name='L173'>        ret = NULL;
+<a name='L174'>label_return:
+<a name='L175'>        <b>if</b> (config_ivsalloc &amp;&amp; base == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a> &amp;&amp; ret != NULL) <font color='red'>{</font>
+<a name='L176'>                <b>if</b> (<a href='../S/138.html#L308' title='Defined at 308 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>rtree_set</a>(<a href='../S/138.html#L115' title='Defined at 115 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_rtree</a>, (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ret, ret)) <font color='red'>{</font>
+<a name='L177'>                        <a href='../D/1844.html' title='Multiple defined in 2 places.'>chunk_dealloc</a>(ret, size, <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L178'>                        <b>return</b> (NULL);
+<a name='L179'>                <font color='red'>}</font>
+<a name='L180'>        <font color='red'>}</font>
+<a name='L181'>        <b>if</b> ((config_stats || config_prof) &amp;&amp; ret != NULL) <font color='red'>{</font>
+<a name='L182'>                <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> gdump;
+<a name='L183'>                <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;<a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>);
+<a name='L184'>                <b>if</b> (config_stats)
+<a name='L185'>                        <a href='../S/138.html#L316' title='Defined at 316 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_chunks</a>.nchunks += (size / <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a>);
+<a name='L186'>                <a href='../S/138.html#L316' title='Defined at 316 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_chunks</a>.curchunks += (size / <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a>);
+<a name='L187'>                <b>if</b> (<a href='../S/138.html#L316' title='Defined at 316 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_chunks</a>.curchunks &gt; <a href='../S/138.html#L316' title='Defined at 316 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_chunks</a>.highchunks) <font color='red'>{</font>
+<a name='L188'>                        <a href='../S/138.html#L316' title='Defined at 316 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_chunks</a>.highchunks = <a href='../S/138.html#L316' title='Defined at 316 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_chunks</a>.curchunks;
+<a name='L189'>                        <b>if</b> (config_prof)
+<a name='L190'>                                gdump = <a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>;
+<a name='L191'>                <font color='red'>}</font> <b>else</b> <b>if</b> (config_prof)
+<a name='L192'>                        gdump = <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>;
+<a name='L193'>                <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;<a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>);
+<a name='L194'>                <b>if</b> (config_prof &amp;&amp; <a href='../S/138.html#L246' title='Defined at 246 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof</a> &amp;&amp; <a href='../S/138.html#L250' title='Defined at 250 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_prof_gdump</a> &amp;&amp; gdump)
+<a name='L195'>                        <a href='../D/3562.html' title='Multiple defined in 2 places.'>prof_gdump</a>();
+<a name='L196'>        <font color='red'>}</font>
+<a name='L197'>        <b>if</b> (config_debug &amp;&amp; *zero &amp;&amp; ret != NULL) <font color='red'>{</font>
+<a name='L198'>                size_t i;
+<a name='L199'>                size_t *p = (size_t *)(<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)ret;
+<a name='L200'>
+<a name='L201'>                VALGRIND_MAKE_MEM_DEFINED(ret, size);
+<a name='L202'>                <b>for</b> (i = 0; i &lt; size / <b>sizeof</b>(size_t); i++)
+<a name='L203'>                        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(p[i] == 0);
+<a name='L204'>        <font color='red'>}</font>
+<a name='L205'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/142.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_ADDR2BASE</a>(ret) == ret);
+<a name='L206'>        <b>return</b> (ret);
+<a name='L207'><font color='red'>}</font>
+<a name='L208'>
+<a name='L209'><b>static</b> <b>void</b>
+<a name='L210'><a href='../R/1582.html' title='Multiple refered from 3 places.'>chunk_record</a>(<a href='../S/147.html#L30' title='Defined at 30 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_tree_t</a> *chunks_szad, <a href='../S/147.html#L30' title='Defined at 30 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_tree_t</a> *chunks_ad, <b>void</b> *chunk,
+<a name='L211'>    size_t size)
+<a name='L212'><font color='red'>{</font>
+<a name='L213'>        <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a> unzeroed;
+<a name='L214'>        <a href='../S/147.html#L4' title='Defined at 4 in deps/jemalloc/include/jemalloc/internal/extent.h.'>extent_node_t</a> *xnode, *node, *prev, key;
+<a name='L215'>
+<a name='L216'>        unzeroed = <a href='../D/3481.html' title='Multiple defined in 2 places.'>pages_purge</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, size);
+<a name='L217'>
+<a name='L218'>        <i><font color='green'>/*</font></i>
+<a name='L219'><i><font color='green'>         * Allocate a node before acquiring chunks_mtx even though it might not</font></i>
+<a name='L220'><i><font color='green'>         * be needed, because base_node_alloc() may cause a new base chunk to</font></i>
+<a name='L221'><i><font color='green'>         * be allocated, which could cause deadlock if chunks_mtx were already</font></i>
+<a name='L222'><i><font color='green'>         * held.</font></i>
+<a name='L223'><i><font color='green'>         */</font></i>
+<a name='L224'>        xnode = <a href='../D/1718.html' title='Multiple defined in 2 places.'>base_node_alloc</a>();
+<a name='L225'>
+<a name='L226'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;<a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>);
+<a name='L227'>        key.addr = (<b>void</b> *)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a> + size);
+<a name='L228'>        node = <a href='../S/138.html#L151' title='Defined at 151 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_ad_nsearch</a>(chunks_ad, &amp;key);
+<a name='L229'>        <i><font color='green'>/* Try to coalesce forward. */</font></i>
+<a name='L230'>        <b>if</b> (node != NULL &amp;&amp; node-&gt;addr == key.addr) <font color='red'>{</font>
+<a name='L231'>                <i><font color='green'>/*</font></i>
+<a name='L232'><i><font color='green'>                 * Coalesce chunk with the following address range.  This does</font></i>
+<a name='L233'><i><font color='green'>                 * not change the position within chunks_ad, so only</font></i>
+<a name='L234'><i><font color='green'>                 * remove/insert from/into chunks_szad.</font></i>
+<a name='L235'><i><font color='green'>                 */</font></i>
+<a name='L236'>                <a href='../S/138.html#L170' title='Defined at 170 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_szad_remove</a>(chunks_szad, node);
+<a name='L237'>                node-&gt;addr = <a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>;
+<a name='L238'>                node-&gt;size += size;
+<a name='L239'>                node-&gt;zeroed = (node-&gt;zeroed &amp;&amp; (unzeroed == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>));
+<a name='L240'>                <a href='../S/138.html#L160' title='Defined at 160 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_szad_insert</a>(chunks_szad, node);
+<a name='L241'>                <b>if</b> (xnode != NULL)
+<a name='L242'>                        <a href='../D/1719.html' title='Multiple defined in 2 places.'>base_node_dealloc</a>(xnode);
+<a name='L243'>        <font color='red'>}</font> <b>else</b> <font color='red'>{</font>
+<a name='L244'>                <i><font color='green'>/* Coalescing forward failed, so insert a new node. */</font></i>
+<a name='L245'>                <b>if</b> (xnode == NULL) <font color='red'>{</font>
+<a name='L246'>                        <i><font color='green'>/*</font></i>
+<a name='L247'><i><font color='green'>                         * base_node_alloc() failed, which is an exceedingly</font></i>
+<a name='L248'><i><font color='green'>                         * unlikely failure.  Leak chunk; its pages have</font></i>
+<a name='L249'><i><font color='green'>                         * already been purged, so this is only a virtual</font></i>
+<a name='L250'><i><font color='green'>                         * memory leak.</font></i>
+<a name='L251'><i><font color='green'>                         */</font></i>
+<a name='L252'>                        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;<a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>);
+<a name='L253'>                        <b>return</b>;
+<a name='L254'>                <font color='red'>}</font>
+<a name='L255'>                node = xnode;
+<a name='L256'>                node-&gt;addr = <a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>;
+<a name='L257'>                node-&gt;size = size;
+<a name='L258'>                node-&gt;zeroed = (unzeroed == <a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L259'>                <a href='../S/138.html#L144' title='Defined at 144 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_ad_insert</a>(chunks_ad, node);
+<a name='L260'>                <a href='../S/138.html#L160' title='Defined at 160 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_szad_insert</a>(chunks_szad, node);
+<a name='L261'>        <font color='red'>}</font>
+<a name='L262'>
+<a name='L263'>        <i><font color='green'>/* Try to coalesce backward. */</font></i>
+<a name='L264'>        prev = <a href='../S/138.html#L152' title='Defined at 152 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_ad_prev</a>(chunks_ad, node);
+<a name='L265'>        <b>if</b> (prev != NULL &amp;&amp; (<b>void</b> *)((<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)prev-&gt;addr + prev-&gt;size) ==
+<a name='L266'>            <a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>) <font color='red'>{</font>
+<a name='L267'>                <i><font color='green'>/*</font></i>
+<a name='L268'><i><font color='green'>                 * Coalesce chunk with the previous address range.  This does</font></i>
+<a name='L269'><i><font color='green'>                 * not change the position within chunks_ad, so only</font></i>
+<a name='L270'><i><font color='green'>                 * remove/insert node from/into chunks_szad.</font></i>
+<a name='L271'><i><font color='green'>                 */</font></i>
+<a name='L272'>                <a href='../S/138.html#L170' title='Defined at 170 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_szad_remove</a>(chunks_szad, prev);
+<a name='L273'>                <a href='../S/138.html#L154' title='Defined at 154 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_ad_remove</a>(chunks_ad, prev);
+<a name='L274'>
+<a name='L275'>                <a href='../S/138.html#L170' title='Defined at 170 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_szad_remove</a>(chunks_szad, node);
+<a name='L276'>                node-&gt;addr = prev-&gt;addr;
+<a name='L277'>                node-&gt;size += prev-&gt;size;
+<a name='L278'>                node-&gt;zeroed = (node-&gt;zeroed &amp;&amp; prev-&gt;zeroed);
+<a name='L279'>                <a href='../S/138.html#L160' title='Defined at 160 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_szad_insert</a>(chunks_szad, node);
+<a name='L280'>
+<a name='L281'>                <a href='../D/1719.html' title='Multiple defined in 2 places.'>base_node_dealloc</a>(prev);
+<a name='L282'>        <font color='red'>}</font>
+<a name='L283'>        <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;<a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>);
+<a name='L284'><font color='red'>}</font>
+<a name='L285'>
+<a name='L286'><b>void</b>
+<a name='L287'><a href='../R/1586.html' title='Multiple refered from 4 places.'>chunk_unmap</a>(<b>void</b> *chunk, size_t size)
+<a name='L288'><font color='red'>{</font>
+<a name='L289'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a> != NULL);
+<a name='L290'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/142.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_ADDR2BASE</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>) == <a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>);
+<a name='L291'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(size != 0);
+<a name='L292'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((size &amp; <a href='../S/138.html#L117' title='Defined at 117 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize_mask</a>) == 0);
+<a name='L293'>
+<a name='L294'>        <b>if</b> (config_dss &amp;&amp; <a href='../D/1852.html' title='Multiple defined in 2 places.'>chunk_in_dss</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>))
+<a name='L295'>                <a href='../S/201.html#L210' title='Defined at 210 in deps/jemalloc/src/chunk.c.'>chunk_record</a>(&amp;chunks_szad_dss, &amp;chunks_ad_dss, <a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, size);
+<a name='L296'>        <b>else</b> <b>if</b> (<a href='../D/1845.html' title='Multiple defined in 2 places.'>chunk_dealloc_mmap</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, size))
+<a name='L297'>                <a href='../S/201.html#L210' title='Defined at 210 in deps/jemalloc/src/chunk.c.'>chunk_record</a>(&amp;chunks_szad_mmap, &amp;chunks_ad_mmap, <a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, size);
+<a name='L298'><font color='red'>}</font>
+<a name='L299'>
+<a name='L300'><b>void</b>
+<a name='L301'><a href='../R/1569.html' title='Multiple refered from 6 places.'>chunk_dealloc</a>(<b>void</b> *chunk, size_t size, bool unmap)
+<a name='L302'><font color='red'>{</font>
+<a name='L303'>
+<a name='L304'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a> != NULL);
+<a name='L305'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/142.html#L11' title='Defined at 11 in deps/jemalloc/include/jemalloc/internal/chunk.h.'>CHUNK_ADDR2BASE</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>) == <a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>);
+<a name='L306'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(size != 0);
+<a name='L307'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>((size &amp; <a href='../S/138.html#L117' title='Defined at 117 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize_mask</a>) == 0);
+<a name='L308'>
+<a name='L309'>        <b>if</b> (config_ivsalloc)
+<a name='L310'>                <a href='../S/138.html#L308' title='Defined at 308 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>rtree_set</a>(<a href='../S/138.html#L115' title='Defined at 115 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_rtree</a>, (<a href='../D/4441.html' title='Multiple defined in 2 places.'>uintptr_t</a>)<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, NULL);
+<a name='L311'>        <b>if</b> (config_stats || config_prof) <font color='red'>{</font>
+<a name='L312'>                <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;<a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>);
+<a name='L313'>                <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/138.html#L316' title='Defined at 316 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_chunks</a>.curchunks &gt;= (size / <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a>));
+<a name='L314'>                <a href='../S/138.html#L316' title='Defined at 316 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_chunks</a>.curchunks -= (size / <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a>);
+<a name='L315'>                <a href='../D/3279.html' title='Multiple defined in 2 places.'>malloc_mutex_unlock</a>(&amp;<a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>);
+<a name='L316'>        <font color='red'>}</font>
+<a name='L317'>
+<a name='L318'>        <b>if</b> (unmap)
+<a name='L319'>                <a href='../D/1861.html' title='Multiple defined in 2 places.'>chunk_unmap</a>(<a href='../S/304.html#L1325' title='Defined at 1325 in deps/lua/src/lparser.c.'>chunk</a>, size);
+<a name='L320'><font color='red'>}</font>
+<a name='L321'>
+<a name='L322'><a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>
+<a name='L323'><a href='../R/1568.html' title='Multiple refered from 3 places.'>chunk_boot</a>(<b>void</b>)
+<a name='L324'><font color='red'>{</font>
+<a name='L325'>
+<a name='L326'>        <i><font color='green'>/* Set variables according to the value of opt_lg_chunk. */</font></i>
+<a name='L327'>        <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a> = (ZU(1) &lt;&lt; <a href='../S/138.html#L240' title='Defined at 240 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_lg_chunk</a>);
+<a name='L328'>        <a href='../D/1684.html' title='Multiple defined in 3 places.'>assert</a>(<a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a> &gt;= PAGE);
+<a name='L329'>        <a href='../S/138.html#L117' title='Defined at 117 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize_mask</a> = <a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a> - 1;
+<a name='L330'>        <a href='../S/138.html#L109' title='Defined at 109 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunk_npages</a> = (<a href='../S/138.html#L116' title='Defined at 116 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunksize</a> &gt;&gt; LG_PAGE);
+<a name='L331'>
+<a name='L332'>        <b>if</b> (config_stats || config_prof) <font color='red'>{</font>
+<a name='L333'>                <b>if</b> (<a href='../D/3272.html' title='Multiple defined in 2 places.'>malloc_mutex_init</a>(&amp;<a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>))
+<a name='L334'>                        <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L335'>                memset(&amp;<a href='../S/138.html#L316' title='Defined at 316 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_chunks</a>, 0, <b>sizeof</b>(<a href='../S/137.html#L8' title='Defined at 8 in deps/jemalloc/include/jemalloc/internal/stats.h.'>chunk_stats_t</a>));
+<a name='L336'>        <font color='red'>}</font>
+<a name='L337'>        <b>if</b> (config_dss &amp;&amp; <a href='../D/1846.html' title='Multiple defined in 2 places.'>chunk_dss_boot</a>())
+<a name='L338'>                <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L339'>        <a href='../S/138.html#L165' title='Defined at 165 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_szad_new</a>(&amp;chunks_szad_mmap);
+<a name='L340'>        <a href='../S/138.html#L149' title='Defined at 149 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_ad_new</a>(&amp;chunks_ad_mmap);
+<a name='L341'>        <a href='../S/138.html#L165' title='Defined at 165 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_szad_new</a>(&amp;chunks_szad_dss);
+<a name='L342'>        <a href='../S/138.html#L149' title='Defined at 149 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>extent_tree_ad_new</a>(&amp;chunks_ad_dss);
+<a name='L343'>        <b>if</b> (config_ivsalloc) <font color='red'>{</font>
+<a name='L344'>                <a href='../S/138.html#L115' title='Defined at 115 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_rtree</a> = <a href='../D/3958.html' title='Multiple defined in 2 places.'>rtree_new</a>((ZU(1) &lt;&lt; (LG_SIZEOF_PTR+3)) -
+<a name='L345'>                    <a href='../S/138.html#L240' title='Defined at 240 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_lg_chunk</a>);
+<a name='L346'>                <b>if</b> (<a href='../S/138.html#L115' title='Defined at 115 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_rtree</a> == NULL)
+<a name='L347'>                        <b>return</b> (<a href='../S/159.html#L11' title='Defined at 11 in deps/jemalloc/include/msvc_compat/stdbool.h.'>true</a>);
+<a name='L348'>        <font color='red'>}</font>
+<a name='L349'>
+<a name='L350'>        <b>return</b> (<a href='../S/159.html#L12' title='Defined at 12 in deps/jemalloc/include/msvc_compat/stdbool.h.'>false</a>);
+<a name='L351'><font color='red'>}</font>
+<a name='L352'>
+<a name='L353'><b>void</b>
+<a name='L354'><a href='../R/1581.html' title='Multiple refered from 3 places.'>chunk_prefork</a>(<b>void</b>)
+<a name='L355'><font color='red'>{</font>
+<a name='L356'>
+<a name='L357'>        <a href='../D/3273.html' title='Multiple defined in 2 places.'>malloc_mutex_lock</a>(&amp;<a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>);
+<a name='L358'>        <b>if</b> (config_ivsalloc)
+<a name='L359'>                <a href='../D/3961.html' title='Multiple defined in 2 places.'>rtree_prefork</a>(<a href='../S/138.html#L115' title='Defined at 115 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_rtree</a>);
+<a name='L360'>        <a href='../D/1851.html' title='Multiple defined in 2 places.'>chunk_dss_prefork</a>();
+<a name='L361'><font color='red'>}</font>
+<a name='L362'>
+<a name='L363'><b>void</b>
+<a name='L364'><a href='../R/1580.html' title='Multiple refered from 3 places.'>chunk_postfork_parent</a>(<b>void</b>)
+<a name='L365'><font color='red'>{</font>
+<a name='L366'>
+<a name='L367'>        <a href='../D/1848.html' title='Multiple defined in 2 places.'>chunk_dss_postfork_parent</a>();
+<a name='L368'>        <b>if</b> (config_ivsalloc)
+<a name='L369'>                <a href='../D/3960.html' title='Multiple defined in 2 places.'>rtree_postfork_parent</a>(<a href='../S/138.html#L115' title='Defined at 115 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_rtree</a>);
+<a name='L370'>        <a href='../D/3275.html' title='Multiple defined in 2 places.'>malloc_mutex_postfork_parent</a>(&amp;<a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>);
+<a name='L371'><font color='red'>}</font>
+<a name='L372'>
+<a name='L373'><b>void</b>
+<a name='L374'><a href='../R/1579.html' title='Multiple refered from 3 places.'>chunk_postfork_child</a>(<b>void</b>)
+<a name='L375'><font color='red'>{</font>
+<a name='L376'>
+<a name='L377'>        <a href='../D/1847.html' title='Multiple defined in 2 places.'>chunk_dss_postfork_child</a>();
+<a name='L378'>        <b>if</b> (config_ivsalloc)
+<a name='L379'>                <a href='../D/3959.html' title='Multiple defined in 2 places.'>rtree_postfork_child</a>(<a href='../S/138.html#L115' title='Defined at 115 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_rtree</a>);
+<a name='L380'>        <a href='../D/3274.html' title='Multiple defined in 2 places.'>malloc_mutex_postfork_child</a>(&amp;<a href='../S/138.html#L114' title='Defined at 114 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>chunks_mtx</a>);
+<a name='L381'><font color='red'>}</font>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L45'>[^]</a><a href='#L374'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

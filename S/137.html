@@ -1,0 +1,198 @@
+<html>
+<head>
+<title>deps/jemalloc/include/jemalloc/internal/stats.h</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/390.html'>jemalloc</a>/<a href='../files/391.html'>include</a>/<a href='../files/392.html'>jemalloc</a>/<a href='../files/393.html'>internal</a>/stats.h</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L151'>[^]</a><a href='#L165'>[v]</a>[top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L151' title='Defined at 151.'>stats_cactive_get</a>
+<li><a href='#L158' title='Defined at 158.'>stats_cactive_add</a>
+<li><a href='#L165' title='Defined at 165.'>stats_cactive_sub</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L2'><font color='darkred'>#ifdef</font> JEMALLOC_H_TYPES
+<a name='L3'>
+<a name='L4'><b>typedef</b> <b>struct</b> <a href='../S/137.html#L14' title='Defined at 14 in deps/jemalloc/include/jemalloc/internal/stats.h.'>tcache_bin_stats_s</a> <a href='../S/151.html#L63' title='Refered from 63 in deps/jemalloc/include/jemalloc/internal/tcache.h.'>tcache_bin_stats_t</a>;
+<a name='L5'><b>typedef</b> <b>struct</b> <a href='../S/137.html#L22' title='Defined at 22 in deps/jemalloc/include/jemalloc/internal/stats.h.'>malloc_bin_stats_s</a> <a href='../R/2917.html' title='Multiple refered from 6 places.'>malloc_bin_stats_t</a>;
+<a name='L6'><b>typedef</b> <b>struct</b> <a href='../S/137.html#L64' title='Defined at 64 in deps/jemalloc/include/jemalloc/internal/stats.h.'>malloc_large_stats_s</a> <a href='../R/2926.html' title='Multiple refered from 11 places.'>malloc_large_stats_t</a>;
+<a name='L7'><b>typedef</b> <b>struct</b> <a href='../S/137.html#L85' title='Defined at 85 in deps/jemalloc/include/jemalloc/internal/stats.h.'>arena_stats_s</a> <a href='../R/1396.html' title='Multiple refered from 6 places.'>arena_stats_t</a>;
+<a name='L8'><b>typedef</b> <b>struct</b> <a href='../S/137.html#L113' title='Defined at 113 in deps/jemalloc/include/jemalloc/internal/stats.h.'>chunk_stats_s</a> <a href='../R/1585.html' title='Multiple refered from 3 places.'>chunk_stats_t</a>;
+<a name='L9'>
+<a name='L10'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_TYPES */</font></i>
+<a name='L11'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L12'><font color='darkred'>#ifdef</font> JEMALLOC_H_STRUCTS
+<a name='L13'>
+<a name='L14'><b>struct</b> <a href='../S/137.html#L4' title='Refered from 4 in deps/jemalloc/include/jemalloc/internal/stats.h.'>tcache_bin_stats_s</a> <font color='red'>{</font>
+<a name='L15'>        <i><font color='green'>/*</font></i>
+<a name='L16'><i><font color='green'>         * Number of allocation requests that corresponded to the size of this</font></i>
+<a name='L17'><i><font color='green'>         * bin.</font></i>
+<a name='L18'><i><font color='green'>         */</font></i>
+<a name='L19'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        nrequests;
+<a name='L20'><font color='red'>}</font>;
+<a name='L21'>
+<a name='L22'><b>struct</b> <a href='../S/137.html#L5' title='Refered from 5 in deps/jemalloc/include/jemalloc/internal/stats.h.'>malloc_bin_stats_s</a> <font color='red'>{</font>
+<a name='L23'>        <i><font color='green'>/*</font></i>
+<a name='L24'><i><font color='green'>         * Current number of bytes allocated, including objects currently</font></i>
+<a name='L25'><i><font color='green'>         * cached by tcache.</font></i>
+<a name='L26'><i><font color='green'>         */</font></i>
+<a name='L27'>        size_t          allocated;
+<a name='L28'>
+<a name='L29'>        <i><font color='green'>/*</font></i>
+<a name='L30'><i><font color='green'>         * Total number of allocation/deallocation requests served directly by</font></i>
+<a name='L31'><i><font color='green'>         * the bin.  Note that tcache may allocate an object, then recycle it</font></i>
+<a name='L32'><i><font color='green'>         * many times, resulting many increments to nrequests, but only one</font></i>
+<a name='L33'><i><font color='green'>         * each to nmalloc and ndalloc.</font></i>
+<a name='L34'><i><font color='green'>         */</font></i>
+<a name='L35'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        nmalloc;
+<a name='L36'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        ndalloc;
+<a name='L37'>
+<a name='L38'>        <i><font color='green'>/*</font></i>
+<a name='L39'><i><font color='green'>         * Number of allocation requests that correspond to the size of this</font></i>
+<a name='L40'><i><font color='green'>         * bin.  This includes requests served by tcache, though tcache only</font></i>
+<a name='L41'><i><font color='green'>         * periodically merges into this counter.</font></i>
+<a name='L42'><i><font color='green'>         */</font></i>
+<a name='L43'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        nrequests;
+<a name='L44'>
+<a name='L45'>        <i><font color='green'>/* Number of tcache fills from this bin. */</font></i>
+<a name='L46'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        nfills;
+<a name='L47'>
+<a name='L48'>        <i><font color='green'>/* Number of tcache flushes to this bin. */</font></i>
+<a name='L49'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        nflushes;
+<a name='L50'>
+<a name='L51'>        <i><font color='green'>/* Total number of runs created for this bin's size class. */</font></i>
+<a name='L52'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        nruns;
+<a name='L53'>
+<a name='L54'>        <i><font color='green'>/*</font></i>
+<a name='L55'><i><font color='green'>         * Total number of runs reused by extracting them from the runs tree for</font></i>
+<a name='L56'><i><font color='green'>         * this bin's size class.</font></i>
+<a name='L57'><i><font color='green'>         */</font></i>
+<a name='L58'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        reruns;
+<a name='L59'>
+<a name='L60'>        <i><font color='green'>/* Current number of runs in this bin. */</font></i>
+<a name='L61'>        size_t          curruns;
+<a name='L62'><font color='red'>}</font>;
+<a name='L63'>
+<a name='L64'><b>struct</b> <a href='../S/137.html#L6' title='Refered from 6 in deps/jemalloc/include/jemalloc/internal/stats.h.'>malloc_large_stats_s</a> <font color='red'>{</font>
+<a name='L65'>        <i><font color='green'>/*</font></i>
+<a name='L66'><i><font color='green'>         * Total number of allocation/deallocation requests served directly by</font></i>
+<a name='L67'><i><font color='green'>         * the arena.  Note that tcache may allocate an object, then recycle it</font></i>
+<a name='L68'><i><font color='green'>         * many times, resulting many increments to nrequests, but only one</font></i>
+<a name='L69'><i><font color='green'>         * each to nmalloc and ndalloc.</font></i>
+<a name='L70'><i><font color='green'>         */</font></i>
+<a name='L71'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        nmalloc;
+<a name='L72'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        ndalloc;
+<a name='L73'>
+<a name='L74'>        <i><font color='green'>/*</font></i>
+<a name='L75'><i><font color='green'>         * Number of allocation requests that correspond to this size class.</font></i>
+<a name='L76'><i><font color='green'>         * This includes requests served by tcache, though tcache only</font></i>
+<a name='L77'><i><font color='green'>         * periodically merges into this counter.</font></i>
+<a name='L78'><i><font color='green'>         */</font></i>
+<a name='L79'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        nrequests;
+<a name='L80'>
+<a name='L81'>        <i><font color='green'>/* Current number of runs of this size class. */</font></i>
+<a name='L82'>        size_t          curruns;
+<a name='L83'><font color='red'>}</font>;
+<a name='L84'>
+<a name='L85'><b>struct</b> <a href='../S/137.html#L7' title='Refered from 7 in deps/jemalloc/include/jemalloc/internal/stats.h.'>arena_stats_s</a> <font color='red'>{</font>
+<a name='L86'>        <i><font color='green'>/* Number of bytes currently mapped. */</font></i>
+<a name='L87'>        size_t          mapped;
+<a name='L88'>
+<a name='L89'>        <i><font color='green'>/*</font></i>
+<a name='L90'><i><font color='green'>         * Total number of purge sweeps, total number of madvise calls made,</font></i>
+<a name='L91'><i><font color='green'>         * and total pages purged in order to keep dirty unused memory under</font></i>
+<a name='L92'><i><font color='green'>         * control.</font></i>
+<a name='L93'><i><font color='green'>         */</font></i>
+<a name='L94'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        npurge;
+<a name='L95'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        nmadvise;
+<a name='L96'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        purged;
+<a name='L97'>
+<a name='L98'>        <i><font color='green'>/* Per-size-category statistics. */</font></i>
+<a name='L99'>        size_t          allocated_large;
+<a name='L100'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        nmalloc_large;
+<a name='L101'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        ndalloc_large;
+<a name='L102'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        nrequests_large;
+<a name='L103'>
+<a name='L104'>        <i><font color='green'>/*</font></i>
+<a name='L105'><i><font color='green'>         * One element for each possible size class, including sizes that</font></i>
+<a name='L106'><i><font color='green'>         * overlap with bin size classes.  This is necessary because ipalloc()</font></i>
+<a name='L107'><i><font color='green'>         * sometimes has to use such large objects in order to assure proper</font></i>
+<a name='L108'><i><font color='green'>         * alignment.</font></i>
+<a name='L109'><i><font color='green'>         */</font></i>
+<a name='L110'>        <a href='../S/137.html#L6' title='Defined at 6 in deps/jemalloc/include/jemalloc/internal/stats.h.'>malloc_large_stats_t</a>    *lstats;
+<a name='L111'><font color='red'>}</font>;
+<a name='L112'>
+<a name='L113'><b>struct</b> <a href='../S/137.html#L8' title='Refered from 8 in deps/jemalloc/include/jemalloc/internal/stats.h.'>chunk_stats_s</a> <font color='red'>{</font>
+<a name='L114'>        <i><font color='green'>/* Number of chunks that were allocated. */</font></i>
+<a name='L115'>        <a href='../S/160.html#L90' title='Defined at 90 in deps/jemalloc/include/msvc_compat/stdint.h.'>uint64_t</a>        nchunks;
+<a name='L116'>
+<a name='L117'>        <i><font color='green'>/* High-water mark for number of chunks allocated. */</font></i>
+<a name='L118'>        size_t          highchunks;
+<a name='L119'>
+<a name='L120'>        <i><font color='green'>/*</font></i>
+<a name='L121'><i><font color='green'>         * Current number of chunks allocated.  This value isn't maintained for</font></i>
+<a name='L122'><i><font color='green'>         * any other purpose, so keep track of it in order to be able to set</font></i>
+<a name='L123'><i><font color='green'>         * highchunks.</font></i>
+<a name='L124'><i><font color='green'>         */</font></i>
+<a name='L125'>        size_t          curchunks;
+<a name='L126'><font color='red'>}</font>;
+<a name='L127'>
+<a name='L128'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_STRUCTS */</font></i>
+<a name='L129'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L130'><font color='darkred'>#ifdef</font> JEMALLOC_H_EXTERNS
+<a name='L131'>
+<a name='L132'><b>extern</b> <a href='../S/159.html#L10' title='Defined at 10 in deps/jemalloc/include/msvc_compat/stdbool.h.'>bool</a>     <a href='../S/138.html#L255' title='Defined at 255 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>opt_stats_print</a>;
+<a name='L133'>
+<a name='L134'><b>extern</b> size_t   <a href='../S/138.html#L312' title='Defined at 312 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_cactive</a>;
+<a name='L135'>
+<a name='L136'><b>void</b>    <a href='../D/4215.html' title='Multiple defined in 2 places.'>stats_print</a>(<b>void</b> (*write)(<b>void</b> *, <b>const</b> <b>char</b> *), <b>void</b> *cbopaque,
+<a name='L137'>    <b>const</b> <b>char</b> *opts);
+<a name='L138'>
+<a name='L139'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_EXTERNS */</font></i>
+<a name='L140'><i><font color='green'>/******************************************************************************/</font></i>
+<a name='L141'><font color='darkred'>#ifdef</font> JEMALLOC_H_INLINES
+<a name='L142'>
+<a name='L143'><font color='darkred'>#ifndef</font> JEMALLOC_ENABLE_INLINE
+<a name='L144'>size_t  <a href='../D/4212.html' title='Multiple defined in 2 places.'>stats_cactive_get</a>(<b>void</b>);
+<a name='L145'><b>void</b>    <a href='../D/4211.html' title='Multiple defined in 2 places.'>stats_cactive_add</a>(size_t size);
+<a name='L146'><b>void</b>    <a href='../D/4213.html' title='Multiple defined in 2 places.'>stats_cactive_sub</a>(size_t size);
+<a name='L147'><font color='darkred'>#endif</font>
+<a name='L148'>
+<a name='L149'><font color='darkred'>#if</font> (<b>defined</b>(JEMALLOC_ENABLE_INLINE) || <b>defined</b>(<a href='../S/217.html#L1' title='Defined at 1 in deps/jemalloc/src/stats.c.'>JEMALLOC_STATS_C_</a>))
+<a name='L150'>JEMALLOC_INLINE size_t
+<a name='L151'><a href='../R/3840.html' title='Multiple refered from 2 places.'>stats_cactive_get</a>(<b>void</b>)
+<a name='L152'><font color='red'>{</font>
+<a name='L153'>
+<a name='L154'>        <b>return</b> (<a href='../S/148.html#L14' title='Defined at 14 in deps/jemalloc/include/jemalloc/internal/atomic.h.'>atomic_read_z</a>(&amp;<a href='../S/138.html#L312' title='Defined at 312 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_cactive</a>));
+<a name='L155'><font color='red'>}</font>
+<a name='L156'>
+<a name='L157'>JEMALLOC_INLINE <b>void</b>
+<a name='L158'><a href='../R/3839.html' title='Multiple refered from 4 places.'>stats_cactive_add</a>(size_t size)
+<a name='L159'><font color='red'>{</font>
+<a name='L160'>
+<a name='L161'>        <a href='../D/1692.html' title='Multiple defined in 2 places.'>atomic_add_z</a>(&amp;<a href='../S/138.html#L312' title='Defined at 312 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_cactive</a>, size);
+<a name='L162'><font color='red'>}</font>
+<a name='L163'>
+<a name='L164'>JEMALLOC_INLINE <b>void</b>
+<a name='L165'><a href='../R/3841.html' title='Multiple refered from 4 places.'>stats_cactive_sub</a>(size_t size)
+<a name='L166'><font color='red'>{</font>
+<a name='L167'>
+<a name='L168'>        <a href='../D/1700.html' title='Multiple defined in 2 places.'>atomic_sub_z</a>(&amp;<a href='../S/138.html#L312' title='Defined at 312 in deps/jemalloc/include/jemalloc/internal/private_namespace.h.'>stats_cactive</a>, size);
+<a name='L169'><font color='red'>}</font>
+<a name='L170'><font color='darkred'>#endif</font>
+<a name='L171'>
+<a name='L172'><font color='darkred'>#endif</font> <i><font color='green'>/* JEMALLOC_H_INLINES */</font></i>
+<a name='L173'><i><font color='green'>/******************************************************************************/</font></i>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L151'>[^]</a><a href='#L165'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>

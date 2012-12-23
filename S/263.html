@@ -1,0 +1,61 @@
+<html>
+<head>
+<title>deps/lua/src/linit.c</title>
+<meta name='robots' content='noindex,nofollow'>
+<meta name='generator' content='GLOBAL-5.7.1'>
+</head>
+<body text='#191970' bgcolor='#f5f5dc' vlink='gray'>
+<a name='TOP'><h2><a href='../mains.html'>root</a>/<a href='../files/387.html'>deps</a>/<a href='../files/398.html'>lua</a>/<a href='../files/400.html'>src</a>/linit.c</h2>
+<i><font color='green'>/* [&lt;][&gt;]<a href='#L30'>[^]</a>[v][top]<a href='#BOTTOM'>[bottom]</a><a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+<hr>
+<h2>DEFINITIONS</h2>
+This source file includes following definitions.
+<ol>
+<li><a href='#L30' title='Defined at 30.'>luaL_openlibs</a>
+</ol>
+<hr>
+<pre>
+<a name='L1'><i><font color='green'>/*</font></i>
+<a name='L2'><i><font color='green'>** $Id: linit.c,v 1.14.1.1 2007/12/27 13:02:25 roberto Exp $</font></i>
+<a name='L3'><i><font color='green'>** Initialization of libraries for lua.c</font></i>
+<a name='L4'><i><font color='green'>** See Copyright Notice in lua.h</font></i>
+<a name='L5'><i><font color='green'>*/</font></i>
+<a name='L6'>
+<a name='L7'>
+<a name='L8'><font color='darkred'>#define</font> linit_c
+<a name='L9'><font color='darkred'>#define</font> <a href='../S/317.html#L156' title='Refered from 156 in deps/lua/src/luaconf.h.'>LUA_LIB</a>
+<a name='L10'>
+<a name='L11'><font color='darkred'>#include</font> "<a href='266.html'>lua.h</a>"
+<a name='L12'>
+<a name='L13'><font color='darkred'>#include</font> "<a href='267.html'>lualib.h</a>"
+<a name='L14'><font color='darkred'>#include</font> "<a href='265.html'>lauxlib.h</a>"
+<a name='L15'>
+<a name='L16'>
+<a name='L17'><b>static</b> <b>const</b> <a href='../D/2952.html' title='Multiple defined in 2 places.'>luaL_Reg</a> lualibs[] = <font color='red'>{</font>
+<a name='L18'>  <font color='red'>{</font>"", <a href='../S/277.html#L648' title='Defined at 648 in deps/lua/src/lbaselib.c.'>luaopen_base</a><font color='red'>}</font>,
+<a name='L19'>  <font color='red'>{</font><a href='../S/267.html#L39' title='Defined at 39 in deps/lua/src/lualib.h.'>LUA_LOADLIBNAME</a>, <a href='../S/279.html#L627' title='Defined at 627 in deps/lua/src/loadlib.c.'>luaopen_package</a><font color='red'>}</font>,
+<a name='L20'>  <font color='red'>{</font><a href='../S/267.html#L21' title='Defined at 21 in deps/lua/src/lualib.h.'>LUA_TABLIBNAME</a>, <a href='../S/295.html#L283' title='Defined at 283 in deps/lua/src/ltablib.c.'>luaopen_table</a><font color='red'>}</font>,
+<a name='L21'>  <font color='red'>{</font><a href='../S/267.html#L24' title='Defined at 24 in deps/lua/src/lualib.h.'>LUA_IOLIBNAME</a>, <a href='../S/315.html#L534' title='Defined at 534 in deps/lua/src/liolib.c.'>luaopen_io</a><font color='red'>}</font>,
+<a name='L22'>  <font color='red'>{</font><a href='../S/267.html#L27' title='Defined at 27 in deps/lua/src/lualib.h.'>LUA_OSLIBNAME</a>, <a href='../S/294.html#L239' title='Defined at 239 in deps/lua/src/loslib.c.'>luaopen_os</a><font color='red'>}</font>,
+<a name='L23'>  <font color='red'>{</font><a href='../S/267.html#L30' title='Defined at 30 in deps/lua/src/lualib.h.'>LUA_STRLIBNAME</a>, <a href='../S/270.html#L860' title='Defined at 860 in deps/lua/src/lstrlib.c.'>luaopen_string</a><font color='red'>}</font>,
+<a name='L24'>  <font color='red'>{</font><a href='../S/267.html#L33' title='Defined at 33 in deps/lua/src/lualib.h.'>LUA_MATHLIBNAME</a>, <a href='../S/276.html#L251' title='Defined at 251 in deps/lua/src/lmathlib.c.'>luaopen_math</a><font color='red'>}</font>,
+<a name='L25'>  <font color='red'>{</font><a href='../S/267.html#L36' title='Defined at 36 in deps/lua/src/lualib.h.'>LUA_DBLIBNAME</a>, <a href='../S/269.html#L393' title='Defined at 393 in deps/lua/src/ldblib.c.'>luaopen_debug</a><font color='red'>}</font>,
+<a name='L26'>  <font color='red'>{</font>NULL, NULL<font color='red'>}</font>
+<a name='L27'><font color='red'>}</font>;
+<a name='L28'>
+<a name='L29'>
+<a name='L30'><a href='../S/317.html#L169' title='Defined at 169 in deps/lua/src/luaconf.h.'>LUALIB_API</a> <b>void</b> <a href='../R/2654.html' title='Multiple refered from 2 places.'>luaL_openlibs</a> (lua_State *L) <font color='red'>{</font>
+<a name='L31'>  <b>const</b> <a href='../D/2952.html' title='Multiple defined in 2 places.'>luaL_Reg</a> *lib = lualibs;
+<a name='L32'>  <b>for</b> (; lib-&gt;func; lib++) <font color='red'>{</font>
+<a name='L33'>    <a href='../S/266.html#L260' title='Defined at 260 in deps/lua/src/lua.h.'>lua_pushcfunction</a>(L, lib-&gt;func);
+<a name='L34'>    <a href='../S/272.html#L454' title='Defined at 454 in deps/lua/src/lapi.c.'>lua_pushstring</a>(L, lib-&gt;name);
+<a name='L35'>    <a href='../S/272.html#L776' title='Defined at 776 in deps/lua/src/lapi.c.'>lua_call</a>(L, 1, 0);
+<a name='L36'>  <font color='red'>}</font>
+<a name='L37'><font color='red'>}</font>
+<a name='L38'>
+</pre>
+<hr>
+<a name='BOTTOM'>
+<i><font color='green'>/* [&lt;][&gt;][^]<a href='#L30'>[v]</a><a href='#TOP'>[top]</a>[bottom]<a href='../mains.html'>[index]</a><a href='../help.html'>[help]</a> */</font></i>
+</body>
+</html>
